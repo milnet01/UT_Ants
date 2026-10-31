@@ -22697,6 +22697,20 @@ docs/standards/versioning-overrides.md. Closes S8.
   tests/device/RenderFogTest.cpp's UTA-0356 cases, whose thresholds grade a turn
   and a cut. Pending that: froxels behind the nearest wall, at most the slice-32
   figure above.
+  Half-rate fog, shipped ae55bb6 (2026-10-31, High, 3840x2160 at scale 0.6667,
+  alternated in one job, two reps; scratch /mnt/Emulators/uta-scratch/u352/fogcost:
+  variant4.py, run5.sh, table5.tsv). A frame lights every second 4x4x4 workgroup, in
+  turn; the others copy their reprojected history. Mean fog over 8 views, old to new:
+  ArchNemesis 2.25 to 1.27, SimpleX 1.88 to 1.07, CastleDeck16 0.56 to 0.37.
+  24 views at 1280x720, old against new: at most 3 levels, 0.022% of pixels over 2.
+  Ten against twenty frames on the old code already differ by up to 2.
+  The probe as first built, every second froxel, saved under 0.02 ms on all three:
+  inferred to be batches of invocations lasting as long as their slowest; the batch
+  width itself was not measured.
+  Motion: RenderFogTest's turn case stays at 9 levels on Mesa's CPU driver and the
+  RX 6600. No in-game motion was looked at.
+  Next lead: froxels behind the nearest wall, at most about half the slice-32 figure
+  now that half the froxels are lit.
   **Layman:** Six of the 127 test maps still stutter below 60 fps at 4K; find what each one costs and cut it.
   Kind: perf.
   Source: in-session-2026-10-11.

@@ -624,6 +624,9 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Changed
 
+- **Haze costs up to a millisecond less a frame** (UTA-0352)
+  The fog pass lights half its volume each frame, in turn, and keeps last frame's light for the rest. Still pictures move by at most 3 levels out of 255. Average over 8 views on an RX 6600 at High, 2560x1440: DM-ArchNemesis 2.25 to 1.27 ms, DM-FoT-SimpleX 1.88 to 1.07 ms, DM-CastleDeck16 0.56 to 0.37 ms.
+
 - **Haze costs up to half a millisecond less on maps with many lights** (UTA-0352)
   The fog pass stops working on a light as soon as it adds nothing at a point, and the picture is unchanged. Average over 8 views on an RX 6600 at High, 2560x1440: DM-FoT-SimpleX 2.40 to 1.88 ms, DM-ArchNemesis 2.57 to 2.26 ms, DM-CastleDeck16 0.63 to 0.56 ms.
 
