@@ -2171,15 +2171,18 @@ FogSetup Renderer::Impl::fogSetupOf(const ubundle::Bundle& bundle, const Camera&
     fog.hazeScale = config.hazeScale;
     // UTA-0356: frame k since a cut samples each froxel at the R3 sequence's
     // k-th point (Roberts, "The Unreasonable Effectiveness of Quasirandom
-    // Sequences", 2018) from the centre, and keeps a running mean of the first
-    // ten, then 0.1 of each new frame. A sky face is its own single frame.
+    // Sequences", 2018) from the centre. A sky face is its own single frame.
+    // UTA-0352: past frame 0 a froxel is lit every second frame, so it keeps a
+    // running mean of its first five samples, then 0.2 of each new one.
     const std::uint64_t fogFrame = skyFace ? 0 : fogFrames;
     constexpr std::array<double, 3> R3{0.8191725133961645, 0.6710436067037893, 0.5497004779019703};
     for (std::size_t a = 0; a < R3.size(); ++a) {
         const double at = 0.5 + static_cast<double>(fogFrame) * R3[a];
         fog.jitter[a] = static_cast<float>(at - std::floor(at));
     }
-    fog.historyWeight = static_cast<float>(std::max(1.0 / static_cast<double>(fogFrame + 1), 0.1));
+    fog.jitter[3] = static_cast<float>(fogFrame & 1u);
+    const std::uint64_t samples = (fogFrame + 1) / 2 + 1;
+    fog.historyWeight = static_cast<float>(std::max(1.0 / static_cast<double>(samples), 0.2));
     return setup;
 }
 

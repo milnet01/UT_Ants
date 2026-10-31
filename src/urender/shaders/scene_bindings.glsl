@@ -53,7 +53,7 @@ layout(push_constant) uniform FogBlock {
     float hazeScale;
     float historyWeight; // UTA-0356
     float reserved[2];
-    vec4 jitter;         // UTA-0356; w unused
+    vec4 jitter;         // UTA-0356; w: UTA-0352's half to light
 } fog;
 #else
 layout(push_constant) uniform DrawBlock {

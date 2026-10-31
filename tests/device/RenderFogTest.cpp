@@ -272,8 +272,8 @@ TEST_CASE("UTA-0356: after a cut, a frame draws as a new renderer's first", "[de
     requireOk(fresh.draw(bundle, Camera{}));
     CHECK(drawn(used) == drawn(fresh));
 
-    // And without one, a frame keeps part of the last frame's fog: half, the
-    // second frame after a cut. Drawn alone, it would be black (INV-7).
+    // And without one, a frame keeps part of the last frame's fog. Drawn alone,
+    // it would be black (INV-7).
     Renderer torch = requireRenderer(fogFrame(Tier::Medium, SHAFT_HAZE));
     const uta::ubundle::Bundle unlitRoom = wallAt(1000, 3000, BLACK);
     const int on = redAt(torch, unlitRoom, withFlashlight(true));
@@ -281,6 +281,22 @@ TEST_CASE("UTA-0356: after a cut, a frame draws as a new renderer's first", "[de
     CAPTURE(on, after);
     CHECK(after > 20);
     CHECK(after < on);
+}
+
+TEST_CASE("UTA-0352: a frame lights half the fog and every part of it in turn", "[device]") {
+    removeDisplay();
+    const uta::ubundle::Bundle unlitRoom = wallAt(1000, 3000, BLACK);
+    Renderer torch = requireRenderer(fogFrame(Tier::Medium, SHAFT_HAZE));
+    const int on = redAt(torch, unlitRoom, withFlashlight(true));
+    const int next = redAt(torch, unlitRoom, withFlashlight(false));
+    int last = next;
+    for (int frame = 0; frame < 40; ++frame) last = redAt(torch, unlitRoom, withFlashlight(false));
+    CAPTURE(on, next, last);
+    // Measured on Mesa's software driver and an RX 6600, of 81 with the torch on. The frame
+    // after it goes out: 70, and 57 if every froxel is lit. Forty frames later:
+    // 1, and 59 if the same half is lit every frame, 15 at a history floor of 0.1.
+    CHECK(next * 100 >= on * 78);
+    CHECK(last <= 5);
 }
 
 TEST_CASE("UTA-0356: the fog's history stays where it was in the world when the camera turns", "[device]") {

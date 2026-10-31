@@ -532,7 +532,8 @@ struct FogConstants {
     float historyWeight;
     std::array<float, 2> reserved;
     /// UTA-0356: where in its cell each froxel samples this frame, as a fraction
-    /// across, down and along its slice; the centre, 0.5, after a cut. w unused.
+    /// across, down and along its slice; the centre, 0.5, after a cut. UTA-0352:
+    /// w, 0 or 1, says which workgroups this frame lights.
     std::array<float, 4> jitter;
 };
 static_assert(sizeof(FogConstants) == 112);

@@ -175,7 +175,7 @@ int main(int argc, char** argv) {
         camera.verticalFovDegrees = uta::tools::verticalFovDegrees(read->horizontalFovDegrees, aspect);
 
         // A few frames, so the shadow atlas has drawn this view's tiles; ten,
-        // so UTA-0356's fog averages ten samples of each froxel. The cut keeps
+        // so UTA-0356's fog averages five or six samples of each froxel. The cut keeps
         // the last camera's fog out of this one.
         renderer.cut();
         for (int frame = 0; frame < 10; ++frame) {

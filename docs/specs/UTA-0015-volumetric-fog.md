@@ -6,6 +6,8 @@ quarter-size copy of the atlas, `hazeShadowOf`, not from the atlas itself.
 **Amended (2026-10-14)** by `UTA-0356`: each froxel samples at a point that
 moves through its cell from frame to frame, and blends with last frame's
 scattering. A frame after `Renderer::cut` samples the centre, as before.
+**Amended (2026-10-31)** by `UTA-0352`: a frame lights every second workgroup
+of froxels, and the others keep what the history holds.
 **Kind:** implement.
 **Source:** ROADMAP UTA-0015 (design-2026-09-03).
 **Pairs with:** UTA-0164 (ambient occlusion, split out of this item).
@@ -147,6 +149,14 @@ froxel's sample point is a ray through its tile at the frame's jitter, at that
 fraction of the slice's depth (`UTA-0356`); after a cut, the centre ray at the
 slice's middle depth.
 
+**Half the froxels a frame (`UTA-0352`).** Past a cut's frame, a frame runs
+stage 1's lighting only in the 4 × 4 × 4 workgroups whose coordinates sum to
+the frame's parity, `jitter.w`. A froxel elsewhere copies its reprojected
+history, or is lit if that lies outside last frame's volume. A lit froxel blends
+with its history at the weight of a running mean of its samples, floored at 0.2.
+Whole workgroups, because skipping every second froxel saved nothing:
+measured in `ROADMAP.md`'s `UTA-0352`.
+
 **Stage 1, `fog_scatter.comp`**, one invocation per froxel. At its world
 point `x`, with `v` the unit direction from `frame.eye` to `x`:
 
@@ -242,7 +252,7 @@ struct FogConstants {               // 112 bytes, offsets asserted
     float hazeScale;                // 80: Config::hazeScale
     float historyWeight;            // 84: UTA-0356, 1 after a cut
     std::array<float, 2> reserved;  // 88
-    std::array<float, 4> jitter;    // 96: UTA-0356, where in its cell a froxel samples
+    std::array<float, 4> jitter;    // 96: UTA-0356, where in its cell a froxel samples; w: UTA-0352's half to light
 };
 ```
 
