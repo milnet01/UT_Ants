@@ -53,7 +53,7 @@ std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, By
                                 std::uint32_t count) {
     Bytes out;
     out.id("UTAB");
-    out.u32(34); // formatVersion -- 34 since UTA-0272 gave MATS each material's pane byte
+    out.u32(35); // formatVersion -- 35 since UTA-0293 added VEGE
     out.u8(0);   // origin: Derived
     out.u8(0);   // kind: Map
     out.u16(0);  // reserved

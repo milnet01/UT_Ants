@@ -20,7 +20,8 @@
 // docs/specs/UTA-0326-baked-shadow-mask.md SS 4.2 for SMSK, and
 // docs/specs/UTA-0256-added-lamps.md SS 4.2 for LAMP, and
 // docs/specs/UTA-0338-baked-sun.md SS 4.2 for SUN, and
-// docs/specs/UTA-0350-painted-skies.md SS 4.3 for PSKY, and BakerSection.cpp's
+// docs/specs/UTA-0350-painted-skies.md SS 4.3 for PSKY, and
+// docs/specs/UTA-0293-grass.md SS 4.3 for VEGE, and BakerSection.cpp's
 // own header for BAKR (UTA-0349).
 
 #pragma once
@@ -53,6 +54,7 @@ constexpr SectionId ID_SMSK = {'S', 'M', 'S', 'K'};
 constexpr SectionId ID_LAMP = {'L', 'A', 'M', 'P'};
 constexpr SectionId ID_SUN = {'S', 'U', 'N', ' '};
 constexpr SectionId ID_PSKY = {'P', 'S', 'K', 'Y'};
+constexpr SectionId ID_VEGE = {'V', 'E', 'G', 'E'};
 constexpr SectionId ID_BAKR = {'B', 'A', 'K', 'R'};
 
 // Structural validation -- SS 4.9.
@@ -213,6 +215,13 @@ void putFlame(Sink& sink, const Flame& flame);
 [[nodiscard]] Result<PaintedSky> readPaintedSky(Cursor& cursor);
 [[nodiscard]] Result<void> validatePaintedSky(const PaintedSky& sky, ErrorCode code);
 [[nodiscard]] Result<std::vector<std::byte>> encodePaintedSky(const PaintedSky& sky);
+
+// VEGE -- GrassSection.cpp, UTA-0293 SS 4.3. A clump names MATS and SMSK, so
+// validateGrass is a rule across sections and runs once every section is
+// decoded.
+[[nodiscard]] Result<Grass> readGrass(Cursor& cursor);
+[[nodiscard]] Result<std::vector<std::byte>> encodeGrass(const Grass& grass);
+[[nodiscard]] Result<void> validateGrass(const Bundle& bundle, ErrorCode code);
 
 // BAKR -- BakerSection.cpp, UTA-0349.
 [[nodiscard]] Result<std::string> readBakerSection(Cursor& cursor);

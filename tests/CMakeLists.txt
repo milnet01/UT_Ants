@@ -53,6 +53,8 @@ add_executable(uta_unit_tests
     unit/BundleActorsTest.cpp
     unit/BundleCollisionTest.cpp
     unit/BundleFlamesTest.cpp
+    unit/GrassSectionTest.cpp
+    unit/GrassBakeTest.cpp
     unit/BundleMoversTest.cpp
     unit/BundleOcclusionTest.cpp
     unit/BundleShadowMaskTest.cpp

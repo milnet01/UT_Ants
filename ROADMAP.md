@@ -19065,7 +19065,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-10-05.
   Lanes: ubake, render.
 
-- 📋 [UTA-0293] **urender and ubake: real-looking vegetation on maps that call for it, by cheap methods.**
+- 🚧 [UTA-0293] **urender and ubake: real-looking vegetation on maps that call for it, by cheap methods.**
   The user, 2026-10-05: "I would also like cheap methods of creating
   real vegitation on relevant maps."
   Placed in 0.2.0 by ut-ants-04: it adds scenery rather than making the

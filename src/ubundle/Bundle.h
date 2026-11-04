@@ -79,7 +79,8 @@ namespace uta::ubundle {
 /// 32 since UTA-0397 gave LPRB each probe's reach.
 /// 33 since UTA-0439 gave each MOVR shape its still byte.
 /// 34 since UTA-0272 gave each MATS material its pane byte.
-inline constexpr std::uint32_t FORMAT_VERSION = 34;
+/// 35 since UTA-0293 added VEGE, the grass.
+inline constexpr std::uint32_t FORMAT_VERSION = 35;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -682,6 +683,34 @@ struct PaintedSky {
     float hazeStart = 0.1f;
 };
 
+/// The most clumps one map's VEGE holds -- UTA-0293 SS 4.3. Past it the baker
+/// writes no VEGE.
+inline constexpr std::uint32_t GRASS_CLUMP_LIMIT = 1U << 20;
+
+/// One clump of grass on a floor -- UTA-0293 SS 4.3. The renderer grows it
+/// into blades and lights it from the shadow-mask texel the floor has there.
+struct GrassClump {
+    std::array<float, 3> base{};     ///< its foot on the floor, world units; finite
+    std::uint32_t material = 0;      ///< the floor's material, an index into MATS
+    std::array<float, 2> uv{};       ///< the floor's texture coordinate at `base`
+    std::uint32_t maskChart = MASK_NO_CHART; ///< an index into SMSK's charts, or MASK_NO_CHART
+    std::array<float, 2> maskTexel{}; ///< in that chart's rectangle, as ShadowMask::vertexTexel
+    std::uint32_t seed = 0;          ///< shapes its blades; High draws the even ones (SS 4.6)
+};
+
+/// A square of the level's plan holding a run of clumps -- UTA-0293 SS 4.3.
+/// The renderer culls by cell.
+struct GrassCell {
+    std::uint32_t firstClump = 0, clumpCount = 0; ///< a run of Grass::clumps
+    std::array<float, 3> low{}, high{};           ///< the run's bounds, blades included
+};
+
+/// The grass a bake planted -- UTA-0293 SS 4.3. Absent from a map with none.
+struct Grass {
+    std::vector<GrassClump> clumps; ///< at most GRASS_CLUMP_LIMIT, in cell order
+    std::vector<GrassCell> cells;
+};
+
 /// The zone of the room `umap::roomAt` finds at `location`, or 0 where it finds
 /// none or the zone is not below `zoneCount` -- UTA-0156 SS 4.3's mover rule,
 /// here so the renderer can find the camera's zone too (UTA-0015 SS 4.1).
@@ -733,6 +762,8 @@ struct Bundle {
     std::optional<Sun> sun;
     /// The recipe's painted sky -- UTA-0350 SS 4.3. Absent when it declares none.
     std::optional<PaintedSky> paintedSky;
+    /// The bake's grass -- UTA-0293 SS 4.3. Absent from a map with none.
+    std::optional<Grass> grass;
 };
 
 /// UTA-0256 SS 4.4 and SS 4.8: folds LAMP into the sections the renderer

@@ -9,6 +9,7 @@
 #include "ubake/FireStill.h"
 #include "ubake/Flames.h"
 #include "ubake/Geometry.h"
+#include "ubake/Grass.h"
 #include "ubake/Hide.h"
 #include "ubake/LightModel.h"
 #include "ubake/Liquids.h"
@@ -464,6 +465,8 @@ struct MadeVariant {
     std::optional<Cutout> cutout;
     /// UTA-0055 SS 4.6: the picture is on umat's cloth list.
     bool cloth = false;
+    /// UTA-0293 SS 4.2: a ground-cover picture's greenness; empty otherwise.
+    std::optional<GreenMap> green;
 };
 
 /// The texture `holder`'s property `property` names, as a grey picture at its
@@ -833,7 +836,12 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
     return MadeVariant{std::move(*material), base.width * scale, base.height * scale,
                        meanAlbedo(*rgba), flame, liquid, std::move(liquidSkipped), std::move(fire),
                        std::move(fireSkipped), emission, std::move(glass), std::move(detail), tileScores,
-                       tileHash, masked ? std::optional<Cutout>(cutoutOf(*resolved)) : std::nullopt, cloth};
+                       tileHash, masked ? std::optional<Cutout>(cutoutOf(*resolved)) : std::nullopt, cloth,
+                       // UTA-0293 SS 4.2: read on the picture as resolved, a
+                       // texel of which spans `scale` world units.
+                       isGroundCover(id) && !masked && !flame.has_value() && !liquid.has_value() && !fireClass
+                           ? greenMapOf(*resolved, scale)
+                           : std::nullopt};
 }
 
 struct Materials {
@@ -864,6 +872,8 @@ struct Materials {
     /// UTA-0277 SS 4.2: each material's scores, by id; none where step 1
     /// excludes it.
     std::map<std::string, TileScores, std::less<>> tileScores;
+    /// UTA-0293 SS 4.2: each ground-cover material's greenness, by id.
+    std::map<std::string, GreenMap, std::less<>> green;
 };
 
 /// UTA-0314: a texture's own bMasked masks every surface wearing it, as the
@@ -1044,6 +1054,7 @@ Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapNa
             out.albedo.emplace(id, made->albedo.value_or(Rgb{DEFAULT_ALBEDO, DEFAULT_ALBEDO, DEFAULT_ALBEDO}));
             if (made->emission.has_value()) out.emission.emplace(id, *made->emission);
             if (made->cutout.has_value()) out.cutouts.emplace(id, std::move(*made->cutout));
+            if (made->green.has_value()) out.green.emplace(id, std::move(*made->green));
             for (ubundle::CompressedTexture& texture : made->material.maps)
                 out.textures.push_back(std::move(texture));
             if (made->glass.has_value()) out.textures.push_back(std::move(*made->glass)); // UTA-0270
@@ -1526,6 +1537,16 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
         UTA_TRY(ubundle::ShadowMask mask, naming(bakeShadowMask(result.bundle, jobs, materials.cutouts), mapName));
         result.bundle.shadowMask = std::move(mask);
     }
+
+    // 11d. VEGE -- UTA-0293 SS 4.2: grass on the floors, lit through the
+    // charts SMSK just gave their vertices, so it runs after it.
+    phase.emplace(&times, "grass");
+    Planted planted = plantGrass(result.bundle, [&materials](std::string_view id) -> const GreenMap* {
+        const auto found = materials.green.find(id);
+        return found == materials.green.end() ? nullptr : &found->second;
+    });
+    result.bundle.grass = std::move(planted.grass);
+    result.grassOverLimit = planted.overLimit;
 
     // 12. The budget, over every map of every material.
     phase.emplace(&times, "budget");

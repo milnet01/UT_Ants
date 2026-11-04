@@ -176,9 +176,11 @@ namespace {
 // and BAKR's revision moved it.
 // 74, format 34: UTA-0272 marks glass panes. The fixture has no glass, so
 // MATS's pane byte and BAKR's revision moved it.
-constexpr std::uint32_t RECORDED_UNDER = 74;
+// 75, format 35: UTA-0293 plants grass. The fixture has no ground-cover
+// name, so it writes no VEGE; the header's format and BAKR's revision moved it.
+constexpr std::uint32_t RECORDED_UNDER = 75;
 constexpr std::string_view GOLDEN =
-    "c1e2a6451cd9b4e42a6766828865005be181c4b80bf2d8694ff2ab7d657d2066";
+    "4a5f69dd42f2ad24009aecb66f9439335386526f6773dc8731b9140ed56123b2";
 
 } // namespace
 
