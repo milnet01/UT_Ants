@@ -19079,6 +19079,33 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   hides a pickup; and the cost per tier. Lit by the same baked light
   as the level (UTA-0292's goal). A spec: a design choice across the
   bake and the renderer.
+  Progress 2026-11-05: built at b0478f2 (bake, VEGE, format 35, baker 75)
+  and 679d54b (renderer). Local, not pushed. Unit 1149/1149; device
+  149/149 on Mesa and the RX 6600; 23 hand mutations killed.
+
+  Blocking finding: the SS 4.2 colour test plants almost nothing on
+  real maps. Re-baked 2026-11-04: MH-Vale_Evelyn 4675 clumps (66 on
+  mh-vale_evelyn.grass, which could hold 526,944 at full greenness);
+  MH-SDM-FatherDougalUM_beta1 246. Mean linear albedo (ut-bake
+  --light-materials): mh-vale_evelyn.grass 0.084 0.058 0.016;
+  genterra grasc* about 0.079 0.053 0.018; genearth dirt_sw2 0.025
+  0.014 0.007. UT grass is brown-olive, red above green, so
+  g - max(r, b) is negative and no threshold on it separates grass
+  from dirt.
+
+  Second finding: FatherDougal's ground-cover floors would plant
+  5,771,780 clumps at full greenness, past GRASS_CLUMP_LIMIT (1M), so
+  any working colour test leaves that map with no grass.
+
+  Next: amend SS 4.1/4.2 (Step 8 fold-back; a design premise moved):
+  recommended, the grass words (gras grss lawn turf meadow) grow by
+  name alone, the wider words (ground earth dirt) are dropped, and
+  density is kept by a picture's own texels relative to its mean, not
+  by an absolute hue. For the limit: widen CLUMP_SPACING for a map
+  past it by sqrt(count / limit), so big terrains keep sparser grass.
+  Then re-bake both maps, look with ut-shot at High, set first values,
+  and measure SS 13 (ut-bench frame, High, 2560x1440; over 1 ms moves
+  Feature::Grass to Ultra). Then CHANGELOG, loop-log impl row, push.
   **Layman:** Outdoor maps get grass, plants and leaves that look real, made with tricks cheap enough for ordinary computers.
   Kind: feature.
   Source: user-request-2026-10-05.
