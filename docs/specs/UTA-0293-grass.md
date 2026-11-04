@@ -70,7 +70,7 @@ The baker grows grass on a GEOM triangle when all of these hold:
 1. its material id's name or any group (`umat::materialId`'s
    `<package>.<group...>.<name>`, lower case, `#masked` dropped) holds one
    of `gras`, `grss`, `lawn`, `turf`, `meadow`, `ground`, `earth` or
-   `dirt`: `isGroundCover`, beside `isGlassPane`;
+   `dirt`: `isGroundCover` (`src/ubake/Grass.h`);
 2. it is not a liquid, a pane, a flame or a fire, and its polyFlags carry
    none of `PF_MASKED`, `PF_TRANSLUCENT`, `PF_MODULATED`, `PF_FAKE_BACKDROP`
    or `PF_INVISIBLE` (`src/ubake/Geometry.h`);
@@ -83,7 +83,7 @@ where on the surface it grows (§ 4.2).
 ### 4.2 Planting
 
 Each qualifying triangle is sampled at `CLUMP_SPACING` units, 16, by a
-jittered grid in its own plane. A sample keeps its clump with probability
+jittered grid in the world's plan, each sample lifted onto the triangle. A sample keeps its clump with probability
 `greenness`, read from the material's base picture at the sample's UV, at
 the mip nearest 8 texels a clump:
 
@@ -98,8 +98,10 @@ horizontally of the `location` of any placed actor descending from
 `engine.inventory`, resolved through class defaults as `probeReachOf`
 reads a navigation point's (`src/ubake/LightProbes.cpp`).
 
-Every random choice comes from a hash of the triangle's index and the
-sample's grid cell, so the same map bakes the same clumps.
+Every random choice is a hash, so the same map bakes the same clumps. A
+sample's place in its grid cell hashes the cell alone, so a polygon cut
+into triangles plants evenly across its seams. Whether it is kept, and its
+seed, hash the triangle's index too.
 
 Each kept clump records its foot (on the surface), its material, its UV,
 the shadow-mask chart and texel the surface has there (interpolated from
@@ -115,7 +117,8 @@ A new section, `VEGE`, written after `PSKY`, holds:
   `MASK_NO_CHART`;
 - `cells`: the clumps sorted into a grid of `GRASS_CELL` units, 1024, each
   cell `{ firstClump, clumpCount, low[3], high[3] }`, so the renderer culls
-  by cell.
+  by cell. Within a cell, clumps with even seeds come first, so High draws
+  the head of each run (§ 4.6).
 
 At most `GRASS_CLUMP_LIMIT` clumps, 1 << 20; past it the baker refuses the
 section and says so, and the map bakes without grass. A map with no grass
@@ -145,7 +148,10 @@ blades shrink to nothing, so no clump pops out.
   `chartedLight`, with the clump's chart and texel, at the blade's own
   position, with a normal bent from the blade's face toward up. Lit from
   both sides. Clumps with `MASK_NO_CHART` take `clusterLight` instead. The
-  probes' indirect light (`indirectAt`) is added as on the ground.
+  probes' indirect light (`indirectAt`) is added as on the ground. The
+  ground's baked occlusion and the outdoor haze are left out: a clump
+  carries no occlusion coordinate, and grass ends nearer than haze begins
+  on most maps.
   `chartedLight` and `clusterLight` move into a shared include that both
   shaders use.
 - **Wind**: one direction for every map, `WIND_DIRECTION`. Each blade bends
@@ -162,7 +168,9 @@ recorded there.
 
 `Feature::Grass` starts at `Tier::High` (`Tiers.h`). High draws the clumps
 whose seed is even, with `GRASS_END` 1536 units; Ultra draws all of them,
-with `GRASS_END` 2560. Below High, nothing is culled, drawn or bound.
+with `GRASS_END` 2560. Below High no clump is uploaded, culled or drawn,
+and no grass pipeline is made; the binding holds one zero record. A face of
+the sky draws no grass.
 
 ## 5. Invariants
 
@@ -217,9 +225,11 @@ with `GRASS_END` 2560. Below High, nothing is culled, drawn or bound.
   texel.
 - **INV-11** — Grass ends at range. A grass floor whose every cell lies
   beyond `GRASS_END` draws the same at High with and without its `VEGE`.
-  *Test:* `tests/device/RenderGrassTest.cpp`, "UTA-0293 INV-11".
+  *Test:* `tests/device/RenderGrassTest.cpp`, "UTA-0293 INV-11"; and
+  `tests/unit/GrassCullTest.cpp`, "UTA-0293 INV-11", for the cull alone.
   *Breaks when:* cells are not culled by distance, or the fade does not
-  reach zero.
+  reach zero. The device case breaks only when both fail; the unit case
+  when the cull does.
 - **INV-12** — Grass sways. At High, the floor drawn at light times 0 and 1
   differs; drawn twice at 0, it does not.
   *Test:* `tests/device/RenderGrassTest.cpp`, "UTA-0293 INV-12".
@@ -245,8 +255,9 @@ with `GRASS_END` 2560. Below High, nothing is culled, drawn or bound.
 
 ## 7. Tests
 
-INV-1, INV-2, INV-3, INV-4, INV-5 and INV-6 are unit tests on hand-built
-fixture levels. INV-7 is the section codec's unit test. INV-8, INV-9,
+INV-1, INV-2, INV-3 and INV-6 bake fixture levels; INV-4 and INV-5 hand
+`plantGrass` a bundle (`tests/unit/GrassBakeTest.cpp`).
+`tests/unit/GrassCullTest.cpp` grades the host's culling and tiers. INV-7 is the section codec's unit test. INV-8, INV-9,
 INV-10, INV-11, INV-12 and INV-13 are device tests, run on Mesa's
 CPU driver and the GPU under the validation layer and sync validation, as
 every device test is. Every
@@ -282,7 +293,7 @@ existing device test draws a map with no `VEGE` and must pass unchanged.
 | Claim | Check |
 |---|---|
 | INV-1 to INV-13 | the tests in § 7 |
-| No pass, cull or binding below High | **Partial:** INV-8 checks the image; nothing counts the work |
+| No upload, cull or draw below High | **Partial:** INV-8 checks the image; `GrassCullTest.cpp` that no draw is planned; nothing counts the upload |
 | Grass looks like grass | nothing; set by eye in § 13 |
 | Existing maps unchanged below High | every existing device test |
 

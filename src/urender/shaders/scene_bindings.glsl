@@ -30,9 +30,10 @@ layout(set = 0, binding = 12) readonly buffer FlameRampBlock { vec4 flameRamps[]
 layout(set = 0, binding = 13) readonly buffer LiquidBlock { Liquid liquids[]; };             // UTA-0105
 layout(set = 0, binding = 14) readonly buffer MaskChartBlock { MaskChart maskCharts[]; }; // UTA-0326
 layout(set = 0, binding = 15) readonly buffer MaskPairBlock { MaskPair maskPairs[]; };    // UTA-0326
-layout(set = 0, binding = 16) uniform sampler2DShadow shadowAtlas;
-layout(set = 0, binding = 17) uniform sampler3D fogVolume; // UTA-0015 SS 4.3
-layout(set = 0, binding = 18) uniform sampler2D textures[];
+layout(set = 0, binding = 16) readonly buffer GrassClumpBlock { GrassClump grassClumps[]; }; // UTA-0293
+layout(set = 0, binding = 17) uniform sampler2DShadow shadowAtlas;
+layout(set = 0, binding = 18) uniform sampler3D fogVolume; // UTA-0015 SS 4.3
+layout(set = 0, binding = 19) uniform sampler2D textures[];
 
 #if defined(UTA_SHADOW_PASS)
 // ShaderTypes.h's ShadowConstants: a shadow tile's face, then the batch.
@@ -55,6 +56,14 @@ layout(push_constant) uniform FogBlock {
     float reserved[2];
     vec4 jitter;         // UTA-0356; w: UTA-0352's half to light
 } fog;
+#elif defined(UTA_GRASS_PASS)
+// ShaderTypes.h's GrassConstants -- UTA-0293 SS 4.4.
+layout(push_constant) uniform GrassBlock {
+    uint blades;
+    float fadeStart;
+    float end;
+    uint reserved;
+} grassDraw;
 #else
 layout(push_constant) uniform DrawBlock {
     uint objectIndex;

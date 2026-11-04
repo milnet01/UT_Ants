@@ -123,14 +123,17 @@ struct Camera {
 /// UTA-0351: the steps of a frame the GPU's clock times, in the order drawn.
 /// Fires is UTA-0286's upload of the replayed fire pictures; Shadows holds
 /// UTA-0333's copy of the tiles into the haze's atlas; Depth is UTA-0260's
-/// pre-pass; Flames UTA-0263's flames and UTA-0215's water specks; Post the
-/// output stage, upscaling included. Only the blit out is in none. UTA-0352
-/// split the old "scene" step into Depth, Opaque, Translucent and Flames.
-enum class GpuPass : std::uint8_t { Fires, Shadows, Clusters, Fog, Depth, Opaque, Translucent, Flames, Bloom, Post };
-inline constexpr std::size_t GPU_PASS_COUNT = 10;
+/// pre-pass; Grass UTA-0293's blades; Flames UTA-0263's flames and UTA-0215's
+/// water specks; Post the output stage, upscaling included. Only the blit out
+/// is in none. UTA-0352 split the old "scene" step into Depth, Opaque,
+/// Translucent and Flames.
+enum class GpuPass : std::uint8_t {
+    Fires, Shadows, Clusters, Fog, Depth, Opaque, Grass, Translucent, Flames, Bloom, Post
+};
+inline constexpr std::size_t GPU_PASS_COUNT = 11;
 /// Each step's name, lower case, indexed by GpuPass.
 inline constexpr std::array<std::string_view, GPU_PASS_COUNT> GPU_PASS_NAMES{
-    "fires", "shadows", "clusters", "fog", "depth", "opaque", "translucent", "flames", "bloom", "post"};
+    "fires", "shadows", "clusters", "fog", "depth", "opaque", "grass", "translucent", "flames", "bloom", "post"};
 
 /// What the last frame had to give up -- SS 6. Lighting and shadows degrade
 /// rather than fail, and these say by how much, so the caps can be judged

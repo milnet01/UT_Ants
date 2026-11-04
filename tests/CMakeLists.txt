@@ -114,6 +114,7 @@ add_executable(uta_unit_tests
     unit/RenderClusterTest.cpp
     unit/RenderDeviceTest.cpp
     unit/RenderLightsTest.cpp
+    unit/GrassCullTest.cpp
     unit/RenderMoverPlacementTest.cpp
     unit/RenderMaterialsTest.cpp
     unit/RenderShadowsTest.cpp
@@ -210,6 +211,7 @@ add_executable(uta_device_tests
     device/RenderColourTransferTest.cpp
     device/RenderFireReplayTest.cpp
     device/RenderFlamesTest.cpp
+    device/RenderGrassTest.cpp
     device/RenderLiquidsTest.cpp
     device/RenderSwayTest.cpp
     device/RenderDetailTest.cpp

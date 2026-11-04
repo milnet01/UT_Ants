@@ -560,7 +560,7 @@ struct Bundle {
 
 `write` emits sections in the fixed order `BAKR`, `ROOM`, `NAVG`, `WIRG`,
 `TEXS`, `MATS`, `GEOM`, `PLAC`, `LITE`, `MOVR`, `COLL`, `LPRB`, `ZONE`, `AOCC`,
-`FLAM`, `SMSK`, `LAMP`, `SUN `, `PSKY`, omitting absent ones. Each section
+`FLAM`, `SMSK`, `LAMP`, `SUN `, `PSKY`, `VEGE`, omitting absent ones. Each section
 after `WIRG` was appended after the last, so this clause is extended rather
 than contradicted. **`BAKR` is the one exception, written first** (UTA-0349):
 it holds the baker's version, and `readBaker` reads it from the file's first

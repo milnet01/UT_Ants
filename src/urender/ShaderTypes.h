@@ -64,10 +64,11 @@ enum Binding : std::uint32_t {
     FLAME_RAMPS = 12,  ///< UTA-0263 SS 4.2: eight entries per flame look
     LIQUIDS = 13,      ///< UTA-0105 SS 4.4: one Liquid per liquid look
     MASK_CHARTS = 14,  ///< UTA-0326 SS 4.5: one MaskChart per SMSK chart
-    MASK_PAIRS = 15,   ///< UTA-0326 SS 4.5: the charts' pairs; the last storage buffer
-    SHADOW_ATLAS = 16,
-    FOG_VOLUME = 17, ///< UTA-0015 SS 4.4: the integrated fog image, as a sampler3D
-    TEXTURES = 18,   ///< last: it is the variable-count binding
+    MASK_PAIRS = 15,   ///< UTA-0326 SS 4.5: the charts' pairs
+    GRASS = 16,        ///< UTA-0293 SS 4.4: one GrassClump per VEGE clump; the last storage buffer
+    SHADOW_ATLAS = 17,
+    FOG_VOLUME = 18, ///< UTA-0015 SS 4.4: the integrated fog image, as a sampler3D
+    TEXTURES = 19,   ///< last: it is the variable-count binding
 };
 
 /// UTA-0015 SS 4.4: the fog set's (set 1) bindings. fog_scatter.comp,
@@ -423,6 +424,32 @@ static_assert(offsetof(Liquid, ramp) == 48);
 /// SS 4.2. A look is eight in a row, coldest first.
 using FlameRampEntry = std::array<float, 4>;
 
+/// One clump of grass as grass.vert reads it -- UTA-0293 SS 4.3 and SS 4.4.
+struct GrassClump {
+    std::array<float, 3> base; ///< its foot, world units
+    std::uint32_t seed;
+    std::array<float, 2> uv;        ///< the ground's texture coordinate there
+    std::array<float, 2> maskTexel; ///< in its chart's rectangle
+    std::uint32_t material;         ///< the ground's material, as MaterialSet::indexOf gives it
+    std::uint32_t maskChart;        ///< or MASK_NO_CHART
+    std::uint32_t reserved[2];
+};
+static_assert(sizeof(GrassClump) == 48);
+static_assert(offsetof(GrassClump, seed) == 12);
+static_assert(offsetof(GrassClump, uv) == 16);
+static_assert(offsetof(GrassClump, maskTexel) == 24);
+static_assert(offsetof(GrassClump, material) == 32);
+static_assert(offsetof(GrassClump, maskChart) == 36);
+
+/// UTA-0293 SS 4.4: grass.vert's push constants, in DrawConstants' range.
+struct GrassConstants {
+    std::uint32_t blades; ///< per clump in this draw: BLADES_NEAR or BLADES_FAR
+    float fadeStart;      ///< GRASS_FADE, world units
+    float end;            ///< GRASS_END, world units
+    std::uint32_t reserved;
+};
+static_assert(sizeof(GrassConstants) == 16);
+
 /// One camera-facing flame, a FLAM record as the shader draws it -- UTA-0263
 /// SS 4.3 and SS 4.4.
 struct FlameInstance {
@@ -458,6 +485,8 @@ static_assert(offsetof(DrawConstants, materialIndex) == 4);
 static_assert(offsetof(DrawConstants, polyFlags) == 8);
 static_assert(offsetof(DrawConstants, reserved) == 12);
 static_assert(offsetof(DrawConstants, panOffset) == 16);
+// UTA-0293: grass.vert pushes GrassConstants through the scene layout's range.
+static_assert(sizeof(GrassConstants) <= sizeof(DrawConstants));
 
 /// A shadow tile's push constants: the face it is drawn from, and the batch.
 struct ShadowConstants {

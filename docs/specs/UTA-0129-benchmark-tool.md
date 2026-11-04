@@ -332,7 +332,7 @@ Standard output is one JSON object; standard error carries a table.
             "host": {"prepare": 0.0, "record": 0.0, "submitAndWait": 0.0},
             "passes": {"fires": 0.0, "shadows": 0.0, "clusters": 0.0,
                        "fog": 0.0, "depth": 0.0, "opaque": 0.0,
-                       "translucent": 0.0, "flames": 0.0, "bloom": 0.0,
+                       "grass": 0.0, "translucent": 0.0, "flames": 0.0, "bloom": 0.0,
                        "post": 0.0}}],
  "moves": [{"from": 0, "to": 1,
             "milliseconds": {"min": 0.0, "median": 0.0, "p99": 0.0, "max": 0.0},

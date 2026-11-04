@@ -215,6 +215,17 @@ struct Zone {
 };
 
 // UTA-0263 SS 4.4: one camera-facing flame.
+// UTA-0293 SS 4.4: one clump of grass -- ShaderTypes.h's GrassClump.
+struct GrassClump {
+    vec3 base;
+    uint seed;
+    vec2 uv;
+    vec2 maskTexel;
+    uint material;
+    uint maskChart;
+    uint reserved[2];
+};
+
 struct FlameInstance {
     vec3 base;
     float width;

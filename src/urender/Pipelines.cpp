@@ -16,6 +16,8 @@
 #include "flame.vert.spv.h"
 #include "mote.frag.spv.h"
 #include "mote.vert.spv.h"
+#include "grass.frag.spv.h"
+#include "grass.vert.spv.h"
 #include "fsr_rcas.frag.spv.h"
 #include "post.frag.spv.h"
 #include "post.vert.spv.h"
@@ -99,7 +101,7 @@ std::uint32_t textureCapacityOf(VkPhysicalDevice physical) {
     // together: the scene set's storage buffers, the two kept back, the
     // textures and the colour outputs, here bounded by maxColorAttachments
     // (review-code 2026-10-15).
-    const std::uint32_t besideTextures = (gpu::MASK_PAIRS - gpu::FRAME + 1) + limits.maxColorAttachments;
+    const std::uint32_t besideTextures = (gpu::GRASS - gpu::FRAME + 1) + limits.maxColorAttachments;
     // A stage too small to hold those and the four kept back leaves room for them
     // alone, so the capacity is 0 and Frame.cpp refuses every bundle at load
     // rather than binding past the limit.
@@ -390,6 +392,31 @@ Result<VkPipeline> flamePipeline(const Making& making, VkPipelineLayout layout, 
     return graphicsPipeline(making, layout, stages, states, "flame");
 }
 
+/// UTA-0293 SS 4.4's grass: no vertex input -- grass.vert builds each blade
+/// from its clump -- both faces, opaque, writing depth and all three forward
+/// targets, as the opaque pass does.
+Result<VkPipeline> grassPipeline(const Making& making, VkPipelineLayout layout, const TargetFormats& formats,
+                                 VkShaderModule vertex, VkShaderModule fragment) {
+    const std::array stages = {stage(VK_SHADER_STAGE_VERTEX_BIT, vertex), stage(VK_SHADER_STAGE_FRAGMENT_BIT, fragment)};
+
+    GraphicsStates states = sharedStates();
+    states.raster.cullMode = VK_CULL_MODE_NONE;
+    states.depth.depthWriteEnable = VK_TRUE;
+
+    VkPipelineColorBlendAttachmentState opaque{};
+    opaque.colorWriteMask =
+        VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    const std::array attachments = {opaque, opaque, opaque};
+    states.blend.attachmentCount = static_cast<std::uint32_t>(attachments.size());
+    states.blend.pAttachments = attachments.data();
+
+    const std::array colourFormats = {formats.hdr, formats.velocity, formats.emission};
+    states.rendering.colorAttachmentCount = static_cast<std::uint32_t>(colourFormats.size());
+    states.rendering.pColorAttachmentFormats = colourFormats.data();
+    states.rendering.depthAttachmentFormat = formats.depth;
+    return graphicsPipeline(making, layout, stages, states, "grass");
+}
+
 /// SS 4.8's tile pass. Both faces cast -- a shadow must not leak through a
 /// wall seen edge-on from its back -- and a slope-scaled rasterisation depth
 /// bias is what keeps a lit surface from shadowing itself. shadows.glsl applies
@@ -489,7 +516,7 @@ Result<void> Pipelines::createSceneSet() {
         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
     std::array<VkDescriptorSetLayoutBinding, gpu::TEXTURES + 1> bindings{};
     std::array<VkDescriptorBindingFlags, gpu::TEXTURES + 1> bindingFlags{};
-    for (std::uint32_t i = gpu::FRAME; i <= gpu::MASK_PAIRS; ++i)
+    for (std::uint32_t i = gpu::FRAME; i <= gpu::GRASS; ++i)
         bindings[i] = {i, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, everyStage, nullptr};
     // UTA-0015: the fog's first stage reads shadows too.
     bindings[gpu::SHADOW_ATLAS] = {gpu::SHADOW_ATLAS, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1,
@@ -587,6 +614,13 @@ Result<void> Pipelines::createScenePipelines(const TargetFormats& formats, Tier 
     UTA_TRY(moteVertex.handle, shaderModule(device_, mote_vert_spv));
     UTA_TRY(moteFragment.handle, shaderModule(device_, mote_frag_spv));
     UTA_TRY(mote_, flamePipeline(making, sceneLayout_, formats, moteVertex.handle, moteFragment.handle));
+    // UTA-0293 SS 4.6: below High nothing draws grass, so nothing is made.
+    if (enabled(Feature::Grass, tier)) {
+        Module grassVertex{device_}, grassFragment{device_};
+        UTA_TRY(grassVertex.handle, shaderModule(device_, grass_vert_spv));
+        UTA_TRY(grassFragment.handle, shaderModule(device_, grass_frag_spv));
+        UTA_TRY(grass_, grassPipeline(making, sceneLayout_, formats, grassVertex.handle, grassFragment.handle));
+    }
     return {};
 }
 
@@ -678,7 +712,7 @@ Pipelines::~Pipelines() {
     for (const auto& row : scene_)
         for (VkPipeline pipeline : row)
             if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(device_, pipeline, nullptr);
-    for (VkPipeline pipeline : {refract_[0], refract_[1], depth_[0], depth_[1], flame_, mote_, post_, upscaleInput_, easu_, rcas_, bloomDownsample_, bloomUpsample_})
+    for (VkPipeline pipeline : {refract_[0], refract_[1], depth_[0], depth_[1], flame_, mote_, grass_, post_, upscaleInput_, easu_, rcas_, bloomDownsample_, bloomUpsample_})
         if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(device_, pipeline, nullptr);
     if (bloomLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, bloomLayout_, nullptr);
     if (bloomSetLayout_ != VK_NULL_HANDLE) vkDestroyDescriptorSetLayout(device_, bloomSetLayout_, nullptr);
@@ -726,6 +760,7 @@ std::vector<std::pair<std::string, VkPipeline>> Pipelines::named() const {
     }
     out.emplace_back("depth", depth_[0]);
     out.emplace_back("depth two-sided", depth_[1]);
+    if (grass_ != VK_NULL_HANDLE) out.emplace_back("grass", grass_); // UTA-0293: High and up
     for (const auto& [name, pipeline] :
          std::initializer_list<std::pair<std::string_view, VkPipeline>>{
              {"flame", flame_}, {"mote", mote_}, {"post", post_}, {"upscale input", upscaleInput_}, {"easu", easu_},

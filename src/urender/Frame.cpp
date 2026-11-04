@@ -30,6 +30,7 @@
 #include "urender/Clusters.h"
 #include "urender/Device.h"
 #include "urender/Fog.h"
+#include "urender/Grass.h"
 #include "urender/Geometry.h"
 #include "urender/Lights.h"
 #include "urender/Materials.h"
@@ -197,7 +198,7 @@ constexpr std::uint32_t MOTE_COUNT = 800;
 struct BundleShape {
     const ubundle::Bundle* address = nullptr;
     std::size_t vertices = 0, indices = 0, batches = 0, textures = 0, materials = 0, movers = 0, moverIndices = 0,
-                lights = 0, probes = 0, zones = 0, flames = 0;
+                lights = 0, probes = 0, zones = 0, flames = 0, grass = 0;
     bool occlusion = false;
     bool shadowMask = false;
     bool skyView = false;
@@ -339,6 +340,12 @@ BundleShape shapeOf(const ubundle::Bundle& bundle) {
     if (bundle.flames) {
         shape.flames = bundle.flames->size();
         fnv.addEnds(std::span<const ubundle::Flame>(*bundle.flames));
+    }
+    // UTA-0293 SS 4.3: a bundle differing only in its grass must re-upload it.
+    if (bundle.grass) {
+        shape.grass = bundle.grass->clumps.size();
+        fnv.addEnds(std::span<const ubundle::GrassClump>(bundle.grass->clumps));
+        fnv.addEnds(std::span<const ubundle::GrassCell>(bundle.grass->cells));
     }
     // UTA-0350 SS 4.4: upload() reads the sky view, and whether there is one
     // decides between it and the painted sky.
@@ -564,6 +571,12 @@ struct Renderer::Impl {
     /// are none so the binding is never empty, and how many to draw.
     Buffer flames;
     std::uint32_t flameCount = 0;
+    /// UTA-0293 SS 4.4: the clumps, one zero record below High or when there
+    /// are none so the binding is never empty; their cells; and the draws
+    /// this view's culling kept.
+    Buffer grass;
+    std::vector<GrassRun> grassRuns;
+    std::vector<GrassDraw> grassDraws;
     /// UTA-0015 SS 4.3 and SS 4.4: the fog volume's images, one texel each below
     /// its tier; the volumetric lights a frame glows; the fog stages' set; and
     /// each drawn light's zone, found once per upload. UTA-0333: the haze's
@@ -735,6 +748,7 @@ struct Renderer::Impl {
     [[nodiscard]] SceneTargets prepareSceneTargets(VkCommandBuffer commands, VkExtent2D region);
     void recordDepthPrePass(VkCommandBuffer commands, SceneTargets& targets, VkExtent2D region);
     void recordOpaque(VkCommandBuffer commands, const SceneTargets& targets, VkExtent2D region);
+    void recordGrass(VkCommandBuffer commands, SceneTargets& targets, VkExtent2D region);
     void recordTranslucent(VkCommandBuffer commands, SceneTargets& targets, VkExtent2D region);
     [[nodiscard]] bool refracts(const DrawItem& item) const;
     void recordRefraction(VkCommandBuffer commands, SceneTargets& targets, VkExtent2D region);
@@ -1075,6 +1089,24 @@ Result<void> Renderer::Impl::upload(const ubundle::Bundle& bundle) {
     if (flameRecords.empty()) flameRecords.push_back(gpu::FlameInstance{});
     UTA_TRY(flames, Buffer::upload(*gpu, std::as_bytes(std::span(flameRecords)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
 
+    // UTA-0293 SS 4.6: below High no clump is uploaded, culled or drawn.
+    std::vector<gpu::GrassClump> clumpRecords;
+    grassRuns.clear();
+    grassDraws.clear();
+    if (bundle.grass && bundle.materials && enabled(Feature::Grass, tier)) {
+        std::vector<std::uint32_t> materialOf(bundle.materials->size(), gpu::NONE);
+        clumpRecords.reserve(bundle.grass->clumps.size());
+        for (const ubundle::GrassClump& clump : bundle.grass->clumps) {
+            // ubundle's validation keeps `material` inside MATS.
+            std::uint32_t& material = materialOf[clump.material];
+            if (material == gpu::NONE) material = materials->indexOf((*bundle.materials)[clump.material].id);
+            clumpRecords.push_back({clump.base, clump.seed, clump.uv, clump.maskTexel, material, clump.maskChart, {}});
+        }
+        grassRuns = grassRunsOf(*bundle.grass);
+    }
+    if (clumpRecords.empty()) clumpRecords.push_back(gpu::GrassClump{});
+    UTA_TRY(grass, Buffer::upload(*gpu, std::as_bytes(std::span(clumpRecords)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
+
     // SS 4.8: no tile shows this bundle's geometry yet, and each light holds at
     // most six faces.
     shadowPlanner.reset();
@@ -1108,7 +1140,7 @@ Result<void> Renderer::Impl::writeDescriptors() {
     const std::uint32_t textureCount = slots.count;
     const std::array sizes = {
         // The scene set's, then UTA-0015's VOLUME_LIGHTS.
-        VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, gpu::MASK_PAIRS + 1 + 1},
+        VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, gpu::GRASS + 1 + 1},
         // The atlas and the three post sets' sources, then UTA-0053's: bloom in
         // each post set, and one source per bloom step; then UTA-0015's fog
         // volume and UTA-0356's fog history.
@@ -1179,12 +1211,12 @@ Result<void> Renderer::Impl::writeDescriptors() {
     UTA_CHECK(check(vkAllocateDescriptorSets(device, &refractAllocate, &refractSet),
                     "vkAllocateDescriptorSets (refract)"));
 
-    const std::array<const Buffer*, gpu::MASK_PAIRS + 1> buffers = {
+    const std::array<const Buffer*, gpu::GRASS + 1> buffers = {
         &frameData,     &objects,       &materials->records(), &lights,     &clusterCounts,
         &clusterIndices, &clusterBounds, &probeCells,          &probes,     &shadowFaces,
         &zones,          &flames,        &materials->ramps(),  &materials->liquids(),
-        &maskCharts,     &maskPairs};
-    std::array<VkDescriptorBufferInfo, gpu::MASK_PAIRS + 1> bufferInfos{};
+        &maskCharts,     &maskPairs,    &grass};
+    std::array<VkDescriptorBufferInfo, gpu::GRASS + 1> bufferInfos{};
     std::vector<VkWriteDescriptorSet> writes;
     for (std::uint32_t i = 0; i < buffers.size(); ++i) {
         bufferInfos[i] = {buffers[i]->handle(), 0, VK_WHOLE_SIZE};
@@ -1356,6 +1388,9 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
     stampPassEnd(commands, GpuPass::Depth);
     recordOpaque(commands, targets, region);
     stampPassEnd(commands, GpuPass::Opaque);
+
+    recordGrass(commands, targets, region); // 1.5.
+    stampPassEnd(commands, GpuPass::Grass);
 
     recordTranslucent(commands, targets, region); // 2.
     stampPassEnd(commands, GpuPass::Translucent);
@@ -1560,6 +1595,40 @@ void Renderer::Impl::recordOpaque(VkCommandBuffer commands, const SceneTargets& 
     const VkRenderingInfo rendering = targets.rendering(3);
     vkCmdBeginRendering(commands, &rendering);
     recordBatches(commands, ScenePass::Opaque, region);
+    vkCmdEndRendering(commands);
+}
+
+/// 1.5. UTA-0293 SS 4.4: the grass, after the opaque surfaces and before the
+/// translucent ones. Opaque itself: it writes depth and all three targets, so
+/// water and glass in front of it draw over it. One instanced draw a visible
+/// cell, an instance a clump.
+void Renderer::Impl::recordGrass(VkCommandBuffer commands, SceneTargets& targets, VkExtent2D region) {
+    if (grassDraws.empty()) return;
+    // The opaque pass's stores must reach this pass's loads and depth tests.
+    memoryBarrier(commands,
+                  VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT
+                      | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+                  VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+                  VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT
+                      | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+                  VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
+                      | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT
+                      | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
+    for (VkRenderingAttachmentInfo& colour : targets.colours) colour.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    targets.depth.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    const VkRenderingInfo rendering = targets.rendering(3);
+    vkCmdBeginRendering(commands, &rendering);
+    setViewportTo(commands, region);
+    vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->sceneLayout(), 0, 1, &sceneSet, 0,
+                            nullptr);
+    vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->grass());
+    const GrassReach reach = grassReachOf(tier);
+    for (const GrassDraw& draw : grassDraws) {
+        const gpu::GrassConstants constants{draw.blades, reach.fadeStart, reach.end, 0};
+        vkCmdPushConstants(commands, pipelines->sceneLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                           0, sizeof(constants), &constants);
+        vkCmdDraw(commands, draw.blades * VERTICES_PER_BLADE, draw.instanceCount, 0, draw.firstInstance);
+    }
     vkCmdEndRendering(commands);
 }
 
@@ -2027,6 +2096,8 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     placeSkyLayers(frame, bundle, camera, region, skyFace.has_value());
     const FogSetup fog = fogSetupOf(bundle, camera, region, frameLights, cameraZone, flashlight, skyFace.has_value());
     UTA_CHECK(uploadFrame(frame, frameLights, plan));
+    // UTA-0293 SS 4.4: the cells this view sees. A face of the sky draws none.
+    grassDraws = skyFace ? std::vector<GrassDraw>{} : visibleGrass(grassRuns, matrices.viewProj, camera.location, tier);
 
     // UTA-0051 SS 4.4: the measurement is this call, which waits for the GPU. It
     // leaves out present, which waits for the display under FIFO.

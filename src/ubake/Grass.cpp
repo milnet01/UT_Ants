@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -97,11 +98,12 @@ struct Sample {
 };
 
 /// SS 4.3: the clumps sorted into GRASS_CELL squares of the plan, each cell's
-/// bounds taking in BLADE_REACH every way. Stable, so the order within a cell
-/// is planting order.
+/// bounds taking in BLADE_REACH every way. Within a cell the even seeds come
+/// first, so High draws a run's head (SS 4.6, urender/Grass.h). Stable, so the
+/// order is otherwise planting order.
 [[nodiscard]] ubundle::Grass sortIntoCells(std::vector<Sample> samples) {
     std::ranges::stable_sort(samples, [](const Sample& a, const Sample& b) {
-        return std::pair{a.cellX, a.cellY} < std::pair{b.cellX, b.cellY};
+        return std::tuple{a.cellX, a.cellY, a.clump.seed % 2} < std::tuple{b.cellX, b.cellY, b.clump.seed % 2};
     });
     ubundle::Grass grass;
     grass.clumps.reserve(samples.size());

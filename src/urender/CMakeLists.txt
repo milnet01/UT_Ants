@@ -21,6 +21,7 @@ add_library(uta_urender STATIC
     Geometry.cpp
     Lights.cpp
     Fog.cpp
+    Grass.cpp
     Clusters.cpp
     Probes.cpp
     Shadows.cpp
@@ -107,6 +108,8 @@ uta_embed_shaders(uta_urender
     shaders/flame.frag
     shaders/mote.vert
     shaders/mote.frag
+    shaders/grass.vert
+    shaders/grass.frag
     shaders/post.vert
     shaders/post.frag
     shaders/bloom.frag
