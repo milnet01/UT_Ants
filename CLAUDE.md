@@ -5,11 +5,11 @@
 **State:** 4 if nothing is 🚧, or every 🚧 is parked on `Waiting-on:`
 (`workflow.md` § 1). Else 5.
 **Next:** the user's order of 2026-10-05: help other sessions; then every
-open fix-kind or review-sourced item, oldest first; then 0.1.0. Parked fix
+open fix-kind or review-sourced item, oldest first; then 0.2.0. Parked fix
 item: `UTA-0249` (reconfirmed 2026-10-05; `UTA-0186` closed 2026-10-19). `UTA-0098` and
-`UTA-0100` defer themselves. 0.1.0 (`UTA-0204`) has no open item left.
+`UTA-0100` defer themselves. 0.1.0 released 2026-11-04 (tag `v0.1.0`).
 `UTA-0283` waits on UT_MonsterHunt.
-After 0.1.0: glass (`UTA-0272`), see-through water (`UTA-0273`),
+0.2.0 starts with glass (`UTA-0272`), see-through water (`UTA-0273`),
 vegetation (`UTA-0293`).
 **In flight:** `roadmap_query status:"in-progress"`. Not kept by hand.
 
