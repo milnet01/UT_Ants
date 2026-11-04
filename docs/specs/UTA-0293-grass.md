@@ -38,7 +38,7 @@ short name matches a word. 483 maps have such a floor named for grass
 (`gras`, `grss`, `lawn`, `turf`, `meadow`); 919 once `dirt`, `earth`,
 `ground` and their like are added. The commonest names are `Grass`,
 `Dirt2`, `mGrass7` and `Dirt`. The wider words also match `dirtmrbl`,
-`SG_dirtypill2` and `Background`, which is why colour decides (§ 4.2). The
+`SG_dirtypill2` and `Background`, so § 4.1 drops them. The
 most grass-named floors are on MH-Vale_Evelyn and
 MH-SDM-FatherDougalUM_beta1. The census read short names only; the baker
 also reads group names, so it can match more.
@@ -53,8 +53,8 @@ also reads group names, so it can match more.
      vines, cobwebs and seaweed need models and are a later item (§ 9).
      Grass needs no model: its blades are made in the vertex shader (§ 4.4),
      so no Blender asset is involved.
-   - **A floor is grass by its texture's name and colour, not by whether it
-     sees the sky.** A garden under a roof is still grass; the roof's shadow
+   - **A floor is grass by its texture's name, not by its colour or whether
+     it sees the sky.** Colour only thins it (§ 4.2). A garden under a roof is still grass; the roof's shadow
      reaches it through the shadow mask and the probes.
    - **Grass blocks nothing.** It has no collision, so it never blocks a
      path. It is kept clear of pickups so it never hides one (§ 4.2).
@@ -69,29 +69,33 @@ The baker grows grass on a GEOM triangle when all of these hold:
 
 1. its material id's name or any group (`umat::materialId`'s
    `<package>.<group...>.<name>`, lower case, `#masked` dropped) holds one
-   of `gras`, `grss`, `lawn`, `turf`, `meadow`, `ground`, `earth` or
-   `dirt`: `isGroundCover` (`src/ubake/Grass.h`);
+   of `gras`, `grss`, `lawn`, `turf` or `meadow`: `isGroundCover`
+   (`src/ubake/Grass.h`);
 2. it is not a liquid, a pane, a flame or a fire, and its polyFlags carry
    none of `PF_MASKED`, `PF_TRANSLUCENT`, `PF_MODULATED`, `PF_FAKE_BACKDROP`
    or `PF_INVISIBLE` (`src/ubake/Geometry.h`);
 3. its normal's up component is at least `GRASS_SLOPE`, 0.7;
 4. its zone is not a water zone (`Zone::water`).
 
-A name test alone would grow grass on bare earth. So the colour decides
-where on the surface it grows (§ 4.2).
+`ground`, `earth` and `dirt` are left out. UT99 paints grass olive and earth
+brown, too close for a colour test to part them (§ 8).
 
 ### 4.2 Planting
 
 Each qualifying triangle is sampled at `CLUMP_SPACING` units, 16, by a
-jittered grid in the world's plan, each sample lifted onto the triangle. A sample keeps its clump with probability
-`greenness`, read from the material's base picture at the sample's UV, at
-the mip nearest 8 texels a clump:
+jittered grid in the world's plan, each sample lifted onto the triangle. A
+sample keeps its clump with probability `density`, read from the material's
+base picture at the sample's UV, at the mip nearest 8 texels a clump. Each
+texel's green share is judged against the mean share of that mip:
 
 ```
-greenness = smoothstep(GREEN_LOW, GREEN_HIGH, g - max(r, b))   linear 0 to 1
+share   = (g + SHARE_GREY / 3) / (r + g + b + SHARE_GREY)       linear
+density = smoothstep(GREEN_LOW, GREEN_HIGH, share - mean share)  0 to 1
 ```
 
-So a dirt texture grows grass only where it is painted green.
+`SHARE_GREY`, 0.01, makes a near-black texel read as grey. A picture of one
+colour, whatever its hue, has full density everywhere. Its bare patches,
+browner or greyer than its mean, grow none.
 
 A sample is dropped when it lies within `PICKUP_CLEAR` units, 40,
 horizontally of the `location` of any placed actor descending from
@@ -120,9 +124,11 @@ A new section, `VEGE`, written after `PSKY`, holds:
   by cell. Within a cell, clumps with even seeds come first, so High draws
   the head of each run (§ 4.6).
 
-At most `GRASS_CLUMP_LIMIT` clumps, 1 << 20; past it the baker refuses the
-section and says so, and the map bakes without grass. A map with no grass
-writes no `VEGE`. `FORMAT_VERSION` becomes 35 and `BAKER_REVISION` 75.
+At most `GRASS_CLUMP_LIMIT` clumps, 1 << 20. A map past it is planted again
+on a grid widened by `sqrt(count / GRASS_CLUMP_LIMIT)`, with a 2% margin,
+until it fits. Its grass is sparser, never absent. The bake report's
+`grass` entry gives the grid as `spacing`. A map with no grass writes no
+`VEGE`. `FORMAT_VERSION` becomes 35 and `BAKER_REVISION` 76.
 `shapeOf` samples `VEGE` (`docs/fitting-a-map.md`).
 
 ### 4.4 Drawing
@@ -174,15 +180,18 @@ the sky draws no grass.
 
 ## 5. Invariants
 
-- **INV-1** — Grass grows only on ground-cover names. A fixture level with
+- **INV-1** — Grass grows only on grass names. A fixture level with
   an upward floor whose texture is green grows clumps when the texture is
   named `Grass1` and none when it is named `Tile1`.
   *Test:* `tests/unit/GrassBakeTest.cpp`, "UTA-0293 INV-1".
   *Breaks when:* `isGroundCover` is skipped or matches every name.
-- **INV-2** — Grass grows only where the picture is green. The same `Grass1`
-  floor grows no clump when its texture is grey.
+- **INV-2** — Grass thins where the picture is less green than its own mean.
+  A `Grass1` floor of one colour, grey or olive, grows clumps everywhere.
+  Half olive and half bare earth, the olive half is full and the earth half
+  near empty; half green and half grey, clumps stand on the green half only.
   *Test:* `tests/unit/GrassBakeTest.cpp`, "UTA-0293 INV-2".
-  *Breaks when:* `greenness` is not read, or is read from the wrong texel.
+  *Breaks when:* `density` is not read, is read from the wrong texel, or
+  judges a texel by its absolute hue rather than against the mean.
 - **INV-3** — Grass grows only on floors. The green `Grass1` texture on a
   wall, normal horizontal, grows no clump; on a floor tilted 40 degrees, it
   does.
@@ -240,23 +249,34 @@ the sky draws no grass.
   edits one bundle in place as `RenderSunTest.cpp` does.
   *Breaks when:* `shapeOf` does not sample `VEGE`.
 
+- **INV-14** — A map past the clump limit keeps sparser grass. A green
+  `pkg.grass1` floor 20480 units a side plants on a grid wider than
+  `CLUMP_SPACING`, keeping more than four fifths of `GRASS_CLUMP_LIMIT`
+  clumps and no more than it; a 512-unit floor keeps `CLUMP_SPACING`.
+  *Test:* `tests/unit/GrassBakeTest.cpp`, "UTA-0293 INV-14".
+  *Breaks when:* the map past the limit bakes without grass, or the grid
+  widens too far.
+
 ## 6. Failure modes
 
-- **A name the test misses or wrongly matches.** A green floor named
-  `Ground3` that is moss on stone grows grass; a lawn named `Floor7` grows
-  none. Accepted for a first iteration; a recipe override is § 9's.
+- **A name the test misses or wrongly matches.** A meadow named `Ground3`
+  or `Dirt2` grows none; nor does a lawn named `Floor7`. A grey stone named
+  `GrassStone` grows grass everywhere. Accepted for a first iteration; a
+  recipe override is § 9's.
 - **Grass through thin geometry.** A clump on a floor beside a wall can lean
   through it. Accepted: blades are at most 20 units tall.
 - **A mover over grass.** Blades can poke through a lift or door resting on
   grass, since nothing pushes them aside. Accepted for a first iteration.
-- **Too many clumps.** Past `GRASS_CLUMP_LIMIT` the map bakes without grass
-  and the bake report says so. § 2's census counts names, not area, so
-  nothing yet says whether any map reaches it.
+- **Too many clumps.** A big terrain past `GRASS_CLUMP_LIMIT` grows sparser
+  grass (§ 4.3). MH-SDM-FatherDougalUM_beta1's grass would have planted
+  5,771,780 clumps at full density (bake of 2026-11-04, under the wider
+  names).
 
 ## 7. Tests
 
-INV-1, INV-2, INV-3 and INV-6 bake fixture levels; INV-4 and INV-5 hand
-`plantGrass` a bundle (`tests/unit/GrassBakeTest.cpp`).
+INV-1, INV-2, INV-3 and INV-6 bake fixture levels; INV-2 also reads
+`greenMapOf` directly; INV-4, INV-5 and INV-14 hand `plantGrass` a bundle
+(`tests/unit/GrassBakeTest.cpp`).
 `tests/unit/GrassCullTest.cpp` grades the host's culling and tiers. INV-7 is the section codec's unit test. INV-8, INV-9,
 INV-10, INV-11, INV-12 and INV-13 are device tests, run on Mesa's
 CPU driver and the GPU under the validation layer and sync validation, as
@@ -270,8 +290,21 @@ existing device test draws a map with no `VEGE` and must pass unchanged.
   keeps the opaque pass cheap, and it needs a made picture. Blades built in
   the vertex shader draw opaque, with no picture. Rejected.
 - **Plant at load time, not at bake time.** No format change, but the
-  greenness test needs the base pictures decoded, which the baker already
+  density test needs the base pictures decoded, which the baker already
   has; a load-time scatter would repeat that work on every load. Rejected.
+- **An absolute green test, and grass on earth by colour.** The first build
+  grew grass on `ground`, `earth` and `dirt` floors too, where
+  `smoothstep` over `g - max(r, b)` found green. A design premise moved:
+  UT99's grass is not green. Mean linear albedo (`ut-bake
+  --light-materials`, 2026-11-04): `mh-vale_evelyn.grass` 0.084 0.058
+  0.016, `genterra` `grasc*` about 0.079 0.053 0.018, `genearth`
+  `dirt_sw2` 0.025 0.014 0.007. Red stands above green, so the test planted
+  4675 clumps on MH-Vale_Evelyn, 66 of them on `mh-vale_evelyn.grass`,
+  which holds 526,944 at full density. No threshold parts olive from brown. Replaced by the name
+  alone and a density relative to the picture's mean (§ 4.1, § 4.2).
+- **A map past the limit bakes without grass.** The first build's rule. It
+  would leave the largest grass map bare. Replaced by a wider grid
+  (§ 4.3).
 - **Grass only where the sky is seen.** Grass under a roof is still grass,
   and the light already darkens it. Rejected (§ 3).
 - **A compute pass that culls clumps one by one.** Finer than cells, but a
@@ -292,7 +325,7 @@ existing device test draws a map with no `VEGE` and must pass unchanged.
 
 | Claim | Check |
 |---|---|
-| INV-1 to INV-13 | the tests in § 7 |
+| INV-1 to INV-14 | the tests in § 7 |
 | No upload, cull or draw below High | **Partial:** INV-8 checks the image; `GrassCullTest.cpp` that no draw is planned; nothing counts the upload |
 | Grass looks like grass | nothing; set by eye in § 13 |
 | Existing maps unchanged below High | every existing device test |
@@ -304,7 +337,7 @@ existing device test draws a map with no `VEGE` and must pass unchanged.
   clause there changes.
 - `docs/specs/UTA-0326-baked-shadow-mask.md`: read, not changed.
 - `CLAUDE.md` § Standing facts names the bundle format and baker revision;
-  they become 35 and 75 when this ships.
+  they become 35 and 76 when this ships.
 
 ## 12. Cold-eyes loop log
 

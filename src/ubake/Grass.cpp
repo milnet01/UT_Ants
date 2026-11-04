@@ -25,9 +25,9 @@ constexpr std::uint32_t NOT_GROUND = PF_MASKED | PF_TRANSLUCENT | PF_MODULATED |
 /// A placed actor of this class or a descendant is a pickup -- SS 4.2.
 constexpr std::string_view INVENTORY = "engine.inventory";
 
-/// The words of SS 4.1 item 1.
-constexpr std::array<std::string_view, 8> GROUND_WORDS = {"gras", "grss",   "lawn", "turf",
-                                                          "meadow", "ground", "earth", "dirt"};
+/// The words of SS 4.1 item 1. Ground, earth and dirt are left out: UT99 paints
+/// grass olive and earth brown, close enough that no colour test parts them.
+constexpr std::array<std::string_view, 5> GRASS_WORDS = {"gras", "grss", "lawn", "turf", "meadow"};
 
 /// splitmix64's finaliser: every random choice is this over integers, so one
 /// map plants the same clumps on every machine (INV-6).
@@ -50,8 +50,8 @@ constexpr std::array<std::string_view, 8> GROUND_WORDS = {"gras", "grss",   "law
     return t * t * (3 - 2 * t);
 }
 
-/// The green map's value at texture coordinate (u, v), repeating, nearest texel.
-[[nodiscard]] double greennessAt(const GreenMap& map, double u, double v) noexcept {
+/// The density at texture coordinate (u, v), repeating, nearest texel.
+[[nodiscard]] double densityAt(const GreenMap& map, double u, double v) noexcept {
     const auto texel = [](double t, std::uint32_t size) {
         const double wrapped = t - std::floor(t);
         return std::min(static_cast<std::uint32_t>(wrapped * size), size - 1);
@@ -138,7 +138,7 @@ bool isGroundCover(std::string_view materialId) {
     const auto dot = materialId.find('.');
     if (dot == std::string_view::npos) return false;
     const std::string_view groupsAndName = materialId.substr(dot + 1);
-    return std::ranges::any_of(GROUND_WORDS, [groupsAndName](std::string_view word) {
+    return std::ranges::any_of(GRASS_WORDS, [groupsAndName](std::string_view word) {
         return groupsAndName.find(word) != std::string_view::npos;
     });
 }
@@ -150,7 +150,11 @@ std::optional<GreenMap> greenMapOf(const umat::Image& rgba, double unitsPerTexel
     std::uint32_t step = 1;
     while (step * 2 <= std::min(rgba.width, rgba.height) && std::log2(wanted) >= std::log2(step) + 0.5) step *= 2;
     GreenMap map{std::max(rgba.width / step, 1U), std::max(rgba.height / step, 1U), {}};
-    map.green.reserve(std::size_t{map.width} * map.height);
+    // Each texel's green share, then its density against the level's mean
+    // share: UT99's grass is olive, red above green, so only a relative test
+    // finds its bare patches.
+    std::vector<double> share;
+    share.reserve(std::size_t{map.width} * map.height);
     for (std::uint32_t y = 0; y < map.height; ++y)
         for (std::uint32_t x = 0; x < map.width; ++x) {
             Rgb sum;
@@ -162,15 +166,29 @@ std::optional<GreenMap> greenMapOf(const umat::Image& rgba, double unitsPerTexel
                     sum.b += linearOf(std::to_integer<std::uint8_t>(rgba.pixels[at + 2]));
                 }
             const double n = static_cast<double>(step) * step;
-            const double green = smoothstep(GREEN_LOW, GREEN_HIGH, (sum.g - std::max(sum.r, sum.b)) / n);
-            map.green.push_back(static_cast<std::uint8_t>(std::lround(green * 255)));
+            share.push_back((sum.g / n + SHARE_GREY / 3) / ((sum.r + sum.g + sum.b) / n + SHARE_GREY));
         }
+    double mean = 0;
+    for (const double s : share) mean += s;
+    mean /= static_cast<double>(share.size());
+    map.green.reserve(share.size());
+    for (const double s : share)
+        map.green.push_back(static_cast<std::uint8_t>(std::lround(smoothstep(GREEN_LOW, GREEN_HIGH, s - mean) * 255)));
     return map;
 }
 
-Planted plantGrass(const ubundle::Bundle& bundle, const GreenLookup& green) {
-    Planted out;
-    if (!bundle.geometry || !bundle.materials) return out;
+namespace {
+
+/// What one planting pass found: the samples, at most GRASS_CLUMP_LIMIT of
+/// them, and how many it would have kept had there been no limit.
+struct Pass {
+    std::vector<Sample> samples;
+    std::size_t count = 0;
+};
+
+/// SS 4.1 and SS 4.2 on a grid of `spacing` units.
+[[nodiscard]] Pass plantAt(const ubundle::Bundle& bundle, const GreenLookup& green, double spacing) {
+    Pass out;
     const ubundle::Geometry& geometry = *bundle.geometry;
     const std::vector<ubundle::MaterialRecord>& materials = *bundle.materials;
     const std::vector<std::array<double, 2>> pickups = pickupsOf(bundle);
@@ -180,7 +198,6 @@ Planted plantGrass(const ubundle::Bundle& bundle, const GreenLookup& green) {
             ? &*bundle.shadowMask
             : nullptr;
 
-    std::vector<Sample> samples;
     for (const ubundle::GeometryBatch& batch : geometry.batches) {
         if ((batch.polyFlags & NOT_GROUND) != 0 || !isGroundCover(batch.material)) continue;
         const auto record = std::ranges::lower_bound(materials, batch.material, {}, &ubundle::MaterialRecord::id);
@@ -205,7 +222,7 @@ Planted plantGrass(const ubundle::Bundle& bundle, const GreenLookup& green) {
             const double e2x = c.position[0] - x0, e2y = c.position[1] - y0;
             const double area = e1x * e2y - e2x * e1y;
             if (std::abs(area) < 1e-6) continue;
-            const auto cellOf = [](double t) { return static_cast<std::int64_t>(std::floor(t / CLUMP_SPACING)); };
+            const auto cellOf = [spacing](double t) { return static_cast<std::int64_t>(std::floor(t / spacing)); };
             const double lowX = std::min({x0, double{b.position[0]}, double{c.position[0]}});
             const double highX = std::max({x0, double{b.position[0]}, double{c.position[0]}});
             const double lowY = std::min({y0, double{b.position[1]}, double{c.position[1]}});
@@ -220,8 +237,8 @@ Planted plantGrass(const ubundle::Bundle& bundle, const GreenLookup& green) {
                     // into triangles plants evenly across its seams; whether
                     // the sample is kept, and its seed, are also the triangle's.
                     const std::uint64_t jitter = hashOf(i, j, 0);
-                    const double px = (static_cast<double>(i) + unitOf(jitter)) * CLUMP_SPACING;
-                    const double py = (static_cast<double>(j) + unitOf(mix(jitter))) * CLUMP_SPACING;
+                    const double px = (static_cast<double>(i) + unitOf(jitter)) * spacing;
+                    const double py = (static_cast<double>(j) + unitOf(mix(jitter))) * spacing;
                     const double dx = px - x0, dy = py - y0;
                     const double wb = (dx * e2y - e2x * dy) / area;
                     const double wc = (e1x * dy - dx * e1y) / area;
@@ -232,8 +249,11 @@ Planted plantGrass(const ubundle::Bundle& bundle, const GreenLookup& green) {
                     };
                     const double u = blend(a.u, b.u, c.u);
                     const double v = blend(a.v, b.v, c.v);
-                    if (unitOf(hashOf(i, j, mix(triangle) ^ 1)) >= greennessAt(*map, u, v)) continue;
+                    if (unitOf(hashOf(i, j, mix(triangle) ^ 1)) >= densityAt(*map, u, v)) continue;
                     if (nearPickup(pickups, px, py)) continue;
+                    // Past the limit only the count goes on: this pass is
+                    // planted again, sparser (plantGrass).
+                    if (++out.count > ubundle::GRASS_CLUMP_LIMIT) continue;
 
                     ubundle::GrassClump clump;
                     clump.base = {static_cast<float>(px), static_cast<float>(py),
@@ -249,17 +269,27 @@ Planted plantGrass(const ubundle::Bundle& bundle, const GreenLookup& green) {
                                            static_cast<float>(blend(ta[1], tb[1], tc[1]))};
                     }
                     clump.seed = static_cast<std::uint32_t>(hashOf(i, j, mix(triangle) ^ 2));
-                    samples.push_back(Sample{static_cast<std::int64_t>(std::floor(px / GRASS_CELL)),
+                    out.samples.push_back(Sample{static_cast<std::int64_t>(std::floor(px / GRASS_CELL)),
                                              static_cast<std::int64_t>(std::floor(py / GRASS_CELL)), clump});
                 }
         }
     }
-    if (samples.empty()) return out;
-    if (samples.size() > ubundle::GRASS_CLUMP_LIMIT) {
-        out.overLimit = samples.size();
-        return out;
+    return out;
+}
+
+} // namespace
+
+Planted plantGrass(const ubundle::Bundle& bundle, const GreenLookup& green) {
+    Planted out;
+    Pass pass = plantAt(bundle, green, out.spacing);
+    // SS 4.3: a map past the limit is planted again on a wider grid. The
+    // count falls with the square of the spacing; the margin and the loop
+    // absorb the jitter, which moves with the grid.
+    while (pass.count > ubundle::GRASS_CLUMP_LIMIT) {
+        out.spacing *= std::sqrt(static_cast<double>(pass.count) / ubundle::GRASS_CLUMP_LIMIT) * 1.02;
+        pass = plantAt(bundle, green, out.spacing);
     }
-    out.grass = sortIntoCells(std::move(samples));
+    if (!pass.samples.empty()) out.grass = sortIntoCells(std::move(pass.samples));
     return out;
 }
 

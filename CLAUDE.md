@@ -39,7 +39,7 @@ deferred out of that cut.
 ### Standing facts
 
 **A bake goes stale when the baker or the format moves.** Bundles are
-format 35 and the baker revision 75 (both `UTA-0293`). Re-bake any
+format 35 and the baker revision 76 (both `UTA-0293`). Re-bake any
 map baked before either.
 
 **The frame-rate target is 60 fps on High on this machine, drawing at

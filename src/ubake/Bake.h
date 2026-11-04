@@ -103,9 +103,9 @@ struct BakeResult {
     /// per MaterialRecord in the bundle's order, for the reference tracer
     /// (docs/specs/UTA-0292-reference-path-tracer.md SS 4.2).
     std::vector<MaterialLight> materialLight;
-    /// UTA-0293 SS 4.3: how many clumps the map would have grown, where that
-    /// passed GRASS_CLUMP_LIMIT and it bakes without grass; 0 otherwise.
-    std::size_t grassOverLimit = 0;
+    /// UTA-0293 SS 4.3: the grid grass was planted on, in world units; wider
+    /// than CLUMP_SPACING where that would have passed GRASS_CLUMP_LIMIT.
+    double grassSpacing = 0;
 };
 
 /// Build a bundle from one map. Writes nothing and enforces no budget.

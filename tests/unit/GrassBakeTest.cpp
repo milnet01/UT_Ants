@@ -1,6 +1,6 @@
 // UTA-0293: where the bake plants grass.
 //
-// docs/specs/UTA-0293-grass.md SS 4.1, SS 4.2, INV-1 to INV-6.
+// docs/specs/UTA-0293-grass.md SS 4.1 to SS 4.3, INV-1 to INV-6 and INV-14.
 //
 // INV-1, INV-2, INV-3 and INV-6 bake a fixture level, so the name test and the
 // greenness are read through the whole path a map takes. INV-4 and INV-5 hand
@@ -25,8 +25,10 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 using namespace uta::test::bake;
@@ -45,6 +47,10 @@ using Colour = std::array<std::uint8_t, 4>;
 
 constexpr Colour GREEN = {60, 140, 40, 255};
 constexpr Colour GREY = {128, 128, 128, 255};
+/// UT99's grass and bare earth, as MH-Vale_Evelyn paints them: the grass is
+/// olive, red above green (SS 4.2).
+constexpr Colour OLIVE = {82, 68, 34, 255};
+constexpr Colour EARTH = {44, 31, 20, 255};
 
 /// A flat floor at z = 0 across [0, 512] on x and y, wound to face up.
 constexpr Square FLOOR = {{{0, 0, 0}, {512, 0, 0}, {512, 512, 0}, {0, 512, 0}}};
@@ -138,29 +144,49 @@ TEST_CASE("UTA-0293 INV-1: the name test reads groups and drops the package", "[
     using uta::ubake::isGroundCover;
     CHECK(isGroundCover("genearth.grass.mgrass7"));
     CHECK(isGroundCover("pkg.lawns.tile1"));
-    CHECK(isGroundCover("pkg.dirt2#masked"));
+    CHECK(isGroundCover("pkg.grass2#masked"));
+    // Earth is olive's neighbour in colour, so the name alone keeps it out.
+    CHECK_FALSE(isGroundCover("genearth.dirt2"));
+    CHECK_FALSE(isGroundCover("pkg.ground3"));
+    CHECK_FALSE(isGroundCover("pkg.earth.tile1"));
     CHECK_FALSE(isGroundCover("dm-grassy.tile1"));
     CHECK_FALSE(isGroundCover("pkg.tile1"));
     CHECK_FALSE(isGroundCover("pkg.tile1#grass"));
 }
 
-TEST_CASE("UTA-0293 INV-2: grass grows only where the picture is green", "[ubake][grass]") {
-    CHECK(clumpsOf(bakeOne("Grass1", GREY, FLOOR, UP)) == 0);
+namespace {
 
+/// A 4 by 4 picture, `left` on its left half and `right` on its right, as
+/// greenMapOf reads it with one world unit a texel: a 2 by 2 level.
+std::optional<GreenMap> splitMap(const Colour& left, const Colour& right) {
+    std::vector<std::byte> pixels;
+    for (std::uint32_t y = 0; y < 4; ++y)
+        for (std::uint32_t x = 0; x < 4; ++x)
+            for (const std::uint8_t c : x < 2 ? left : right) pixels.push_back(std::byte{c});
+    return uta::ubake::greenMapOf(uta::umat::Image{4, 4, 4, std::move(pixels)}, 1.0);
+}
+
+} // namespace
+
+TEST_CASE("UTA-0293 INV-2: a picture of one colour grows grass everywhere", "[ubake][grass]") {
+    // 1024 grid cells; full density keeps every one, whatever the hue.
+    CHECK(clumpsOf(bakeOne("Grass1", GREY, FLOOR, UP)) > 900);
+    CHECK(clumpsOf(bakeOne("Grass1", OLIVE, FLOOR, UP)) > 900);
+}
+
+TEST_CASE("UTA-0293 INV-2: olive grass grows and its bare earth does not", "[ubake][grass]") {
+    // The finding that moved SS 4.2: an absolute green test planted nothing
+    // on UT99's olive grass.
+    const auto map = splitMap(OLIVE, EARTH);
+    REQUIRE(map.has_value());
+    REQUIRE(map->width == 2);
+    CHECK(map->green[0] == 255);
+    CHECK(map->green[1] < 13);
+}
+
+TEST_CASE("UTA-0293 INV-2: grass grows only where the picture is as green as its own mean", "[ubake][grass]") {
     // Half green, half grey across u: clumps only on the green half.
-    Picture split = plain(GREY);
-    split.palette[1] = GREEN;
-    for (std::uint32_t y = 0; y < split.height; ++y)
-        for (std::uint32_t x = 0; x < split.width; ++x) split.indices[y * split.width + x] = x < 2 ? 1 : 0;
-    const auto map = uta::ubake::greenMapOf(
-        uta::umat::Image{4, 4, 4,
-                         [&split] {
-                             std::vector<std::byte> pixels;
-                             for (const std::uint8_t index : split.indices)
-                                 for (const std::uint8_t c : split.palette[index]) pixels.push_back(std::byte{c});
-                             return pixels;
-                         }()},
-        1.0);
+    const auto map = splitMap(GREEN, GREY);
     REQUIRE(map.has_value());
     REQUIRE(map->width == 2);
     CHECK(map->green[0] == 255);
@@ -269,4 +295,23 @@ TEST_CASE("UTA-0293 INV-3: a slope steeper than GRASS_SLOPE grows none", "[ubake
     Bundle bundle = floorBundle();
     for (auto& vertex : bundle.geometry->vertices) vertex.normal = {0.866f, 0, 0.5f};
     CHECK_FALSE(plant(bundle).grass.has_value());
+}
+
+TEST_CASE("UTA-0293 INV-14: a map past the clump limit keeps sparser grass", "[ubake][grass]") {
+    using uta::ubundle::GRASS_CLUMP_LIMIT;
+    // 20480 units a side: about 1.6 million clumps at CLUMP_SPACING.
+    Bundle bundle = floorBundle();
+    for (auto& vertex : bundle.geometry->vertices) {
+        vertex.position[0] *= 40;
+        vertex.position[1] *= 40;
+    }
+    const auto planted = plant(bundle);
+    REQUIRE(planted.grass.has_value());
+    CHECK(planted.spacing > uta::ubake::CLUMP_SPACING);
+    CHECK(planted.grass->clumps.size() <= GRASS_CLUMP_LIMIT);
+    // Widened by the square root of the excess, it lands just under the limit.
+    CHECK(planted.grass->clumps.size() > GRASS_CLUMP_LIMIT / 5 * 4);
+
+    // A floor under the limit keeps the plain grid.
+    CHECK(plant(floorBundle()).spacing == uta::ubake::CLUMP_SPACING);
 }

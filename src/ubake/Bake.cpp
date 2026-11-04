@@ -465,7 +465,7 @@ struct MadeVariant {
     std::optional<Cutout> cutout;
     /// UTA-0055 SS 4.6: the picture is on umat's cloth list.
     bool cloth = false;
-    /// UTA-0293 SS 4.2: a ground-cover picture's greenness; empty otherwise.
+    /// UTA-0293 SS 4.2: a grass picture's density; empty otherwise.
     std::optional<GreenMap> green;
 };
 
@@ -872,7 +872,7 @@ struct Materials {
     /// UTA-0277 SS 4.2: each material's scores, by id; none where step 1
     /// excludes it.
     std::map<std::string, TileScores, std::less<>> tileScores;
-    /// UTA-0293 SS 4.2: each ground-cover material's greenness, by id.
+    /// UTA-0293 SS 4.2: each grass material's density, by id.
     std::map<std::string, GreenMap, std::less<>> green;
 };
 
@@ -1546,7 +1546,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
         return found == materials.green.end() ? nullptr : &found->second;
     });
     result.bundle.grass = std::move(planted.grass);
-    result.grassOverLimit = planted.overLimit;
+    result.grassSpacing = planted.spacing;
 
     // 12. The budget, over every map of every material.
     phase.emplace(&times, "budget");

@@ -287,12 +287,12 @@ void writeResult(std::ostream& out, const BakeResult& result, std::size_t listed
         << (result.sway.waterStill ? "true" : "false") << ", \"clothStill\": "
         << (result.sway.clothStill ? "true" : "false") << ", \"vertices\": " << result.sway.vertices << ", \"clothVertices\": " << result.sway.clothVertices
         << '}';
-    // UTA-0293 SS 4.3 and SS 6: what grass the bake planted, and how many
-    // clumps a map past the limit would have had, baking without any.
+    // UTA-0293 SS 4.3: what grass the bake planted, and the grid it planted
+    // on, wider than 16 units on a map that would pass the clump limit.
     const bool grown = result.bundle.grass.has_value();
     out << ", \"grass\": {\"clumps\": " << (grown ? result.bundle.grass->clumps.size() : 0)
         << ", \"cells\": " << (grown ? result.bundle.grass->cells.size() : 0)
-        << ", \"overLimit\": " << result.grassOverLimit << '}';
+        << ", \"spacing\": " << result.grassSpacing << '}';
     // UTA-0113 SS 4.5: a recipe's texture the map does not use.
     out << ", \"recipeUnused\": ";
     writeArray(out, result.recipeUnused, [&out](const std::string& texture) { writeJsonString(out, texture); });

@@ -178,9 +178,11 @@ namespace {
 // MATS's pane byte and BAKR's revision moved it.
 // 75, format 35: UTA-0293 plants grass. The fixture has no ground-cover
 // name, so it writes no VEGE; the header's format and BAKR's revision moved it.
-constexpr std::uint32_t RECORDED_UNDER = 75;
+// 76: UTA-0293 plants grass by density against the picture's mean. The fixture
+// still has no grass name; BAKR's revision moved it.
+constexpr std::uint32_t RECORDED_UNDER = 76;
 constexpr std::string_view GOLDEN =
-    "4a5f69dd42f2ad24009aecb66f9439335386526f6773dc8731b9140ed56123b2";
+    "f6c94b8a49221d9c16919f15fec93d12bf34080fa45d4e4bdd627ab3e40d8441";
 
 } // namespace
 
