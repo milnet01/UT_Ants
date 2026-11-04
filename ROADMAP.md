@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=448 -->
+<!-- ants-roadmap-id-high-water: UTA=449 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -20414,6 +20414,19 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: perf.
   Source: in-session-2026-11-04 UTA-0273 measurement.
   Lanes: urender.
+
+- 📋 [UTA-0449] **urender and ubake: bushes, flowers, ferns, and hanging moss, vines, cobwebs and seaweed, from Blender-made models.**
+  Split from UTA-0293, whose spec (docs/specs/UTA-0293-grass.md
+  SS 9) covers grass only: grass blades need no model, these do.
+  Models are built by headless Blender scripts kept in
+  /mnt/Games/3D Engine Assets/Blender Scripts/ (a vegetation folder),
+  the .blend in Models/Nature/ (user, 2026-11-04). UTA-0055 SS 3 sent
+  the hanging kinds to UTA-0293; they come here. Needs a way to draw
+  a model (UTA-0341's mesh decorations may supply it).
+  **Layman:** Plants bigger than grass, and the moss and vines that hang in caves and ruins, made as real 3D models.
+  Kind: feature.
+  Source: in-session-2026-11-04 UTA-0293 spec.
+  Lanes: urender, ubake.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 

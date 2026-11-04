@@ -1,0 +1,311 @@
+<!-- ants-spec-format: 1 -->
+# UTA-0293 — grass: blades grown on a map's grass floors
+
+**Status:** accepted (2026-11-04), unreviewed. Contract reviews are cancelled
+for this project (`CLAUDE.md` § Contract reviews); no review runs unless the
+user asks.
+**Kind:** feature.
+**Source:** ROADMAP UTA-0293 (user-request-2026-10-05).
+**Builds on:** UTA-0326 (`docs/specs/UTA-0326-baked-shadow-mask.md`): its
+charts and texels light each blade as they light the ground. UTA-0263
+(`docs/specs/UTA-0263-shader-flames.md`): a baked list the renderer draws
+one instance per entry, the shape this follows.
+
+**Layman:** floors painted with grass grow real blades of grass that sway in
+the wind, lit and shadowed as the ground under them is.
+
+## 1. Goal
+
+Where a map's floor is painted with grass, the bake plants clumps of grass
+on it and the renderer grows each clump into blades that sway, are lit as
+the ground beneath them is, and thin out with distance. Below the tier that
+draws them, a map draws exactly as before.
+
+## 2. Problem
+
+A UT99 grass floor is a flat picture. Seen at a low angle it reads as a
+painted carpet, which is what the user asked to replace (roadmap body,
+2026-10-05). Nothing in the bundle says which surfaces are grass: the only
+name test the baker makes is `isGlassPane` (`src/ubake/Panes.h`), and the
+recipe's `MaterialAssignment` (`src/urecipe/Recipe.h`) has no kind field.
+Nothing draws geometry the level does not hold, apart from flames and water
+motes (`recordFrame`, `src/urender/Frame.cpp`).
+
+**Census, 2026-11-04**: `ut-dump --surface-list` over every map in the
+reference install's `Maps` folder (1611 read, none failed), counting
+surfaces whose normal's up component is at least 0.7 and whose texture's
+short name matches a word. 483 maps have such a floor named for grass
+(`gras`, `grss`, `lawn`, `turf`, `meadow`); 919 once `dirt`, `earth`,
+`ground` and their like are added. The commonest names are `Grass`,
+`Dirt2`, `mGrass7` and `Dirt`. The wider words also match `dirtmrbl`,
+`SG_dirtypill2` and `Background`, which is why colour decides (§ 4.2). The
+most grass-named floors are on MH-Vale_Evelyn and
+MH-SDM-FatherDougalUM_beta1. The census read short names only; the baker
+also reads group names, so it can match more.
+
+## 3. Scope decisions (agreed with the user)
+
+1. **Cheap methods that still look modern** (user, 2026-10-05, and
+   `CLAUDE.md` § Standing facts, 2026-09-14).
+2. **Taken by this spec, 2026-11-04**, each recorded here because the
+   roadmap body left them open:
+   - **Grass only.** Bushes, flowers, ferns, and UTA-0055's hanging moss,
+     vines, cobwebs and seaweed need models and are a later item (§ 9).
+     Grass needs no model: its blades are made in the vertex shader (§ 4.4),
+     so no Blender asset is involved.
+   - **A floor is grass by its texture's name and colour, not by whether it
+     sees the sky.** A garden under a roof is still grass; the roof's shadow
+     reaches it through the shadow mask and the probes.
+   - **Grass blocks nothing.** It has no collision, so it never blocks a
+     path. It is kept clear of pickups so it never hides one (§ 4.2).
+   - **Drawn from High, at half density; full density at Ultra** (§ 4.6),
+     unless § 13's measurement says otherwise.
+
+## 4. Design
+
+### 4.1 Which surfaces grow grass
+
+The baker grows grass on a GEOM triangle when all of these hold:
+
+1. its material id's name or any group (`umat::materialId`'s
+   `<package>.<group...>.<name>`, lower case, `#masked` dropped) holds one
+   of `gras`, `grss`, `lawn`, `turf`, `meadow`, `ground`, `earth` or
+   `dirt`: `isGroundCover`, beside `isGlassPane`;
+2. it is not a liquid, a pane, a flame or a fire, and its polyFlags carry
+   none of `PF_MASKED`, `PF_TRANSLUCENT`, `PF_MODULATED`, `PF_FAKE_BACKDROP`
+   or `PF_INVISIBLE` (`src/ubake/Geometry.h`);
+3. its normal's up component is at least `GRASS_SLOPE`, 0.7;
+4. its zone is not a water zone (`Zone::water`).
+
+A name test alone would grow grass on bare earth. So the colour decides
+where on the surface it grows (§ 4.2).
+
+### 4.2 Planting
+
+Each qualifying triangle is sampled at `CLUMP_SPACING` units, 16, by a
+jittered grid in its own plane. A sample keeps its clump with probability
+`greenness`, read from the material's base picture at the sample's UV, at
+the mip nearest 8 texels a clump:
+
+```
+greenness = smoothstep(GREEN_LOW, GREEN_HIGH, g - max(r, b))   linear 0 to 1
+```
+
+So a dirt texture grows grass only where it is painted green.
+
+A sample is dropped when it lies within `PICKUP_CLEAR` units, 40,
+horizontally of the `location` of any placed actor descending from
+`engine.inventory`, resolved through class defaults as `probeReachOf`
+reads a navigation point's (`src/ubake/LightProbes.cpp`).
+
+Every random choice comes from a hash of the triangle's index and the
+sample's grid cell, so the same map bakes the same clumps.
+
+Each kept clump records its foot (on the surface), its material, its UV,
+the shadow-mask chart and texel the surface has there (interpolated from
+the triangle's `vertexChart` and `vertexTexel`, which share one chart), and
+a seed.
+
+### 4.3 The bundle
+
+A new section, `VEGE`, written after `PSKY`, holds:
+
+- `clumps`: each `{ base[3], material, uv[2], maskChart, maskTexel[2],
+  seed }`, `material` indexing MATS, `maskChart` indexing SMSK's charts or
+  `MASK_NO_CHART`;
+- `cells`: the clumps sorted into a grid of `GRASS_CELL` units, 1024, each
+  cell `{ firstClump, clumpCount, low[3], high[3] }`, so the renderer culls
+  by cell.
+
+At most `GRASS_CLUMP_LIMIT` clumps, 1 << 20; past it the baker refuses the
+section and says so, and the map bakes without grass. A map with no grass
+writes no `VEGE`. `FORMAT_VERSION` becomes 35 and `BAKER_REVISION` 75.
+`shapeOf` samples `VEGE` (`docs/fitting-a-map.md`).
+
+### 4.4 Drawing
+
+A new pass, after opaque and before translucent, timed as its own
+`GpuPass::Grass`. It writes depth and colour with blending off, so water
+and glass in front of grass draw over it.
+
+Each frame the host culls cells by the view frustum and by `GRASS_END`, and
+draws each visible cell as one instanced draw, an instance a clump. The
+vertex shader builds a clump's blades from `gl_VertexIndex` and the seed:
+`BLADES_NEAR` blades, 12, each a tapered strip of 7 vertices, 8 to 20 units
+tall, leaning at random. Cells beyond `GRASS_FAR`, a third of the way to
+`GRASS_END`, draw `BLADES_FAR`, 4. Between `GRASS_FADE` and `GRASS_END`,
+blades shrink to nothing, so no clump pops out.
+
+### 4.5 Look
+
+- **Colour**: the ground's own picture at the clump's UV, from a coarse mip,
+  darker at the root and lighter at the tip. So blades match the grass they
+  stand on.
+- **Light**: the fragment lights itself through the scene shader's
+  `chartedLight`, with the clump's chart and texel, at the blade's own
+  position, with a normal bent from the blade's face toward up. Lit from
+  both sides. Clumps with `MASK_NO_CHART` take `clusterLight` instead. The
+  probes' indirect light (`indirectAt`) is added as on the ground.
+  `chartedLight` and `clusterLight` move into a shared include that both
+  shaders use.
+- **Wind**: one direction for every map, `WIND_DIRECTION`. Each blade bends
+  along it by a travelling gust, `sin(dot(base.xy, WIND_DIRECTION) *
+  GUST_WAVE - time * GUST_SPEED)`, plus its own flutter from the seed. The
+  bend grows with the square of the height up the blade. `time` is
+  `frame.flameSeconds`; motion vectors use `previousFlameSeconds`.
+
+`GREEN_LOW`, `GREEN_HIGH`, `GRASS_FADE`, `GRASS_END`, `WIND_DIRECTION`,
+`GUST_WAVE` and `GUST_SPEED` are first values, set by eye on § 13's maps and
+recorded there.
+
+### 4.6 Tiers
+
+`Feature::Grass` starts at `Tier::High` (`Tiers.h`). High draws the clumps
+whose seed is even, with `GRASS_END` 1536 units; Ultra draws all of them,
+with `GRASS_END` 2560. Below High, nothing is culled, drawn or bound.
+
+## 5. Invariants
+
+- **INV-1** — Grass grows only on ground-cover names. A fixture level with
+  an upward floor whose texture is green grows clumps when the texture is
+  named `Grass1` and none when it is named `Tile1`.
+  *Test:* `tests/unit/GrassBakeTest.cpp`, "UTA-0293 INV-1".
+  *Breaks when:* `isGroundCover` is skipped or matches every name.
+- **INV-2** — Grass grows only where the picture is green. The same `Grass1`
+  floor grows no clump when its texture is grey.
+  *Test:* `tests/unit/GrassBakeTest.cpp`, "UTA-0293 INV-2".
+  *Breaks when:* `greenness` is not read, or is read from the wrong texel.
+- **INV-3** — Grass grows only on floors. The green `Grass1` texture on a
+  wall, normal horizontal, grows no clump; on a floor tilted 40 degrees, it
+  does.
+  *Test:* `tests/unit/GrassBakeTest.cpp`, "UTA-0293 INV-3".
+  *Breaks when:* the `GRASS_SLOPE` test is skipped or reversed.
+- **INV-4** — Grass never grows under water. The green `Grass1` floor in a
+  water zone grows no clump.
+  *Test:* `tests/unit/GrassBakeTest.cpp`, "UTA-0293 INV-4".
+  *Breaks when:* `Zone::water` is not read.
+- **INV-5** — Grass never hides a pickup. With a placed actor of a class
+  descending from `engine.inventory` at the floor's centre, no clump lies
+  within `PICKUP_CLEAR` of it horizontally, and clumps lie beyond it.
+  *Test:* `tests/unit/GrassBakeTest.cpp`, "UTA-0293 INV-5".
+  *Breaks when:* the clearance is not applied, or its distance is
+  three-dimensional.
+- **INV-6** — The same map plants the same grass. Two bakes of the INV-1
+  fixture write byte-identical `VEGE` sections.
+  *Test:* `tests/unit/GrassBakeTest.cpp`, "UTA-0293 INV-6".
+  *Breaks when:* a random choice is seeded from anything but the triangle
+  and the grid cell.
+- **INV-7** — `VEGE` reads back what was written, and refuses a clump whose
+  material is outside MATS, whose chart is outside SMSK and not
+  `MASK_NO_CHART`, or whose base is not finite; and a cell whose run passes
+  the clump count.
+  *Test:* `tests/unit/GrassSectionTest.cpp`, "UTA-0293 INV-7".
+  *Breaks when:* any one of those checks is dropped.
+- **INV-8** — Below High, grass draws nothing. A grass floor drawn at Medium
+  with its `VEGE` and without it gives the same image.
+  *Test:* `tests/device/RenderGrassTest.cpp`, "UTA-0293 INV-8".
+  *Breaks when:* the grass pass runs below High.
+- **INV-9** — At High, grass stands above the floor. The same pair at High
+  differs in pixels above the floor's horizon line.
+  *Test:* `tests/device/RenderGrassTest.cpp`, "UTA-0293 INV-9".
+  *Breaks when:* the pass draws nothing, or draws flat on the floor.
+- **INV-10** — Grass takes the ground's shadow. A grass floor half under a
+  slab, lit by one light whose mask shadows that half: blades over the
+  shadowed half are darker than blades over the lit half.
+  *Test:* `tests/device/RenderGrassTest.cpp`, "UTA-0293 INV-10".
+  *Breaks when:* blades light themselves without the clump's chart and
+  texel.
+- **INV-11** — Grass ends at range. A grass floor whose every cell lies
+  beyond `GRASS_END` draws the same at High with and without its `VEGE`.
+  *Test:* `tests/device/RenderGrassTest.cpp`, "UTA-0293 INV-11".
+  *Breaks when:* cells are not culled by distance, or the fade does not
+  reach zero.
+- **INV-12** — Grass sways. At High, the floor drawn at light times 0 and 1
+  differs; drawn twice at 0, it does not.
+  *Test:* `tests/device/RenderGrassTest.cpp`, "UTA-0293 INV-12".
+  *Breaks when:* the wind ignores `time`.
+- **INV-13** — A changed `VEGE` re-uploads. At High, moving every clump of
+  one bundle in place, between two draws by one renderer, changes the image.
+  *Test:* `tests/device/RenderGrassTest.cpp`, "UTA-0293 INV-13", which
+  edits one bundle in place as `RenderSunTest.cpp` does.
+  *Breaks when:* `shapeOf` does not sample `VEGE`.
+
+## 6. Failure modes
+
+- **A name the test misses or wrongly matches.** A green floor named
+  `Ground3` that is moss on stone grows grass; a lawn named `Floor7` grows
+  none. Accepted for a first iteration; a recipe override is § 9's.
+- **Grass through thin geometry.** A clump on a floor beside a wall can lean
+  through it. Accepted: blades are at most 20 units tall.
+- **A mover over grass.** Blades can poke through a lift or door resting on
+  grass, since nothing pushes them aside. Accepted for a first iteration.
+- **Too many clumps.** Past `GRASS_CLUMP_LIMIT` the map bakes without grass
+  and the bake report says so. § 2's census counts names, not area, so
+  nothing yet says whether any map reaches it.
+
+## 7. Tests
+
+INV-1, INV-2, INV-3, INV-4, INV-5 and INV-6 are unit tests on hand-built
+fixture levels. INV-7 is the section codec's unit test. INV-8, INV-9,
+INV-10, INV-11, INV-12 and INV-13 are device tests, run on Mesa's
+CPU driver and the GPU under the validation layer and sync validation, as
+every device test is. Every
+existing device test draws a map with no `VEGE` and must pass unchanged.
+
+## 8. Alternatives considered (and rejected)
+
+- **Alpha-tested grass cards from a picture.** The usual cheap method, but
+  every card overdraws and discards, which defeats the early depth test that
+  keeps the opaque pass cheap, and it needs a made picture. Blades built in
+  the vertex shader draw opaque, with no picture. Rejected.
+- **Plant at load time, not at bake time.** No format change, but the
+  greenness test needs the base pictures decoded, which the baker already
+  has; a load-time scatter would repeat that work on every load. Rejected.
+- **Grass only where the sky is seen.** Grass under a roof is still grass,
+  and the light already darkens it. Rejected (§ 3).
+- **A compute pass that culls clumps one by one.** Finer than cells, but a
+  second pass and an indirect draw for a first iteration. Kept for a later
+  performance item if § 13 shows the vertex cost matters.
+
+## 9. Out of scope
+
+- Bushes, flowers, ferns, trees, and UTA-0055's moss, vines, cobwebs and
+  seaweed: they need models, made by headless Blender scripts (user,
+  2026-11-04). `UTA-0449`.
+- A recipe override that forces a material to grow grass or not.
+- Grass parting around players, being trampled or burnt.
+- Grass casting shadows.
+- Impostors for grass beyond `GRASS_END`.
+
+## 10. What checks this
+
+| Claim | Check |
+|---|---|
+| INV-1 to INV-13 | the tests in § 7 |
+| No pass, cull or binding below High | **Partial:** INV-8 checks the image; nothing counts the work |
+| Grass looks like grass | nothing; set by eye in § 13 |
+| Existing maps unchanged below High | every existing device test |
+
+## 11. Cross-doc impact
+
+- `docs/specs/UTA-0055-swaying-cloth-and-water.md` § 3 sends moss, vines,
+  cobwebs and seaweed here; this spec moves them to a later item (§ 9). No
+  clause there changes.
+- `docs/specs/UTA-0326-baked-shadow-mask.md`: read, not changed.
+- `CLAUDE.md` § Standing facts names the bundle format and baker revision;
+  they become 35 and 75 when this ships.
+
+## 12. Cold-eyes loop log
+
+`docs/reviews/UTA-0293-grass-loop-log.md`. No review runs: the gate is
+cancelled for this project.
+
+## 13. Resource cost
+
+To be measured when built: `ut-bench frame` at High, 2560x1440 (the
+frame-rate target), on MH-Vale_Evelyn and MH-SDM-FatherDougalUM_beta1
+(§ 2's census), with grass
+on against off in one job, the grass step named apart. **If grass costs
+more than 1 ms at High on either map, `Feature::Grass` moves to Ultra**
+until a performance item brings it under. Recorded here with the date, as
+are the first values of § 4.5 and how they were chosen.
