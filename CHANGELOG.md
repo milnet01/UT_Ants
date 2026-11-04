@@ -12,6 +12,18 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ## [Unreleased]
 
+### Added
+
+- **See-through glass reflects the sky or the room, faintly, as window glass does** (UTA-0272)
+  The bake marks a material as a glass pane when its texture's name holds
+  "glas" or "window"; a census of every map in the install found that
+  neither the name nor the see-through flag alone tells glass apart. A
+  pane drawn see-through reflects the sky or the room's baked light by
+  Fresnel's law: faint looking straight at it, stronger at a glancing
+  angle. Opaque, unlit and modulated glass draw as before, and below
+  Medium nothing changes. Bundle format 34, baker revision 74: re-bake
+  every map.
+
 ## [0.1.0] - 2026-11-04
 
 **Theme:** Bake and render.

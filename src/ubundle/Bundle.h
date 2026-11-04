@@ -78,7 +78,8 @@ namespace uta::ubundle {
 /// 31 since UTA-0391 gave PSKY its haze start.
 /// 32 since UTA-0397 gave LPRB each probe's reach.
 /// 33 since UTA-0439 gave each MOVR shape its still byte.
-inline constexpr std::uint32_t FORMAT_VERSION = 33;
+/// 34 since UTA-0272 gave each MATS material its pane byte.
+inline constexpr std::uint32_t FORMAT_VERSION = 34;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -276,6 +277,9 @@ struct MaterialRecord {
     /// are keyed on. All zero where no answer may apply -- SS 4.2 step 1's
     /// exclusions -- so applyTileAnswers leaves that material as baked.
     std::array<std::byte, 32> tileHash{};
+    /// UTA-0272: the bake judged this a glass pane by its texture's name. The
+    /// renderer reflects it only where it is drawn translucent.
+    bool pane = false;
 };
 
 /// How a vertex may move -- UTA-0055 SS 4.1. A byte past Water is refused,

@@ -18777,7 +18777,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-09-29.
   Lanes: umat, urender, ubundle.
 
-- 📋 [UTA-0272] **urender: glass that looks like glass, with a cheap faked reflection.**
+- 🚧 [UTA-0272] **urender: glass that looks like glass, with a cheap faked reflection.**
   Split from UTA-0089 by the user, 2026-10-02: water first, glass as
   its own item. The user's original ask (2026-09-10) covered both.
 
@@ -18805,6 +18805,17 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Sglass, Tglass_*, Window*, sGlasW*, DemGlass*, Nwindow*), drawn
   Translucent or Modulated, never Unlit; a map recipe may add or remove a
   surface. Its precision is unchecked by eye.
+  Built 2026-11-04 (format 34, baker 74). The rule is ubake/Panes.h: a
+  texture name holding "glas" or "window", never a liquid, flame or fire.
+  scene.frag reflects a pane drawn Translucent (not Modulated, Unlit or a
+  backdrop) as water does, R0 0.04, at Medium and up. Device tests in
+  RenderWaterTest [pane]: grazing gain 123 levels against 39 straight on
+  (Mesa CPU driver); killed with the branch disabled. Seen on AS-Frigate:
+  the window gains a faint reflection, at most 24 levels at 35 degrees from
+  inside a dim room. CTF-Command's panes are marked in its MATS, but the
+  cameras built from surface base points missed them. Frame cost not
+  measured: the branch runs on pane fragments only. Left open: the pane
+  look is faint by physics; a stronger fake would be a separate call.
   **Layman:** Windows and glass panes should look like glass, with a faint reflection, once we can tell which surfaces are glass.
   Kind: feature.
   Source: user-request-2026-10-02 split-from-UTA-0089.

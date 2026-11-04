@@ -568,6 +568,18 @@ void main() {
             ? skyAt(r)
             : waterProbeReflection(probePointOn(surface), r);
         share = waterShare(n, v);
+    } else if (WATER_LOOK && !flaming && material.pane != 0u
+               && (draw.polyFlags & (PF_TRANSLUCENT | PF_MODULATED | PF_UNLIT | PF_FAKE_BACKDROP)) == PF_TRANSLUCENT) {
+        // UTA-0272: a glass pane drawn translucent reflects the sky or the
+        // probes as water does, about its flat face. `surface` already faces
+        // the eye, so a two-sided pane seen from behind is no mirror. Modulated
+        // glass is left alone: it multiplies what is behind it, and added light
+        // would not.
+        reflects = true;
+        vec3 v = normalize(frame.eye - worldPosition);
+        vec3 r = reflect(-v, surface);
+        reflected = waterSeesSky(r, zone) ? skyAt(r) : waterProbeReflection(probePointOn(surface), r);
+        share = fresnelShare(surface, v, GLASS_R0);
     }
 
     vec3 colour;

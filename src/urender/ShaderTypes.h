@@ -249,8 +249,9 @@ struct Material {
     std::uint32_t detail;        ///< UTA-0275: its DetailTexture picture, or NONE
     std::array<float, 2> detailRepeats; ///< UTA-0275: detail repeats per repeat of the base, u and v
     std::uint32_t tileKind;      ///< UTA-0277 SS 4.1: ubundle::TileKind's value; only 1 moves its repeats
+    std::uint32_t pane;          ///< UTA-0272: 1 for a glass pane, which reflects where drawn translucent
 };
-static_assert(sizeof(Material) == 56);
+static_assert(sizeof(Material) == 60);
 static_assert(offsetof(Material, base) == 0);
 static_assert(offsetof(Material, normal) == 4);
 static_assert(offsetof(Material, rough) == 8);
@@ -264,6 +265,7 @@ static_assert(offsetof(Material, glass) == 36);
 static_assert(offsetof(Material, detail) == 40);
 static_assert(offsetof(Material, detailRepeats) == 44);
 static_assert(offsetof(Material, tileKind) == 52);
+static_assert(offsetof(Material, pane) == 56);
 
 /// One light, as UT99's own numbers -- the shader turns them into light
 /// (SS 3 decision 5), so no part of UTA-0112 SS 4.3's model is computed here.

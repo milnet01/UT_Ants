@@ -124,6 +124,7 @@ struct Material {
     float detailRepeatU; // UTA-0275: detail repeats per repeat of the base, along u
     float detailRepeatV; // and along v (a vec2 would align to 8 and move the stride)
     uint tileKind;       // UTA-0277: ubundle's TileKind; only TILE_SHUFFLE moves its repeats
+    uint pane;           // UTA-0272: 1 for a glass pane, which reflects where drawn translucent
 };
 
 // UTA-0277 SS 4.1: the tile kind whose repeats are drawn at hashed offsets.

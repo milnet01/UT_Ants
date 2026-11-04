@@ -43,12 +43,21 @@ bool waterReflects(uint liquid) {
     return liquid != NONE && liquids[liquid].kind != LIQUID_ICE;
 }
 
+// UTA-0272: a glass pane's reflectance looking straight down,
+// ((1 - 1.5) / (1 + 1.5))^2. Not fitted: it is window glass's own value. A
+// pane reflects as water does, by the sky and probe helpers below.
+const float GLASS_R0 = 0.04;
+
 // SS 4.2: Schlick's share of light reflected, at the angle between normal `n`
-// and the direction to the eye `v`.
-float waterShare(vec3 n, vec3 v) {
+// and the direction to the eye `v`, for reflectance `r0` looking straight down.
+float fresnelShare(vec3 n, vec3 v, float r0) {
     float c = 1.0 - max(dot(n, v), 0.0);
     float c2 = c * c;
-    return WATER_R0 + (1.0 - WATER_R0) * (c2 * c2 * c);
+    return r0 + (1.0 - r0) * (c2 * c2 * c);
+}
+
+float waterShare(vec3 n, vec3 v) {
+    return fresnelShare(n, v, WATER_R0);
 }
 
 // SS 4.2: whether reflected direction `r` meets the sky -- the level has one,

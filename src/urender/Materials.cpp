@@ -174,7 +174,7 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
     const gpu::Material defaults{.base = 0, .normal = 1, .rough = 2, .height = 3, .emit = gpu::NONE,
                                  .metallic = 0, .parallaxDepth = 0, .flame = gpu::NONE, .liquid = gpu::NONE,
                                  .glass = gpu::NONE, .detail = gpu::NONE, .detailRepeats = {0, 0},
-                                 .tileKind = 0};
+                                 .tileKind = 0, .pane = 0};
 
     std::unordered_map<std::string_view, const ubundle::CompressedTexture*> byName;
     if (bundle.textures)
@@ -255,7 +255,7 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
                                    .height = defaults.height, .emit = gpu::NONE,
                                    .metallic = record.metallic ? 1u : 0u, .parallaxDepth = 0,
                                    .flame = set.rampByRecord_[m], .liquid = liquidByRecord[m], .glass = glass,
-                                   .detail = detail, .detailRepeats = detailRepeats, .tileKind = 0});
+                                   .detail = detail, .detailRepeats = detailRepeats, .tileKind = 0, .pane = 0});
                 continue;
             }
             if (base == gpu::NONE && normal == gpu::NONE && rough == gpu::NONE && height == gpu::NONE) {
@@ -274,7 +274,8 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
                                .metallic = record.metallic ? 1u : 0u, .parallaxDepth = record.parallaxDepth,
                                .flame = set.rampByRecord_[m], .liquid = liquidByRecord[m], .glass = glass,
                                .detail = detail, .detailRepeats = detailRepeats,
-                               .tileKind = static_cast<std::uint32_t>(record.tileKind)});
+                               .tileKind = static_cast<std::uint32_t>(record.tileKind),
+                               .pane = record.pane ? 1u : 0u});
         }
     }
 

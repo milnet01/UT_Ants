@@ -684,7 +684,11 @@ an empty `id`, then one `u8`. It joins UTA-0008 § 4.2's minimum-size table.
 **`UTA-0040` § 4.1 appends the `parallaxDepth` byte**, making it 6 and the
 format version 9. **`UTA-0263` § 4.2 appends the `flame` byte**, making it 7
 and the format version 15. **`UTA-0105` § 4.2 appends the `liquid` byte**,
-making it 8 and the format version 16.
+making it 8 and the format version 16. `UTA-0286` § 4.2's fire look and
+`UTA-0277` § 4.1's tile kind and hash follow, each in its own spec.
+**`UTA-0272` appends the `pane` byte last**, making the minimum 43 and the
+format version 34: `1` where the bake judged the material a glass pane by its
+texture's name (`ubake/Panes.h`), `0` otherwise. Any other byte is refused.
 
 **Validation, in UTA-0008 § 4.9's manner.** A `metallic` byte other than `0`
 or `1` is `MalformedData`, never defaulted. The `id`s are in strictly

@@ -11,9 +11,9 @@ namespace {
 
 /// UTA-0011 SS 4.10: a u32 length for an empty id, then one u8; UTA-0040
 /// SS 4.1's depth byte; UTA-0263 SS 4.2's flame byte; UTA-0105 SS 4.2's
-/// liquid byte; UTA-0286 SS 4.2's fire byte; and UTA-0277 SS 4.1's tile kind
-/// and its 32-byte picture hash.
-constexpr std::uint64_t MIN_MATERIAL = 42;
+/// liquid byte; UTA-0286 SS 4.2's fire byte; UTA-0277 SS 4.1's tile kind
+/// and its 32-byte picture hash; and UTA-0272's pane byte.
+constexpr std::uint64_t MIN_MATERIAL = 43;
 
 /// UTA-0105 SS 4.2's refusals, shared by read and write. Empty when the look
 /// is valid; otherwise what is wrong with it.
@@ -142,6 +142,10 @@ constexpr std::uint64_t MIN_MATERIAL = 42;
         UTA_TRY(const std::uint8_t value, cursor.readU8());
         byte = static_cast<std::byte>(value);
     }
+    // UTA-0272: 0 or 1, refused otherwise, as the metallic byte is.
+    UTA_TRY(const std::uint8_t pane, cursor.readU8());
+    if (pane > 1) return fail(ErrorCode::MalformedData, "MATS: pane byte " + std::to_string(pane) + " is not 0 or 1");
+    record.pane = pane == 1;
     return record;
 }
 
@@ -186,6 +190,7 @@ void putMaterialRecord(Sink& sink, const MaterialRecord& record) {
     }
     sink.putU8(static_cast<std::uint8_t>(record.tileKind)); // UTA-0277
     for (const std::byte byte : record.tileHash) sink.putU8(std::to_integer<std::uint8_t>(byte));
+    sink.putU8(record.pane ? 1 : 0); // UTA-0272
 }
 
 } // namespace

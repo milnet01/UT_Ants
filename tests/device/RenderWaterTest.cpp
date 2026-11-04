@@ -1,6 +1,7 @@
 // UTA-0089: water reflects, and its picture does not repeat exactly --
 // docs/specs/UTA-0089-water-reflections.md SS 4.2 to SS 4.4, INV-1, INV-2 and
 // INV-4 to INV-6. INV-3 is tests/unit/ZonesSeeingSkyTest.cpp's.
+// UTA-0272's glass panes reflect by the same path, last in this file.
 //
 // EVERY SQUARE IS UNLIT, so the probes reach its colour only through a
 // reflection, and every look has amplitude 0, so UTA-0105's ripple neither
@@ -387,4 +388,56 @@ TEST_CASE("UTA-0215: a liquid seen from behind is lit as its front and any other
     CHECK(liquidFront.g > 40);
     CHECK(std::abs(int(liquidBack.g) - int(liquidFront.g)) <= 2);
     CHECK(plainBack.g < 5);
+}
+
+// -- UTA-0272: a glass pane drawn translucent reflects as water does --
+//
+// UNLIKE THE SQUARES ABOVE, THESE ARE LIT: an unlit pane does not reflect.
+// So each is drawn twice, a pane and not, and only the difference is read:
+// both take the same light from the probes, and only the pane reflects them.
+
+/// A red square at x = 100 drawn with `polyFlags`, marked a pane or not, with
+/// probes of `probeColour`.
+uta::ubundle::Bundle glassSquare(bool pane, std::uint32_t polyFlags, std::array<float, 3> probeColour) {
+    uta::ubundle::Geometry geometry;
+    addSquare(geometry, 100, 0, 0, 60, "pane", polyFlags);
+    uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
+    addSolidMaterial(bundle, "pane", Rgba{255, 1, 1, 255});
+    (*bundle.materials)[0].pane = pane;
+    addProbes(bundle, probeColour);
+    return bundle;
+}
+
+/// How much greener the pane draws than the same square unmarked, seen
+/// `degrees` from its normal under green probes.
+int paneGain(std::uint32_t polyFlags, double degrees, Tier tier = Tier::Medium) {
+    const Rgba pane = centreOf(frameOf(glassSquare(true, polyFlags, {0.0f, 0.5f, 0.0f}), viewing(degrees), tier));
+    const Rgba plain = centreOf(frameOf(glassSquare(false, polyFlags, {0.0f, 0.5f, 0.0f}), viewing(degrees), tier));
+    CAPTURE(polyFlags, degrees, pane, plain);
+    return int(pane.g) - int(plain.g);
+}
+
+TEST_CASE("UTA-0272: a translucent glass pane reflects more at a grazing angle than straight down", "[device][pane]") {
+    removeDisplay();
+    // Schlick at R0 0.04: about 0.04 along the normal, about 0.41 at 80 degrees.
+    const int along = paneGain(PF_TRANSLUCENT, 0);
+    const int grazing = paneGain(PF_TRANSLUCENT, 80);
+    CAPTURE(along, grazing);
+    CHECK(grazing >= 20);
+    CHECK(grazing >= along + 15);
+}
+
+TEST_CASE("UTA-0272: only a pane drawn translucent reflects", "[device][pane]") {
+    // Opaque glass-named surfaces are common (UTA-0272's census); modulated
+    // glass multiplies what is behind it; unlit glass glows as it is.
+    removeDisplay();
+    CHECK(paneGain(0, 80) == 0);
+    CHECK(paneGain(PF_TRANSLUCENT | PF_MODULATED, 80) == 0);
+    CHECK(paneGain(PF_TRANSLUCENT | PF_UNLIT, 80) == 0);
+}
+
+TEST_CASE("UTA-0272: below Medium a pane draws as plain glass", "[device][pane]") {
+    // The pane follows the water look's tier switch (UTA-0089 SS 4.5).
+    removeDisplay();
+    CHECK(paneGain(PF_TRANSLUCENT, 80, Tier::Low) == 0);
 }

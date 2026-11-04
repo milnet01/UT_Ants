@@ -174,9 +174,11 @@ namespace {
 // 72, format 33: UTA-0439 charts the movers a map can never move. The
 // fixture's mover has no InitialState, so it is not still; MOVR's still byte
 // and BAKR's revision moved it.
-constexpr std::uint32_t RECORDED_UNDER = 73;
+// 74, format 34: UTA-0272 marks glass panes. The fixture has no glass, so
+// MATS's pane byte and BAKR's revision moved it.
+constexpr std::uint32_t RECORDED_UNDER = 74;
 constexpr std::string_view GOLDEN =
-    "e3bc9e98392ee74f17de56865b8796baf88b23be1bbe3add94f334f7c8953f19";
+    "c1e2a6451cd9b4e42a6766828865005be181c4b80bf2d8694ff2ab7d657d2066";
 
 } // namespace
 

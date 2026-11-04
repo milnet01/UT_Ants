@@ -57,6 +57,7 @@ Bytes matsPayload() {
     out.u8(0); // fire: none
     out.u8(0); // tile kind: Fixed
     for (int i = 0; i < 32; ++i) out.u8(0);
+    out.u8(0); // pane: no -- UTA-0272
     out.str("b");
     out.u8(0);
     out.u8(0);
@@ -66,6 +67,7 @@ Bytes matsPayload() {
     out.u8(0);
     out.u8(0);
     for (int i = 0; i < 32; ++i) out.u8(0);
+    out.u8(0); // pane: no
     return out;
 }
 
@@ -182,7 +184,7 @@ Bytes lampPayload(const std::vector<AddedLamp>& lamps) {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(33); // formatVersion -- 33 since UTA-0439 gave MOVR each shape's still byte
+    out.u32(34); // formatVersion -- 34 since UTA-0272 gave MATS each material's pane byte
     out.u8(1);   // origin: Authored
     out.u8(0);   // kind: Map
     out.u16(0);  // reserved

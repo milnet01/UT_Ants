@@ -19,6 +19,7 @@
 #include "ubake/StillMovers.h"
 #include "ubake/Movers.h"
 #include "ubake/Name.h"
+#include "ubake/Panes.h"
 #include "ubake/Strips.h"
 #include "ubake/SurfaceRays.h"
 #include "ubake/Zones.h"
@@ -1033,6 +1034,8 @@ Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapNa
                                                           variant.masked ? std::uint8_t{0} : made->material.parallaxDepth,
                                                           made->flame, made->liquid, std::move(made->fire),
                                                           ubundle::TileKind::Fixed, made->tileHash});
+            // UTA-0272: a liquid, flame or fire keeps its own look, never a pane's.
+            out.records.back().pane = isGlassPane(id) && !made->liquid && !made->flame && !out.records.back().fire;
             if (made->tileScores.has_value()) out.tileScores.emplace(id, *made->tileScores);
             if (!made->liquidSkipped.empty())
                 out.skippedLiquids.push_back(SkippedTexture{id, std::move(made->liquidSkipped)});
