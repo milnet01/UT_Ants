@@ -18777,7 +18777,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-09-29.
   Lanes: umat, urender, ubundle.
 
-- 🚧 [UTA-0272] **urender: glass that looks like glass, with a cheap faked reflection.**
+- ✅ [UTA-0272] **urender: glass that looks like glass, with a cheap faked reflection.**
   Split from UTA-0089 by the user, 2026-10-02: water first, glass as
   its own item. The user's original ask (2026-09-10) covered both.
 
@@ -18816,6 +18816,8 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   cameras built from surface base points missed them. Frame cost not
   measured: the branch runs on pane fragments only. Left open: the pane
   look is faint by physics; a stronger fake would be a separate call.
+  Shipped 97ecb96, green on GitHub's matrix and the local gate (GCC 14,
+  Clang 19, MSVC), 2026-11-04.
   **Layman:** Windows and glass panes should look like glass, with a faint reflection, once we can tell which surfaces are glass.
   Kind: feature.
   Source: user-request-2026-10-02 split-from-UTA-0089.
