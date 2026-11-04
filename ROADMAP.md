@@ -18823,7 +18823,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-10-02 split-from-UTA-0089.
   Lanes: urender, ubake.
 
-- 🚧 [UTA-0273] **urender: see-through water that wobbles, and deep water that darkens.**
+- ✅ [UTA-0273] **urender: see-through water that wobbles, and deep water that darkens.**
   Split from UTA-0089 by the user, 2026-10-02: the cheap part first
   (reflections, Fresnel, less tiling), this after it, measured.
 
@@ -18852,6 +18852,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   tests in RenderRefractionTest.cpp, green on lvp and the RX 6600, each
   proved red by a hand mutant. SS 13 measured: 0.7 to 1.4 ms at 4K
   Ultra, most of it the copy (UTA-0448). Flips on GitHub's matrix.
+  Shipped at 725e0c5, green on GitHub's matrix (run 41874478973).
   **Layman:** Looking into water should show what is under it bent by the ripples, with deeper water looking darker, like a real lake.
   Kind: feature.
   Source: user-request-2026-10-02 split-from-UTA-0089.
