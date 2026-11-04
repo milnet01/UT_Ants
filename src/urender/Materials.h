@@ -63,6 +63,10 @@ public:
     /// The material a batch naming `id` draws with.
     [[nodiscard]] std::uint32_t indexOf(const std::string& id);
 
+    /// UTA-0273 SS 4.1: whether the material `indexOf` returned as `index`
+    /// is a Wet or Wave liquid that is not drawn as flame; false past the end.
+    [[nodiscard]] bool isWater(std::uint32_t index) const noexcept;
+
     [[nodiscard]] const std::vector<Image>& textures() const noexcept { return textures_; }
     [[nodiscard]] const Buffer& records() const noexcept { return records_; }
 
@@ -106,6 +110,7 @@ private:
     std::vector<FireReplay> fires_;
     Buffer fireStaging_;
     std::vector<std::uint32_t> rampByRecord_; ///< by MATS index
+    std::vector<bool> waterByIndex_; ///< UTA-0273: by indexOf's index
     std::unordered_map<std::string, std::uint32_t> byId_;
     std::unordered_set<std::string> reported_;
 };

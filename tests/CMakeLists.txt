@@ -226,6 +226,7 @@ add_executable(uta_device_tests
     device/RenderOutputStageTest.cpp
     device/RenderParallaxTest.cpp
     device/RenderProbeTest.cpp
+    device/RenderRefractionTest.cpp
     device/RenderShadowTest.cpp
     device/RenderSurfaceFlagsTest.cpp
     device/RenderTiersTest.cpp

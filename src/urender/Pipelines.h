@@ -6,6 +6,8 @@
 // material is a bindless index pushed as a constant, so two batches differing
 // only in material share a pipeline; two sharing a material and differing in
 // flags may not, because the flags select cull mode, blending and depth write.
+// UTA-0273's refracting water is the one exception: its pipeline is chosen by
+// its material too, through refractFor.
 // Masking, unlit and sky are tested bit by bit in the shaders instead, so six
 // scene pipelines -- three blends, each one- or two-sided -- and two depth
 // pipelines (UTA-0260) cover every flag word.
@@ -52,11 +54,16 @@ public:
 
     [[nodiscard]] VkDescriptorSetLayout sceneSetLayout() const noexcept { return sceneSetLayout_; }
     [[nodiscard]] VkDescriptorSetLayout postSetLayout() const noexcept { return postSetLayout_; }
+    /// UTA-0273 SS 4.3: set 1 of sceneLayout, the scene copy then the depth.
+    [[nodiscard]] VkDescriptorSetLayout refractSetLayout() const noexcept { return refractSetLayout_; }
     [[nodiscard]] VkPipelineLayout sceneLayout() const noexcept { return sceneLayout_; }
     [[nodiscard]] VkPipelineLayout postLayout() const noexcept { return postLayout_; }
 
     /// The forward pipeline a batch carrying `polyFlags` is drawn with.
     [[nodiscard]] VkPipeline sceneFor(std::uint32_t polyFlags) const noexcept;
+    /// UTA-0273 SS 4.4: the pipeline a refracting batch carrying `polyFlags`
+    /// is drawn with, reading set 1; null below Ultra, where none refracts.
+    [[nodiscard]] VkPipeline refractFor(std::uint32_t polyFlags) const noexcept;
     /// UTA-0260: the pipeline that draws such a batch's depth alone, ahead of
     /// the forward pass. The scene's own vertex stage and no fragment stage.
     [[nodiscard]] VkPipeline depthFor(std::uint32_t polyFlags) const noexcept;
@@ -120,10 +127,13 @@ private:
     std::uint32_t textureCapacity_ = 0;
     VkDescriptorSetLayout sceneSetLayout_ = VK_NULL_HANDLE;
     VkDescriptorSetLayout postSetLayout_ = VK_NULL_HANDLE;
+    VkDescriptorSetLayout refractSetLayout_ = VK_NULL_HANDLE; ///< UTA-0273
     VkPipelineLayout sceneLayout_ = VK_NULL_HANDLE;
     VkPipelineLayout postLayout_ = VK_NULL_HANDLE;
     /// Indexed [Blending][twoSided]: Blending is Pipelines.cpp's, opaque, translucent, modulated.
     std::array<std::array<VkPipeline, 2>, 3> scene_{};
+    /// UTA-0273: indexed [twoSided]; null below Ultra.
+    std::array<VkPipeline, 2> refract_{};
     /// UTA-0260: indexed [twoSided].
     std::array<VkPipeline, 2> depth_{};
     VkPipeline flame_ = VK_NULL_HANDLE;

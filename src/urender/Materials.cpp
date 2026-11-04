@@ -342,6 +342,13 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
         UTA_TRY(set.fireStaging_,
                 Buffer::create(gpu, fireStagingBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, BufferMemory::HostWrite));
     }
+    // UTA-0273 SS 4.1: the liquids water.glsl's waterReflects takes, Wet or
+    // Wave, on a material with no flame look, which scene.frag draws as flame.
+    set.waterByIndex_.reserve(records.size());
+    for (const gpu::Material& record : records)
+        set.waterByIndex_.push_back(record.liquid != gpu::NONE && record.flame == gpu::NONE
+                                    && liquids.entries[record.liquid].kind
+                                           != static_cast<std::uint32_t>(ubundle::LiquidKind::Ice));
     UTA_TRY(set.records_, Buffer::upload(gpu, std::as_bytes(std::span(records)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
     UTA_TRY(set.ramps_,
             Buffer::upload(gpu, std::as_bytes(std::span(ramps.entries)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
@@ -403,6 +410,10 @@ void MaterialSet::recordFireUploads(VkCommandBuffer commands) {
 
 std::uint32_t MaterialSet::rampOf(std::uint32_t record) const noexcept {
     return record < rampByRecord_.size() ? rampByRecord_[record] : gpu::NONE;
+}
+
+bool MaterialSet::isWater(std::uint32_t index) const noexcept {
+    return index < waterByIndex_.size() && waterByIndex_[index];
 }
 
 std::uint32_t MaterialSet::indexOf(const std::string& id) {

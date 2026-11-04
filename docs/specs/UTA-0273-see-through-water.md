@@ -102,6 +102,19 @@ draws as the background alone, which is the soft shore. Where `fade` is 1,
 eye on § 13's maps and recorded there with how they were chosen. They are not
 fitted to the original game, which draws none of this.
 
+**As built, 2026-11-04** (`water.glsl`'s `seeThrough`):
+
+- `picture` is the whole colour the old blend added, its reflection
+  included, so the fade softens the reflection at the shore too. The
+  formula's last line is folded into the one before it.
+- `behind` is read unfiltered, at the very pixel whose depth was tested. A
+  filtered read blended in that pixel's neighbours, and next to a nearer
+  surface one of them was that surface: INV-5 failed on it.
+- `REFRACTION_PIXELS` is pixels of a 1080-line view, for water 256 units
+  from the eye, per unit of tilt.
+- A sky window (`PF_FakeBackdrop`) never refracts: it draws the sky, not
+  what is behind it.
+
 ### 4.5 Tiers
 
 `Feature::WaterRefraction` is drawn from `Tier::Ultra` (`Tiers.h`). Below
@@ -127,8 +140,9 @@ sampled.
   *Test:* `tests/device/RenderRefractionTest.cpp`, "UTA-0273 INV-3".
   *Breaks when:* the picture is not faded by `thickness`.
 - **INV-4** — A ripple bends what is behind. Over a checker floor, at Ultra,
-  a Wave liquid with amplitude 40 changes more pixels against amplitude 0
-  than the same pair does at High.
+  a Wave liquid with amplitude 128 changes more pixels against amplitude 0
+  than the same pair does at High. *Amended 2026-11-04:* said 40, whose
+  tilt bends the floor too little to count.
   *Test:* `tests/device/RenderRefractionTest.cpp`, "UTA-0273 INV-4".
   *Breaks when:* `behind` is read without the offset.
 - **INV-5** — Nothing in front of the water shows through it. A red pillar
@@ -198,3 +212,26 @@ To be measured when built: `ut-bench frame` at Ultra, 3840x2160, on maps
 with water in view (DM-ArcaneTemple's pool, AS-OceanFloor), the refraction
 on against off in one job, the copy's time named apart. Recorded here with
 the date.
+
+**Measured 2026-11-04**, RX 6600, `ut-bench frame --size 3840x2160
+--render-scale 1`, both maps freshly baked (baker 74). Off is `--tier high`, the
+nearest tier without it; its scene pipelines also march fewer parallax steps. The figure is
+the translucent step's median GPU time over every still frame, two runs
+each:
+
+| Map, views | Off | Copy only | On |
+|---|---|---|---|
+| DM-ArcaneTemple, three over the central pool | 4.00 to 4.08 ms | 5.25 ms | 5.33 to 5.46 ms |
+| AS-OceanFloor, two over its pond | 1.40 to 1.50 ms | 1.98 ms | 2.15 to 2.18 ms |
+
+"Copy only" is a throwaway build in which the copy runs and the water draws
+with the old blend. So the copy is most of the cost, 0.6 to 1.2 ms, and the
+refracting shading 0.1 to 0.2 ms. Why the same-size copy costs twice as much
+on one map is not known. `UTA-0448` takes it up.
+
+**The first values**, chosen 2026-11-04 by eye on DM-ArcaneTemple's pool,
+Ultra against High from the same cameras: `REFRACTION_PIXELS` 64, since 24
+moved the floor two or three pixels; `ABSORPTION` red 0.0046, green 0.0018,
+blue 0.0009 a unit, about half the red gone in 150 units; `SHORE_UNITS` 24.
+The floor reads slightly greener through the water and the seam at the
+wall is softer; the bend is hard to see in a still.

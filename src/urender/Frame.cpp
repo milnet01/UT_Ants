@@ -464,8 +464,9 @@ void setViewportTo(VkCommandBuffer commands, VkExtent2D extent) {
     vkCmdSetScissor(commands, 0, 1, &scissor);
 }
 
-/// Which of the scene's passes recordBatches draws for.
-enum class ScenePass : std::uint8_t { Depth, Opaque, Translucent };
+/// Which of the scene's passes recordBatches draws for. UTA-0273: Refract is
+/// the translucent pass's second half, the refracting water alone.
+enum class ScenePass : std::uint8_t { Depth, Opaque, Translucent, Refract };
 
 /// The scene's targets -- colour, velocity, emission and depth -- over the
 /// drawn region. Each pass after the first loads what the one before stored.
@@ -534,8 +535,14 @@ struct Renderer::Impl {
     VkDescriptorSet emissionSet = VK_NULL_HANDLE;
     std::array<VkDescriptorSet, BLOOM_LEVELS> bloomSets{};
     VkSampler bloomSampler = VK_NULL_HANDLE;
+    /// UTA-0273 SS 4.3: the refracting water's scene copy and depth; written
+    /// only where the tier refracts.
+    VkDescriptorSet refractSet = VK_NULL_HANDLE;
 
     Image hdr, velocity, depth, output;
+    /// UTA-0273 SS 4.2: hdr as it stood before the refracting water drew. Made
+    /// only where the tier refracts.
+    Image sceneCopy;
     /// UTA-0154: FSR 1's input and EASU's output. Only a renderer whose scale
     /// can drop below 1 makes them.
     Image upscaleInput, upscaled;
@@ -729,6 +736,8 @@ struct Renderer::Impl {
     void recordDepthPrePass(VkCommandBuffer commands, SceneTargets& targets, VkExtent2D region);
     void recordOpaque(VkCommandBuffer commands, const SceneTargets& targets, VkExtent2D region);
     void recordTranslucent(VkCommandBuffer commands, SceneTargets& targets, VkExtent2D region);
+    [[nodiscard]] bool refracts(const DrawItem& item) const;
+    void recordRefraction(VkCommandBuffer commands, SceneTargets& targets, VkExtent2D region);
     void recordFlames(VkCommandBuffer commands, SceneTargets& targets, VkExtent2D region);
     [[nodiscard]] bool skyCaptureLeavesOut(const DrawItem& item, ScenePass pass) const;
     void recordBatches(VkCommandBuffer commands, ScenePass pass, VkExtent2D region);
@@ -749,7 +758,15 @@ Result<void> Renderer::Impl::createTargets() {
                                           VK_IMAGE_USAGE_TRANSFER_SRC_BIT}));
     UTA_TRY(velocity, Image::create(*gpu, {VELOCITY_FORMAT, w, h, 1,
                                            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT}));
-    UTA_TRY(depth, Image::create(*gpu, {DEPTH_FORMAT, w, h, 1, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT}));
+    // UTA-0273 SS 4.3: sampled by the refracting water, where the tier has it.
+    const bool refracting = enabled(Feature::WaterRefraction, tier);
+    UTA_TRY(depth, Image::create(*gpu, {DEPTH_FORMAT, w, h, 1,
+                                        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT
+                                            | (refracting ? VK_IMAGE_USAGE_SAMPLED_BIT : VkImageUsageFlags{0})}));
+    if (refracting) {
+        UTA_TRY(sceneCopy, Image::create(*gpu, {HDR_FORMAT, w, h, 1,
+                                                VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT}));
+    }
     UTA_TRY(output, Image::create(*gpu, {OUTPUT_FORMAT, w, h, 1,
                                          VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT}));
     // UTA-0053: the emission target at the output's size, and the bloom chain
@@ -1095,14 +1112,15 @@ Result<void> Renderer::Impl::writeDescriptors() {
         // The atlas and the three post sets' sources, then UTA-0053's: bloom in
         // each post set, and one source per bloom step; then UTA-0015's fog
         // volume and UTA-0356's fog history.
+        // UTA-0273: the refract set's two.
         VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                             textureCount + 4 + 3 + 1 + static_cast<std::uint32_t>(BLOOM_LEVELS) + 1 + 1},
+                             textureCount + 4 + 3 + 1 + static_cast<std::uint32_t>(BLOOM_LEVELS) + 1 + 1 + 2},
         // UTA-0015: the fog set's two images; UTA-0333's haze shadow.
         VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 3},
     };
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.maxSets = 4 + 1 + static_cast<std::uint32_t>(BLOOM_LEVELS) + 1;
+    poolInfo.maxSets = 4 + 1 + static_cast<std::uint32_t>(BLOOM_LEVELS) + 1 + 1;
     poolInfo.poolSizeCount = static_cast<std::uint32_t>(sizes.size());
     poolInfo.pPoolSizes = sizes.data();
     UTA_CHECK(created(vkCreateDescriptorPool(device, &poolInfo, nullptr, &pool), pool, "vkCreateDescriptorPool"));
@@ -1152,6 +1170,14 @@ Result<void> Renderer::Impl::writeDescriptors() {
     fogAllocate.descriptorSetCount = 1;
     fogAllocate.pSetLayouts = &fogLayout;
     UTA_CHECK(check(vkAllocateDescriptorSets(device, &fogAllocate, &fogSet), "vkAllocateDescriptorSets (fog)"));
+
+    // UTA-0273 SS 4.3: the refracting water's set 1.
+    const VkDescriptorSetLayout refractLayout = pipelines->refractSetLayout();
+    VkDescriptorSetAllocateInfo refractAllocate = postAllocate;
+    refractAllocate.descriptorSetCount = 1;
+    refractAllocate.pSetLayouts = &refractLayout;
+    UTA_CHECK(check(vkAllocateDescriptorSets(device, &refractAllocate, &refractSet),
+                    "vkAllocateDescriptorSets (refract)"));
 
     const std::array<const Buffer*, gpu::MASK_PAIRS + 1> buffers = {
         &frameData,     &objects,       &materials->records(), &lights,     &clusterCounts,
@@ -1280,6 +1306,22 @@ Result<void> Renderer::Impl::writeDescriptors() {
         rcasWrite.dstSet = rcasSet;
         rcasWrite.pImageInfo = &rcasInfo;
         writes.push_back(rcasWrite);
+    }
+
+    // UTA-0273 SS 4.3: both read texel by texel, the copy at the pixel whose
+    // depth was tested (water.glsl's seeThrough).
+    const VkDescriptorImageInfo copyInfo{nearestSampler, sceneCopy.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    const VkDescriptorImageInfo depthInfo{nearestSampler, depth.view(), VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL};
+    if (sceneCopy.handle() != VK_NULL_HANDLE) {
+        VkWriteDescriptorSet copyWrite = hdrWrite;
+        copyWrite.dstSet = refractSet;
+        copyWrite.dstBinding = 0;
+        copyWrite.pImageInfo = &copyInfo;
+        writes.push_back(copyWrite);
+        VkWriteDescriptorSet depthWrite = copyWrite;
+        depthWrite.dstBinding = 1;
+        depthWrite.pImageInfo = &depthInfo;
+        writes.push_back(depthWrite);
     }
 
     vkUpdateDescriptorSets(device, static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
@@ -1540,6 +1582,52 @@ void Renderer::Impl::recordTranslucent(VkCommandBuffer commands, SceneTargets& t
     vkCmdBeginRendering(commands, &rendering);
     recordBatches(commands, ScenePass::Translucent, region);
     vkCmdEndRendering(commands);
+    recordRefraction(commands, targets, region);
+}
+
+/// UTA-0273 SS 4.2: whether `item` is refracting water this frame -- a Wet or
+/// Wave liquid drawn translucent and not modulated, at a tier that refracts.
+/// A sky window is left out: it draws the sky, not what lies behind it.
+bool Renderer::Impl::refracts(const DrawItem& item) const {
+    return pipelines->refractFor(item.polyFlags) != VK_NULL_HANDLE
+           && (item.polyFlags & (gpu::PF_TRANSLUCENT | gpu::PF_MODULATED | gpu::PF_FAKE_BACKDROP)) == gpu::PF_TRANSLUCENT
+           && materials->isWater(item.materialIndex);
+}
+
+/// UTA-0273 SS 4.2 and SS 4.3: the translucent pass's second half. Only when a
+/// refracting batch draws, hdr's drawn region is copied, and the refracting
+/// batches draw over it with the depth attached read-only and sampled at once.
+void Renderer::Impl::recordRefraction(VkCommandBuffer commands, SceneTargets& targets, VkExtent2D region) {
+    const auto drawn = [&](const DrawItem& item) {
+        return refracts(item) && !skyCaptureLeavesOut(item, ScenePass::Refract);
+    };
+    if (!std::ranges::any_of(geometry->draws, drawn)) return;
+
+    hdr.transition(commands, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    sceneCopy.transition(commands, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    VkImageCopy copy{};
+    copy.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+    copy.dstSubresource = copy.srcSubresource;
+    copy.extent = {region.width, region.height, 1};
+    vkCmdCopyImage(commands, hdr.handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, sceneCopy.handle(),
+                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
+    sceneCopy.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    hdr.transition(commands, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    depth.transition(commands, VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL);
+
+    // Read-only, so it stores nothing: a STORE here writes the attachment at
+    // the pass's end, which the transition below would then race.
+    targets.depth.imageLayout = VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL;
+    targets.depth.storeOp = VK_ATTACHMENT_STORE_OP_NONE;
+    const VkRenderingInfo rendering = targets.rendering(1);
+    vkCmdBeginRendering(commands, &rendering);
+    recordBatches(commands, ScenePass::Refract, region);
+    vkCmdEndRendering(commands);
+
+    // The flames' pass attaches the depth as every pass before this one did.
+    depth.transition(commands, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+    targets.depth.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+    targets.depth.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 }
 
 /// 2.5. Camera-facing flames (UTA-0263 SS 4.4). Additive, so their order does
@@ -1603,6 +1691,9 @@ void Renderer::Impl::recordBatches(VkCommandBuffer commands, ScenePass pass, VkE
     vkCmdBindIndexBuffer(commands, geometry->indices.handle(), 0, VK_INDEX_TYPE_UINT32);
     vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->sceneLayout(), 0, 1, &sceneSet, 0,
                             nullptr);
+    if (pass == ScenePass::Refract)
+        vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->sceneLayout(), 1, 1, &refractSet,
+                                0, nullptr);
     // UTA-0269: the pan in double, then its fraction, so a float never
     // holds rate * seconds, which loses the fraction within the hour.
     // UTA-0276: times the camera's zone's speed on that axis.
@@ -1616,13 +1707,17 @@ void Renderer::Impl::recordBatches(VkCommandBuffer commands, ScenePass pass, VkE
         if (skyCaptureLeavesOut(item, pass)) continue;
         // UTA-0271: a modulated surface blends too, so it is drawn with them.
         const bool blended = (item.polyFlags & (gpu::PF_TRANSLUCENT | gpu::PF_MODULATED)) != 0;
-        if (blended != (pass == ScenePass::Translucent)) continue;
+        const bool blendedPass = pass == ScenePass::Translucent || pass == ScenePass::Refract;
+        if (blended != blendedPass) continue;
+        // UTA-0273 SS 4.2: refracting water draws in the second half alone.
+        if (blendedPass && refracts(item) != (pass == ScenePass::Refract)) continue;
         // A masked surface's holes are its shader's to cut, so its depth is
         // not drawn ahead; it is tested and written in the forward pass.
         if (pass == ScenePass::Depth && (item.polyFlags & gpu::PF_MASKED) != 0) continue;
         vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                          pass == ScenePass::Depth ? pipelines->depthFor(item.polyFlags)
-                                                   : pipelines->sceneFor(item.polyFlags));
+                          pass == ScenePass::Depth     ? pipelines->depthFor(item.polyFlags)
+                          : pass == ScenePass::Refract ? pipelines->refractFor(item.polyFlags)
+                                                       : pipelines->sceneFor(item.polyFlags));
         // A mirrored mover winds the other way on screen, so its front face is the other one.
         const VkFrontFace front = mirrored[item.objectIndex] ? VK_FRONT_FACE_COUNTER_CLOCKWISE : VK_FRONT_FACE_CLOCKWISE;
         vkCmdSetFrontFace(commands, front);

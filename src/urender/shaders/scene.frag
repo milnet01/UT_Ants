@@ -9,6 +9,9 @@
 // One shader for the opaque and the translucent pass. The translucent pass
 // binds only the colour attachment, so its velocity output goes nowhere --
 // which is SS 4.11's "PF_Translucent batches write none".
+//
+// UTA-0273: compiled a second time, with UTA_REFRACT defined, for refracting
+// water, which draws unblended over a copy of the scene (water.glsl).
 
 #include "scene_bindings.glsl"
 #include "clusters.glsl"
@@ -556,9 +559,11 @@ void main() {
     bool reflects = WATER_LOOK && !flaming && waterReflects(material.liquid) && (draw.polyFlags & PF_FAKE_BACKDROP) == 0u;
     vec3 reflected = vec3(0.0);
     float share = 0.0;
+    vec3 ripple = vec3(0.0); // UTA-0273: how far the ripple tilts the water's normal
     if (reflects) {
         vec3 v = normalize(frame.eye - worldPosition);
         vec3 n = perturbed(surface, axes, vec3(wet.tilt, sqrt(max(0.0, 1.0 - dot(wet.tilt, wet.tilt)))));
+        ripple = n - surface;
         vec3 r = reflect(-v, n);
         // UTA-0215: from under water a surface mirrors the water, never the
         // sky, however its ripples tilt it. The probes are read on the side
@@ -707,6 +712,10 @@ void main() {
         colour = mix(colour, behind, hazed);
     }
 
+#ifdef UTA_REFRACT
+    // UTA-0273 SS 4.4: refracting water draws unblended, over the scene copy.
+    colour = seeThrough(colour, ripple);
+#endif
     outColour = vec4(colour, 1.0);
     outVelocity = velocity;
 }

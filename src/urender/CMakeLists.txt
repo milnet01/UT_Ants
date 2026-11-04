@@ -48,41 +48,52 @@ set(UTA_EMBED_SPIRV "${CMAKE_CURRENT_SOURCE_DIR}/cmake/EmbedSpirv.cmake" CACHE I
 # UTA-0154: AMD FSR 1's shader headers, vendored (route 2).
 set(UTA_FSR1_DIR "${PROJECT_SOURCE_DIR}/third_party/fsr1" CACHE INTERNAL "FSR 1's GLSL headers")
 
-# uta_embed_shaders(<target> <source>...)
+# uta_embed_shader(<target> <source> <name> [<define>...])
 #
-# Compiles each source, relative to the calling directory, and adds
-# `<name>.spv.h` -- declaring `<name as an identifier>_spv` -- to <target>.
-# urender's shared GLSL (types.glsl, light.glsl and the rest) is on the
-# include path, which is how a test's compute shader includes the very file
-# the shading pass does.
-function(uta_embed_shaders target)
+# Compiles one source, relative to the calling directory, with each <define>
+# passed to glslc as -D, and adds `<name>.spv.h` -- declaring `<name as an
+# identifier>_spv` -- to <target>. urender's shared GLSL (types.glsl,
+# light.glsl and the rest) is on the include path, which is how a test's
+# compute shader includes the very file the shading pass does.
+function(uta_embed_shader target source name)
     set(out_dir "${CMAKE_CURRENT_BINARY_DIR}/shaders")
     file(MAKE_DIRECTORY "${out_dir}")
+    get_filename_component(path "${source}" ABSOLUTE)
+    string(MAKE_C_IDENTIFIER "${name}_spv" identifier)
+    set(spirv "${out_dir}/${name}.spv")
+    set(header "${out_dir}/${name}.spv.h")
+    set(defines "")
+    foreach(define IN LISTS ARGN)
+        list(APPEND defines "-D${define}")
+    endforeach()
+    # ONE command, compile then embed. As two commands the embed depended
+    # on the compile's output, and MSBuild's multi-tool task -- which the
+    # ccache route in the root CMakeLists.txt turns on (UTA-0235) -- ran
+    # them side by side, so the embed read a .spv not yet written.
+    add_custom_command(
+        OUTPUT "${spirv}" "${header}"
+        COMMAND Vulkan::glslc --target-env=vulkan1.3 -O ${defines}
+                -I "${UTA_SHADER_DIR}" -I "${UTA_FSR1_DIR}"
+                -MD -MF "${spirv}.d" -MT "${spirv}"
+                -o "${spirv}" "${path}"
+        COMMAND "${CMAKE_COMMAND}" -DINPUT=${spirv} -DOUTPUT=${header} -DNAME=${identifier}
+                -P "${UTA_EMBED_SPIRV}"
+        DEPENDS "${path}" "${UTA_EMBED_SPIRV}"
+        DEPFILE "${spirv}.d"
+        COMMENT "glslc and embed ${name}"
+        VERBATIM)
+    target_sources(${target} PRIVATE "${header}")
+    target_include_directories(${target} PRIVATE "${out_dir}")
+endfunction()
+
+# uta_embed_shaders(<target> <source>...)
+#
+# uta_embed_shader for each source, named as its file is.
+function(uta_embed_shaders target)
     foreach(source IN LISTS ARGN)
         get_filename_component(name "${source}" NAME)
-        get_filename_component(path "${source}" ABSOLUTE)
-        string(MAKE_C_IDENTIFIER "${name}_spv" identifier)
-        set(spirv "${out_dir}/${name}.spv")
-        set(header "${out_dir}/${name}.spv.h")
-        # ONE command, compile then embed. As two commands the embed depended
-        # on the compile's output, and MSBuild's multi-tool task -- which the
-        # ccache route in the root CMakeLists.txt turns on (UTA-0235) -- ran
-        # them side by side, so the embed read a .spv not yet written.
-        add_custom_command(
-            OUTPUT "${spirv}" "${header}"
-            COMMAND Vulkan::glslc --target-env=vulkan1.3 -O
-                    -I "${UTA_SHADER_DIR}" -I "${UTA_FSR1_DIR}"
-                    -MD -MF "${spirv}.d" -MT "${spirv}"
-                    -o "${spirv}" "${path}"
-            COMMAND "${CMAKE_COMMAND}" -DINPUT=${spirv} -DOUTPUT=${header} -DNAME=${identifier}
-                    -P "${UTA_EMBED_SPIRV}"
-            DEPENDS "${path}" "${UTA_EMBED_SPIRV}"
-            DEPFILE "${spirv}.d"
-            COMMENT "glslc and embed ${name}"
-            VERBATIM)
-        target_sources(${target} PRIVATE "${header}")
+        uta_embed_shader(${target} "${source}" "${name}")
     endforeach()
-    target_include_directories(${target} PRIVATE "${out_dir}")
 endfunction()
 
 uta_embed_shaders(uta_urender
@@ -103,6 +114,9 @@ uta_embed_shaders(uta_urender
     shaders/fsr_rcas.frag
     shaders/shadow.vert
     shaders/shadow.frag)
+# UTA-0273 SS 4.4: the scene shader again, for refracting water. Only the
+# refracting pipelines declare the scene copy and the depth they read.
+uta_embed_shader(uta_urender shaders/scene.frag scene_refract.frag UTA_REFRACT)
 
 # INV-1, asserted at configure time in the mechanism src/ubundle/CMakeLists.txt
 # uses for UTA-0008's INV-10 -- and the only thing that grades it: a compiled

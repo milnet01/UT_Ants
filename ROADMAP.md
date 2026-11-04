@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=447 -->
+<!-- ants-roadmap-id-high-water: UTA=448 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -18823,7 +18823,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-10-02 split-from-UTA-0089.
   Lanes: urender, ubake.
 
-- 📋 [UTA-0273] **urender: see-through water that wobbles, and deep water that darkens.**
+- 🚧 [UTA-0273] **urender: see-through water that wobbles, and deep water that darkens.**
   Split from UTA-0089 by the user, 2026-10-02: the cheap part first
   (reflections, Fresnel, less tiling), this after it, measured.
 
@@ -18846,6 +18846,12 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   at Ultra only, so the High target pays nothing (this session's call,
   spec § 3 item 3). Next: build it to the spec's § 4, write its five device
   tests (RenderRefractionTest.cpp), then measure per § 13.
+  Built 2026-11-04: Feature::WaterRefraction at Ultra, scene_refract.frag
+  (scene.frag with UTA_REFRACT), the Refract blend and set 1, the copy
+  and the read-only depth in Frame.cpp's recordRefraction. Five device
+  tests in RenderRefractionTest.cpp, green on lvp and the RX 6600, each
+  proved red by a hand mutant. SS 13 measured: 0.7 to 1.4 ms at 4K
+  Ultra, most of it the copy (UTA-0448). Flips on GitHub's matrix.
   **Layman:** Looking into water should show what is under it bent by the ripples, with deeper water looking darker, like a real lake.
   Kind: feature.
   Source: user-request-2026-10-02 split-from-UTA-0089.
@@ -20391,6 +20397,22 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: perf.
   Source: user-request-2026-10-21.
   Lanes: tools.
+
+- 📋 [UTA-0448] **urender: make see-through water's scene copy cheaper.**
+  Measured 2026-11-04 (docs/specs/UTA-0273-see-through-water.md
+  SS 13): at Ultra, 3840x2160, the copy of hdr costs 0.6 to 1.2 ms of
+  the translucent step and the refracting shading 0.1 to 0.2 ms. The
+  same-size copy cost twice as much on DM-ArcaneTemple as on
+  AS-OceanFloor, which is not explained. Suspect: moving hdr out of
+  COLOR_ATTACHMENT_OPTIMAL to TRANSFER_SRC decompresses it on AMD.
+  Candidates to measure: copy only the rows and columns the water
+  covers; a half-size copy by blit or by a shader pass reading hdr as
+  sampled; leave depth unsampled-usage where nothing refracts. Decides
+  whether UTA-0273 can come down to High.
+  **Layman:** Seeing through water costs about a millisecond at 4K, and almost all of it is copying the picture; this makes that copy cheaper.
+  Kind: perf.
+  Source: in-session-2026-11-04 UTA-0273 measurement.
+  Lanes: urender.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 

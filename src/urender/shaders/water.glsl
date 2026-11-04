@@ -123,4 +123,61 @@ float causticLight(vec3 p, vec3 normal, float t) {
     return CAUSTIC_LIGHT * facing * 9.0 * lines;
 }
 
+#ifdef UTA_REFRACT
+// UTA-0273 SS 4.4: see-through water. Only scene_refract.frag, the refracting
+// pipelines' shader, defines UTA_REFRACT, so only it declares set 1.
+layout(set = 1, binding = 0) uniform sampler2D sceneCopy;  // hdr before the water drew
+layout(set = 1, binding = 1) uniform sampler2D sceneDepth; // 0 near, 1 far
+
+// First values, chosen by eye, not fitted: the original draws none of this.
+// UTA-0273 SS 13 records how they were chosen.
+// How far a full unit of the ripple's tilt moves what is behind, in pixels of
+// a 1080-line view, for water REFRACTION_REFERENCE_UNITS from the eye. Nearer
+// water bends it further on screen, as the same bend spans more pixels.
+const float REFRACTION_PIXELS = 64.0;
+const float REFRACTION_REFERENCE_UNITS = 256.0;
+// The share of light kept per unit of water crossed is exp(-ABSORPTION):
+// red goes first, so deep water turns blue-green. About half the red is gone
+// after 150 units, half the blue after 770.
+const vec3 ABSORPTION = vec3(0.0046, 0.0018, 0.0009);
+// The water's own picture fades in over this much depth from the shore.
+const float SHORE_UNITS = 24.0;
+
+// Depth `d`, 0 near and 1 far, as view-space distance along the view axis:
+// Placement.cpp's projectionOf, inverted.
+float viewDistanceOf(float d) {
+    return frame.nearPlane * frame.farPlane / (frame.farPlane - d * (frame.farPlane - frame.nearPlane));
+}
+
+// SS 4.4: what the water at this fragment shows, given `surface` -- the colour
+// the old blend added, its reflection included -- and `ripple`, how far the
+// ripple tilts its normal, in world space. Where the water is shallow its
+// own picture fades, so at the shore only what is behind it shows.
+vec3 seeThrough(vec3 surface, vec3 ripple) {
+    vec2 pixel = gl_FragCoord.xy;
+    float waterAt = viewDistanceOf(gl_FragCoord.z);
+    float thickness = max(viewDistanceOf(texelFetch(sceneDepth, ivec2(pixel), 0).r) - waterAt, 0.0);
+
+    // The tilt as seen on screen: view x is right, view y up, screen y down.
+    vec3 tilt = mat3(frame.view) * ripple;
+    vec2 offset = vec2(tilt.x, -tilt.y) * REFRACTION_PIXELS * (REFRACTION_REFERENCE_UNITS / waterAt)
+                  * (frame.viewportSize.y / 1080.0);
+    // SS 6: clamped to the drawn region, so the edge repeats.
+    vec2 bent = clamp(pixel + offset, vec2(0.5), frame.viewportSize - vec2(0.5));
+    // SS 4.4: what lies nearer than the water is not behind it, so the
+    // fragment reads straight behind itself instead. The copy is read at the
+    // very pixel whose depth was tested: a filtered read there blended in its
+    // neighbours, and next to a pillar one of them was the pillar (INV-5).
+    ivec2 at = ivec2(bent);
+    if (viewDistanceOf(texelFetch(sceneDepth, at, 0).r) < waterAt) at = ivec2(pixel);
+    vec3 behind = texelFetch(sceneCopy, at, 0).rgb;
+
+    vec3 tint = exp(-thickness * ABSORPTION);
+    vec3 picture = surface * smoothstep(0.0, SHORE_UNITS, thickness);
+    // The old blend, ONE and ONE_MINUS_SRC_COLOR, done here so the background
+    // can be bent and tinted first.
+    return picture + behind * tint * (vec3(1.0) - picture);
+}
+#endif
+
 #endif

@@ -50,6 +50,7 @@ enum class Feature : std::uint8_t {
     Caustics,          ///< UTA-0215's rippling light on what lies under water
     WaterMotes,        ///< UTA-0215's specks drifting in the water around the eye
     TileShuffle,       ///< UTA-0277's natural textures drawn so their repeats do not line up
+    WaterRefraction,   ///< UTA-0273's see-through water: refraction, depth tint, shore fade
 };
 
 /// The lowest tier that switches `feature` on: one case per enumerator, and no
@@ -86,6 +87,10 @@ enum class Feature : std::uint8_t {
     // worst case past the 3% that would keep it on every tier, as
     // TileVariation's is.
     case Feature::TileShuffle: return Tier::Medium;
+    // UTA-0273 SS 3 item 3: a copy of the scene and a second shading of the
+    // water on every frame with water in view. Ultra only, so the 60 fps High
+    // target pays nothing for it.
+    case Feature::WaterRefraction: return Tier::Ultra;
     }
     return Tier::Low; // unreachable
 }

@@ -20,6 +20,7 @@
 #include "post.frag.spv.h"
 #include "post.vert.spv.h"
 #include "scene.frag.spv.h"
+#include "scene_refract.frag.spv.h"
 #include "scene.vert.spv.h"
 #include "shadow.frag.spv.h"
 #include "shadow_reduce.comp.spv.h"
@@ -90,15 +91,16 @@ std::uint32_t textureCapacityOf(VkPhysicalDevice physical) {
     vkGetPhysicalDeviceProperties(physical, &properties);
     const VkPhysicalDeviceLimits& limits = properties.limits;
     // A combined image sampler counts against both the sampled-image and the
-    // sampler limits; two of each are kept back, for the shadow atlas and the
-    // fog volume, which the fragment stage reads beside the textures.
-    constexpr std::uint32_t RESERVED = 2;
+    // sampler limits; four of each are kept back, for the shadow atlas, the
+    // fog volume and UTA-0273's scene copy and depth, which the fragment stage
+    // reads beside the textures.
+    constexpr std::uint32_t RESERVED = 4;
     // maxPerStageResources counts every resource the fragment stage sees
     // together: the scene set's storage buffers, the two kept back, the
     // textures and the colour outputs, here bounded by maxColorAttachments
     // (review-code 2026-10-15).
     const std::uint32_t besideTextures = (gpu::MASK_PAIRS - gpu::FRAME + 1) + limits.maxColorAttachments;
-    // A stage too small to hold those and the two kept back leaves room for them
+    // A stage too small to hold those and the four kept back leaves room for them
     // alone, so the capacity is 0 and Frame.cpp refuses every bundle at load
     // rather than binding past the limit.
     const std::uint32_t stageRoom =
@@ -206,13 +208,15 @@ Result<VkPipeline> graphicsPipeline(const Making& making, VkPipelineLayout layou
 }
 
 /// How a scene pipeline blends, and scene_'s first index (Pipelines.h).
-enum class Blending : std::uint8_t { Opaque, Translucent, Modulated };
+/// UTA-0273 SS 4.4: Refract is refract_'s, past scene_'s three.
+enum class Blending : std::uint8_t { Opaque, Translucent, Modulated, Refract };
 constexpr std::array BLENDINGS = {Blending::Opaque, Blending::Translucent, Blending::Modulated};
 
 struct SceneVariant {
     /// Opaque writes depth; Translucent and Modulated draw in the blended
     /// pass: colour alone, depth tested and not written. UTA-0271: Modulated
-    /// multiplies, as UT99 draws PF_Modulated.
+    /// multiplies, as UT99 draws PF_Modulated. UTA-0273: Refract draws in the
+    /// blended pass too, unblended: its shader blends with the scene copy.
     Blending blending;
     bool twoSided;
     /// UTA-0260: the vertex stage alone, writing depth and no colour.
@@ -323,7 +327,9 @@ Result<VkPipeline> scenePipeline(const Making& making, VkPipelineLayout layout, 
         states.blend.attachmentCount = 0;
     } else if (translucent) {
         states.blend.attachmentCount = 1;
-        states.blend.pAttachments = variant.blending == Blending::Modulated ? &modulating : &blended;
+        states.blend.pAttachments = variant.blending == Blending::Modulated ? &modulating
+                                    : variant.blending == Blending::Refract ? &opaque
+                                                                            : &blended;
     } else {
         states.blend.attachmentCount = 3;
         states.blend.pAttachments = opaqueAttachments.data();
@@ -501,7 +507,18 @@ Result<void> Pipelines::createSceneSet() {
     flagInfo.bindingCount = static_cast<std::uint32_t>(bindingFlags.size());
     flagInfo.pBindingFlags = bindingFlags.data();
     UTA_CHECK(createSetLayout(device_, bindings, sceneSetLayout_, "vkCreateDescriptorSetLayout (scene)", &flagInfo));
-    return createLayout(device_, std::span(&sceneSetLayout_, 1),
+    // UTA-0273 SS 4.3: set 1, the scene copy and the depth, which only the
+    // refracting pipelines' shader declares. A set of its own because the
+    // texture array, of variable count, must stay the last binding of set 0.
+    const std::array refractBindings = {
+        VkDescriptorSetLayoutBinding{0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT,
+                                     nullptr},
+        VkDescriptorSetLayoutBinding{1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT,
+                                     nullptr},
+    };
+    UTA_CHECK(createSetLayout(device_, refractBindings, refractSetLayout_, "vkCreateDescriptorSetLayout (refract)"));
+    const std::array sets = {sceneSetLayout_, refractSetLayout_};
+    return createLayout(device_, sets,
                         {VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(gpu::DrawConstants)},
                         sceneLayout_, "vkCreatePipelineLayout (scene)");
 }
@@ -521,8 +538,9 @@ Result<void> Pipelines::createPostSet() {
                         "vkCreatePipelineLayout (post)");
 }
 
-/// The forward pass's six scene pipelines and two depth pipelines
-/// (UTA-0260), UTA-0263's flames and UTA-0215's water specks.
+/// The forward pass's six scene pipelines, UTA-0273's two refracting ones at
+/// Ultra, two depth pipelines (UTA-0260), UTA-0263's flames and UTA-0215's
+/// water specks.
 Result<void> Pipelines::createScenePipelines(const TargetFormats& formats, Tier tier, bool lightTerms) {
     const Making making{device_, createFlags()};
     Module sceneVertex{device_}, sceneFragment{device_};
@@ -539,6 +557,17 @@ Result<void> Pipelines::createScenePipelines(const TargetFormats& formats, Tier 
             UTA_TRY(scene_[std::to_underlying(blending)][twoSided],
                     scenePipeline(making, sceneLayout_, formats, sceneVertex.handle, sceneFragment.handle,
                                   {.blending = blending, .twoSided = twoSided == 1, .depthOnly = false},
+                                  sceneConstants));
+        }
+    }
+    // UTA-0273 SS 4.5: below Ultra nothing refracts, so nothing is made.
+    if (enabled(Feature::WaterRefraction, tier)) {
+        Module refractFragment{device_};
+        UTA_TRY(refractFragment.handle, shaderModule(device_, scene_refract_frag_spv));
+        for (int twoSided = 0; twoSided < 2; ++twoSided) {
+            UTA_TRY(refract_[twoSided],
+                    scenePipeline(making, sceneLayout_, formats, sceneVertex.handle, refractFragment.handle,
+                                  {.blending = Blending::Refract, .twoSided = twoSided == 1, .depthOnly = false},
                                   sceneConstants));
         }
     }
@@ -649,7 +678,7 @@ Pipelines::~Pipelines() {
     for (const auto& row : scene_)
         for (VkPipeline pipeline : row)
             if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(device_, pipeline, nullptr);
-    for (VkPipeline pipeline : {depth_[0], depth_[1], flame_, mote_, post_, upscaleInput_, easu_, rcas_, bloomDownsample_, bloomUpsample_})
+    for (VkPipeline pipeline : {refract_[0], refract_[1], depth_[0], depth_[1], flame_, mote_, post_, upscaleInput_, easu_, rcas_, bloomDownsample_, bloomUpsample_})
         if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(device_, pipeline, nullptr);
     if (bloomLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, bloomLayout_, nullptr);
     if (bloomSetLayout_ != VK_NULL_HANDLE) vkDestroyDescriptorSetLayout(device_, bloomSetLayout_, nullptr);
@@ -663,6 +692,7 @@ Pipelines::~Pipelines() {
     if (sceneLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, sceneLayout_, nullptr);
     if (postLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, postLayout_, nullptr);
     if (sceneSetLayout_ != VK_NULL_HANDLE) vkDestroyDescriptorSetLayout(device_, sceneSetLayout_, nullptr);
+    if (refractSetLayout_ != VK_NULL_HANDLE) vkDestroyDescriptorSetLayout(device_, refractSetLayout_, nullptr);
     if (postSetLayout_ != VK_NULL_HANDLE) vkDestroyDescriptorSetLayout(device_, postSetLayout_, nullptr);
 }
 
@@ -673,6 +703,10 @@ VkPipeline Pipelines::sceneFor(std::uint32_t polyFlags) const noexcept {
                                                                       : Blending::Opaque;
     const bool twoSided = (polyFlags & gpu::PF_TWO_SIDED) != 0;
     return scene_[std::to_underlying(blending)][twoSided ? 1 : 0];
+}
+
+VkPipeline Pipelines::refractFor(std::uint32_t polyFlags) const noexcept {
+    return refract_[(polyFlags & gpu::PF_TWO_SIDED) != 0 ? 1 : 0];
 }
 
 VkPipeline Pipelines::depthFor(std::uint32_t polyFlags) const noexcept {
@@ -686,6 +720,10 @@ std::vector<std::pair<std::string, VkPipeline>> Pipelines::named() const {
         for (std::size_t twoSided = 0; twoSided < 2; ++twoSided)
             out.emplace_back(std::format("scene {}{}", BLENDING_NAMES[blending], twoSided == 1 ? " two-sided" : ""),
                              scene_[blending][twoSided]);
+    if (refract_[0] != VK_NULL_HANDLE) {
+        out.emplace_back("scene refract", refract_[0]);
+        out.emplace_back("scene refract two-sided", refract_[1]);
+    }
     out.emplace_back("depth", depth_[0]);
     out.emplace_back("depth two-sided", depth_[1]);
     for (const auto& [name, pipeline] :

@@ -154,6 +154,13 @@ TEST_CASE("UTA-0277: shuffled tiles start at Medium", "[render]") {
     CHECK(uta::urender::enabled(Feature::TileShuffle, Tier::Medium));
 }
 
+TEST_CASE("UTA-0273: see-through water is Ultra only", "[render]") {
+    using uta::urender::Feature;
+    CHECK(uta::urender::minimumTier(Feature::WaterRefraction) == Tier::Ultra);
+    CHECK_FALSE(uta::urender::enabled(Feature::WaterRefraction, Tier::High));
+    CHECK(uta::urender::enabled(Feature::WaterRefraction, Tier::Ultra));
+}
+
 TEST_CASE("UTA-0040 INV-4: parallax occlusion starts at Medium with the spec's step counts", "[render]") {
     using uta::urender::Feature;
     using uta::urender::parallaxStepsOf;
