@@ -18790,6 +18790,21 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Whether it is part of 0.1.0's cut is the user's call.
   Cut decided (user, 2026-10-02): after 0.1.0, not part of its cut.
   Moved to 0.2.0, the next release.
+  Census, 2026-11-04: every map in the install (1610 read), each
+  texture's surfaces by polyFlags. Scratch: /mnt/Emulators/uta-scratch/u272
+  (census.py, census.json, summary.txt). Glass-named means the name
+  matches glas|window|wind[0-9]|pane(?!l)|crystal|mirror|wndw.
+  - Of glass-named surfaces, 60% are Translucent; most of the rest are
+    opaque (Glass2: 1088 of 12519) or Invisible.
+  - Of visible Translucent surfaces, 25% are glass-named. The rest, by
+    surface count: flames and torches, water and liquids, beams,
+    teleporters, crystals (Cryst2, Cryst3), haze.
+  - Translucent+Unlit "Crystal" is a glowing crystal, not glass.
+  So neither test alone tells glass: the name and the flag together do.
+  Proposed rule: a curated list of glass texture names (Glass*, SpecGlas*,
+  Sglass, Tglass_*, Window*, sGlasW*, DemGlass*, Nwindow*), drawn
+  Translucent or Modulated, never Unlit; a map recipe may add or remove a
+  surface. Its precision is unchecked by eye.
   **Layman:** Windows and glass panes should look like glass, with a faint reflection, once we can tell which surfaces are glass.
   Kind: feature.
   Source: user-request-2026-10-02 split-from-UTA-0089.
@@ -22880,6 +22895,13 @@ docs/standards/versioning-overrides.md. Closes S8.
   object, which the text report prints whole; the rest goes to --json only
   (the text caps it at 20 facts). Put each pipeline stage's VGPRs and
   subgroups per SIMD in "summary" and the full statistics beside it.
+  Pin frameledger 0.2.0 (released 2026-11-04, its session's message):
+  https://github.com/milnet01/frameledger/releases/tag/v0.2.0, archive
+  frameledger-v0.2.0.zip, SHA256
+  cfb692516c48e45534657b1ce5dc903f1e91156716b7265063b579d6b930b01c.
+  It carries compare with mem, bisect with the depth skip and skip_reason
+  (FLED-0020), budget, report's pacing figure (FLED-0011) and the
+  FLED-0023 flag limits. Verify the hash on download.
   **Layman:** Save every frame's timings in the format shared with Vestige and DOOM Ants, so one analyser can find stutters and compare builds for all three games.
   Kind: feature.
   Source: user-request-2026-10-24.
