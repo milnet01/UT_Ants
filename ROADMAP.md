@@ -18836,6 +18836,16 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Whether it is part of 0.1.0's cut is the user's call.
   Cut decided (user, 2026-10-02): after 0.1.0, not part of its cut.
   Moved to 0.2.0, the next release.
+  Spec written 2026-11-04: docs/specs/UTA-0273-see-through-water.md
+  (accepted, unreviewed; gate cancelled here). Nothing built yet. Its
+  decisions: a fourth Blending, Refract (no blend, depth-tested, unwritten),
+  computing the old blend in the shader plus refraction, depth tint and
+  shore fade; refracting water draws last in the translucent pass, after
+  one copy of hdr taken only when a refracting batch is drawn; depth gains
+  SAMPLED and is read in DEPTH_READ_ONLY_OPTIMAL; Feature::WaterRefraction
+  at Ultra only, so the High target pays nothing (this session's call,
+  spec § 3 item 3). Next: build it to the spec's § 4, write its five device
+  tests (RenderRefractionTest.cpp), then measure per § 13.
   **Layman:** Looking into water should show what is under it bent by the ripples, with deeper water looking darker, like a real lake.
   Kind: feature.
   Source: user-request-2026-10-02 split-from-UTA-0089.
