@@ -12,9 +12,13 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-04
+
+**Theme:** Bake and render.
+
 ### Added
 
-- **ut-bench accounts for every millisecond of a frame** (UTA-0352)
+- **ut-bench accounts for every millisecond of a frame** (part of UTA-0352)
   `ut-bench frame` now times the fire upload, the depth, solid,
   see-through and flame passes apart, the work before the GPU is given the
   frame, its recording, and what is left (submit, blit and wait). It also
@@ -336,7 +340,7 @@ The `[Unreleased]` block stays at the top, always, even when empty.
   and the light are in a fog zone, as in UT99. F toggles a flashlight
   on the camera. Bundles are format 12: bake maps again.
 
-- **Glowing surfaces glow past their edges: emissive bloom on every quality tier** (UTA-0053)
+- **Glowing surfaces glow past their edges: emissive bloom on every quality tier** (part of UTA-0053)
   Only a surface's emission feeds the glow, so lit walls do not bloom.
   The renderer shrinks the emission through five half-size levels and
   blurs it back up, as LearnOpenGL's physically based bloom does after
@@ -610,7 +614,7 @@ The `[Unreleased]` block stays at the top, always, even when empty.
   the simulation stays single-threaded. The build gains a ThreadSanitizer
   step, which is how the job system's thread-safety is measured.
 
-- **Queued: the game updates itself, signed and opt-in** (UTA-0042)
+- **Queued: the game updates itself, signed and opt-in** (part of UTA-0042)
   Filed as planned work, not shipped. Modelled on finbreak, whose post-mortems record four releases lost to the relaunch step alone.
 
 - **A quarantine guard, so nothing of Epic's can be committed**
@@ -624,10 +628,10 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Changed
 
-- **Haze costs up to a millisecond less a frame** (UTA-0352)
+- **Haze costs up to a millisecond less a frame** (part of UTA-0352)
   The fog pass lights half its volume each frame, in turn, and keeps last frame's light for the rest. Still pictures move by at most 3 levels out of 255. Average over 8 views on an RX 6600 at High, 2560x1440: DM-ArchNemesis 2.25 to 1.27 ms, DM-FoT-SimpleX 1.88 to 1.07 ms, DM-CastleDeck16 0.56 to 0.37 ms.
 
-- **Haze costs up to half a millisecond less on maps with many lights** (UTA-0352)
+- **Haze costs up to half a millisecond less on maps with many lights** (part of UTA-0352)
   The fog pass stops working on a light as soon as it adds nothing at a point, and the picture is unchanged. Average over 8 views on an RX 6600 at High, 2560x1440: DM-FoT-SimpleX 2.40 to 1.88 ms, DM-ArchNemesis 2.57 to 2.26 ms, DM-CastleDeck16 0.63 to 0.56 ms.
 
 - **Shadow planning takes 12 microseconds a frame, not 660** (UTA-0443)
@@ -641,7 +645,7 @@ The `[Unreleased]` block stays at the top, always, even when empty.
   working out every light per pixel. Maps must be re-baked (format 33,
   baker revision 72).
 
-- **High may draw at two-thirds of the screen and upscale** (UTA-0039)
+- **High may draw at two-thirds of the screen and upscale** (part of UTA-0039)
   The target on the development machine is now 2560x1440 upscaled to its
   4K screen, so High's lowest render scale is 2/3 instead of 0.75. Dynamic
   resolution can drop that far to hold 60 fps.
@@ -846,7 +850,7 @@ The `[Unreleased]` block stays at the top, always, even when empty.
   left the flagged lights out. Now each kind of light reaches only its own
   surfaces. Maps must be re-baked (baker revision 70).
 
-- **Water and other see-through zone boundaries cost far less to draw** (UTA-0352)
+- **Water and other see-through zone boundaries cost far less to draw** (part of UTA-0352)
   A water sheet is often also a zone portal. The baker left portals out of
   its baked shadows, so the renderer lit each one by reading every nearby
   light's shadow map nine times a pixel. They are now charted like any lit
@@ -855,7 +859,7 @@ The `[Unreleased]` block stays at the top, always, even when empty.
   60 fps. Under 1.1% of a view's pixels move by more than 2 levels, at
   water's shadow edges. Baker revision 69: re-bake every map.
 
-- **Outdoor maps draw up to 3 ms faster again** (UTA-0352)
+- **Outdoor maps draw up to 3 ms faster again** (part of UTA-0352)
   The distant haze added on 2026-10-21 read the light probes for every
   pixel of an outdoor area, even where it adds no haze. It now reads them
   only where the haze shows. DM-Siberia][ and MH-UM-DeadCity are back

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.28)
 
 project(UT_Ants
-    VERSION 0.0.1
+    VERSION 0.1.0
     DESCRIPTION "A from-scratch engine that bakes Unreal Tournament maps into modernised versions of themselves"
     LANGUAGES CXX)
 
