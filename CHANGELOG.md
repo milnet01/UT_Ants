@@ -24,6 +24,17 @@ The `[Unreleased]` block stays at the top, always, even when empty.
   Medium nothing changes. Bundle format 34, baker revision 74: re-bake
   every map.
 
+- **Grass floors grow real blades of grass that sway in the wind** (UTA-0293)
+  The bake plants clumps of grass on upward floors whose texture is named
+  for grass ("gras", "grss", "lawn", "turf" or "meadow"), thinner where
+  the picture is browner or greyer than its own average, and never on a
+  pickup. The renderer grows each clump into blades, coloured and lit as
+  the ground under them, swaying in one wind, and shrinking away with
+  distance. Drawn at High (half the clumps) and Ultra (all of them);
+  below High nothing changes. Very large grass maps are planted sparser.
+  Measured at 0.5 to 0.8 ms a frame on the two grassiest maps. Bundle
+  format 35, baker revision 76: re-bake every map.
+
 ## [0.1.0] - 2026-11-04
 
 **Theme:** Bake and render.

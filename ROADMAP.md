@@ -19106,6 +19106,12 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Then re-bake both maps, look with ut-shot at High, set first values,
   and measure SS 13 (ut-bench frame, High, 2560x1440; over 1 ms moves
   Feature::Grass to Ultra). Then CHANGELOG, loop-log impl row, push.
+  Resolved 2026-11-05 at b8ea973: SS 4.1/4.2 amended (grass words only;
+  density relative to the picture's mean share); a map past the limit
+  is planted on a wider grid. Baker 76. Re-baked: MH-Vale_Evelyn
+  460,375 clumps; FatherDougal 1,007,535 at 18.09 units. SS 13: grass
+  step 0.62 and 0.77 ms worst view at High, 2560x1440; stays at High.
+  Left: push, then flip once GitHub's matrix is green.
   **Layman:** Outdoor maps get grass, plants and leaves that look real, made with tricks cheap enough for ordinary computers.
   Kind: feature.
   Source: user-request-2026-10-05.

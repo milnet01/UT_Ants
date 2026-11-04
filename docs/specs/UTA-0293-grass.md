@@ -353,3 +353,33 @@ on against off in one job, the grass step named apart. **If grass costs
 more than 1 ms at High on either map, `Feature::Grass` moves to Ultra**
 until a performance item brings it under. Recorded here with the date, as
 are the first values of § 4.5 and how they were chosen.
+
+**Measured 2026-11-05** at `b8ea973` on the RX 6600 (RADV), `ut-bench
+frame --tier high --size 2560x1440`, four views a map, 60 still frames
+each and 120 moving between them. `ut-bench` warned the machine was busy
+(load 24 to 28 over 12 cores), so host figures are slow by an unknown
+amount; the grass step is a GPU timestamp.
+
+| Map | Clumps, grid | Grass step, still median | Worst view |
+|---|---|---|---|
+| MH-Vale_Evelyn | 460,375 at 16 units | 0.497 ms | 0.616 ms |
+| MH-SDM-FatherDougalUM_beta1 | 1,007,535 at 18.09 units | 0.650 ms | 0.768 ms |
+
+Under 1 ms on both, so `Feature::Grass` stays at High. Refute by re-running
+the same command on a quiet machine.
+
+**First values**, kept as built: each view, drawn by `ut-shot` at High
+beside the same view at Medium, shows tufts on the grass floors coloured
+and shaded as the ground under them, and none at Medium. Nothing was
+tuned by eye beyond that check.
+
+- § 4.2: `GREEN_LOW` −0.03, `GREEN_HIGH` −0.01, `SHARE_GREY` 0.01
+  (`src/ubake/Grass.h`). Chosen so a texel at its picture's mean share is
+  full and one 0.03 below is bare: MH-Vale_Evelyn's olive grass and bare
+  earth differ by about 0.06 in share (`tests/unit/GrassBakeTest.cpp`'s
+  `OLIVE` and `EARTH`).
+- § 4.4: `GRASS_END` 1536 at High and 2560 at Ultra; `GRASS_FAR` a third
+  of it; `GRASS_FADE` three fifths (`src/urender/Grass.h`).
+- § 4.5: `WIND_DIRECTION` (0.8, 0.6), `GUST_WAVE` 0.004, `GUST_SPEED` 1.3
+  (`src/urender/shaders/grass.vert`); root and tip shade 0.55 and 1.15,
+  colour from mip 4 (`grass.frag`).
