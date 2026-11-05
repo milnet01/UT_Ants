@@ -52,6 +52,7 @@ enum class Feature : std::uint8_t {
     TileShuffle,       ///< UTA-0277's natural textures drawn so their repeats do not line up
     WaterRefraction,   ///< UTA-0273's see-through water: refraction, depth tint, shore fade
     Grass,             ///< UTA-0293's blades on grass floors
+    Specular,          ///< UTA-0298's highlights on lit surfaces
 };
 
 /// The lowest tier that switches `feature` on: one case per enumerator, and no
@@ -95,6 +96,10 @@ enum class Feature : std::uint8_t {
     // UTA-0293 SS 4.6: half the clumps at High, all at Ultra (urender/Grass.h).
     // SS 13 moves it to Ultra if it costs more than 1 ms at High.
     case Feature::Grass: return Tier::High;
+    // UTA-0298: a GGX lobe per light the fragment already gathers. Measured
+    // 2026-11-06 at 1.1 to 3.1 ms a frame at High, past grass's 1 ms line
+    // (UTA-0293 SS 13), so Ultra until UTA-0451 brings it under.
+    case Feature::Specular: return Tier::Ultra;
     }
     return Tier::Low; // unreachable
 }

@@ -216,6 +216,7 @@ add_executable(uta_device_tests
     device/RenderFlamesTest.cpp
     device/RenderGrassTest.cpp
     device/RenderPropsTest.cpp
+    device/RenderSpecularTest.cpp
     device/RenderLiquidsTest.cpp
     device/RenderSwayTest.cpp
     device/RenderDetailTest.cpp

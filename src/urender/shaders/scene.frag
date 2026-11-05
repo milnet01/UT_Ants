@@ -58,6 +58,12 @@ layout(constant_id = 5) const bool SHUFFLE_TILES = false;
 // UTA-0292 SS 4.3: Config::lightTerms. On, a lit surface writes its two light
 // terms to outEmission for ut-ref to score; off in normal play.
 layout(constant_id = 6) const bool LIGHT_TERMS = false;
+// UTA-0298: Feature::Specular. Off, a lit surface is shaded as before it.
+layout(constant_id = 7) const bool SPECULAR = false;
+// UTA-0298: umat's default baseRoughness, 191 of 255, for a material with no
+// roughness map; and a non-metal's reflectance face-on.
+const float DEFAULT_ROUGHNESS = 191.0 / 255.0;
+const float DIELECTRIC_F0 = 0.04;
 // UTA-0040 SS 4.5 step 4: parallax fades out over the mip level above this.
 const float PARALLAX_FADE_MIP = 4.0;
 
@@ -559,6 +565,18 @@ void main() {
         // UTA-0438 SS 4.4: a PF_SpecialLit chart's pairs are special-lit lights
         // already; off a chart, such a fragment takes only those lights.
         bool special = (draw.polyFlags & PF_SPECIAL_LIT) != 0u;
+        // UTA-0298: the highlight, gathered beside the direct light. A liquid
+        // keeps its own look (water.glsl); the sky room has no view to catch.
+        vec3 reflectanceBase = TILE_VARIATION && !liquid ? base.rgb * variationAt(worldPosition) : base.rgb;
+        bool metal = material.metallic != 0u;
+        float roughness = material.rough != NONE
+            ? tiled(material.rough, shadingUv, duv1, duv2, shuffled, tile, tileMix).r
+            : DEFAULT_ROUGHNESS;
+        specularOn = SPECULAR && !liquid && !skyFlat;
+        specularView = normalize(frame.eye - worldPosition);
+        specularRoughness = roughness;
+        specularF0 = metal ? reflectanceBase : vec3(DIELECTRIC_F0);
+        specularSum = vec3(0.0);
         vec3 direct = charted  ? chartedLight(n, surface, worldPosition, maskChart, maskTexel)
                       : special ? specialLight(n, surface, skyFlat)
                                 : clusterLight(n, surface, skyFlat, worldPosition);
@@ -574,9 +592,15 @@ void main() {
         // without shadow. A closed room hid the sun from its probes, and a
         // night map's moon left its scenery black.
         // UTA-0438 SS 3 decision 1: the sun lights no PF_SpecialLit surface.
-        if (!charted && !special && frame.sun != NONE)
-            direct += skyFlat ? lightThrough(lights[frame.sun], worldPosition)
-                              : lightAt(lights[frame.sun], worldPosition, n) * sunSeenAt(lattice, probePoint);
+        if (!charted && !special && frame.sun != NONE) {
+            if (skyFlat) {
+                direct += lightThrough(lights[frame.sun], worldPosition);
+            } else {
+                vec3 sunLit = lightAt(lights[frame.sun], worldPosition, n) * sunSeenAt(lattice, probePoint);
+                direct += sunLit;
+                if (specularOn) specularSum += specularOf(lights[frame.sun], worldPosition, n, sunLit);
+            }
+        }
         // UTA-0292 withdrew UTA-0156 SS 4.4's zone ambient: against exact light
         // it added up to 1.6 times the true light. Bounce and sky light, in the
         // probes, take its place (UTA-0112 SS 4.12).
@@ -594,9 +618,34 @@ void main() {
         // beside a lit floor got a tenth of the bounce.
         // UTA-0180: a lit surface's reflectance varies slowly across the world.
         // A liquid has its own variation (water.glsl), so it is left alone.
-        vec3 reflectance = TILE_VARIATION && !liquid ? base.rgb * variationAt(worldPosition) : base.rgb;
-        colour = reflectance * (pow(LIGHT_GAIN * direct, vec3(DISPLAY_LIGHT_POWER))
-                             + indirect * (open * pow(LIGHT_GAIN, DISPLAY_LIGHT_POWER)));
+        vec3 reflectance = reflectanceBase;
+        vec3 shownIndirect = indirect * (open * pow(LIGHT_GAIN, DISPLAY_LIGHT_POWER));
+        if (specularOn) {
+            // UTA-0298: energy kept. The texture's colour is all the light a
+            // surface returns, so a highlight moves light toward the glint and
+            // adds none. `lobe` is the share of the light as shown that the
+            // highlight takes, specularSum / direct, which averages the
+            // Fresnel term over the light's directions. A non-metal gives
+            // that Fresnel share up and takes the lobe's, both through its
+            // reflectance, so its glint wears the texture's colour. A metal
+            // has no diffuse; its F0 is its colour already, and the probes'
+            // light, through the same Fresnel, stands in for the room's glossy
+            // reflection, so it is not black away from its highlights.
+            // Measured on DM-ArchNemesis, 2026-11-06: a white glint raised to
+            // the display power on its own lit a dark stone wall 6% brighter;
+            // a white glint taken from the diffuse whole halved it.
+            // Schlick's term with roughness, so a rough surface does not turn
+            // to mirror at a grazing view.
+            float nv = max(dot(n, specularView), 0.0);
+            vec3 grazing = max(vec3(1.0 - roughness), specularF0);
+            vec3 fresnel = specularF0 + (grazing - specularF0) * pow(1.0 - nv, 5.0);
+            vec3 shownDirect = pow(LIGHT_GAIN * direct, vec3(DISPLAY_LIGHT_POWER));
+            vec3 lobe = specularSum / max(direct, vec3(1e-6));
+            colour = metal ? shownDirect * lobe + fresnel * shownIndirect
+                           : reflectance * (shownDirect * (1.0 - fresnel + lobe) + shownIndirect);
+        } else {
+            colour = reflectance * (pow(LIGHT_GAIN * direct, vec3(DISPLAY_LIGHT_POWER)) + shownIndirect);
+        }
         if (LIGHT_TERMS) {
             const vec3 LUMA = vec3(0.2126, 0.7152, 0.0722);
             lightTerms = vec2(dot(pow(LIGHT_GAIN * direct, vec3(DISPLAY_LIGHT_POWER)), LUMA),

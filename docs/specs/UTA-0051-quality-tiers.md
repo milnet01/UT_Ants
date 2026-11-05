@@ -304,8 +304,12 @@ EASU replaced by a linear stretch.
 
 ## 8. Alternatives considered (and rejected)
 
-- **A switch per feature.** Every later item would own a setting, and nothing
-  would say which belong together on a weak card. The roadmap body rejects it.
+- **A switch per feature, in place of tiers.** Every later item would own a
+  setting, and nothing would say which belong together on a weak card. The
+  roadmap body rejects it. The user later asked for both (2026-10-06,
+  `UTA-0297`): a tier stays a preset that sets every feature, and each new
+  feature also gets its own `Config` switch, which turns it off at any tier.
+  The first is `Config::specular` (`UTA-0298`).
 - **Resizing the targets whenever the scale changes.** Every change allocates
   and frees GPU memory mid-play, which stutters, the opposite of the goal.
 - **Timing the interval between frames.** Under FIFO it sits at the refresh

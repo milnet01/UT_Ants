@@ -88,6 +88,9 @@ struct Config {
     /// a luma, as scene.frag adds them before reflectance -- and bloom is off.
     /// For ut-shot --light-terms; unset in normal play, where it compiles out.
     bool lightTerms = false;
+    /// UTA-0298, UTA-0297: specular highlights' own switch. Set, they are
+    /// drawn from the tier that has them (Feature::Specular); unset, at none.
+    bool specular = true;
     /// UTA-0352: keep each pipeline's compiler statistics, for
     /// Renderer::shaderStatistics, where the device offers
     /// VK_KHR_pipeline_executable_properties. For ut-bench; unset in normal

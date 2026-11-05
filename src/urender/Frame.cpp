@@ -1961,7 +1961,7 @@ Result<Renderer> Renderer::create(const Config& config) {
     }
     UTA_TRY(impl->pipelines,
             Pipelines::create(*impl->gpu, {HDR_FORMAT, VELOCITY_FORMAT, DEPTH_FORMAT, OUTPUT_FORMAT, HDR_FORMAT},
-                              impl->tier, config.lightTerms));
+                              impl->tier, config.lightTerms, config.specular));
     if (presenting) {
         UTA_TRY(impl->swapchain, Swapchain::create(*impl->gpu, config.width, config.height));
         impl->adoptSwapchainExtent();

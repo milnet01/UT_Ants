@@ -14,6 +14,19 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **Shiny surfaces catch the light: metal, polished and smooth surfaces show a glint that moves as you move** (UTA-0298)
+  Each light a surface already takes now also adds a highlight, sharp on a
+  smooth material and broad and faint on a rough one, using the roughness
+  and metalness the materials already carry. A metal reflects the room's
+  baked light in place of its own diffuse colour. A highlight moves light
+  toward the glint and adds none, so no surface draws brighter overall;
+  a non-metal's glint takes its texture's colour. Most surfaces carry the
+  default roughness, so on most maps the change is faint. Drawn at Ultra
+  only for now: it costs 1 to 3 ms a
+  frame at High, and UTA-0451 is to bring it down. The renderer also has
+  its first per-effect switch, `Config::specular`, for the graphics menu
+  to come (UTA-0297).
+
 - **See-through glass reflects the sky or the room, faintly, as window glass does** (UTA-0272)
   The bake marks a material as a glass pane when its texture's name holds
   "glas" or "window"; a census of every map in the install found that

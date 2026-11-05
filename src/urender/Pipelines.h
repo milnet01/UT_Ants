@@ -44,9 +44,11 @@ struct TargetFormats {
 class Pipelines {
 public:
     /// `tier` sets the scene shader's parallax step counts (UTA-0040 SS 4.4).
-    /// `lightTerms` is Config::lightTerms (UTA-0292).
+    /// `lightTerms` is Config::lightTerms (UTA-0292); `specular`,
+    /// Config::specular (UTA-0298).
     [[nodiscard]] static Result<std::unique_ptr<Pipelines>> create(const Gpu& gpu, const TargetFormats& formats,
-                                                                    Tier tier, bool lightTerms = false);
+                                                                    Tier tier, bool lightTerms = false,
+                                                                    bool specular = true);
 
     Pipelines(const Pipelines&) = delete;
     Pipelines& operator=(const Pipelines&) = delete;
@@ -115,7 +117,8 @@ private:
     [[nodiscard]] VkPipelineCreateFlags createFlags() const noexcept;
     [[nodiscard]] Result<void> createSceneSet();
     [[nodiscard]] Result<void> createPostSet();
-    [[nodiscard]] Result<void> createScenePipelines(const TargetFormats& formats, Tier tier, bool lightTerms);
+    [[nodiscard]] Result<void> createScenePipelines(const TargetFormats& formats, Tier tier, bool lightTerms,
+                                                    bool specular);
     [[nodiscard]] Result<void> createOutputPipelines(const TargetFormats& formats, VkShaderModule postVertex);
     [[nodiscard]] Result<void> createBloomChain(const TargetFormats& formats, VkShaderModule postVertex);
     [[nodiscard]] Result<void> createClusters();

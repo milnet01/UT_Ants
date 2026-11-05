@@ -233,6 +233,7 @@ struct SceneConstants {
     VkBool32 caustics;      ///< UTA-0215
     VkBool32 tileShuffle;   ///< UTA-0277
     VkBool32 lightTerms;    ///< UTA-0292: Config::lightTerms
+    VkBool32 specular;      ///< UTA-0298
 };
 
 Result<VkPipeline> scenePipeline(const Making& making, VkPipelineLayout layout, const TargetFormats& formats,
@@ -251,6 +252,7 @@ Result<VkPipeline> scenePipeline(const Making& making, VkPipelineLayout layout, 
         VkSpecializationMapEntry{4, offsetof(SceneConstants, caustics), sizeof(VkBool32)},      // UTA-0215
         VkSpecializationMapEntry{5, offsetof(SceneConstants, tileShuffle), sizeof(VkBool32)},   // UTA-0277
         VkSpecializationMapEntry{6, offsetof(SceneConstants, lightTerms), sizeof(VkBool32)},    // UTA-0292
+        VkSpecializationMapEntry{7, offsetof(SceneConstants, specular), sizeof(VkBool32)},      // UTA-0298
     };
     const VkSpecializationInfo specialization{static_cast<std::uint32_t>(entries.size()), entries.data(),
                                               sizeof(constants), &constants};
@@ -486,14 +488,14 @@ Result<VkShaderModule> shaderModule(VkDevice device, std::span<const std::uint32
 }
 
 Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const TargetFormats& formats, Tier tier,
-                                                     bool lightTerms) {
+                                                     bool lightTerms, bool specular) {
     std::unique_ptr<Pipelines> p(new Pipelines());
     p->device_ = gpu.device();
     p->captured_ = gpu.capturesShaderStatistics();
     p->textureCapacity_ = textureCapacityOf(gpu.physical());
     UTA_CHECK(p->createSceneSet());
     UTA_CHECK(p->createPostSet());
-    UTA_CHECK(p->createScenePipelines(formats, tier, lightTerms));
+    UTA_CHECK(p->createScenePipelines(formats, tier, lightTerms, specular));
     // The output stage and the bloom chain share post.vert.
     Module postVertex{p->device_};
     UTA_TRY(postVertex.handle, shaderModule(p->device_, post_vert_spv));
@@ -568,7 +570,8 @@ Result<void> Pipelines::createPostSet() {
 /// The forward pass's six scene pipelines, UTA-0273's two refracting ones at
 /// Ultra, two depth pipelines (UTA-0260), UTA-0263's flames and UTA-0215's
 /// water specks.
-Result<void> Pipelines::createScenePipelines(const TargetFormats& formats, Tier tier, bool lightTerms) {
+Result<void> Pipelines::createScenePipelines(const TargetFormats& formats, Tier tier, bool lightTerms,
+                                             bool specular) {
     const Making making{device_, createFlags()};
     Module sceneVertex{device_}, sceneFragment{device_};
     UTA_TRY(sceneVertex.handle, shaderModule(device_, scene_vert_spv));
@@ -578,7 +581,8 @@ Result<void> Pipelines::createScenePipelines(const TargetFormats& formats, Tier 
                                         enabled(Feature::TileVariation, tier) ? VK_TRUE : VK_FALSE,
                                         enabled(Feature::Caustics, tier) ? VK_TRUE : VK_FALSE,
                                         enabled(Feature::TileShuffle, tier) ? VK_TRUE : VK_FALSE,
-                                        lightTerms ? VK_TRUE : VK_FALSE};
+                                        lightTerms ? VK_TRUE : VK_FALSE,
+                                        specular && enabled(Feature::Specular, tier) ? VK_TRUE : VK_FALSE};
     for (const Blending blending : BLENDINGS) {
         for (int twoSided = 0; twoSided < 2; ++twoSided) {
             UTA_TRY(scene_[std::to_underlying(blending)][twoSided],

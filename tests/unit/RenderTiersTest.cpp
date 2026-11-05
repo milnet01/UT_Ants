@@ -140,6 +140,13 @@ TEST_CASE("UTA-0215: caustics start at Medium", "[render]") {
     CHECK(uta::urender::enabled(Feature::Caustics, Tier::Medium));
 }
 
+TEST_CASE("UTA-0298: highlights start at Ultra", "[render]") {
+    using uta::urender::Feature;
+    CHECK(uta::urender::minimumTier(Feature::Specular) == Tier::Ultra);
+    CHECK_FALSE(uta::urender::enabled(Feature::Specular, Tier::High));
+    CHECK(uta::urender::enabled(Feature::Specular, Tier::Ultra));
+}
+
 TEST_CASE("UTA-0215: water motes start at Medium", "[render]") {
     using uta::urender::Feature;
     CHECK(uta::urender::minimumTier(Feature::WaterMotes) == Tier::Medium);
