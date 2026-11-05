@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=449 -->
+<!-- ants-roadmap-id-high-water: UTA=450 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -20315,6 +20315,13 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   are decorations drawn as a mesh, baked to world space in a new PROP
   section and drawn as a still mover. LodMesh layout measured: 537 of
   537 stock meshes read to the last byte.
+  Built 2026-11-05 at 53e9c8c and f9bb8db. Unit 1164/1164; real-asset
+  2/2; device 151/151 on Mesa and the RX 6600 with validation and sync
+  validation; 13 hand mutations killed. DM-Fetid 2108 prop triangles, its
+  pipes and bends in place; MH-Vale_Evelyn 317,661, cost inside noise
+  (spec SS 13). Prop-only skins capped at 2x to keep Vale in budget. The
+  older Mesh class is a new item. Left: push; flip once GitHub's matrix
+  is green; a paired capture against the original.
   **Layman:** Pipes, barrels and other props placed in a map as models are not drawn yet, so some rooms look emptier than in the original.
   Kind: feature.
   Source: in-session-2026-10-09.
@@ -20467,6 +20474,20 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: feature.
   Source: in-session-2026-11-04 UTA-0293 spec.
   Lanes: urender, ubake.
+
+- 📋 [UTA-0450] **upkg and ubake: draw props whose model is the older Mesh class, not a LodMesh.**
+  Found baking MH-Vale_Evelyn with UTA-0341 (2026-11-05): 203 of its
+  props were skipped, each "its Mesh spvale.<name> is a mesh, not a
+  LodMesh" (SpVale's SPWheel, SPDoubleArch, SPFlagRing and others).
+  UTA-0341's spec leaves the Mesh class out (SS 9). A Mesh keeps its
+  triangles in Tris, which a LodMesh leaves empty
+  (docs/specs/UTA-0341-mesh-decorations.md SS 4.2). Measure the layout on
+  real Mesh exports before writing the reader, as UTA-0341 did; then a
+  census of how many maps it adds.
+  **Layman:** Some maps' props use an older kind of 3D model the new prop drawing does not read yet, so those props are still missing.
+  Kind: feature.
+  Source: in-session-2026-11-05 UTA-0341 bake.
+  Lanes: upkg, ubake.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
