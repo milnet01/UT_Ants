@@ -20298,7 +20298,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-decision-2026-10-09.
   Lanes: urender.
 
-- 📋 [UTA-0341] **urender: draw a map's mesh decorations -- pipes, barrels, tube lights and the like.**
+- 🚧 [UTA-0341] **urender: draw a map's mesh decorations -- pipes, barrels, tube lights and the like.**
   Found by UTA-0320 (2026-10-09): DM-Fetid's missing ceiling pipe is
   Botpack.Pipe actor 639, a mesh decoration, not BSP. The renderer draws
   no mesh actor, and no item planned it: UTA-0159 lights characters only.
@@ -20308,6 +20308,11 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   decoration as their fitting (TheBoat's copy Lantern5). When meshes
   draw, draw each lamp's mesh too, moved as the lamp's light is (UTA-0256
   SS 4.3's transform), and off with the added-lamps setting.
+  Started 2026-11-05 on branch uta-0341-props (worktree
+  ../UT_Ants-props). Spec docs/specs/UTA-0341-mesh-decorations.md: props
+  are decorations drawn as a mesh, baked to world space in a new PROP
+  section and drawn as a still mover. LodMesh layout measured: 537 of
+  537 stock meshes read to the last byte.
   **Layman:** Pipes, barrels and other props placed in a map as models are not drawn yet, so some rooms look emptier than in the original.
   Kind: feature.
   Source: in-session-2026-10-09.
@@ -21947,9 +21952,16 @@ to.
   read" for MH-SPNaliRescue, alone of 1406 MH maps. Find whether the map
   is malformed or our upkg Model reader refuses something UT99 accepts;
   a reader fault would also stop the map baking.
+  Answered 2026-11-05: not malformed. MH-SPNaliRescue.unr (md5
+  b0c04b8044e8c34326fc6efb5d34344b) is a package-version-61 map, and our
+  reader names it: "a Model at package version 61 keeps its BSP tables in
+  separate exports rather than inline; that layout is UTA-0072's" (ut-dump
+  --install <469> --surface-list). UT99 accepts it; our reader does not
+  yet. The fix is UTA-0072. Its sibling MH-SPNaliRescue-BP.unr reads.
   **Layman:** One Monster Hunt map's level data fails to load in our reader, so we cannot tell where its players start.
   Kind: investigate.
   Source: ut-monsterhunt-report-2026-10-09.
+  Blocked-by: UTA-0072.
 
 - ✅ [UTA-0361] **ut-dump: print each built BSP surface's polygons, so UT_MonsterHunt's wall tools can stop reading T3D exports.**
   UT_MonsterHunt asked 2026-10-15 whether ut-dump reads the built BSP for
