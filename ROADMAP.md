@@ -19065,7 +19065,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-10-05.
   Lanes: ubake, render.
 
-- 🚧 [UTA-0293] **urender and ubake: real-looking vegetation on maps that call for it, by cheap methods.**
+- ✅ [UTA-0293] **urender and ubake: real-looking vegetation on maps that call for it, by cheap methods.**
   The user, 2026-10-05: "I would also like cheap methods of creating
   real vegitation on relevant maps."
   Placed in 0.2.0 by ut-ants-04: it adds scenery rather than making the
@@ -19112,6 +19112,8 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   460,375 clumps; FatherDougal 1,007,535 at 18.09 units. SS 13: grass
   step 0.62 and 0.77 ms worst view at High, 2560x1440; stays at High.
   Left: push, then flip once GitHub's matrix is green.
+  Shipped 2026-11-05: green on GitHub's matrix (GCC 14, Clang 19, MSVC)
+  at 0d2aa45, run 41943505130.
   **Layman:** Outdoor maps get grass, plants and leaves that look real, made with tricks cheap enough for ordinary computers.
   Kind: feature.
   Source: user-request-2026-10-05.
