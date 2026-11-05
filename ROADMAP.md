@@ -20300,7 +20300,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-decision-2026-10-09.
   Lanes: urender.
 
-- 🚧 [UTA-0341] **urender: draw a map's mesh decorations -- pipes, barrels, tube lights and the like.**
+- ✅ [UTA-0341] **urender: draw a map's mesh decorations -- pipes, barrels, tube lights and the like.**
   Found by UTA-0320 (2026-10-09): DM-Fetid's missing ceiling pipe is
   Botpack.Pipe actor 639, a mesh decoration, not BSP. The renderer draws
   no mesh actor, and no item planned it: UTA-0159 lights characters only.
@@ -20322,6 +20322,9 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   (spec SS 13). Prop-only skins capped at 2x to keep Vale in budget. The
   older Mesh class is a new item. Left: push; flip once GitHub's matrix
   is green; a paired capture against the original.
+  Shipped 2026-11-05: green on GitHub's matrix (GCC 14, Clang 19, MSVC)
+  at 7dff510, run 41963316127. Open: a paired capture against the
+  original; the older Mesh class is UTA-0450.
   **Layman:** Pipes, barrels and other props placed in a map as models are not drawn yet, so some rooms look emptier than in the original.
   Kind: feature.
   Source: in-session-2026-10-09.
