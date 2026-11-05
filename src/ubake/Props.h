@@ -32,6 +32,12 @@
 
 namespace uta::ubake {
 
+/// SS 4.4: the most a skin only props wear is enlarged, each way. Measured
+/// 2026-11-05: at the default of 4, MH-Vale_Evelyn's prop skins took its
+/// texture working set from 711,698,376 bytes to 1,180,221,888, past the
+/// budget; a prop is seen from further off than the floor under it.
+inline constexpr std::uint32_t PROP_UPSCALE = 2;
+
 /// SS 4.4: where one material slot's picture comes from: an object path
 /// PLAC carries (MultiSkins, Skin, Texture), or a reference the mesh's own
 /// package holds (its Textures). Empty `path` and a null `reference` is no

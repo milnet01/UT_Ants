@@ -71,7 +71,8 @@ UT99's zero):
 1. its class resolves and descends from `engine.decoration`;
 2. `DrawType` is 2, `DT_Mesh`;
 3. `bHidden` is false;
-4. `Mesh` names a `LodMesh` export that reads (§ 4.2).
+4. `Mesh` names a `LodMesh` export that reads (§ 4.2). The lookup passes
+   over a class export of the same name: SpVale's `SPWheel` is both.
 
 An actor failing item 4 is skipped and named in the bake report's
 `skippedProps`, with the reason. It never refuses the map.
@@ -158,6 +159,13 @@ The MATS id is `umat::materialId` of that texture, as a BSP surface's is,
 so a picture both use is one material. The bake resolves a texture named by
 path through a new `resolveTextureByPath` beside `detail::resolveTexture`,
 then makes it with `makeVariant` as a surface's.
+
+A skin no level surface wears is enlarged at most `PROP_UPSCALE`, 2, each
+way, against a surface's 4 (`ubundle::MAX_UPSCALE_FACTOR`). Measured
+2026-11-05: at 4, MH-Vale_Evelyn's prop skins took its texture working set
+from 711,698,376 bytes to 1,180,221,888, past the 1 GiB budget, so the map
+would no longer open without the player asking it to shrink. A skin a
+surface also wears keeps the surface's size.
 
 A face's polyFlags are its material's `PolyFlags`, plus:
 
@@ -261,6 +269,13 @@ it per pixel. `shapeOf` already samples every MOVR shape, so a changed
   one bundle in place as `RenderSunTest.cpp` does.
   *Breaks when:* `shapeOf` stops sampling MOVR's shapes.
 
+- **INV-13** — A skin only props wear is enlarged at most `PROP_UPSCALE`.
+  In the INV-3 fixture, the cube's skin is enlarged no more than twice its
+  size, while the floor's picture, which a surface wears, is enlarged
+  further.
+  *Test:* `tests/unit/BakePropsTest.cpp`, "UTA-0341 INV-13".
+  *Breaks when:* the cap is not applied, or applied to surfaces too.
+
 ## 6. Failure modes
 
 - **A mesh in a package the install lacks, or in a layout § 4.2 does not
@@ -280,7 +295,7 @@ INV-1 reads the reference install (the real-asset tier,
 `docs/build-and-test.md`). INV-2 reads, pads and cuts a fixture export, a
 cube `tests/unit/BakeFixture.h`'s new `cubeMesh` and `addLodMesh` build, so
 it runs without the install. INV-3 to INV-8 bake fixture levels placing
-that cube (`tests/unit/BakePropsTest.cpp`). INV-9 is the codec's.
+that cube (`tests/unit/BakePropsTest.cpp`), as does INV-13. INV-9 is the codec's.
 INV-10 extends `BakeLampsTest.cpp`. INV-11 and INV-12 are device tests, run
 on Mesa's CPU driver and the GPU under the validation layer and sync
 validation. Every existing device test draws a map with no `PROP` and must
@@ -314,7 +329,7 @@ pass unchanged.
 
 | Claim | Check |
 |---|---|
-| INV-1 to INV-12 | the tests in § 7 |
+| INV-1 to INV-13 | the tests in § 7 |
 | A prop looks as UT99 draws it | nothing automatic; § 13's views beside a capture of the original |
 | Existing maps without props unchanged | every existing device test |
 
@@ -337,6 +352,23 @@ gate is cancelled for this project.
 
 To be measured when built: `ut-bench frame` at High, 2560x1440, on DM-Fetid
 and MH-Vale_Evelyn (§ 2's most prop triangles), props on against off in
-one job, and each bundle's PROP size. Props draw inside the opaque and translucent passes, so the cost
+one job, and each bundle's PROP size.
+
+**Measured 2026-11-05** on the RX 6600 (RADV), `ut-bench frame --tier high
+--size 2560x1440`, each map's bundle against a copy with PROP removed, in
+one job; `ut-bench` gave no busy-machine warning. Frame medians, ms:
+
+| Map | Prop triangles, vertices | Still, off → on | Moving, off → on |
+|---|---|---|---|
+| DM-Fetid (views on its props) | 2108, 1726 | 3.774 → 4.304 | 3.806 → 3.944 |
+| MH-Vale_Evelyn | 317,661, 220,664 | 6.745 → 6.702 | 6.788 → 6.687 |
+
+Vale's difference is inside run-to-run noise; Fetid's views fill the
+screen with props. Texture working set with `PROP_UPSCALE` (§ 4.4): Fetid
+52,901,792 bytes, Vale 835,273,152, both under the budget. `ut-shot` views
+at High show Fetid's pipes, bends, tube lights and barrels in place, a bend
+meeting its straight pipe cleanly, and Vale's boulders, moss, ferns and
+lanterns. Not yet compared against a capture of the original.
+Refute by re-running the same command. Props draw inside the opaque and translucent passes, so the cost
 shows there. Recorded here with the date, with `ut-shot` views of DM-Fetid's
 pipes beside the original's.

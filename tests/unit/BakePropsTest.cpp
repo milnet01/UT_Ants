@@ -12,6 +12,7 @@
 #include "support/FCoordsPort.h"
 #include "ubake/Bake.h"
 #include "ubake/Geometry.h"
+#include "ubake/Props.h"
 #include "ubundle/Bundle.h"
 #include "upkg/Package.h"
 
@@ -238,4 +239,22 @@ TEST_CASE("UTA-0341 INV-8: a prop that does not read never refuses the map", "[u
     CHECK_FALSE(result.bundle.props.has_value());
     REQUIRE(result.skippedProps.size() == 1);
     CHECK(result.skippedProps[0].actor.find("prop1") != std::string::npos);
+}
+
+TEST_CASE("UTA-0341 INV-13: a skin only props wear is enlarged at most PROP_UPSCALE", "[ubake][props]") {
+    // The floor's picture is worn by a surface; the cube's skin by the prop
+    // alone. Each picture is 4 texels square.
+    Scene built = scene();
+    built.fixture.map.addActor("Prop1", built.propClass);
+    const BakeResult result = bake(built);
+    REQUIRE(result.bundle.textures.has_value());
+    const auto factorOf = [&result](const std::string& name) -> std::uint32_t {
+        for (const auto& texture : *result.bundle.textures)
+            if (texture.name == name) return texture.width / texture.sourceWidth;
+        FAIL("no texture " << name);
+        return 0;
+    };
+    CHECK(factorOf("dm-fixture.skin:base") <= uta::ubake::PROP_UPSCALE);
+    // The cap is the prop's alone: the floor is enlarged past it.
+    CHECK(factorOf("dm-fixture.floor:base") > uta::ubake::PROP_UPSCALE);
 }

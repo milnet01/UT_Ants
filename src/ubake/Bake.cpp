@@ -693,7 +693,8 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
                                                     const detail::CuratedLookup& curated,
                                                     const urecipe::MaterialAssignment* assignment,
                                                     TextureCache* textureCache,
-                                                    const detail::FlameLookup& isFlame) {
+                                                    const detail::FlameLookup& isFlame,
+                                                    std::uint32_t upscaleCap = ubundle::MAX_UPSCALE_FACTOR) {
     if (site.holder == nullptr) return std::unexpected(site.unresolved);
     const upkg::Package& holder = *site.holder;
 
@@ -784,6 +785,8 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
         settings = umat::applied(settings, overrideOf(*assignment));
         if (assignment->upscale.has_value()) settings.requestedUpscale = *assignment->upscale;
     }
+    // UTA-0341 SS 4.4: a skin only props wear is enlarged at most PROP_UPSCALE.
+    settings.requestedUpscale = std::min(settings.requestedUpscale, upscaleCap);
 
     // UTA-0105 SS 4.1: a liquid class carries its own settings, its class's
     // defaults under them. The still above is unchanged by it.
@@ -996,6 +999,7 @@ Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapNa
         bool masked = false;
         std::vector<std::int32_t> references; ///< every reference resolving to it
         const urecipe::MaterialAssignment* assignment = nullptr; ///< the recipe's, for both variants
+        bool propOnly = false; ///< UTA-0341 SS 4.4: no level surface wears it
     };
     // UTA-0113: a recipe names a texture without #masked, so both of its
     // variants take the assignment.
@@ -1035,8 +1039,9 @@ Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapNa
         const std::string texture = umat::materialId(placed->package, placed->path, false);
         const auto found = assigned.find(texture);
         used.insert(texture);
+        // A variant a surface already asked for keeps its surface's size.
         variants.try_emplace(umat::materialId(placed->package, placed->path, masked),
-                             Variant{placed, masked, {}, found == assigned.end() ? nullptr : found->second});
+                             Variant{placed, masked, {}, found == assigned.end() ? nullptr : found->second, true});
     }
 
     // UTA-0149's sibling UTA-0148: a few variants are made at once, each also
@@ -1067,7 +1072,8 @@ Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapNa
         const std::size_t threw = jobs.parallelFor(count, [&](std::size_t i) {
             const auto& [id, variant] = ordered[first + i];
             batch[i].emplace(makeVariant(*variant->site, *id, variant->masked, locked, jobs, curated,
-                                         variant->assignment, textureCache, isFlame));
+                                         variant->assignment, textureCache, isFlame,
+                                         variant->propOnly ? PROP_UPSCALE : ubundle::MAX_UPSCALE_FACTOR));
         });
         if (threw != 0) return fail(ErrorCode::Unknown, "making a material threw");
 #ifdef __GLIBC__

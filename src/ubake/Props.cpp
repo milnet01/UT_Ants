@@ -95,6 +95,9 @@ std::expected<MeshFound, std::string> meshAt(const std::string& path, const upkg
     }
     for (const upkg::ExportEntry& entry : holder->exports()) {
         if (foldedExportPath(*holder, entry) != rest) continue;
+        // A class export of the same name -- SpVale's SPWheel is both -- has
+        // no class of its own; the mesh is another export.
+        if (entry.objectClass.kind() == upkg::ObjectReferenceKind::Null) continue;
         const auto className = holder->objectName(entry.objectClass);
         const std::string folded = className.has_value() ? asciiFolded(*className) : std::string{};
         if (folded == "texture" || folded == "palette") continue; // a namesake, not the mesh
