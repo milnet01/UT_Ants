@@ -19933,6 +19933,14 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   surface does not get brighter overall. Its own on/off switch (UTA-0297)
   and a tier. Part of UTA-0292; UTA-0045's screen-space reflections are
   the sharper, costlier step after it.
+  2026-11-05 progress: written and building in worktree
+  ../UT_Ants-spec, branch uta-0298-specular, local commit c2520ab (not
+  pushed). Unit 1166/1166. Device on lavapipe 153/154: "a rough floor is
+  no brighter overall with highlights" fails, Medium 595665 against Low
+  583076, 2.2% brighter where the test allows 2%. Next: find whether the
+  energy split is wrong or the bound is too tight; then GPU device run,
+  hand mutations, ut-bench at High and Medium to choose the tier, ut-shot
+  look, CHANGELOG, merge to main.
   **Layman:** Shiny surfaces catch the light: metal panels, wet floors and polished stone show a bright glint that moves as you move.
   Kind: feature.
   Source: user-request-2026-10-06.
