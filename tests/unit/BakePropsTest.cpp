@@ -258,3 +258,13 @@ TEST_CASE("UTA-0341 INV-13: a skin only props wear is enlarged at most PROP_UPSC
     // The cap is the prop's alone: the floor is enlarged past it.
     CHECK(factorOf("dm-fixture.floor:base") > uta::ubake::PROP_UPSCALE);
 }
+
+TEST_CASE("UTA-0341 INV-14: a prop drawn with the older Mesh class is a prop", "[ubake][props]") {
+    Scene built = scene();
+    MapBuilder& map = built.fixture.map;
+    const std::int32_t old = map.addMesh("OldCube", cubeMesh(built.skin));
+    map.addActor("Prop1", built.propClass, {objectProperty("Mesh", old)});
+    const BakeResult result = bake(built);
+    CHECK(trianglesOf(result) == 12);
+    CHECK(result.skippedProps.empty());
+}

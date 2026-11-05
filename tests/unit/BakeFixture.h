@@ -314,10 +314,14 @@ public:
     std::int32_t addRawExport(std::string_view package, std::string_view className,
                               std::string_view name, std::vector<std::uint8_t> data);
     /// UTA-0341: a LodMesh export's bytes for `mesh`, over this map's names.
-    [[nodiscard]] std::vector<std::uint8_t> lodMeshBytes(const MeshSpec& mesh);
+    /// `lod` false writes a Mesh instead (UTA-0450): the faces as Tris, and
+    /// none of a LodMesh's own tables.
+    [[nodiscard]] std::vector<std::uint8_t> lodMeshBytes(const MeshSpec& mesh, bool lod = true);
     /// UTA-0341: an `Engine.LodMesh` export named `name` holding `mesh`; its
     /// reference.
     std::int32_t addLodMesh(std::string_view name, const MeshSpec& mesh);
+    /// UTA-0450: an `Engine.Mesh` export named `name` holding `mesh`.
+    std::int32_t addMesh(std::string_view name, const MeshSpec& mesh);
     /// An export of class `<package>.<className>` that is not an actor,
     /// carrying `properties` -- a LevelSummary, for UTA-0101; its reference.
     std::int32_t addObject(std::string_view package, std::string_view className,

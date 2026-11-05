@@ -20478,7 +20478,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: in-session-2026-11-04 UTA-0293 spec.
   Lanes: urender, ubake.
 
-- 📋 [UTA-0450] **upkg and ubake: draw props whose model is the older Mesh class, not a LodMesh.**
+- 🚧 [UTA-0450] **upkg and ubake: draw props whose model is the older Mesh class, not a LodMesh.**
   Found baking MH-Vale_Evelyn with UTA-0341 (2026-11-05): 203 of its
   props were skipped, each "its Mesh spvale.<name> is a mesh, not a
   LodMesh" (SpVale's SPWheel, SPDoubleArch, SPFlagRing and others).
@@ -20487,6 +20487,16 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   (docs/specs/UTA-0341-mesh-decorations.md SS 4.2). Measure the layout on
   real Mesh exports before writing the reader, as UTA-0341 did; then a
   census of how many maps it adds.
+  Started 2026-11-05. Measured: a Mesh is a LodMesh's UMesh half alone,
+  its triangles in Tris; 751 of 751 Mesh exports in System/*.u read to
+  the last byte. An amendment of docs/specs/UTA-0341-mesh-decorations.md
+  (SS 4.2, SS 9), not a spec of its own.
+  Built 2026-11-05: readLodMesh reads a Mesh from Tris; UTA-0341 spec
+  amended (SS 4.2, SS 9, INV-14). Unit 1166/1166; real-asset 24 of 24
+  SPVale meshes read; 3 hand mutations killed. MH-Vale_Evelyn re-baked:
+  334,124 prop triangles, none skipped (was 203 skipped), texture set
+  840,986,712 bytes. Baker 78. Left: push, then flip once GitHub's
+  matrix is green.
   **Layman:** Some maps' props use an older kind of 3D model the new prop drawing does not read yet, so those props are still missing.
   Kind: feature.
   Source: in-session-2026-11-05 UTA-0341 bake.

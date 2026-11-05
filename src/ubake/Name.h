@@ -34,7 +34,7 @@ namespace uta::ubake {
 /// `ubake` itself, or any library src/ubake/CMakeLists.txt links it to.
 /// tests/unit/BakeGoldenTest.cpp fails a change without a bump, and a bump
 /// without re-recording its golden hash (INV-5).
-inline constexpr std::uint32_t BAKER_REVISION = 77; // 77 since UTA-0341 bakes props
+inline constexpr std::uint32_t BAKER_REVISION = 78; // 78 since UTA-0450 bakes props of the older Mesh class
 
 /// "r<BAKER_REVISION>-f<ubundle::FORMAT_VERSION>-l<umat::libraryDigest()>",
 /// the revision and format in decimal, the digest as sixteen lower-case hex

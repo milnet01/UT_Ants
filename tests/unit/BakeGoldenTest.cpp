@@ -182,9 +182,11 @@ namespace {
 // still has no grass name; BAKR's revision moved it.
 // 77, format 36: UTA-0341 bakes props. The fixture places no decoration, so
 // it writes no PROP; the header's format and BAKR's revision moved it.
-constexpr std::uint32_t RECORDED_UNDER = 77;
+// 78: UTA-0450 bakes props of the older Mesh class. The fixture places no
+// decoration; BAKR's revision moved it.
+constexpr std::uint32_t RECORDED_UNDER = 78;
 constexpr std::string_view GOLDEN =
-    "0440f810f19233053bf1de4b27bfdd3e7ea558f4ff58a0a8982b8a9617daeb65";
+    "8ef3e2383b0911be8984b69a05071d34a23db9f0151728b43e4aca59537b13de";
 
 } // namespace
 

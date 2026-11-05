@@ -66,9 +66,11 @@ struct LodMesh {
     std::vector<MeshMaterial> materials;
 };
 
-/// SS 4.2: a `LodMesh` export. Refuses another class, an export it does not
-/// consume to the last byte, a Verts count that is not FrameVerts times
-/// AnimFrames, and a face, wedge or material index outside its table.
+/// SS 4.2: a `LodMesh` export, or a `Mesh` (UTA-0450), whose triangles in
+/// Tris become the same faces, wedges and materials. Refuses another class,
+/// an export it does not consume to the last byte, a Verts count that is not
+/// FrameVerts times AnimFrames, and a face, wedge or material index outside
+/// its table.
 [[nodiscard]] Result<LodMesh> readLodMesh(const Package& package, const ExportEntry& entry);
 
 /// UT99's packed mesh vertex: X in bits 0 to 10, Y in 11 to 21, Z in 22 to 31,

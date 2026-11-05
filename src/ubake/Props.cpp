@@ -101,7 +101,8 @@ std::expected<MeshFound, std::string> meshAt(const std::string& path, const upkg
         const auto className = holder->objectName(entry.objectClass);
         const std::string folded = className.has_value() ? asciiFolded(*className) : std::string{};
         if (folded == "texture" || folded == "palette") continue; // a namesake, not the mesh
-        if (folded != "lodmesh") return std::unexpected("its Mesh " + path + " is a " + folded + ", not a LodMesh");
+        if (folded != "lodmesh" && folded != "mesh") // UTA-0450: the older Mesh too
+            return std::unexpected("its Mesh " + path + " is a " + folded + ", not a mesh");
         auto mesh = upkg::readLodMesh(*holder, entry);
         if (!mesh.has_value()) return std::unexpected("its Mesh " + path + " did not read: " + std::string{mesh.error().message()});
         return MeshFound{holder, package, std::move(*mesh)};

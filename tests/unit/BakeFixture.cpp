@@ -473,7 +473,7 @@ std::int32_t MapBuilder::addRawExport(std::string_view package, std::string_view
     return packer_.addExport(packer_.importClass(package, className), 0, name, std::move(data));
 }
 
-std::vector<std::uint8_t> MapBuilder::lodMeshBytes(const MeshSpec& mesh) {
+std::vector<std::uint8_t> MapBuilder::lodMeshBytes(const MeshSpec& mesh, bool lod) {
     std::vector<std::uint8_t> out = packer_.properties({});
     const auto appendI32 = [&out](std::int32_t value) { appendU32(out, static_cast<std::uint32_t>(value)); };
     const auto appendFloat = [&out](float value) { appendU32(out, std::bit_cast<std::uint32_t>(value)); };
@@ -510,7 +510,22 @@ std::vector<std::uint8_t> MapBuilder::lodMeshBytes(const MeshSpec& mesh) {
         appendU32(out, bits(vertex[0], 11) | (bits(vertex[1], 11) << 11) | (bits(vertex[2], 10) << 22));
     }
     lazyOffset();
-    empty(); // Tris
+    if (lod) {
+        empty(); // Tris
+    } else {
+        // UTA-0450: each face as an FMeshTri -- its wedges' vertices and
+        // texture coordinates, then its material's flags and texture slot.
+        appendIndex(out, static_cast<std::int32_t>(mesh.faces.size()));
+        for (const MeshSpec::Face& face : mesh.faces) {
+            for (const std::uint16_t wedge : face.wedges) appendU16(mesh.wedges[wedge].vertex);
+            for (const std::uint16_t wedge : face.wedges) {
+                appendU8(out, mesh.wedges[wedge].u);
+                appendU8(out, mesh.wedges[wedge].v);
+            }
+            appendU32(out, mesh.materials[face.material].polyFlags);
+            appendI32(mesh.materials[face.material].textureIndex);
+        }
+    }
     appendIndex(out, 1); // AnimSeqs: "All", group None, frame 0, one frame, no notifies
     appendIndex(out, packer_.name("All"));
     appendIndex(out, packer_.name("None"));
@@ -537,6 +552,7 @@ std::vector<std::uint8_t> MapBuilder::lodMeshBytes(const MeshSpec& mesh) {
     appendI32(0);
     appendI32(0);
     empty(); // TextureLOD
+    if (!lod) return out; // a Mesh ends here
     empty(); // CollapsePointThus
     empty(); // FaceLevel
     appendIndex(out, static_cast<std::int32_t>(mesh.faces.size()));
@@ -565,6 +581,11 @@ std::vector<std::uint8_t> MapBuilder::lodMeshBytes(const MeshSpec& mesh) {
 std::int32_t MapBuilder::addLodMesh(std::string_view name, const MeshSpec& mesh) {
     std::vector<std::uint8_t> bytes = lodMeshBytes(mesh);
     return packer_.addExport(packer_.importClass("Engine", "LodMesh"), 0, name, std::move(bytes));
+}
+
+std::int32_t MapBuilder::addMesh(std::string_view name, const MeshSpec& mesh) {
+    std::vector<std::uint8_t> bytes = lodMeshBytes(mesh, false);
+    return packer_.addExport(packer_.importClass("Engine", "Mesh"), 0, name, std::move(bytes));
 }
 
 MeshSpec cubeMesh(std::int32_t texture) {

@@ -73,3 +73,20 @@ TEST_CASE("UTA-0341 INV-1: every stock LodMesh reads", "[real][mesh]") {
     INFO("LodMesh exports read: " << read);
     CHECK(read == 537); // SS 4.2's measurement, 2026-11-05
 }
+
+TEST_CASE("UTA-0341 INV-14: every Mesh of SPVale reads", "[real][mesh]") {
+    // UTA-0450: MH-Vale_Evelyn's own package, whose props use the older class.
+    const std::vector<std::byte> raw = readWhole(SYSTEM / "SPVale.u");
+    const auto package = upkg::Package::open(viewOf(raw));
+    REQUIRE(package.has_value());
+    std::size_t read = 0;
+    for (const upkg::ExportEntry& entry : package->exports()) {
+        if (package->objectName(entry.objectClass).value_or("") != "Mesh") continue;
+        const auto mesh = upkg::readLodMesh(*package, entry);
+        if (!mesh.has_value())
+            FAIL(package->name(entry.objectName).value_or("?") << ": " << mesh.error().message());
+        CHECK_FALSE(mesh->faces.empty());
+        ++read;
+    }
+    CHECK(read == 24); // UTA-0450's measurement, 2026-11-05
+}

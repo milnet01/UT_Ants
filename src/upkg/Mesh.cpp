@@ -12,9 +12,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <map>
 #include <span>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <utility>
 
 namespace uta::upkg {
@@ -24,7 +26,7 @@ constexpr std::string_view OWNER = "a LodMesh";
 
 // Each element's width, for the tables stepped over and the count checks.
 constexpr std::size_t PACKED_VERTEX_BYTES = 4;
-constexpr std::size_t TRI_BYTES = 20;       // FMeshTri, unused by a LodMesh
+constexpr std::size_t TRI_BYTES = 20;       // FMeshTri: a Mesh's triangles; empty in a LodMesh
 constexpr std::size_t CONNECT_BYTES = 8;    // FMeshVertConnect
 constexpr std::size_t LINK_BYTES = 4;       // a VertLinks entry
 constexpr std::size_t BOX_BYTES = 25;       // FBox: two vectors and a flag
@@ -104,7 +106,47 @@ Result<void> readSequences(const Package& package, ByteReader& reader, LodMesh& 
     return {};
 }
 
-/// SS 4.2 items 1 to 4: UMesh's fields.
+/// SS 4.2 item 3's Tris, as faces: each triangle's three corners become
+/// wedges, one per distinct vertex and texture coordinate, and its PolyFlags
+/// and texture slot a material, one per distinct pair, in first-seen order.
+/// A LodMesh's Tris is empty; a Mesh draws from it (UTA-0450).
+Result<void> readTris(ByteReader& reader, LodMesh& mesh) {
+    UTA_TRY(const std::int32_t count, readCount(reader, TRI_BYTES, "triangles"));
+    std::map<std::tuple<std::uint16_t, std::uint8_t, std::uint8_t>, std::uint16_t> wedgeOf;
+    std::map<std::pair<std::uint32_t, std::int32_t>, std::uint16_t> materialOf;
+    const auto index = [](auto& table, const auto& key, auto& into, auto&& value) -> Result<std::uint16_t> {
+        if (const auto found = table.find(key); found != table.end()) return found->second;
+        if (into.size() > 0xFFFFu) return std::unexpected(detail::malformed("a Mesh holds more corners than a face can name"));
+        const auto made = static_cast<std::uint16_t>(into.size());
+        into.push_back(value);
+        table.emplace(key, made);
+        return made;
+    };
+    for (std::int32_t t = 0; t < count; ++t) {
+        std::array<std::uint16_t, 3> vertex{};
+        std::array<std::array<std::uint8_t, 2>, 3> uv{};
+        for (std::uint16_t& v : vertex) {
+            UTA_TRY(v, reader.readU16());
+        }
+        for (auto& corner : uv)
+            for (std::uint8_t& c : corner) {
+                UTA_TRY(c, reader.readU8());
+            }
+        UTA_TRY(const std::uint32_t polyFlags, reader.readU32());
+        UTA_TRY(const std::int32_t textureIndex, reader.readI32());
+        MeshFace face;
+        for (std::size_t k = 0; k < 3; ++k) {
+            UTA_TRY(face.wedges[k], index(wedgeOf, std::tuple{vertex[k], uv[k][0], uv[k][1]}, mesh.wedges,
+                                          MeshWedge{vertex[k], uv[k][0], uv[k][1]}));
+        }
+        UTA_TRY(face.material, index(materialOf, std::pair{polyFlags, textureIndex}, mesh.materials,
+                                     MeshMaterial{polyFlags, textureIndex}));
+        mesh.faces.push_back(face);
+    }
+    return {};
+}
+
+/// SS 4.2 items 1 to 4: UMesh's fields, all of a Mesh.
 Result<void> readMeshPart(const Package& package, ByteReader& reader, LodMesh& mesh) {
     UTA_TRY(mesh.bounds, readBox(reader));
     UTA_CHECK(reader.skip(SPHERE_BYTES));
@@ -117,7 +159,7 @@ Result<void> readMeshPart(const Package& package, ByteReader& reader, LodMesh& m
         mesh.vertices.push_back(unpackMeshVertex(packed));
     }
     UTA_CHECK(skipLazyOffset(reader));
-    UTA_CHECK(skipTable(reader, TRI_BYTES, "triangles"));
+    UTA_CHECK(readTris(reader, mesh));
     UTA_CHECK(readSequences(package, reader, mesh));
     UTA_CHECK(skipLazyOffset(reader));
     UTA_CHECK(skipTable(reader, CONNECT_BYTES, "connects"));
@@ -225,15 +267,17 @@ std::array<std::int16_t, 3> unpackMeshVertex(std::uint32_t packed) noexcept {
 
 Result<LodMesh> readLodMesh(const Package& package, const ExportEntry& entry) {
     UTA_TRY(const std::string_view className, package.objectName(entry.objectClass));
-    if (className != "LodMesh")
-        return std::unexpected(detail::malformed("a " + std::string{className} + " export is not a LodMesh"));
+    const bool lod = className == "LodMesh";
+    if (!lod && className != "Mesh")
+        return std::unexpected(detail::malformed("a " + std::string{className} + " export is not a mesh"));
     UTA_TRY(const PropertyList list, readPropertyList(package, entry));
     UTA_TRY(const std::span<const std::byte> data, package.serialBytes(entry));
     ByteReader reader{data, list.nativeOffset};
 
     LodMesh mesh;
     UTA_CHECK(readMeshPart(package, reader, mesh));
-    UTA_CHECK(readLodPart(reader, mesh));
+    // UTA-0450: a Mesh ends where a LodMesh's own tables begin.
+    if (lod) UTA_CHECK(readLodPart(reader, mesh));
     UTA_CHECK(detail::expectConsumed(reader, OWNER));
     UTA_CHECK(checkIndices(mesh));
     return mesh;

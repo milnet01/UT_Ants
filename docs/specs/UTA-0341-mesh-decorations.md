@@ -80,8 +80,8 @@ An actor failing item 4 is skipped and named in the bake report's
 ### 4.2 Reading a LodMesh
 
 A new reader, `upkg::readLodMesh` (`src/upkg/Mesh.h`), reads a `LodMesh`
-export. It refuses any other class with a named reason, and refuses an
-export it does not consume to the last byte.
+export, or a `Mesh` (UTA-0450, below). It refuses any other class with a
+named reason, and refuses an export it does not consume to the last byte.
 
 The layout, after the export's property list:
 
@@ -111,11 +111,20 @@ The layout, after the export's property list:
 `LodMesh` export of `System/Botpack.u`, `UnrealShare.u` and `UnrealI.u`
 (537) to its last byte, and in each `Verts` held `FrameVerts` times
 `AnimFrames` entries. Decoding `Botpack.pipeM`'s 62 vertices gives exactly
-its stored bounding box. `Tris` was empty in all 537; the reader keeps it
-only to step over it.
+its stored bounding box. `Tris` was empty in all 537.
 
-A mesh reads its triangles from `Faces`. Only full detail is drawn: the
+A LodMesh reads its triangles from `Faces`. Only full detail is drawn: the
 LOD tables beyond `Faces` and `Wedges` are stepped over.
+
+**The older `Mesh` class** (UTA-0450, amended 2026-11-05) is items 1 to 4
+alone: it ends after `TextureLOD`, and keeps its triangles in `Tris`. Each
+`Tris` record is three uint16 vertex indices, three U and V byte pairs, a
+uint32 PolyFlags and an int32 texture slot. The reader turns them into the
+same faces, wedges and materials: one wedge per distinct vertex and
+texture coordinate, one material per distinct PolyFlags and slot, in
+first-seen order. Measured 2026-11-05: this layout consumed every `Mesh`
+export of the install's `System` packages (751) to its last byte; six,
+smoke and spark effects, hold no triangles.
 
 ### 4.3 Placing a prop
 
@@ -180,7 +189,8 @@ The renderer treats these flags as it treats a BSP surface's.
 A new section, `PROP`, written after `VEGE`, holds one `Geometry` in world
 space, under GEOM's rules (UTA-0109): every placed prop's triangles,
 batched by material and polyFlags. A map with no prop writes no `PROP`.
-`FORMAT_VERSION` becomes 36 and `BAKER_REVISION` 77. Each prop's
+`FORMAT_VERSION` becomes 36 and `BAKER_REVISION` 77; 78 once props of the
+older `Mesh` class are drawn (UTA-0450). Each prop's
 vertices are one per wedge, so faces sharing a corner share its vertex.
 
 A recipe lamp whose fitting names a mesh decoration (UTA-0256 § 4.1) gains
@@ -276,6 +286,17 @@ it per pixel. `shapeOf` already samples every MOVR shape, so a changed
   *Test:* `tests/unit/BakePropsTest.cpp`, "UTA-0341 INV-13".
   *Breaks when:* the cap is not applied, or applied to surfaces too.
 
+- **INV-14** — A `Mesh` reads as a LodMesh does, and draws. The fixture
+  cube written as a `Mesh` reads to the same vertices and, face by face,
+  the same corners as the cube written as a `LodMesh`; padded by a byte it
+  is refused. A prop wearing it bakes the cube's twelve triangles. Every
+  `Mesh` of `System/SPVale.u` (24) reads.
+  *Test:* `tests/unit/LodMeshTest.cpp` and `tests/unit/BakePropsTest.cpp`,
+  "UTA-0341 INV-14"; `tests/real/RealMeshTest.cpp`, "UTA-0341 INV-14", in
+  the real-asset tier.
+  *Breaks when:* `Tris` is stepped over, a `Mesh` is read on into a
+  LodMesh's tables, or the prop lookup refuses the class.
+
 ## 6. Failure modes
 
 - **A mesh in a package the install lacks, or in a layout § 4.2 does not
@@ -322,14 +343,15 @@ pass unchanged.
 - Animating a prop; pickups, weapons, monsters and players (UTA-0019,
   UTA-0159).
 - Shadows cast by props, and their collision (UTA-0377).
-- `Mesh` exports of class `Mesh` or `SkeletalMesh`; version-61 meshes.
+- `SkeletalMesh` exports; version-61 meshes. (The `Mesh` class was here
+  until UTA-0450 brought it in, § 4.2.)
 - Level-of-detail reduction.
 
 ## 10. What checks this
 
 | Claim | Check |
 |---|---|
-| INV-1 to INV-13 | the tests in § 7 |
+| INV-1 to INV-14 | the tests in § 7 |
 | A prop looks as UT99 draws it | nothing automatic; § 13's views beside a capture of the original |
 | Existing maps without props unchanged | every existing device test |
 
