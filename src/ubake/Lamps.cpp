@@ -75,7 +75,8 @@ Result<std::vector<ubundle::AddedLamp>> buildLamps(const upkg::Package& map, con
                                                    const std::vector<ubundle::Light>& lights,
                                                    const ubundle::Placements& placements,
                                                    const MaterialLookup& materials, const FlameSheets& flames,
-                                                   const umap::RoomMap& rooms, std::size_t zoneCount) {
+                                                   const umap::RoomMap& rooms, std::size_t zoneCount,
+                                                   const PropShapeLookup& props) {
     std::vector<ubundle::AddedLamp> out;
     out.reserve(lamps.size());
     for (const urecipe::AddedLamp& wanted : lamps) {
@@ -113,11 +114,14 @@ Result<std::vector<ubundle::AddedLamp>> buildLamps(const upkg::Package& map, con
                 return refuse(std::format("{} gives neither a drawn surface nor a flame", brush));
             fitting.insert(own.begin(), own.end());
         }
-        // Step 3, a mesh fitting: checked only, until UTA-0341 draws meshes.
+        // Step 3, a mesh fitting: the prop UTA-0341 placed, copied with the lamp
+        // (UTA-0341 SS 4.5). A prop whose mesh did not read gives nothing.
+        const ubundle::Geometry* meshShape = nullptr;
         if (!wanted.mesh.empty()) {
             const auto meshExport = exportIndexNamed(map, wanted.mesh);
             if (!meshExport.has_value() || !isMeshDecoration(placements, *meshExport))
                 return refuse(std::format("{} is not a mesh decoration of the map", wanted.mesh));
+            meshShape = props(*meshExport);
         }
 
         ubundle::AddedLamp lamp;
@@ -131,6 +135,8 @@ Result<std::vector<ubundle::AddedLamp>> buildLamps(const upkg::Package& map, con
 
         UTA_TRY(lamp.shape, buildGeometry(model, materials, zoneCount,
                                           allBut(model.surfs.size(), fitting, flames.surfaces)));
+        if (meshShape != nullptr && !meshShape->indices.empty())
+            lamp.shape = mergeGeometry({&lamp.shape, meshShape});
         for (ubundle::GeometryVertex& vertex : lamp.shape.vertices) {
             vertex.position = placedPoint(vertex.position, pivot, wanted.at, wanted.yaw);
             vertex.normal = turned(vertex.normal, wanted.yaw);

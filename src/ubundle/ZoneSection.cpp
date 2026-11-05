@@ -101,6 +101,7 @@ Result<void> validateVertexZones(const Bundle& bundle, ErrorCode code) {
             UTA_CHECK(zonesBelow((*bundle.movers)[i].geometry, bound, present,
                                  "MOVR: shape " + std::to_string(i) + "'s geometry", code));
     }
+    if (bundle.props) UTA_CHECK(zonesBelow(*bundle.props, bound, present, "PROP", code)); // UTA-0341
     if (bundle.lamps) {
         for (std::size_t i = 0; i < bundle.lamps->size(); ++i)
             UTA_CHECK(zonesBelow((*bundle.lamps)[i].shape, bound, present,

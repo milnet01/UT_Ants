@@ -281,6 +281,18 @@ void writeResult(std::ostream& out, const BakeResult& result, std::size_t listed
             out << '}';
         });
     }
+    // UTA-0341 SS 4.1 and SS 4.5: the props drawn, as PROP's triangles, and
+    // each left out with why.
+    out << ", \"props\": {\"triangles\": "
+        << (result.bundle.props.has_value() ? result.bundle.props->indices.size() / 3 : 0) << ", \"skipped\": ";
+    writeArray(out, result.skippedProps, [&out](const SkippedProp& skipped) {
+        out << "{\"actor\": ";
+        writeJsonString(out, skipped.actor);
+        out << ", \"why\": ";
+        writeJsonString(out, skipped.reason);
+        out << '}';
+    });
+    out << '}';
     // UTA-0055 SS 4.2: how the swaying surfaces were cut, and what the budget
     // left still.
     out << ", \"sway\": {\"waterSlice\": " << result.sway.waterSlice << ", \"waterStill\": "

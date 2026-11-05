@@ -81,7 +81,8 @@ std::uint64_t fingerprintOf(const Picture& shown) {
 /// so it is "Lamp0", the torch's light is "Lamp1" and every brush moves up one
 /// -- UTA-0256 INV-11's two lights, the flame tied to the second.
 /// `decorations` adds, after the brushes, UTA-0256 INV-14's actors: "Lantern4",
-/// a Decoration drawn as a mesh; "Sprite5", one drawn as a sprite;
+/// a Decoration drawn as the fixture's cube mesh, at the origin; "Sprite5",
+/// one drawn as a sprite;
 /// "Lantern6", a mesh decoration whose own Mesh is None; and "Statue7", drawn
 /// as a mesh but no Decoration.
 struct Room {
@@ -125,7 +126,8 @@ Room room(bool farLightFirst = false, bool decorations = false) {
     if (decorations) {
         out.decorations = true;
         const std::int32_t decoration = map.importClass("Engine", "Decoration");
-        const std::int32_t mesh = map.importTexture("ActorPkg", "", "LanternMesh", "LodMesh");
+        // UTA-0341: a mesh that reads, so a lamp's mesh fitting has a shape.
+        const std::int32_t mesh = map.addLodMesh("LanternMesh", cubeMesh(wall));
         const std::int32_t lantern =
             map.addClass("Lantern", decoration, {byteProperty("DrawType", 2), objectProperty("Mesh", mesh)});
         const std::int32_t sprite =
@@ -317,17 +319,37 @@ TEST_CASE("UTA-0256 INV-14: a lamp's mesh must be a mesh decoration of the map",
     SECTION("a mesh decoration with no mesh") { refused("Lantern6"); }
 }
 
-TEST_CASE("UTA-0256 INV-14: a lamp's mesh is checked and adds nothing to the bundle", "[ubake][lamp]") {
+TEST_CASE("UTA-0341 INV-10: a recipe lamp draws its mesh fitting", "[ubake][lamp]") {
+    // UTA-0256 INV-14's byte-equality clause, withdrawn by UTA-0341: the mesh
+    // is now drawn, with the lamp and where the map placed it.
     const Room fixture = room(false, true);
     AddedLamp lit = quarterLamp();
     lit.mesh = "Lantern4";
     const Recipe withMesh = recipeWith({lit});
     const Recipe without = recipeWith({quarterLamp()});
-    const auto meshBytes = uta::ubundle::write(bakedOk(fixture, &withMesh).bundle);
-    const auto plainBytes = uta::ubundle::write(bakedOk(fixture, &without).bundle);
-    REQUIRE(meshBytes.has_value());
-    REQUIRE(plainBytes.has_value());
-    CHECK(*meshBytes == *plainBytes);
+    const BakeResult meshed = bakedOk(fixture, &withMesh);
+    const BakeResult plain = bakedOk(fixture, &without);
+    REQUIRE(meshed.bundle.lamps.has_value());
+    REQUIRE(plain.bundle.lamps.has_value());
+    const auto triangles = [](const ubundle::Geometry& shape) { return shape.indices.size() / 3; };
+    // The cube's twelve triangles join the lamp's shape.
+    CHECK(triangles(meshed.bundle.lamps->front().shape) == triangles(plain.bundle.lamps->front().shape) + 12);
+    // Moved as the light is: the cube at the origin, about Lamp0 at
+    // (32, 32, 96), to (160, 96, 96) turned a quarter, lands centred on
+    // (192, 64, 0).
+    std::size_t corners = 0;
+    for (const auto& vertex : meshed.bundle.lamps->front().shape.vertices)
+        if (std::abs(vertex.position[0] - 192.0F) <= 16.01F && std::abs(vertex.position[1] - 64.0F) <= 16.01F
+            && std::abs(vertex.position[2]) <= 16.01F)
+            ++corners;
+    CHECK(corners >= 8);
+    // The prop stays where the map placed it, in both bakes.
+    REQUIRE(meshed.bundle.props.has_value());
+    CHECK(triangles(*meshed.bundle.props) == 12);
+    REQUIRE(plain.bundle.props.has_value());
+    REQUIRE(meshed.bundle.props->vertices.size() == plain.bundle.props->vertices.size());
+    for (std::size_t i = 0; i < plain.bundle.props->vertices.size(); ++i)
+        CHECK(meshed.bundle.props->vertices[i].position == plain.bundle.props->vertices[i].position);
 }
 
 TEST_CASE("UTA-0256 INV-6: the map's own bake is untouched by a lamp", "[ubake][lamp]") {

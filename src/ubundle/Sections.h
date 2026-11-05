@@ -55,6 +55,9 @@ constexpr SectionId ID_LAMP = {'L', 'A', 'M', 'P'};
 constexpr SectionId ID_SUN = {'S', 'U', 'N', ' '};
 constexpr SectionId ID_PSKY = {'P', 'S', 'K', 'Y'};
 constexpr SectionId ID_VEGE = {'V', 'E', 'G', 'E'};
+/// UTA-0341 SS 4.5: a Geometry under GEOM's rules, read and checked by GEOM's
+/// own codec.
+constexpr SectionId ID_PROP = {'P', 'R', 'O', 'P'};
 constexpr SectionId ID_BAKR = {'B', 'A', 'K', 'R'};
 
 // Structural validation -- SS 4.9.
@@ -222,6 +225,10 @@ void putFlame(Sink& sink, const Flame& flame);
 [[nodiscard]] Result<Grass> readGrass(Cursor& cursor);
 [[nodiscard]] Result<std::vector<std::byte>> encodeGrass(const Grass& grass);
 [[nodiscard]] Result<void> validateGrass(const Bundle& bundle, ErrorCode code);
+
+// PROP -- PropSection.cpp, UTA-0341 SS 4.5: GEOM's codec and rules, its
+// refusals named PROP. Its zones are checked with GEOM's (validateVertexZones).
+[[nodiscard]] Result<void> validateProps(const Geometry& props, ErrorCode code);
 
 // BAKR -- BakerSection.cpp, UTA-0349.
 [[nodiscard]] Result<std::string> readBakerSection(Cursor& cursor);

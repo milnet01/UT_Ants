@@ -111,6 +111,7 @@ int trace(std::vector<std::string_view> args) {
     }
     ubundle::applyAddedLamps(*bundle, addedLamps);
     ubundle::applySun(*bundle); // UTA-0338 SS 4.2
+    ubundle::applyProps(*bundle); // UTA-0341 SS 4.6
     std::ifstream file{std::string(args[1]), std::ios::binary};
     auto materials = ubake::readMaterialLight(file);
     if (!file.eof() || !materials) {

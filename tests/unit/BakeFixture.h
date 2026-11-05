@@ -125,6 +125,37 @@ struct PropertySpec {
 [[nodiscard]] PropertySpec scaleProperty(std::string name, float x, float y, float z,
                                          float rate = 0, std::int32_t axis = 0);
 
+/// A LodMesh export's content -- UTA-0341 SS 7: one frame, its faces, wedges
+/// and materials, written in docs/specs/UTA-0341-mesh-decorations.md SS 4.2's
+/// layout with one sequence, "All".
+struct MeshSpec {
+    struct Face {
+        std::array<std::uint16_t, 3> wedges{};
+        std::uint16_t material = 0;
+    };
+    struct Wedge {
+        std::uint16_t vertex = 0;
+        std::uint8_t u = 0, v = 0;
+    };
+    struct Material {
+        std::uint32_t polyFlags = 0;
+        std::int32_t textureIndex = 0;
+    };
+    std::vector<std::array<std::int16_t, 3>> vertices; ///< each within UT99's 11-11-10 bit fields
+    std::vector<Face> faces;
+    std::vector<Wedge> wedges;
+    std::vector<Material> materials;
+    std::vector<std::int32_t> textures; ///< references from the builder; 0 is null
+    std::array<float, 3> scale{1, 1, 1};
+    std::array<float, 3> origin{};
+    std::array<std::int32_t, 3> rotOrigin{}; ///< pitch, yaw, roll
+};
+
+/// A cube of side 32 about the mesh origin, wound so each face's
+/// (b - a) x (c - a) points out, as UT99's meshes are (UTA-0341 SS 4.3); one
+/// material wearing texture slot 0, which is `texture`.
+[[nodiscard]] MeshSpec cubeMesh(std::int32_t texture);
+
 /// One mover's brush: a Model whose only node is one square -- UTA-0119 SS 7.
 /// The corners are in brush space, wound so their fan runs along `normal`.
 struct BrushSpec {
@@ -282,6 +313,11 @@ public:
     /// for a case that needs bytes no builder writes; its reference.
     std::int32_t addRawExport(std::string_view package, std::string_view className,
                               std::string_view name, std::vector<std::uint8_t> data);
+    /// UTA-0341: a LodMesh export's bytes for `mesh`, over this map's names.
+    [[nodiscard]] std::vector<std::uint8_t> lodMeshBytes(const MeshSpec& mesh);
+    /// UTA-0341: an `Engine.LodMesh` export named `name` holding `mesh`; its
+    /// reference.
+    std::int32_t addLodMesh(std::string_view name, const MeshSpec& mesh);
     /// An export of class `<package>.<className>` that is not an actor,
     /// carrying `properties` -- a LevelSummary, for UTA-0101; its reference.
     std::int32_t addObject(std::string_view package, std::string_view className,

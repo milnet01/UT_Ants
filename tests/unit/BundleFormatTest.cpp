@@ -294,7 +294,7 @@ std::vector<std::byte> goldenBytes() {
 
     Bytes out;
     out.id("UTAB");
-    out.u32(35); // formatVersion -- 35 since UTA-0293 added VEGE
+    out.u32(36); // formatVersion -- 36 since UTA-0341 added PROP
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -513,7 +513,7 @@ TEST_CASE("the header is sixteen little-endian bytes naming the file", "[ubundle
 
     const std::uint8_t expected[16] = {
         'U', 'T', 'A', 'B',    // magic -- a hex dump of a bundle names itself
-        0x23, 0x00, 0x00, 0x00, // formatVersion = 35 -- UTA-0293's VEGE
+        0x24, 0x00, 0x00, 0x00, // formatVersion = 36 -- UTA-0341's PROP
         0x01,                   // origin = Authored
         0x00,                   // kind = Map
         0x00, 0x00,             // reserved
@@ -537,8 +537,8 @@ TEST_CASE("a bad magic and an unsupported version are refused before anything el
     }
 
     SECTION("a later version") {
-        // 36, not 35: 35 is the current version since UTA-0293 added VEGE.
-        const std::vector<std::byte> bytes = goldenWithByte(4, 36);
+        // 37, not 36: 36 is the current version since UTA-0341 added PROP.
+        const std::vector<std::byte> bytes = goldenWithByte(4, 37);
         const auto result = read(bytes);
         REQUIRE_FALSE(result.has_value());
         CHECK(result.error().code() == ErrorCode::UnsupportedVersion);
@@ -602,7 +602,7 @@ TEST_CASE("readHeader reads the first sixteen bytes and stops", "[ubundle]") {
 
     const auto header = readHeader(justTheHeader);
     REQUIRE(header.has_value());
-    CHECK(header->formatVersion == 35);
+    CHECK(header->formatVersion == 36);
     CHECK(header->origin == Origin::Authored);
     CHECK(header->kind == BundleKind::Map);
 
@@ -618,7 +618,7 @@ TEST_CASE("the golden bytes decode field by field to the values they encode", "[
     REQUIRE(result.has_value());
     const Bundle& bundle = *result;
 
-    CHECK(bundle.header.formatVersion == 35);
+    CHECK(bundle.header.formatVersion == 36);
     CHECK(bundle.header.origin == Origin::Authored);
     CHECK(bundle.header.kind == BundleKind::Map);
 

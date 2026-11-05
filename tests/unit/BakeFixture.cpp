@@ -473,6 +473,127 @@ std::int32_t MapBuilder::addRawExport(std::string_view package, std::string_view
     return packer_.addExport(packer_.importClass(package, className), 0, name, std::move(data));
 }
 
+std::vector<std::uint8_t> MapBuilder::lodMeshBytes(const MeshSpec& mesh) {
+    std::vector<std::uint8_t> out = packer_.properties({});
+    const auto appendI32 = [&out](std::int32_t value) { appendU32(out, static_cast<std::uint32_t>(value)); };
+    const auto appendFloat = [&out](float value) { appendU32(out, std::bit_cast<std::uint32_t>(value)); };
+    const auto appendU16 = [&out](std::uint16_t value) {
+        out.push_back(static_cast<std::uint8_t>(value & 0xFFu));
+        out.push_back(static_cast<std::uint8_t>(value >> 8));
+    };
+    const auto appendVector = [&appendFloat](const std::array<float, 3>& value) {
+        for (const float component : value) appendFloat(component);
+    };
+    std::array<float, 3> low{}, high{};
+    for (const auto& vertex : mesh.vertices)
+        for (std::size_t axis = 0; axis < 3; ++axis) {
+            low[axis] = std::min(low[axis], static_cast<float>(vertex[axis]));
+            high[axis] = std::max(high[axis], static_cast<float>(vertex[axis]));
+        }
+    const auto appendBoundsAndSphere = [&] {
+        appendVector(low);
+        appendVector(high);
+        appendU8(out, 1);
+        appendVector({0, 0, 0});
+        appendFloat(0);
+    };
+    const auto empty = [&out] { appendIndex(out, 0); };
+    const auto lazyOffset = [&appendI32] { appendI32(0); };
+
+    appendBoundsAndSphere();
+    lazyOffset();
+    appendIndex(out, static_cast<std::int32_t>(mesh.vertices.size()));
+    for (const auto& vertex : mesh.vertices) {
+        const auto bits = [](std::int16_t value, unsigned width) {
+            return static_cast<std::uint32_t>(value) & ((1u << width) - 1u);
+        };
+        appendU32(out, bits(vertex[0], 11) | (bits(vertex[1], 11) << 11) | (bits(vertex[2], 10) << 22));
+    }
+    lazyOffset();
+    empty(); // Tris
+    appendIndex(out, 1); // AnimSeqs: "All", group None, frame 0, one frame, no notifies
+    appendIndex(out, packer_.name("All"));
+    appendIndex(out, packer_.name("None"));
+    appendI32(0);
+    appendI32(1);
+    empty();
+    appendFloat(30);
+    lazyOffset();
+    empty(); // Connects
+    appendBoundsAndSphere();
+    lazyOffset();
+    empty(); // VertLinks
+    appendIndex(out, static_cast<std::int32_t>(mesh.textures.size()));
+    for (const std::int32_t texture : mesh.textures) appendIndex(out, texture);
+    empty(); // BoundingBoxes
+    empty(); // BoundingSpheres
+    appendI32(static_cast<std::int32_t>(mesh.vertices.size()));
+    appendI32(1);
+    appendU32(out, 0xFFFFFFFFu);
+    appendU32(out, 0);
+    appendVector(mesh.scale);
+    appendVector(mesh.origin);
+    for (const std::int32_t angle : mesh.rotOrigin) appendI32(angle);
+    appendI32(0);
+    appendI32(0);
+    empty(); // TextureLOD
+    empty(); // CollapsePointThus
+    empty(); // FaceLevel
+    appendIndex(out, static_cast<std::int32_t>(mesh.faces.size()));
+    for (const MeshSpec::Face& face : mesh.faces) {
+        for (const std::uint16_t wedge : face.wedges) appendU16(wedge);
+        appendU16(face.material);
+    }
+    empty(); // CollapseWedgeThus
+    appendIndex(out, static_cast<std::int32_t>(mesh.wedges.size()));
+    for (const MeshSpec::Wedge& wedge : mesh.wedges) {
+        appendU16(wedge.vertex);
+        appendU8(out, wedge.u);
+        appendU8(out, wedge.v);
+    }
+    appendIndex(out, static_cast<std::int32_t>(mesh.materials.size()));
+    for (const MeshSpec::Material& material : mesh.materials) {
+        appendU32(out, material.polyFlags);
+        appendI32(material.textureIndex);
+    }
+    empty(); // SpecialFaces
+    for (int setting = 0; setting < 9; ++setting) appendI32(0);
+    empty(); // RemapAnchors
+    return out;
+}
+
+std::int32_t MapBuilder::addLodMesh(std::string_view name, const MeshSpec& mesh) {
+    std::vector<std::uint8_t> bytes = lodMeshBytes(mesh);
+    return packer_.addExport(packer_.importClass("Engine", "LodMesh"), 0, name, std::move(bytes));
+}
+
+MeshSpec cubeMesh(std::int32_t texture) {
+    MeshSpec mesh;
+    for (int corner = 0; corner < 8; ++corner)
+        mesh.vertices.push_back({static_cast<std::int16_t>(corner & 1 ? 16 : -16),
+                                 static_cast<std::int16_t>(corner & 2 ? 16 : -16),
+                                 static_cast<std::int16_t>(corner & 4 ? 16 : -16)});
+    // Each side as two triangles over corner indices, (b - a) x (c - a) out.
+    const std::array<std::array<std::uint16_t, 4>, 6> sides = {{
+        {0, 2, 3, 1}, // -z
+        {4, 5, 7, 6}, // +z
+        {0, 1, 5, 4}, // -y
+        {2, 6, 7, 3}, // +y
+        {0, 4, 6, 2}, // -x
+        {1, 3, 7, 5}, // +x
+    }};
+    for (const auto& side : sides) {
+        const auto first = static_cast<std::uint16_t>(mesh.wedges.size());
+        const std::array<std::array<std::uint8_t, 2>, 4> uv = {{{0, 0}, {255, 0}, {255, 255}, {0, 255}}};
+        for (std::size_t k = 0; k < 4; ++k) mesh.wedges.push_back({side[k], uv[k][0], uv[k][1]});
+        mesh.faces.push_back({{first, static_cast<std::uint16_t>(first + 1), static_cast<std::uint16_t>(first + 2)}, 0});
+        mesh.faces.push_back({{first, static_cast<std::uint16_t>(first + 2), static_cast<std::uint16_t>(first + 3)}, 0});
+    }
+    mesh.materials.push_back({0, 0});
+    mesh.textures.push_back(texture);
+    return mesh;
+}
+
 std::int32_t MapBuilder::addObject(std::string_view package, std::string_view className,
                                    std::string_view name, const std::vector<PropertySpec>& properties) {
     const std::int32_t classReference = packer_.importClass(package, className);

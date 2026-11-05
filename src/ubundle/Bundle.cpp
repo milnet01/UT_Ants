@@ -87,7 +87,7 @@ struct Descriptor {
 /// dispatch in `read` and the order in `write`.
 constexpr std::array KNOWN_IDS = {ID_ROOM, ID_NAVG, ID_WIRG, ID_TEXS, ID_MATS, ID_GEOM, ID_PLAC,
                                   ID_LITE, ID_MOVR, ID_COLL, ID_LPRB, ID_ZONE, ID_AOCC, ID_FLAM,
-                                  ID_SMSK, ID_LAMP, ID_SUN,  ID_PSKY, ID_VEGE, ID_BAKR};
+                                  ID_SMSK, ID_LAMP, ID_SUN,  ID_PSKY, ID_VEGE, ID_PROP, ID_BAKR};
 
 [[nodiscard]] bool knownId(const SectionId& id) noexcept {
     return std::ranges::find(KNOWN_IDS, id) != KNOWN_IDS.end();
@@ -260,6 +260,9 @@ Result<Bundle> read(std::span<const std::byte> bytes) {
         } else if (descriptor.id == ID_VEGE) {
             // Checked across sections below.
             UTA_TRY(bundle.grass, readGrass(payload));
+        } else if (descriptor.id == ID_PROP) {
+            UTA_TRY(bundle.props, readGeometry(payload));
+            UTA_CHECK(validateProps(*bundle.props, ErrorCode::MalformedData));
         } else if (descriptor.id == ID_BAKR) {
             UTA_TRY(bundle.baker, readBakerSection(payload));
             UTA_CHECK(validateBaker(*bundle.baker, ErrorCode::MalformedData));
@@ -358,9 +361,10 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
     UTA_CHECK(validateSun(bundle, ErrorCode::InvalidArgument));
     UTA_CHECK(validateGrass(bundle, ErrorCode::InvalidArgument));
     if (bundle.paintedSky) UTA_CHECK(validatePaintedSky(*bundle.paintedSky, ErrorCode::InvalidArgument));
+    if (bundle.props) UTA_CHECK(validateProps(*bundle.props, ErrorCode::InvalidArgument));
     if (bundle.baker) UTA_CHECK(validateBaker(*bundle.baker, ErrorCode::InvalidArgument));
 
-    // The fixed order BAKR, ROOM, NAVG, WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, LPRB, ZONE, AOCC, FLAM, SMSK, LAMP, SUN, PSKY, VEGE. Fixed rather than incidental because
+    // The fixed order BAKR, ROOM, NAVG, WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, LPRB, ZONE, AOCC, FLAM, SMSK, LAMP, SUN, PSKY, VEGE, PROP. Fixed rather than incidental because
     // docs/design.md SS Close calls names a bundle written by any tool other
     // than ubake by the hash of its own contents, and a hash over an
     // incidentally-ordered file names one world two things.
@@ -423,6 +427,8 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
     if (bundle.paintedSky) encoded(ID_PSKY, encodePaintedSky(*bundle.paintedSky));
     // VEGE is appended after PSKY -- UTA-0293 SS 4.3.
     if (bundle.grass) encoded(ID_VEGE, encodeGrass(*bundle.grass));
+    // PROP is appended after VEGE -- UTA-0341 SS 4.5.
+    if (bundle.props) encoded(ID_PROP, encodeGeometry(*bundle.props));
 
     if (refused) return std::unexpected(*std::move(refused));
     // The file's size is known before a byte is written, so the buffer grows

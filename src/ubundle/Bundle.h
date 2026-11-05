@@ -80,7 +80,8 @@ namespace uta::ubundle {
 /// 33 since UTA-0439 gave each MOVR shape its still byte.
 /// 34 since UTA-0272 gave each MATS material its pane byte.
 /// 35 since UTA-0293 added VEGE, the grass.
-inline constexpr std::uint32_t FORMAT_VERSION = 35;
+/// 36 since UTA-0341 added PROP, the props a map places as models.
+inline constexpr std::uint32_t FORMAT_VERSION = 36;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -764,6 +765,9 @@ struct Bundle {
     std::optional<PaintedSky> paintedSky;
     /// The bake's grass -- UTA-0293 SS 4.3. Absent from a map with none.
     std::optional<Grass> grass;
+    /// UTA-0341 SS 4.5: every prop the map places as a model, in world space,
+    /// under GEOM's rules. Absent from a map with none.
+    std::optional<Geometry> props;
 };
 
 /// UTA-0256 SS 4.4 and SS 4.8: folds LAMP into the sections the renderer
@@ -789,6 +793,14 @@ void applyAddedLamps(Bundle& bundle, bool on);
 /// Runs after `applyAddedLamps`, so the sun's index is LITE's last, which is
 /// what its SMSK pairs name. LPRB's `sunSeen` stays for the renderer.
 void applySun(Bundle& bundle);
+
+/// UTA-0341 SS 4.6: appends PROP to MOVR as one shape standing still at the
+/// origin, as applyAddedLamps appends a lamp's, and empties PROP; a bundle
+/// with no PROP is untouched. The result is for drawing only.
+void applyProps(Bundle& bundle);
+
+/// The exportIndex applyProps gives PROP's shape: no export's.
+inline constexpr std::uint32_t PROPS_EXPORT = 0xFFFFFFFFu;
 
 /// Decode a whole bundle.
 ///

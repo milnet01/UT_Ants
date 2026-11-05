@@ -5,6 +5,7 @@ add_library(uta_upkg STATIC
     Class.cpp
     Geometry.cpp
     Level.cpp
+    Mesh.cpp
     Package.cpp
     Properties.cpp
     ReadSupport.cpp

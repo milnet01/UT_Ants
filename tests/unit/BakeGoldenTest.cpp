@@ -180,9 +180,11 @@ namespace {
 // name, so it writes no VEGE; the header's format and BAKR's revision moved it.
 // 76: UTA-0293 plants grass by density against the picture's mean. The fixture
 // still has no grass name; BAKR's revision moved it.
-constexpr std::uint32_t RECORDED_UNDER = 76;
+// 77, format 36: UTA-0341 bakes props. The fixture places no decoration, so
+// it writes no PROP; the header's format and BAKR's revision moved it.
+constexpr std::uint32_t RECORDED_UNDER = 77;
 constexpr std::string_view GOLDEN =
-    "f6c94b8a49221d9c16919f15fec93d12bf34080fa45d4e4bdd627ab3e40d8441";
+    "0440f810f19233053bf1de4b27bfdd3e7ea558f4ff58a0a8982b8a9617daeb65";
 
 } // namespace
 

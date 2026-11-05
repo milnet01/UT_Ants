@@ -375,9 +375,10 @@ same spot, with no fitting, since the lantern stands there already.
 
 - **INV-14** — the bake is refused, naming the lamp and the name, when a
   lamp's `mesh` names no actor of the map, a brush, a mesh actor that is no
-  Decoration, a Decoration drawn as a sprite, or one whose Mesh is None. A
+  Decoration, a Decoration drawn as a sprite, or one whose Mesh is None. ~~A
   lamp with a mesh decoration bakes a bundle byte-equal to the same lamp's
-  without it.
+  without it.~~ Withdrawn 2026-11-05 by UTA-0341 INV-10: the mesh is drawn
+  with the lamp (`docs/specs/UTA-0341-mesh-decorations.md` § 4.5).
   *Test:* `tests/unit/BakeLampsTest.cpp`.
   *Breaks when:* any one of the three checks is dropped; the check refuses
   a real mesh decoration.

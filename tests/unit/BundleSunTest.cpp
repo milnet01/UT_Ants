@@ -65,7 +65,7 @@ Bytes sunPayload(const Sun& sun) {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(35); // formatVersion -- 35 since UTA-0293 added VEGE
+    out.u32(36); // formatVersion -- 36 since UTA-0341 added PROP
     out.u8(1);   // origin: Authored
     out.u8(0);   // kind: Map
     out.u16(0);  // reserved

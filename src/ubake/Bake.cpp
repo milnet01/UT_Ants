@@ -21,6 +21,7 @@
 #include "ubake/Movers.h"
 #include "ubake/Name.h"
 #include "ubake/Panes.h"
+#include "ubake/Props.h"
 #include "ubake/Strips.h"
 #include "ubake/SurfaceRays.h"
 #include "ubake/Zones.h"
@@ -317,6 +318,40 @@ Result<TextureSite> siteOf(const upkg::Package& map, std::string_view mapName,
     if (const upkg::ExportEntry* const entry = exportNamed(*holder, imported)) {
         site.holder = holder;
         site.entry = entry;
+        return site;
+    }
+    site.unresolved = "package " + site.package + " holds no " + site.path;
+    return site;
+}
+
+/// UTA-0341 SS 4.4: the texture a folded object path names -- as PLAC writes
+/// an actor's Skin -- found as siteOf finds an import's: the package by its
+/// first part, then the export whose outer chain and name match the rest. A
+/// palette of the same name is passed over (UTA-0176's namesake).
+Result<TextureSite> siteOfPath(const upkg::Package& map, std::string_view mapName, const std::string& path,
+                               const upkg::PackageResolver& resolver) {
+    TextureSite site;
+    const auto dot = path.find('.');
+    site.package = path.substr(0, dot);
+    site.path = dot == std::string::npos ? std::string{} : path.substr(dot + 1);
+    if (site.path.empty()) {
+        site.unresolved = "the prop's skin names a package, not a texture";
+        return site;
+    }
+    const upkg::Package* holder = &map;
+    if (site.package != mapName) {
+        UTA_TRY(holder, resolver(site.package));
+        if (holder == nullptr) {
+            site.unresolved = "package " + site.package + " is not in the install, or does not open";
+            return site;
+        }
+    }
+    for (const upkg::ExportEntry& entry : holder->exports()) {
+        if (entry.objectClass.kind() == upkg::ObjectReferenceKind::Null) continue; // a class
+        if (detail::fold(classOf(*holder, entry)) == "palette") continue;
+        if (detail::fold(exportPath(*holder, entry)) != site.path) continue;
+        site.holder = holder;
+        site.entry = &entry;
         return site;
     }
     site.unresolved = "package " + site.package + " holds no " + site.path;
@@ -932,7 +967,8 @@ Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapNa
                                 const std::vector<const upkg::Model*>& models,
                                 const upkg::PackageResolver& resolver, JobSystem& jobs,
                                 const detail::CuratedLookup& curated, TextureCache* textureCache,
-                                const detail::FlameLookup& isFlame, const urecipe::Recipe* recipe) {
+                                const detail::FlameLookup& isFlame, const urecipe::Recipe* recipe,
+                                const std::vector<std::pair<TextureSite, bool>>& propSkins) {
     // Which variants each distinct reference needs. A map's surfaces name a
     // few hundred textures thousands of times, so each is resolved once. The
     // level's Model and every mover's contribute alike -- UTA-0119 SS 4.6.
@@ -969,7 +1005,7 @@ Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapNa
             assigned.emplace(assignment.texture, &assignment);
     std::set<std::string, std::less<>> used; // each texture's unmasked id
     std::vector<TextureSite> sites;
-    sites.reserve(byReference.size());
+    sites.reserve(byReference.size() + propSkins.size()); // `placed` points into it
     std::map<std::string, Variant> variants; // by material id: ascending bytewise
     for (const auto& [raw, needs] : byReference) {
         UTA_TRY(TextureSite site, siteOf(map, mapName, upkg::ObjectReference{raw}, resolver));
@@ -989,6 +1025,18 @@ Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapNa
             variants.try_emplace(umat::materialId(placed->package, placed->path, true),
                                  Variant{placed, true, {}, assignment})
                 .first->second.references.push_back(raw);
+    }
+
+    // UTA-0341 SS 4.4: each prop skin's variant, made as a surface's is. No
+    // surface reference names it; a prop finds it by id.
+    for (const auto& [skin, masked] : propSkins) {
+        sites.push_back(skin);
+        const TextureSite* const placed = &sites.back();
+        const std::string texture = umat::materialId(placed->package, placed->path, false);
+        const auto found = assigned.find(texture);
+        used.insert(texture);
+        variants.try_emplace(umat::materialId(placed->package, placed->path, masked),
+                             Variant{placed, masked, {}, found == assigned.end() ? nullptr : found->second});
     }
 
     // UTA-0149's sibling UTA-0148: a few variants are made at once, each also
@@ -1227,6 +1275,31 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
         moverModels.push_back(std::move(*read));
     }
 
+    // 6b. The props, and each one's mesh -- UTA-0341 SS 4.1. Ahead of the
+    // materials, which make their skins.
+    phase.emplace(&times, "props");
+    FoundProps props = findProps(actors.placements, map, mapName, resolver);
+    // Each distinct skin and variant once, by a key naming its source.
+    std::map<std::string, TextureSite> skinSites;
+    std::vector<std::pair<TextureSite, bool>> propSkins;
+    const auto skinKey = [](const SkinSource& skin) {
+        return skin.path.empty() ? skin.holderName + "#" + std::to_string(skin.reference.raw()) : skin.path;
+    };
+    for (const PropSite& prop : props.props)
+        for (std::size_t m = 0; m < prop.skins.size(); ++m) {
+            const SkinSource& skin = prop.skins[m];
+            if (skin.empty()) continue;
+            auto known = skinSites.find(skinKey(skin));
+            if (known == skinSites.end()) {
+                UTA_TRY(TextureSite site, skin.path.empty()
+                                              ? siteOf(*skin.holder, skin.holderName, skin.reference, resolver)
+                                              : siteOfPath(map, mapName, skin.path, resolver));
+                known = skinSites.emplace(skinKey(skin), std::move(site)).first;
+            }
+            const bool masked = wantsMasked(prop.mesh.materials[m].polyFlags | prop.addedFlags);
+            propSkins.emplace_back(known->second, masked);
+        }
+
     // 7. TEXS and MATS, over the level's Model and every mover's.
     phase.emplace(&times, "materials");
     std::set<std::string, std::less<>> skyWorn;
@@ -1247,7 +1320,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     std::vector<const upkg::Model*> surfaced{&model};
     for (const upkg::Model& moverModel : moverModels) surfaced.push_back(&moverModel);
     UTA_TRY(Materials materials,
-            bakeMaterials(map, mapName, surfaced, resolver, jobs, curated, textureCache, isFlame, recipe));
+            bakeMaterials(map, mapName, surfaced, resolver, jobs, curated, textureCache, isFlame, recipe, propSkins));
     // UTA-0350 SS 4.2: a sky texture no surface wears is reported as an unused
     // assignment is.
     if (recipe != nullptr && recipe->sky) {
@@ -1310,13 +1383,33 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     // UTA-0263 SS 4.5: after the strips, so no flame names an absorbed light.
     assignFlameLights(flames.flames, actors.lights);
 
+    // UTA-0341 SS 4.3 and SS 4.4: each prop placed, wearing what step 7 made.
+    // Timed as geometry.
+    const PropMaterialLookup propMaterial = [&](const SkinSource& skin, bool masked) -> std::optional<std::string> {
+        if (skin.empty()) return std::nullopt;
+        const auto site = skinSites.find(skin.path.empty()
+                                             ? skin.holderName + "#" + std::to_string(skin.reference.raw())
+                                             : skin.path);
+        if (site == skinSites.end()) return std::nullopt;
+        std::string id = umat::materialId(site->second.package, site->second.path, masked);
+        if (!materials.recordIndex.contains(id)) return std::nullopt;
+        return id;
+    };
+    std::map<std::uint32_t, ubundle::Geometry> placedProps; // by the actor's export index
+    for (const PropSite& prop : props.props)
+        placedProps.emplace(prop.exportIndex, placeProp(prop, propMaterial, rooms.map, zones.size()));
+    const PropShapeLookup propShape = [&placedProps](std::uint32_t exportIndex) -> const ubundle::Geometry* {
+        const auto found = placedProps.find(exportIndex);
+        return found == placedProps.end() ? nullptr : &found->second;
+    };
+
     // UTA-0256 SS 4.3: the recipe's lamps, copied from lights with strips
     // marked and from the flames just found.
     std::optional<std::vector<ubundle::AddedLamp>> lamps;
     if (recipe != nullptr && !recipe->lamps.empty()) {
         phase.emplace(&times, "lamps");
         UTA_TRY(lamps, naming(buildLamps(map, model, recipe->lamps, actors.lights, actors.placements, lookup, flames,
-                                         rooms.map, zones.size()),
+                                         rooms.map, zones.size(), propShape),
                               mapName));
     }
     // UTA-0256 SS 4.7: the lights the recipe switches off leave LITE after the
@@ -1546,6 +1639,17 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
         return found == materials.green.end() ? nullptr : &found->second;
     });
     result.bundle.grass = std::move(planted.grass);
+
+    // 11e. PROP -- UTA-0341 SS 4.5: every placed prop, merged. A map with none
+    // writes none.
+    phase.emplace(&times, "prop-merge");
+    {
+        std::vector<const ubundle::Geometry*> parts;
+        for (const auto& [exportIndex, shape] : placedProps)
+            if (!shape.indices.empty()) parts.push_back(&shape);
+        if (!parts.empty()) result.bundle.props = mergeGeometry(parts);
+        result.skippedProps = std::move(props.skipped);
+    }
     result.grassSpacing = planted.spacing;
 
     // 12. The budget, over every map of every material.

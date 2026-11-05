@@ -30,6 +30,7 @@ add_library(uta_ubundle STATIC
     SunSection.cpp
     PaintedSkySection.cpp
     GrassSection.cpp
+    PropSection.cpp
     BakerSection.cpp
     AddedLamps.cpp
     AddedSun.cpp

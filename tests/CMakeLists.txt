@@ -55,6 +55,9 @@ add_executable(uta_unit_tests
     unit/BundleFlamesTest.cpp
     unit/GrassSectionTest.cpp
     unit/GrassBakeTest.cpp
+    unit/LodMeshTest.cpp
+    unit/BakePropsTest.cpp
+    unit/PropSectionTest.cpp
     unit/BundleMoversTest.cpp
     unit/BundleOcclusionTest.cpp
     unit/BundleShadowMaskTest.cpp
@@ -212,6 +215,7 @@ add_executable(uta_device_tests
     device/RenderFireReplayTest.cpp
     device/RenderFlamesTest.cpp
     device/RenderGrassTest.cpp
+    device/RenderPropsTest.cpp
     device/RenderLiquidsTest.cpp
     device/RenderSwayTest.cpp
     device/RenderDetailTest.cpp
@@ -296,7 +300,8 @@ if(UTA_REAL_ASSET_TESTS)
                                         real/RealActorsTest.cpp real/RealMoversTest.cpp
                                         real/RealCollisionTest.cpp real/RealPathSeedsTest.cpp
                                         real/RealLightProbesTest.cpp real/RealFlamesTest.cpp
-                                        real/RealLiquidsTest.cpp real/RealClothTest.cpp)
+                                        real/RealLiquidsTest.cpp real/RealClothTest.cpp
+                                        real/RealMeshTest.cpp)
     target_link_libraries(uta_real_asset_tests PRIVATE uta_upkg uta_umap uta_umap_build uta_unav_build
                                                        uta_umat uta_ubake Catch2::Catch2WithMain)
     # tests/support/FCoordsPort.h, header-only -- UTA-0119 SS 7.

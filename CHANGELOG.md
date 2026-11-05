@@ -35,6 +35,15 @@ The `[Unreleased]` block stays at the top, always, even when empty.
   Measured at 0.5 to 0.8 ms a frame on the two grassiest maps. Bundle
   format 35, baker revision 76: re-bake every map.
 
+- **Props placed as 3D models are drawn: pipes, barrels, lamps, crates, plants** (UTA-0341)
+  UT99 maps place many props as models rather than as level brushes; most
+  maps have some, and they were missing. The bake now reads each prop's
+  model, poses it where the original game places it, in the textures it
+  wears there, and the renderer draws it lit by the room's lights and
+  bounce light, at every quality setting. A recipe lamp whose fitting is
+  such a prop now carries a copy of it. Props stand still and cast no
+  shadows yet. Bundle format 36, baker revision 77: re-bake every map.
+
 ## [0.1.0] - 2026-11-04
 
 **Theme:** Bake and render.

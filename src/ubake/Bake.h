@@ -21,6 +21,7 @@
 #include "ubake/Geometry.h"
 #include "ubake/Install.h"
 #include "ubake/MaterialLight.h"
+#include "ubake/Props.h"
 #include "ubake/TextureCache.h"
 #include "ubake/TileKind.h"
 #include "ubundle/Bundle.h"
@@ -106,6 +107,8 @@ struct BakeResult {
     /// UTA-0293 SS 4.3: the grid grass was planted on, in world units; wider
     /// than CLUMP_SPACING where that would have passed GRASS_CLUMP_LIMIT.
     double grassSpacing = 0;
+    /// UTA-0341 SS 4.1: props left out, and why.
+    std::vector<SkippedProp> skippedProps;
 };
 
 /// Build a bundle from one map. Writes nothing and enforces no budget.
