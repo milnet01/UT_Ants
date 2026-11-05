@@ -20485,7 +20485,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: in-session-2026-11-04 UTA-0293 spec.
   Lanes: urender, ubake.
 
-- 🚧 [UTA-0450] **upkg and ubake: draw props whose model is the older Mesh class, not a LodMesh.**
+- ✅ [UTA-0450] **upkg and ubake: draw props whose model is the older Mesh class, not a LodMesh.**
   Found baking MH-Vale_Evelyn with UTA-0341 (2026-11-05): 203 of its
   props were skipped, each "its Mesh spvale.<name> is a mesh, not a
   LodMesh" (SpVale's SPWheel, SPDoubleArch, SPFlagRing and others).
@@ -20504,6 +20504,8 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   334,124 prop triangles, none skipped (was 203 skipped), texture set
   840,986,712 bytes. Baker 78. Left: push, then flip once GitHub's
   matrix is green.
+  Shipped 2026-11-05: green on GitHub's matrix (GCC 14, Clang 19, MSVC)
+  at d6628d4, run 41969135199.
   **Layman:** Some maps' props use an older kind of 3D model the new prop drawing does not read yet, so those props are still missing.
   Kind: feature.
   Source: in-session-2026-11-05 UTA-0341 bake.
