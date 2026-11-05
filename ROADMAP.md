@@ -20043,6 +20043,13 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   being look polish rather than a defect. The same capture also frames a
   dark block at the lower right that the original does not show; check
   whether it is the camera or geometry before filing it.
+  2026-11-05: the bake carries only Light::corona, a flag; how UT99 sizes,
+  textures and fades a corona is not yet measured, and the original side
+  of the AS-Frigate pair is gone from scratch. Asked UT_MonsterHunt
+  (mailbox, message 1339) for a paired capture from the evidence camera
+  at three distances, with each corona light's Skin, DrawScale,
+  LightRadius and LightBrightness. Waiting-on: UT_MonsterHunt (paired
+  capture of AS-Frigate's corona, 2026-11-05).
   **Layman:** Lamps get the soft halo the original game draws around them.
   Kind: feature.
   Source: user-request-2026-10-06.
