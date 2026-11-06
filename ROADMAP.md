@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=450 -->
+<!-- ants-roadmap-id-high-water: UTA=451 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -19918,7 +19918,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-10-06.
   Lanes: urender.
 
-- 📋 [UTA-0298] **urender: specular highlights, so metal, wet and polished surfaces shine where a light catches them.**
+- 🚧 [UTA-0298] **urender: specular highlights, so metal, wet and polished surfaces shine where a light catches them.**
   The user, 2026-10-06: "Specular highlights, yes please, add that in
   too." Today every surface but water is matte: the shaders' only
   Fresnel or roughness term is the water look (scene.frag, water.glsl).
@@ -19933,6 +19933,12 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   surface does not get brighter overall. Its own on/off switch (UTA-0297)
   and a tier. Part of UTA-0292; UTA-0045's screen-space reflections are
   the sharper, costlier step after it.
+  2026-11-06: built as commit e2d0d65; see its body for the
+  measurements. Tier Ultra, at 1.1 to 3.1 ms at High (UTA-0451 brings it
+  down). A non-metal's glint takes its texture's colour, so no surface
+  draws brighter: two white-glint splits lit a dark wall 6% brighter or
+  halved it. Faint on most maps, whose surfaces carry the default
+  roughness. Config::specular is its own switch (UTA-0297).
   2026-11-05 progress: written and building in worktree
   ../UT_Ants-spec, branch uta-0298-specular, local commit c2520ab (not
   pushed). Unit 1166/1166. Device on lavapipe 153/154: "a rough floor is
@@ -20518,6 +20524,25 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: feature.
   Source: in-session-2026-11-05 UTA-0341 bake.
   Lanes: upkg, ubake.
+
+- 📋 [UTA-0451] **urender: bring specular highlights under 1 ms a frame at High, so they draw from High rather than Ultra.**
+  UTA-0298's highlights, measured 2026-11-06 on the RX 6600 (RADV) with
+  ut-bench frame at 2560x1440, against main without them, same bundles
+  and cameras, in one job: the opaque step +1.16 ms at High on
+  DM-FoT-SimpleX (worst view +1.85) and +3.13 ms on DM-ArchNemesis
+  (worst view +4.68). Machine load 12 to 17; the step is a GPU
+  timestamp. Past UTA-0293 SS 13's 1 ms line, so Feature::Specular
+  starts at Ultra (src/urender/Tiers.h).
+  Unchecked leads: RADV shaderstats for the scene pipeline's registers
+  and occupancy, with and without SPECULAR; skipping the lobe for a
+  whole material that cannot show one (a non-metal at the default
+  roughness), which is uniform across a wave; fewer lights' lobes per
+  fragment. Done when both maps measure under 1 ms at High and the tier
+  row moves to High.
+  **Layman:** Shiny-surface highlights cost too much to turn on at High quality yet; this makes them cheap enough to.
+  Kind: perf.
+  Source: in-session-2026-11-06.
+  Lanes: urender.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
