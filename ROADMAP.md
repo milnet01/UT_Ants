@@ -20439,7 +20439,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-10-21.
   Lanes: tools.
 
-- 🚧 [UTA-0394] **ci: decide whether the race detector runs on both Linux compilers.**
+- ✅ [UTA-0394] **ci: decide whether the race detector runs on both Linux compilers.**
   It runs on GCC (141 s locally) and Clang (91 s), and on GitHub it
   sits in the GCC leg, the run's slowest (474 s of run 39671623895,
   against 260 s for Clang and 188 s for MSVC). Both instrument the same
@@ -20453,6 +20453,10 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   compiler finding a race the other missed.
   Decided (user, 2026-10-22): run the race detector on Clang only; drop
   GCC's run.
+  Shipped 58bd18e, green on GitHub run 42227546805. Local gate: GCC
+  leg's race detector 271 s before, skipped after (load about 16 both
+  times). GitHub GCC job 1452 s before, 460 s after: one pair of runs,
+  cache warmth not controlled.
   **Layman:** The thread-safety check is built twice, once per Linux compiler; running it once would save minutes per push if it loses nothing.
   Kind: investigate.
   Source: user-request-2026-10-21.
@@ -20554,10 +20558,13 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: in-session-2026-11-06.
   Lanes: urender.
 
-- 🚧 [UTA-0452] **ut-ants: an on-screen frame-rate counter on every map.**
+- ✅ [UTA-0452] **ut-ants: an on-screen frame-rate counter on every map.**
   Drawn onto the presented image after the frame, by buffer-to-image
   copies of a built-in pixel font: no shader, no pipeline. Captures and
   ut-shot read the colour target, so they never show it. A key hides it.
+  Shipped dc8acbc, green on GitHub run 42226308952 (GCC, Clang, MSVC).
+  Headless Weston viewer run under validation and sync validation: 400
+  frames, no layer messages, counter visible.
   **Layman:** The viewer shows how many frames a second it draws, and how long each takes, in the top-left corner.
   Kind: feature.
   Source: user-request-2026-11-06.
