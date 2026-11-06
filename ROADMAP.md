@@ -19918,7 +19918,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-10-06.
   Lanes: urender.
 
-- 🚧 [UTA-0298] **urender: specular highlights, so metal, wet and polished surfaces shine where a light catches them.**
+- ✅ [UTA-0298] **urender: specular highlights, so metal, wet and polished surfaces shine where a light catches them.**
   The user, 2026-10-06: "Specular highlights, yes please, add that in
   too." Today every surface but water is matte: the shaders' only
   Fresnel or roughness term is the water look (scene.frag, water.glsl).
@@ -19947,6 +19947,9 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   energy split is wrong or the bound is too tight; then GPU device run,
   hand mutations, ut-bench at High and Medium to choose the tier, ut-shot
   look, CHANGELOG, merge to main.
+  Shipped a539930, GitHub green 2026-11-06 (run 42216422296). Its GCC
+  leg first hit the 30-minute limit after apt-get update took 21 minutes
+  on the runner; the re-run of that leg passed.
   **Layman:** Shiny surfaces catch the light: metal panels, wet floors and polished stone show a bright glint that moves as you move.
   Kind: feature.
   Source: user-request-2026-10-06.
