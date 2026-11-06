@@ -8,8 +8,45 @@
 #include "urender/Swapchain.h"
 
 #include <cstdint>
+#include <vector>
 
 namespace uta::urender {
+
+namespace {
+
+VkBufferImageCopy overlayCopy(const OverlayRect& rect, VkDeviceSize bufferOffset) {
+    VkBufferImageCopy copy{};
+    copy.bufferOffset = bufferOffset; // rows tightly packed: the run is one colour
+    copy.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+    copy.imageOffset = {static_cast<std::int32_t>(rect.x), static_cast<std::int32_t>(rect.y), 0};
+    copy.imageExtent = {rect.width, rect.height, 1};
+    return copy;
+}
+
+/// UTA-0452: the black box, then the text over it. Two copies with a barrier
+/// between, since the text's rectangles overlap the box's and one copy's
+/// regions may not overlap each other. Every write is a transfer write, so
+/// the blit before is ordered by the same barrier shape.
+void recordOverlay(VkCommandBuffer commands, VkImage target, const OverlayLayout& overlay, VkBuffer pixels) {
+    const auto afterLastWrite = [&] {
+        transitionImage(commands, target, VK_IMAGE_ASPECT_COLOR_BIT, 1, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    };
+    afterLastWrite(); // the blit
+    const VkBufferImageCopy box = overlayCopy(overlay.backing, 0);
+    vkCmdCopyBufferToImage(commands, pixels, target, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &box);
+    if (overlay.lit.empty()) return;
+
+    afterLastWrite(); // the box
+    const VkDeviceSize white = overlay.pixelCount() * 4;
+    std::vector<VkBufferImageCopy> text;
+    text.reserve(overlay.lit.size());
+    for (const OverlayRect& rect : overlay.lit) text.push_back(overlayCopy(rect, white));
+    vkCmdCopyBufferToImage(commands, pixels, target, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                           static_cast<std::uint32_t>(text.size()), text.data());
+}
+
+} // namespace
 
 Result<std::optional<std::uint32_t>> Swapchain::acquire() {
     if (empty()) return std::optional<std::uint32_t>{};
@@ -37,7 +74,8 @@ Result<std::optional<std::uint32_t>> Swapchain::acquire() {
     return std::optional<std::uint32_t>{index};
 }
 
-void Swapchain::recordBlit(VkCommandBuffer commands, Image& output, std::uint32_t index) {
+void Swapchain::recordBlit(VkCommandBuffer commands, Image& output, std::uint32_t index,
+                           const OverlayLayout& overlay, VkBuffer overlayPixels) {
     const VkImage target = images_[index];
     output.transition(commands, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
     // Every pixel is overwritten, so the image's last contents are not kept.
@@ -51,6 +89,7 @@ void Swapchain::recordBlit(VkCommandBuffer commands, Image& output, std::uint32_
     blit.dstOffsets[1] = {static_cast<std::int32_t>(extent_.width), static_cast<std::int32_t>(extent_.height), 1};
     vkCmdBlitImage(commands, output.handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, target,
                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_NEAREST);
+    if (!overlay.empty() && overlayPixels != VK_NULL_HANDLE) recordOverlay(commands, target, overlay, overlayPixels);
     transitionImage(commands, target, VK_IMAGE_ASPECT_COLOR_BIT, 1, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                     VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 }

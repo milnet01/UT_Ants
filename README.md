@@ -163,7 +163,8 @@ ut-ants "<your Unreal Tournament folder>" "<a baked map>"
 ```
 
 The mouse looks around. W, A, S and D fly, Space goes up and Ctrl goes down,
-and Shift flies faster. F turns a flashlight on and off. Walls stop you, and
+and Shift flies faster. F turns a flashlight on and off. The top-left corner
+shows frames a second and how long each takes; H hides it. Walls stop you, and
 nothing moves but you: there is no walking, no weapons and no monsters yet.
 Escape quits.
 

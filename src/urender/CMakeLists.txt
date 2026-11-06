@@ -30,7 +30,8 @@ add_library(uta_urender STATIC
     Zones.cpp
     Frame.cpp
     Swapchain.cpp
-    Present.cpp)
+    Present.cpp
+    Overlay.cpp)
 # Vulkan and glm are PRIVATE: Renderer.h names neither, so a consumer compiles
 # with no Vulkan headers on its path (INV-2).
 target_link_libraries(uta_urender PUBLIC uta_core uta_ubundle PRIVATE uta_ufire Vulkan::Vulkan glm::glm)

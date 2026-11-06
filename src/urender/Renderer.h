@@ -219,6 +219,12 @@ public:
     /// standing a second device up.
     void setLinearOutput(bool enabled) noexcept;
 
+    /// UTA-0452: draw `text` in the top-left corner of every later PRESENTED
+    /// frame, over a black box; empty draws nothing. Only the characters
+    /// "0123456789. FPSM" have glyphs. It goes on the swapchain image after
+    /// the blit, so readback, a capture and the surfaceless path never see it.
+    void setOverlayText(std::string text);
+
     /// The light time the last frame was drawn at, in seconds -- SS 4.9's
     /// clock, which a flickering light's phase is measured from. Zero before
     /// any frame is drawn.

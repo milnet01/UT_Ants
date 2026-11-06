@@ -14,6 +14,7 @@
 
 #include "core/Error.h"
 #include "urender/Device.h"
+#include "urender/Overlay.h"
 
 #include <vulkan/vulkan.h>
 
@@ -54,7 +55,11 @@ public:
     [[nodiscard]] Result<std::optional<std::uint32_t>> acquire();
 
     /// Record copying `output` to image `index` and readying it to present.
-    void recordBlit(VkCommandBuffer commands, Image& output, std::uint32_t index);
+    /// UTA-0452: a non-empty `overlay` is then copied over it from
+    /// `overlayPixels`, which holds overlay.pixelCount() black RGBA8 texels
+    /// followed by as many white ones.
+    void recordBlit(VkCommandBuffer commands, Image& output, std::uint32_t index, const OverlayLayout& overlay = {},
+                    VkBuffer overlayPixels = VK_NULL_HANDLE);
 
     /// Present image `index`, whose commands have finished.
     [[nodiscard]] Result<void> present(VkQueue queue, std::uint32_t index);

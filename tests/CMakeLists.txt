@@ -76,6 +76,7 @@ add_executable(uta_unit_tests
     unit/BundleZonesTest.cpp
     unit/ClientCliTest.cpp
     unit/ClientFlyCameraTest.cpp
+    unit/ClientFrameRateTest.cpp
     unit/ClientCaptureTest.cpp
     unit/ClientMapListTest.cpp
     unit/CompactIndexTest.cpp
@@ -122,6 +123,7 @@ add_executable(uta_unit_tests
     unit/RenderMaterialsTest.cpp
     unit/RenderShadowsTest.cpp
     unit/RenderSkyTest.cpp
+    unit/RenderOverlayTest.cpp
     unit/RenderTiersTest.cpp
     unit/RenderVolumeLightsTest.cpp
     unit/ZonesSeeingSkyTest.cpp
@@ -168,6 +170,7 @@ target_include_directories(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools")
 target_sources(uta_unit_tests PRIVATE
     "${PROJECT_SOURCE_DIR}/apps/ut-ants/Cli.cpp"
     "${PROJECT_SOURCE_DIR}/apps/ut-ants/FlyCamera.cpp"
+    "${PROJECT_SOURCE_DIR}/apps/ut-ants/FrameRate.cpp"
     "${PROJECT_SOURCE_DIR}/apps/ut-ants/MapList.cpp"
     "${PROJECT_SOURCE_DIR}/apps/ut-ants/Capture.cpp"
     "${PROJECT_SOURCE_DIR}/apps/ut-ants/Png.cpp")

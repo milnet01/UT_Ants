@@ -11,6 +11,7 @@
 #include "Capture.h"
 #include "Cli.h"
 #include "FlyCamera.h"
+#include "FrameRate.h"
 #include "Launcher.h"
 #include "MapList.h"
 
@@ -182,6 +183,8 @@ struct Viewer {
     Start start;
     Gamepads gamepads;
     bool flashlight = false; // UTA-0015 SS 4.5: F toggles it
+    bool showFrameRate = true; // UTA-0452: H toggles it
+    FrameRate frameRate;
 
     // UTA-0191. The view the frame ON SCREEN was drawn from, which is not
     // always the camera as it stands: [ or ] earlier in the same batch of
@@ -288,6 +291,9 @@ Viewer::After Viewer::handle(const SDL_Event& event, FlyInput& input) {
                (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN &&
                 event.gbutton.button == SDL_GAMEPAD_BUTTON_NORTH)) {
         flashlight = !flashlight; // Triangle on a PlayStation pad, Y on an Xbox one
+    } else if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_H && !event.key.repeat) {
+        showFrameRate = !showFrameRate; // UTA-0452
+        renderer.setOverlayText(showFrameRate ? frameRate.text() : std::string());
     } else if (event.type == SDL_EVENT_KEY_DOWN
                && (event.key.key == SDLK_LEFTBRACKET || event.key.key == SDLK_RIGHTBRACKET)) {
         // UTA-0357: until the settings menu's slider (UTA-0297), the
@@ -415,6 +421,9 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
         const Uint64 now = SDL_GetTicksNS();
         const double seconds = static_cast<double>(now - last) / 1e9;
         last = now;
+        // UTA-0452: start to start, so the count includes waiting for the display.
+        if (viewer.frameRate.add(seconds) && viewer.showFrameRate)
+            viewer.renderer.setOverlayText(viewer.frameRate.text());
         viewer.gamepads.addTo(input, seconds);
         camera.update(input, seconds, level);
 

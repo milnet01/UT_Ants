@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=451 -->
+<!-- ants-roadmap-id-high-water: UTA=452 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -20546,6 +20546,15 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: perf.
   Source: in-session-2026-11-06.
   Lanes: urender.
+
+- 🚧 [UTA-0452] **ut-ants: an on-screen frame-rate counter on every map.**
+  Drawn onto the presented image after the frame, by buffer-to-image
+  copies of a built-in pixel font: no shader, no pipeline. Captures and
+  ut-shot read the colour target, so they never show it. A key hides it.
+  **Layman:** The viewer shows how many frames a second it draws, and how long each takes, in the top-left corner.
+  Kind: feature.
+  Source: user-request-2026-11-06.
+  Lanes: urender, ut-ants.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 

@@ -33,6 +33,7 @@
 #include "urender/Grass.h"
 #include "urender/Geometry.h"
 #include "urender/Lights.h"
+#include "urender/Overlay.h"
 #include "urender/Materials.h"
 #include "urender/Pipelines.h"
 #include "urender/Placement.h"
@@ -644,6 +645,10 @@ struct Renderer::Impl {
     /// two to agree on a pulsing light's phase.
     std::optional<double> pinnedLightSeconds;
     std::optional<double> pinnedRenderScale; // UTA-0372
+    /// UTA-0452: the text drawn over each presented frame, and the black and
+    /// white texels its copies read (Swapchain::recordBlit). Grown, never shrunk.
+    std::string overlayText;
+    Buffer overlayPixels;
     /// The light time the last frame was drawn at, which UTA-0191's capture
     /// records. Kept rather than recomputed: reading the clock again would
     /// return a later time than the frame actually used.
@@ -712,6 +717,8 @@ struct Renderer::Impl {
                               occlusion.view() != VK_NULL_HANDLE, shadowMask.view() != VK_NULL_HANDLE,
                               skyLayerLights.size());
     }
+    /// UTA-0452: overlayPixels holds at least `pixels` black and `pixels` white texels.
+    [[nodiscard]] Result<void> holdOverlayPixels(std::uint64_t pixels);
     /// One view of `bundle` from `camera`, presented to `image` when there is
     /// one. With `skyFace`, UTA-0163's capture: drawn at scale 1 with no sky, and
     /// the target's central square copied into that face of the sky texture.
@@ -2099,6 +2106,13 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     // UTA-0293 SS 4.4: the cells this view sees. A face of the sky draws none.
     grassDraws = skyFace ? std::vector<GrassDraw>{} : visibleGrass(grassRuns, matrices.viewProj, camera.location, tier);
 
+    // UTA-0452: the overlay goes on the presented image only.
+    OverlayLayout overlay;
+    if (image) {
+        overlay = layOutOverlay(overlayText, swapchain->extent().width, swapchain->extent().height);
+        if (!overlay.empty()) UTA_CHECK(holdOverlayPixels(overlay.pixelCount()));
+    }
+
     // UTA-0051 SS 4.4: the measurement is this call, which waits for the GPU. It
     // leaves out present, which waits for the display under FIFO.
     times.started = std::chrono::steady_clock::now();
@@ -2109,7 +2123,7 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
         // alone does not make the compute pass's writes visible to it.
         memoryBarrier(commands, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT,
                       VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_HOST_READ_BIT);
-        if (image) swapchain->recordBlit(commands, output, *image);
+        if (image) swapchain->recordBlit(commands, output, *image, overlay, overlayPixels.handle());
         if (skyFace) recordSkyFaceCopy(commands, region, *skyFace);
         times.recording = std::chrono::steady_clock::now() - recordStarted;
     });
@@ -2500,6 +2514,21 @@ void Renderer::cut() noexcept {
 }
 
 void Renderer::setLinearOutput(bool enabled) noexcept { impl_->config.linearOutput = enabled; }
+
+void Renderer::setOverlayText(std::string text) { impl_->overlayText = std::move(text); }
+
+Result<void> Renderer::Impl::holdOverlayPixels(std::uint64_t pixels) {
+    const VkDeviceSize bytes = 2 * pixels * 4;
+    if (overlayPixels.handle() != VK_NULL_HANDLE && overlayPixels.size() >= bytes) return {};
+    // Every earlier frame was waited for, so the old buffer is free to go.
+    UTA_TRY(overlayPixels, Buffer::create(*gpu, bytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, BufferMemory::HostWrite));
+    std::byte* const texels = overlayPixels.mapped();
+    for (std::uint64_t i = 0; i < pixels; ++i) { // opaque black, then opaque white
+        std::memcpy(texels + i * 4, "\x00\x00\x00\xff", 4);
+        std::memcpy(texels + (pixels + i) * 4, "\xff\xff\xff\xff", 4);
+    }
+    return {};
+}
 
 double Renderer::lightSeconds() const noexcept { return impl_->lastLightSeconds; }
 

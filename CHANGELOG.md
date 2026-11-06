@@ -14,6 +14,12 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **A frame-rate counter on every map** (UTA-0452)
+  The viewer's top-left corner shows frames a second and the average
+  frame's milliseconds, updated twice a second, in white on a small black
+  box. H hides and shows it. Screenshots taken with F12 and `ut-shot`
+  images never include it.
+
 - **Shiny surfaces catch the light: metal, polished and smooth surfaces show a glint that moves as you move** (UTA-0298)
   Each light a surface already takes now also adds a highlight, sharp on a
   smooth material and broad and faint on a rough one, using the roughness
