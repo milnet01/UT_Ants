@@ -370,8 +370,14 @@ step "race detector"
 # A SECOND configure and build, not a re-run of the one above: the
 # instrumentation is a compile option, so it cannot be applied to an existing
 # build tree.
+# UTA-0394: on the Clang leg only (user, 2026-10-22). Both Linux compilers
+# instrument the same source with the same runtime family, the history shows
+# neither finding a race the other missed, and GCC's run was the slowest local
+# step. Asked of the compiler itself, since its path need not say "clang".
 if $IS_WINDOWS; then
     skip "MSVC has no ThreadSanitizer — the race detector did not run"
+elif [[ $("$compiler" --version 2>/dev/null) != *clang* ]]; then
+    skip "the race detector runs on the Clang leg only (UTA-0394) — it did not run on $compiler"
 else
     TSAN_DIR="${BUILD_DIR}-tsan"
     # Output is NOT swallowed. An earlier version sent configure and build to

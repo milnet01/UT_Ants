@@ -20439,7 +20439,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-10-21.
   Lanes: tools.
 
-- 📋 [UTA-0394] **ci: decide whether the race detector runs on both Linux compilers.**
+- 🚧 [UTA-0394] **ci: decide whether the race detector runs on both Linux compilers.**
   It runs on GCC (141 s locally) and Clang (91 s), and on GitHub it
   sits in the GCC leg, the run's slowest (474 s of run 39671623895,
   against 260 s for Clang and 188 s for MSVC). Both instrument the same
@@ -20542,6 +20542,13 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   roughness), which is uniform across a wave; fewer lights' lobes per
   fragment. Done when both maps measure under 1 ms at High and the tier
   row moves to High.
+  Waiting-on: user, three UTA-0298 choices made in-session 2026-11-06,
+  to confirm or change. (1) Highlights draw at Ultra only until this
+  item lands (1.2 to 3.1 ms at High). Recommend: keep. (2) A non-metal's
+  glint takes its texture's colour, so no surface gets brighter.
+  Recommend: keep. (3) Faint on most maps, as most materials carry the
+  default roughness. Recommend: keep, and revisit with UTA-0104's
+  material standard.
   **Layman:** Shiny-surface highlights cost too much to turn on at High quality yet; this makes them cheap enough to.
   Kind: perf.
   Source: in-session-2026-11-06.

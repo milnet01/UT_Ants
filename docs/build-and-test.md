@@ -135,8 +135,8 @@ says what each column means.
 
 Two options worth knowing. `-DUTA_SANITIZE=thread` builds under
 ThreadSanitizer, which is how the job system's thread-safety is
-measured; the gate runs it as its own step on Linux, and refuses on
-MSVC, which has no ThreadSanitizer. `-DUTA_REAL_ASSET_TESTS=ON` with
+measured; the gate runs it as its own step on the Clang leg only
+(`UTA-0394`), and refuses on MSVC, which has no ThreadSanitizer. `-DUTA_REAL_ASSET_TESTS=ON` with
 `-DUTA_UT_INSTALL_DIR=<path>` adds the second test tier, off by default
 so a clone with no Unreal Tournament still builds and tests clean —
 that separation is what **S7** is measured on. On this machine add
