@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=452 -->
+<!-- ants-roadmap-id-high-water: UTA=453 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -20568,8 +20568,8 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   roughness), which is uniform across a wave; fewer lights' lobes per
   fragment. Done when both maps measure under 1 ms at High and the tier
   row moves to High.
-  Waiting-on: user, three UTA-0298 choices made in-session 2026-11-06,
-  to confirm or change. (1) Highlights draw at Ultra only until this
+  The user kept all three UTA-0298 choices (2026-11-08), made in-session
+  2026-11-06: (1) Highlights draw at Ultra only until this
   item lands (1.2 to 3.1 ms at High). Recommend: keep. (2) A non-metal's
   glint takes its texture's colour, so no surface gets brighter.
   Recommend: keep. (3) Faint on most maps, as most materials carry the
@@ -20591,6 +20591,23 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: feature.
   Source: user-request-2026-11-06.
   Lanes: urender, ut-ants.
+
+- 📋 [UTA-0453] **tests: check the shadow-mask pair limit on a smaller fixture, so the race detector's step stops waiting on one test.**
+  "INV-6: pairs past the limit squared bake coarser within the limit"
+  (tests/unit/BakeShadowMaskTest.cpp) took 76 to 96 s under
+  ThreadSanitizer on 2026-11-08 (Clang 19, load 12-14) and 13 s in
+  Release; the next test is 29 s ("UTA-0055 INV-6: water too big for the
+  budget is cut coarser"), the rest under 5 s. The race step's ctest is
+  about 80 s, so it is this one test. Shrink what the fixture feeds it, or
+  lower the limit the test passes, so it still crosses the limit and
+  still asserts the same outcome. Keep it in every run (user: no
+  sampling, 2026-10-21). Then look at the water test the same way.
+  Measure: the race step's time before and after, in one job.
+  Found while dropping UTA-0393.
+  **Layman:** One test makes the slowest check of every push wait about 80 seconds; a smaller sample map would test the same rule in a fraction of the time.
+  Kind: perf.
+  Source: user-request-2026-11-08.
+  Lanes: ubake, tests.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
