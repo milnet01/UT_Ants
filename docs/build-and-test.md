@@ -78,6 +78,9 @@ ccache --set-config base_dir=/
 ccache --set-config hash_dir=false
 ```
 
+The push gate's Linux legs keep their own cache, beside the machine's, and
+set both themselves (`UTA-0395`). `UTA_GATE_CCACHE_DIR` moves it.
+
 **`ut-bench` says which step of a bake took the time** (`UTA-0129`). It bakes
 each map several times, never from a cache, and prints each step's smallest,
 median and largest time beside the machine and the build:

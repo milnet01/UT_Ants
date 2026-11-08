@@ -180,6 +180,18 @@ fi
 
 # ── Linux: one leg at a time ────────────────────────────────────────────────
 
+# The Linux legs' own compiler cache (UTA-0395). In the machine's shared one,
+# other builds evicted what the gate seldom recompiles: a clean rebuild of an
+# unchanged GCC tree missed SDL3 whole, 109 s against 29 s once warm. All
+# three Linux trees fill 0.2 GB, so 2G keeps many pushes' changed files.
+# Beside the shared cache by default. A cache directory reads ITS OWN
+# ccache.conf, so the settings CMakeLists.txt asks for are passed here.
+if command -v ccache >/dev/null; then
+    export CCACHE_DIR=${UTA_GATE_CCACHE_DIR:-$(ccache -k cache_dir)-uta-gate}
+    export CCACHE_MAXSIZE=2G CCACHE_BASEDIR=/ CCACHE_NOHASHDIR=true
+    export CCACHE_SLOPPINESS=pch_defines,time_macros
+fi
+
 results=()
 linux_failed=false
 run_leg() {
