@@ -168,6 +168,8 @@ ccache_bin=\$(./scripts/ccache-windows.sh ~/uta-gate/ccache-bin)
 export PATH="\$ccache_bin:\$PATH"
 export CCACHE_DIR="\$(cygpath -w ~/uta-gate/ccache)" CCACHE_BASEDIR="\$(cygpath -w "\$PWD")"
 export CCACHE_NOHASHDIR=true CCACHE_MAXSIZE=1G
+# The Linux legs below check the tree on this commit (UTA-0392).
+export UTA_CI_TREE_CHECKED_ON_LINUX=true
 ./scripts/ci.sh
 EOF
     ) >"$WIN_LOG" 2>&1 &

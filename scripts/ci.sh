@@ -52,6 +52,15 @@ case "$(uname -s)" in
     *) IS_WINDOWS=false ;;
 esac
 
+# UTA-0392: two checks read only the tree, and under Git Bash they cost 88 s
+# of a 218 s Windows leg against 4 s on Linux. Both gates run the Linux legs
+# on the same commit, so they set UTA_CI_TREE_CHECKED_ON_LINUX=true and the
+# Windows leg skips them. Unset -- ci.sh run alone on Windows -- runs them.
+TREE_CHECKED_ELSEWHERE=false
+if $IS_WINDOWS && [[ ${UTA_CI_TREE_CHECKED_ON_LINUX:-} == true ]]; then
+    TREE_CHECKED_ELSEWHERE=true
+fi
+
 BUILD_DIR=${UTA_CI_BUILD_DIR:-build-ci}
 CONFIG=${UTA_CI_CONFIG:-Release}
 # Ninja on Linux, per docs/design.md. On Windows the Visual Studio generator
@@ -121,40 +130,44 @@ step "documentation: relative links resolve"
 # .githooks/pre-commit runs a looser twin of this check at commit time. It
 # comes from ~/.claude/skeleton and is not edited here, so a link it passes
 # can still fail this step.
-link_failures=0
-# -z, so a non-ASCII file name is not handed over quoted (review-code 2026-09-26).
-while IFS= read -r -d '' file; do
-    dir=$(dirname "$file")
-    # The links come from the done line below. Code is not a link: fenced
-    # blocks and inline code spans are dropped first, so a quoted lambda's
-    # [&](const T& x) is not read as one.
-    while IFS= read -r target; do
-        [[ -z $target ]] && continue
-        # Off-tree and in-page links are not this check's business.
-        [[ $target =~ ^([a-zA-Z][a-zA-Z0-9+.-]*): ]] && continue
-        [[ $target == \#* ]] && continue
-        target=${target%%#*} # drop an anchor; the path is what must exist
-        target=${target%% *} # drop a "path 'title'" suffix
-        [[ -z $target ]] && continue
-        # A leading / is the repository's root, as GitHub renders it, never
-        # this machine's.
-        if [[ $target == /* ]]; then resolved=".$target"; else resolved="$dir/$target"; fi
-        # Tracked, not merely present: in the in-place gate an ignored or
-        # untracked file resolves here and fails GitHub's fresh checkout
-        # (UTA-0371). A directory is tracked if anything under it is.
-        if [[ -z $(git --literal-pathspecs ls-files -- "$resolved" | head -n 1) ]]; then
-            printf '   %s -> %s is not a tracked file or directory\n' "$file" "$target" >&2
-            link_failures=$((link_failures + 1))
-        fi
-    done < <(awk '/^[[:space:]]*(```|~~~)/ { fence = !fence; next } !fence' "$file" |
-        sed -E "s/\`[^\`]*\`//g" | grep -oE '\]\([^)]+\)' | sed -E 's/^\]\(//; s/\)$//')
-done < <(git ls-files -z '*.md')
-if [[ $link_failures -gt 0 ]]; then
-    printf 'ci: %d broken relative link(s) in the documentation.\n' "$link_failures" >&2
-    exit 1
+if $TREE_CHECKED_ELSEWHERE; then
+    skip "relative links: a Linux leg checks them on this commit (UTA-0392)"
+else
+    link_failures=0
+    # -z, so a non-ASCII file name is not handed over quoted (review-code 2026-09-26).
+    while IFS= read -r -d '' file; do
+        dir=$(dirname "$file")
+        # The links come from the done line below. Code is not a link: fenced
+        # blocks and inline code spans are dropped first, so a quoted lambda's
+        # [&](const T& x) is not read as one.
+        while IFS= read -r target; do
+            [[ -z $target ]] && continue
+            # Off-tree and in-page links are not this check's business.
+            [[ $target =~ ^([a-zA-Z][a-zA-Z0-9+.-]*): ]] && continue
+            [[ $target == \#* ]] && continue
+            target=${target%%#*} # drop an anchor; the path is what must exist
+            target=${target%% *} # drop a "path 'title'" suffix
+            [[ -z $target ]] && continue
+            # A leading / is the repository's root, as GitHub renders it, never
+            # this machine's.
+            if [[ $target == /* ]]; then resolved=".$target"; else resolved="$dir/$target"; fi
+            # Tracked, not merely present: in the in-place gate an ignored or
+            # untracked file resolves here and fails GitHub's fresh checkout
+            # (UTA-0371). A directory is tracked if anything under it is.
+            if [[ -z $(git --literal-pathspecs ls-files -- "$resolved" | head -n 1) ]]; then
+                printf '   %s -> %s is not a tracked file or directory\n' "$file" "$target" >&2
+                link_failures=$((link_failures + 1))
+            fi
+        done < <(awk '/^[[:space:]]*(```|~~~)/ { fence = !fence; next } !fence' "$file" |
+            sed -E "s/\`[^\`]*\`//g" | grep -oE '\]\([^)]+\)' | sed -E 's/^\]\(//; s/\)$//')
+    done < <(git ls-files -z '*.md')
+    if [[ $link_failures -gt 0 ]]; then
+        printf 'ci: %d broken relative link(s) in the documentation.\n' "$link_failures" >&2
+        exit 1
+    fi
+    # Inline links only: a reference-style `[x]: path` is not read (UTA-0371).
+    printf '   %d markdown files, every inline relative link resolves.\n' "$(git ls-files '*.md' | wc -l)"
 fi
-# Inline links only: a reference-style `[x]: path` is not read (UTA-0371).
-printf '   %d markdown files, every inline relative link resolves.\n' "$(git ls-files '*.md' | wc -l)"
 
 # ── Static analysis ─ also BOTH modes ─────────────────────────────
 #
@@ -193,8 +206,13 @@ step "every standard function has its header"
 # libstdc++ reaches <bit> and <algorithm> through other headers and MSVC does
 # not, so a missing include is green on both Linux legs and red only on
 # Windows. When the Windows machine is unreachable this is the local gate's
-# only defence against that (runs 36574630875 and 36575289692).
-./scripts/std-includes.sh
+# only defence against that (runs 36574630875 and 36575289692). It greps the
+# sources, so a Linux leg's run covers the Windows leg too.
+if $TREE_CHECKED_ELSEWHERE; then
+    skip "standard headers: a Linux leg checks them on this commit (UTA-0392)"
+else
+    ./scripts/std-includes.sh
+fi
 
 step "shell scripts"
 # Two lists, and the difference is deliberate. shellcheck finds DEFECTS, so it

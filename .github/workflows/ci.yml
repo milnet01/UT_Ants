@@ -266,6 +266,9 @@ jobs:
         env:
           MODE: ${{ steps.mode.outputs.mode }}
           DEPS_RESTORED: ${{ steps.deps.conclusion }}
+          # Every job checks the same commit, so the Windows leg skips the
+          # checks that read only the tree (UTA-0392). Linux legs ignore it.
+          UTA_CI_TREE_CHECKED_ON_LINUX: true
         run: |
           # The directory is handed over only when its restore step ran; the
           # tilde is expanded here, by the shell, not by ci.sh.
