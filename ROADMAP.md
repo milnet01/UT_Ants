@@ -20428,7 +20428,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-10-21.
   Lanes: tools.
 
-- 📋 [UTA-0393] **ci: build the race detector's tree optimised rather than Debug.**
+- 🚫 [UTA-0393] **ci: build the race detector's tree optimised rather than Debug.**
   The race detector step (scripts/ci.sh) is the largest local cost:
   141 s on the GCC leg and 91 s on Clang's, against 7 s and 6 s for the
   main build (push gate, 2026-10-21). It configures
@@ -20439,6 +20439,15 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   still reported. Resources: ThreadSanitizer uses several times the
   memory of a plain run; keep its ctest -j within free RAM (31 GB
   machine, 14 GB free that day) so the memory guard kills nothing.
+  Dropped 2026-11-08: the premise was false, and the one lever left gains
+  nothing. CMakeLists.txt already compiles the race detector at -g -O1
+  with no NDEBUG; RelWithDebInfo would keep -O1 (the project's flag comes
+  last) and add -DNDEBUG, checking less. -O2, measured A/B/A in one job
+  (throwaway worktree, Clang 19, load 12-14): unit tier 79 / 78 / 96 s,
+  all 1175 green. The step is one test: "INV-6: pairs past the limit
+  squared bake coarser within the limit" takes 76-96 s under TSan (13 s
+  in Release); the next is 29 s, the rest under 5 s. Split at 4a2d52b,
+  in place: race step 108 s, of it ctest 82 s.
   **Layman:** The thread-safety check is the slowest part of every local push; an optimised build of it should run its tests faster without checking less.
   Kind: perf.
   Source: user-request-2026-10-21.
@@ -20467,7 +20476,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-10-21.
   Lanes: tools.
 
-- 📋 [UTA-0395] **Local gate: the compiler cache is full and hits under half the time.**
+- ✅ [UTA-0395] **Local gate: the compiler cache is full and hits under half the time.**
   ccache -s (2026-10-21): 20.0 of 20.0 GB, 1303 cleanups, hits 39.54%
   of 181101 cacheable calls. The gate builds three trees a leg (main,
   race detector, docs) for two compilers, and a format change misses
@@ -20477,6 +20486,14 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   the gate its own CCACHE_DIR so other projects stop evicting it. The
   large drives (/mnt/Emulators, /mnt/Games) have terabytes free but are
   likely spinning disks; time a build from there before moving it.
+  Shipped 4a2d52b (2026-11-08), green on GitHub run 42509689609. The
+  cache had moved to /mnt/Games/DevTools (2026-11-05), so /home was no
+  longer the limit. Cause measured: a clean rebuild of the unchanged GCC
+  gate tree hit 55%, and 322 of 328 misses were SDL3, evicted from the
+  shared cache. Fix: the Linux legs use their own cache beside it (2G;
+  all three trees fill 0.2 GB). Clean GCC rebuild 109 s -> 29 s, 737 of
+  737 hits. An in-place push that compiles little shows no change: the
+  gain lands on clean builds (worktree gates, reconfigures).
   **Layman:** The cache that saves recompiling is too small for what is built here, so it throws away work the next push needs again.
   Kind: perf.
   Source: user-request-2026-10-21.
