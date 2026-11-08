@@ -20404,7 +20404,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Lanes: uworld, ubake.
   Blocked-by: UTA-0017, UTA-0341.
 
-- 📋 [UTA-0392] **ci: run the source-tree checks once, not again on the Windows leg.**
+- ✅ [UTA-0392] **ci: run the source-tree checks once, not again on the Windows leg.**
   Measured in the push gate of 2026-10-21 (~/.cache/uta-scratch/push-0359.log),
   Windows leg under Git Bash: "documentation: relative links resolve"
   22 s and "every standard function has its header" 54 s, against 1 s
@@ -20418,6 +20418,11 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   leg already times out under load), test retries, shorter test
   timeouts, sharding or sampling the suite, and skipping the device
   tier on any leg.
+  Shipped 38eacaa (2026-11-08), green on GitHub run 42505971207. Both
+  gates set UTA_CI_TREE_CHECKED_ON_LINUX=true; the Windows leg then skips
+  the link check and std-includes.sh, naming both. GitHub Windows job
+  4 m 57 s -> 2 m 21 s (ci.sh 235 s -> 95 s; one pair of runs). The local
+  Windows leg was unreachable on that push, so its time is unmeasured.
   **Layman:** Some checks read the files and do not depend on the compiler; running them on Windows as well costs over a minute for nothing.
   Kind: perf.
   Source: user-request-2026-10-21.
