@@ -20592,7 +20592,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-11-06.
   Lanes: urender, ut-ants.
 
-- 📋 [UTA-0453] **tests: check the shadow-mask pair limit on a smaller fixture, so the race detector's step stops waiting on one test.**
+- ✅ [UTA-0453] **tests: check the shadow-mask pair limit on a smaller fixture, so the race detector's step stops waiting on one test.**
   "INV-6: pairs past the limit squared bake coarser within the limit"
   (tests/unit/BakeShadowMaskTest.cpp) took 76 to 96 s under
   ThreadSanitizer on 2026-11-08 (Clang 19, load 12-14) and 13 s in
@@ -20604,6 +20604,13 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   sampling, 2026-10-21). Then look at the water test the same way.
   Measure: the race step's time before and after, in one job.
   Found while dropping UTA-0393.
+  Shipped 2026-11-09 at b71f342. The pair-limit test passes a 512 limit
+  from 2/3 unit a texel (the old 4096 and 1/12 scaled by eight); the water
+  test passes a budget of 8192 to sliceSway, which gained that optional
+  argument, on a 1600-unit pool. Measured in one job, Clang 19 TSan tree,
+  old binary against new: the pair-limit test 70 s -> 1.2 s; the whole
+  race step 75 s -> 13 s. Three hand mutants killed. Green on GitHub's
+  matrix (run 42575189556) and the local gate, MSVC included.
   **Layman:** One test makes the slowest check of every push wait about 80 seconds; a smaller sample map would test the same rule in a fraction of the time.
   Kind: perf.
   Source: user-request-2026-11-08.
