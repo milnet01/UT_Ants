@@ -80,7 +80,9 @@ struct SwaySlicing {
 };
 
 /// SS 4.2 and SS 4.3. A polygon whose kind is None is passed over and gets
-/// no pieces.
-[[nodiscard]] SwaySlicing sliceSway(std::span<const SwayPolygon> polygons);
+/// no pieces. `budget` is SWAY_VERTEX_BUDGET but in a test, which reaches the
+/// coarsening rule without slicing a full-sized pool (UTA-0453).
+[[nodiscard]] SwaySlicing sliceSway(std::span<const SwayPolygon> polygons,
+                                    std::size_t budget = SWAY_VERTEX_BUDGET);
 
 } // namespace uta::ubake

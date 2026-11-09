@@ -652,10 +652,12 @@ TEST_CASE("INV-6: placed rectangles do not overlap and hold every lit vertex", "
 }
 
 TEST_CASE("INV-6: pairs past the limit squared bake coarser within the limit", "[ubake][shadowmask]") {
-    // Two 256-unit floors, each shadowed by a post, at 1/12 unit a texel:
-    // 3074 texels a side each, 18.9 million in all, past 4096 squared. The
-    // limit is 4096, not the bundle's, so the fixture stays small (UTA-0322).
-    constexpr std::uint32_t limit = 4096;
+    // Two 256-unit floors, each shadowed by a post, at 2/3 unit a texel: 386
+    // texels a side each, so side by side or stacked they need 772, past 512.
+    // The limit is 512, not the bundle's, so the fixture stays small
+    // (UTA-0322, UTA-0453): at 4096 and 1/12 it took 70 s under TSan
+    // (2026-11-09).
+    constexpr std::uint32_t limit = 512;
     Scene scene;
     addQuad(scene, {0, 0, 0}, {256, 0, 0}, {256, 256, 0}, {0, 256, 0}, {0, 0, 1});
     addQuad(scene, {300, 0, 0}, {556, 0, 0}, {556, 256, 0}, {300, 256, 0}, {0, 0, 1});
@@ -663,7 +665,7 @@ TEST_CASE("INV-6: pairs past the limit squared bake coarser within the limit", "
     addBox(scene, {420, 120, 40}, {436, 136, 60});
     const Geometry geometry = finish(std::move(scene));
     JobSystem jobs(4);
-    const float start = 1.0f / 12;
+    const float start = 2.0f / 3;
     const auto mask = bakeShadowMask(bundleOf(geometry, {pointLight({278, 128, 200})}), jobs, start, {}, limit);
     REQUIRE(mask.has_value());
     CHECK(mask->texelSize >= 2 * start);

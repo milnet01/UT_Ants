@@ -348,7 +348,7 @@ constexpr double ESTIMATE_SKIP_FACTOR = 8.0;
 /// switched off stays whole and still. Stops early, uncut, once the estimate
 /// passes the budget ESTIMATE_SKIP_FACTOR times over.
 SwaySlicing sliceAll(std::span<const SwayPolygon> polygons, const Prepared& prepared, double waterSlice,
-                     double clothSlice, bool water, bool cloth) {
+                     double clothSlice, bool water, bool cloth, std::size_t budget) {
     SwaySlicing out;
     out.waterSlice = waterSlice;
     out.clothSlice = clothSlice;
@@ -362,7 +362,7 @@ SwaySlicing sliceAll(std::span<const SwayPolygon> polygons, const Prepared& prep
     double estimated = 0;
     for (std::size_t p = 0; p < polygons.size(); ++p)
         if (moves(polygons[p].kind)) estimated += estimate(prepared.polygons[p], spacingOf(polygons[p].kind));
-    if (estimated > ESTIMATE_SKIP_FACTOR * static_cast<double>(SWAY_VERTEX_BUDGET)) {
+    if (estimated > ESTIMATE_SKIP_FACTOR * static_cast<double>(budget)) {
         out.vertices = static_cast<std::size_t>(estimated);
         for (std::size_t p = 0; p < polygons.size(); ++p)
             if (moves(polygons[p].kind) && polygons[p].kind == SwayKind::Cloth)
@@ -410,15 +410,15 @@ SwaySlicing sliceAll(std::span<const SwayPolygon> polygons, const Prepared& prep
 
 } // namespace
 
-SwaySlicing sliceSway(std::span<const SwayPolygon> polygons) {
+SwaySlicing sliceSway(std::span<const SwayPolygon> polygons, std::size_t budget) {
     const Prepared prepared = prepare(polygons);
     double waterSlice = WATER_SLICE;
     double clothSlice = CLOTH_SLICE;
     bool water = true;
     bool cloth = true;
     for (;;) {
-        SwaySlicing attempt = sliceAll(polygons, prepared, waterSlice, clothSlice, water, cloth);
-        if (attempt.vertices <= SWAY_VERTEX_BUDGET) return attempt;
+        SwaySlicing attempt = sliceAll(polygons, prepared, waterSlice, clothSlice, water, cloth, budget);
+        if (attempt.vertices <= budget) return attempt;
         // Coarsen the kind holding more of the vertices while it can be;
         // then the other; then leave water still, then cloth.
         const bool clothHeavier = attempt.clothVertices * 2 >= attempt.vertices;

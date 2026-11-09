@@ -144,12 +144,15 @@ TEST_CASE("UTA-0055 SS 4.2: a polygon that sways none gets no pieces", "[ubake][
 }
 
 TEST_CASE("UTA-0055 INV-6: water too big for the budget is cut coarser", "[ubake][sway]") {
-    // At 32 units, 375 cells a side and four corners a cell pass the budget.
-    const std::vector<SwayPolygon> polygons{floorOf(0, 0, 12000, 12000)};
-    const SwaySlicing slicing = sliceSway(polygons);
+    // At 32 units, 50 cells a side and four corners a cell pass a budget of
+    // 8192; at 64, 25 a side fit. A small budget keeps the pool small: at the
+    // real one it took 29 s under TSan (UTA-0453, 2026-11-08).
+    constexpr std::size_t budget = 8192;
+    const std::vector<SwayPolygon> polygons{floorOf(0, 0, 1600, 1600)};
+    const SwaySlicing slicing = sliceSway(polygons, budget);
     CHECK(slicing.waterSlice == 64.0);
     CHECK_FALSE(slicing.waterStill);
-    CHECK(slicing.vertices <= uta::ubake::SWAY_VERTEX_BUDGET);
+    CHECK(slicing.vertices <= budget);
     CHECK_FALSE(slicing.pieces[0].empty());
 }
 
