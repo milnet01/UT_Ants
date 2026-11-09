@@ -20554,7 +20554,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: in-session-2026-11-05 UTA-0341 bake.
   Lanes: upkg, ubake.
 
-- 📋 [UTA-0451] **urender: bring specular highlights under 1 ms a frame at High, so they draw from High rather than Ultra.**
+- ✅ [UTA-0451] **urender: bring specular highlights under 1 ms a frame at High, so they draw from High rather than Ultra.**
   UTA-0298's highlights, measured 2026-11-06 on the RX 6600 (RADV) with
   ut-bench frame at 2560x1440, against main without them, same bundles
   and cameras, in one job: the opaque step +1.16 ms at High on
@@ -20575,6 +20575,12 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Recommend: keep. (3) Faint on most maps, as most materials carry the
   default roughness. Recommend: keep, and revisit with UTA-0104's
   material standard.
+  Shipped 2026-11-09 in 9e6311c and e6aace0, green on GitHub (run
+  42584778241). One lobe a fragment toward the lights' gathered
+  direction, then a glossy twin of each scene pipeline: only a metal, or
+  a roughness map below umat's default, draws with highlights (user's
+  choice, 2026-11-09). At High: DM-FoT-SimpleX +0.0 to +0.1 ms,
+  DM-ArchNemesis no cost. Feature::Specular now starts at High.
   **Layman:** Shiny-surface highlights cost too much to turn on at High quality yet; this makes them cheap enough to.
   Kind: perf.
   Source: in-session-2026-11-06.
