@@ -96,10 +96,11 @@ enum class Feature : std::uint8_t {
     // UTA-0293 SS 4.6: half the clumps at High, all at Ultra (urender/Grass.h).
     // SS 13 moves it to Ultra if it costs more than 1 ms at High.
     case Feature::Grass: return Tier::High;
-    // UTA-0298: a GGX lobe per light the fragment already gathers. Measured
-    // 2026-11-06 at 1.1 to 3.1 ms a frame at High, past grass's 1 ms line
-    // (UTA-0293 SS 13), so Ultra until UTA-0451 brings it under.
-    case Feature::Specular: return Tier::Ultra;
+    // UTA-0298: a GGX lobe toward the lights a fragment gathers, on glossy
+    // materials only. UTA-0451 measured it at High on 2026-11-09 under 0.1 ms
+    // a frame on DM-FoT-SimpleX and DM-ArchNemesis, within grass's 1 ms line
+    // (UTA-0293 SS 13); before it, 1.6 to 1.7 ms.
+    case Feature::Specular: return Tier::High;
     }
     return Tier::Low; // unreachable
 }

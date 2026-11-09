@@ -54,6 +54,18 @@ struct StagingLayout {
 };
 [[nodiscard]] StagingLayout stagingLayout(const std::vector<std::size_t>& sizes);
 
+/// UTA-0451: a roughness map at umat's default -- baseRoughness 191, moved at
+/// most 32 by the height (umat::roughnessOf) -- reaches no lower than 159. A
+/// material whose map reaches below this, 8 under for BC4's error, can show a
+/// highlight, and so can a metal; the rest draw without (MaterialSet::isGlossy).
+inline constexpr std::uint8_t GLOSSY_BELOW = 151;
+
+/// UTA-0451: a value no texel of `texture`'s top level is below, read from its
+/// blocks' endpoints and indices without decoding them. Exact for a block whose
+/// texels reach its lower endpoint, and lower otherwise. 0 for a texture that
+/// is not BC4, or whose bytes are short, so either counts as glossy.
+[[nodiscard]] std::uint8_t bc4Floor(const ubundle::CompressedTexture& texture) noexcept;
+
 class MaterialSet {
 public:
     /// Upload every map `bundle`'s materials name, and the defaults. The
@@ -66,6 +78,9 @@ public:
     /// UTA-0273 SS 4.1: whether the material `indexOf` returned as `index`
     /// is a Wet or Wave liquid that is not drawn as flame; false past the end.
     [[nodiscard]] bool isWater(std::uint32_t index) const noexcept;
+    /// UTA-0451: whether that material can show a highlight, so it draws with
+    /// them (Pipelines::sceneFor); false past the end.
+    [[nodiscard]] bool isGlossy(std::uint32_t index) const noexcept;
 
     [[nodiscard]] const std::vector<Image>& textures() const noexcept { return textures_; }
     [[nodiscard]] const Buffer& records() const noexcept { return records_; }
@@ -111,6 +126,7 @@ private:
     Buffer fireStaging_;
     std::vector<std::uint32_t> rampByRecord_; ///< by MATS index
     std::vector<bool> waterByIndex_; ///< UTA-0273: by indexOf's index
+    std::vector<bool> glossyByIndex_; ///< UTA-0451: by indexOf's index
     std::unordered_map<std::string, std::uint32_t> byId_;
     std::unordered_set<std::string> reported_;
 };

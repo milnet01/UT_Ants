@@ -204,6 +204,8 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
     // maps; its bytes outlive the staging copy below.
     std::vector<std::vector<std::byte>> firePictures;
     VkDeviceSize fireStagingBytes = 0;
+    // UTA-0451: each uploaded roughness map's bc4Floor, by texture index.
+    std::unordered_map<std::uint32_t, std::uint8_t> roughFloors;
 
     if (bundle.materials) {
         for (std::size_t m = 0; m < bundle.materials->size(); ++m) {
@@ -218,6 +220,8 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
             UTA_TRY(const std::uint32_t base, stillMap("base", true));
             UTA_TRY(const std::uint32_t normal, stillMap("normal", false));
             UTA_TRY(const std::uint32_t rough, stillMap("rough", false));
+            if (rough != gpu::NONE && !roughFloors.contains(rough))
+                roughFloors.emplace(rough, bc4Floor(*byName.at(std::format("{}:rough", record.id))));
             UTA_TRY(const std::uint32_t height, stillMap("height", false));
             UTA_TRY(const std::uint32_t emit, stillMap("emit", true));
             UTA_TRY(const std::uint32_t glass, mapIndex(record.id, "glass", false)); // UTA-0270
@@ -349,6 +353,18 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
         set.waterByIndex_.push_back(record.liquid != gpu::NONE && record.flame == gpu::NONE
                                     && liquids.entries[record.liquid].kind
                                            != static_cast<std::uint32_t>(ubundle::LiquidKind::Ice));
+    // UTA-0451: a metal, or a roughness map below umat's default. A material on
+    // the built-in map (none of its own, or a fire's) is not glossy.
+    set.glossyByIndex_.reserve(records.size());
+    std::size_t glossyCount = 0;
+    for (const gpu::Material& record : records) {
+        const auto floor = roughFloors.find(record.rough);
+        const bool glossy =
+            record.metallic != 0 || (floor != roughFloors.end() && floor->second < GLOSSY_BELOW);
+        set.glossyByIndex_.push_back(glossy);
+        glossyCount += glossy ? 1 : 0;
+    }
+    UTA_LOG(logRender, LogLevel::Info, "{} of {} materials draw with highlights", glossyCount, records.size());
     UTA_TRY(set.records_, Buffer::upload(gpu, std::as_bytes(std::span(records)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
     UTA_TRY(set.ramps_,
             Buffer::upload(gpu, std::as_bytes(std::span(ramps.entries)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
@@ -367,6 +383,33 @@ StagingLayout stagingLayout(const std::vector<std::size_t>& sizes) {
         layout.total += size;
     }
     return layout;
+}
+
+std::uint8_t bc4Floor(const ubundle::CompressedTexture& texture) noexcept {
+    if (texture.format != ubundle::BlockFormat::BC4) return 0;
+    constexpr std::size_t BLOCK_BYTES = 8;
+    const std::size_t blocks =
+        std::size_t{(texture.width + 3u) / 4u} * std::size_t{(texture.height + 3u) / 4u};
+    if (blocks == 0 || texture.blocks.size() < blocks * BLOCK_BYTES) return 0;
+    std::uint8_t lowest = 255;
+    for (std::size_t b = 0; b < blocks; ++b) {
+        const std::byte* block = texture.blocks.data() + b * BLOCK_BYTES;
+        const auto red0 = std::to_integer<std::uint8_t>(block[0]);
+        const auto red1 = std::to_integer<std::uint8_t>(block[1]);
+        // red0 > red1: red0, red1 and six values between. Otherwise red0, red1,
+        // four between, and index 6 decodes to 0 (index 7 to 255).
+        if (red0 > red1) {
+            lowest = std::min(lowest, red1);
+            continue;
+        }
+        lowest = std::min(lowest, red0);
+        std::uint64_t indices = 0;
+        for (std::size_t i = 0; i < 6; ++i)
+            indices |= std::uint64_t{std::to_integer<std::uint8_t>(block[2 + i])} << (8 * i);
+        for (std::size_t texel = 0; texel < 16; ++texel)
+            if (((indices >> (3 * texel)) & 7u) == 6u) return 0;
+    }
+    return lowest;
 }
 
 void MaterialSet::advanceFires(double seconds, bool pinned) {
@@ -414,6 +457,10 @@ std::uint32_t MaterialSet::rampOf(std::uint32_t record) const noexcept {
 
 bool MaterialSet::isWater(std::uint32_t index) const noexcept {
     return index < waterByIndex_.size() && waterByIndex_[index];
+}
+
+bool MaterialSet::isGlossy(std::uint32_t index) const noexcept {
+    return index < glossyByIndex_.size() && glossyByIndex_[index];
 }
 
 std::uint32_t MaterialSet::indexOf(const std::string& id) {

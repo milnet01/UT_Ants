@@ -1793,7 +1793,8 @@ void Renderer::Impl::recordBatches(VkCommandBuffer commands, ScenePass pass, VkE
         vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS,
                           pass == ScenePass::Depth     ? pipelines->depthFor(item.polyFlags)
                           : pass == ScenePass::Refract ? pipelines->refractFor(item.polyFlags)
-                                                       : pipelines->sceneFor(item.polyFlags));
+                                                       : pipelines->sceneFor(item.polyFlags,
+                                                                             materials->isGlossy(item.materialIndex)));
         // A mirrored mover winds the other way on screen, so its front face is the other one.
         const VkFrontFace front = mirrored[item.objectIndex] ? VK_FRONT_FACE_COUNTER_CLOCKWISE : VK_FRONT_FACE_CLOCKWISE;
         vkCmdSetFrontFace(commands, front);

@@ -59,6 +59,8 @@ layout(constant_id = 5) const bool SHUFFLE_TILES = false;
 // terms to outEmission for ut-ref to score; off in normal play.
 layout(constant_id = 6) const bool LIGHT_TERMS = false;
 // UTA-0298: Feature::Specular. Off, a lit surface is shaded as before it.
+// UTA-0451: on only in the pipelines glossy materials draw with
+// (Pipelines::sceneFor), as compiling it in costs every fragment registers.
 layout(constant_id = 7) const bool SPECULAR = false;
 // UTA-0298: umat's default baseRoughness, 191 of 255, for a material with no
 // roughness map; and a non-metal's reflectance face-on.

@@ -62,7 +62,9 @@ public:
     [[nodiscard]] VkPipelineLayout postLayout() const noexcept { return postLayout_; }
 
     /// The forward pipeline a batch carrying `polyFlags` is drawn with.
-    [[nodiscard]] VkPipeline sceneFor(std::uint32_t polyFlags) const noexcept;
+    /// UTA-0451: `glossy` (MaterialSet::isGlossy) picks the one with
+    /// highlights, where they are on; the rest draw without and pay nothing.
+    [[nodiscard]] VkPipeline sceneFor(std::uint32_t polyFlags, bool glossy) const noexcept;
     /// UTA-0273 SS 4.4: the pipeline a refracting batch carrying `polyFlags`
     /// is drawn with, reading set 1; null below Ultra, where none refracts.
     [[nodiscard]] VkPipeline refractFor(std::uint32_t polyFlags) const noexcept;
@@ -137,7 +139,11 @@ private:
     VkPipelineLayout sceneLayout_ = VK_NULL_HANDLE;
     VkPipelineLayout postLayout_ = VK_NULL_HANDLE;
     /// Indexed [Blending][twoSided]: Blending is Pipelines.cpp's, opaque, translucent, modulated.
+    /// Drawn without highlights.
     std::array<std::array<VkPipeline, 2>, 3> scene_{};
+    /// UTA-0451: the same with highlights, for glossy materials; null where
+    /// highlights are off.
+    std::array<std::array<VkPipeline, 2>, 3> glossy_{};
     /// UTA-0273: indexed [twoSided]; null below Ultra.
     std::array<VkPipeline, 2> refract_{};
     /// UTA-0260: indexed [twoSided].

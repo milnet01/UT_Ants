@@ -247,9 +247,10 @@ TEST_CASE("UTA-0352: shader statistics come only when asked and only from a devi
     // Every pipeline the renderer makes is reported, under its own name.
     std::set<std::string> pipelines;
     for (const uta::urender::ShaderStatistics& stage : stats) pipelines.insert(stage.pipeline);
-    // Six scene, two refracting (UTA-0273, Ultra only), two depth, grass
-    // (UTA-0293, High and up), and Pipelines::named's thirteen others.
-    CHECK(pipelines.size() == 24);
+    // Six scene, six glossy scene (UTA-0451, where highlights are on), two
+    // refracting (UTA-0273, Ultra only), two depth, grass (UTA-0293, High and
+    // up), and Pipelines::named's thirteen others.
+    CHECK(pipelines.size() == 30);
     const auto sceneFragment = std::ranges::find_if(stats, [](const uta::urender::ShaderStatistics& stage) {
         return stage.pipeline == "scene opaque" && stage.stage == "fragment";
     });

@@ -1,5 +1,7 @@
-// UTA-0298: specular highlights -- a GGX lobe per light, at Ultra. Each case
-// draws at Ultra with Config::specular set and unset, so nothing else differs.
+// UTA-0298: specular highlights, from High since UTA-0451. Each case draws at
+// Ultra with Config::specular set and unset, so nothing else differs. A floor
+// is glossy, and draws with them, while it is a metal or its roughness reaches
+// below umat's default (UTA-0451, urender::GLOSSY_BELOW).
 //
 // THE SCENE: a floor 40 units below the eye, from 40 to 400 units ahead, seen
 // along +X by a default Camera, lit by one light 60 units above it at 240
@@ -109,11 +111,14 @@ TEST_CASE("UTA-0298: a smooth floor shows the light's highlight", "[device][spec
 
 TEST_CASE("UTA-0298: a rough floor keeps its light overall with highlights", "[device][specular]") {
     // Energy kept: what the highlight adds, the diffuse gives up, and the
-    // probes' light comes back whole. 0.04% darker on lavapipe, 2026-11-06;
-    // a diffuse that gives up no Fresnel share drew 0.41% brighter.
-    const auto off = brightness(frameOf(room(240), false));
-    const auto on = brightness(frameOf(room(240), true));
+    // probes' light comes back whole. 0.04% darker on lavapipe, 2026-11-06,
+    // at roughness 240; a diffuse that gives up no Fresnel share drew 0.41%
+    // brighter. UTA-0451: 140, as 240 is no longer glossy and would draw
+    // without highlights either way.
+    const auto off = brightness(frameOf(room(140), false));
+    const auto on = brightness(frameOf(room(140), true));
     INFO("sum off " << off.second << ", on " << on.second);
+    CHECK(on.second != off.second); // the floor drew with highlights at all
     CHECK(on.second <= off.second + off.second / 500);
     CHECK(on.second >= off.second - off.second / 100);
 }
@@ -128,4 +133,11 @@ TEST_CASE("UTA-0298: a metal floor takes the probes' light as its reflection", "
     INFO("sum off " << off.second << ", on " << on.second);
     CHECK(on.second < off.second - off.second / 100);
     CHECK(on.second > off.second * 8 / 10);
+}
+
+TEST_CASE("UTA-0451: a floor at the default roughness draws without highlights", "[device][specular]") {
+    // umat's default reaches 159 at its lowest; above GLOSSY_BELOW the floor
+    // takes the pipeline without highlights, so switching them on changes
+    // no pixel.
+    CHECK(frameOf(room(160), false) == frameOf(room(160), true));
 }

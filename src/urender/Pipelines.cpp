@@ -582,13 +582,23 @@ Result<void> Pipelines::createScenePipelines(const TargetFormats& formats, Tier 
                                         enabled(Feature::Caustics, tier) ? VK_TRUE : VK_FALSE,
                                         enabled(Feature::TileShuffle, tier) ? VK_TRUE : VK_FALSE,
                                         lightTerms ? VK_TRUE : VK_FALSE,
-                                        specular && enabled(Feature::Specular, tier) ? VK_TRUE : VK_FALSE};
+                                        VK_FALSE};
+    // UTA-0451: highlights cost every fragment of a pipeline that compiles
+    // them, in registers, whether or not it shows one; so only glossy
+    // materials draw with them.
+    const bool highlights = specular && enabled(Feature::Specular, tier);
+    SceneConstants glossyConstants = sceneConstants;
+    glossyConstants.specular = VK_TRUE;
     for (const Blending blending : BLENDINGS) {
         for (int twoSided = 0; twoSided < 2; ++twoSided) {
+            const SceneVariant shape{.blending = blending, .twoSided = twoSided == 1, .depthOnly = false};
             UTA_TRY(scene_[std::to_underlying(blending)][twoSided],
-                    scenePipeline(making, sceneLayout_, formats, sceneVertex.handle, sceneFragment.handle,
-                                  {.blending = blending, .twoSided = twoSided == 1, .depthOnly = false},
+                    scenePipeline(making, sceneLayout_, formats, sceneVertex.handle, sceneFragment.handle, shape,
                                   sceneConstants));
+            if (!highlights) continue;
+            UTA_TRY(glossy_[std::to_underlying(blending)][twoSided],
+                    scenePipeline(making, sceneLayout_, formats, sceneVertex.handle, sceneFragment.handle, shape,
+                                  glossyConstants));
         }
     }
     // UTA-0273 SS 4.5: below Ultra nothing refracts, so nothing is made.
@@ -713,9 +723,10 @@ Result<void> Pipelines::createShadow(const TargetFormats& formats) {
 }
 
 Pipelines::~Pipelines() {
-    for (const auto& row : scene_)
-        for (VkPipeline pipeline : row)
-            if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(device_, pipeline, nullptr);
+    for (const auto& rows : {scene_, glossy_})
+        for (const auto& row : rows)
+            for (VkPipeline pipeline : row)
+                if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(device_, pipeline, nullptr);
     for (VkPipeline pipeline : {refract_[0], refract_[1], depth_[0], depth_[1], flame_, mote_, grass_, post_, upscaleInput_, easu_, rcas_, bloomDownsample_, bloomUpsample_})
         if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(device_, pipeline, nullptr);
     if (bloomLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, bloomLayout_, nullptr);
@@ -734,13 +745,15 @@ Pipelines::~Pipelines() {
     if (postSetLayout_ != VK_NULL_HANDLE) vkDestroyDescriptorSetLayout(device_, postSetLayout_, nullptr);
 }
 
-VkPipeline Pipelines::sceneFor(std::uint32_t polyFlags) const noexcept {
+VkPipeline Pipelines::sceneFor(std::uint32_t polyFlags, bool glossy) const noexcept {
     // UTA-0271: PF_Translucent wins over PF_Modulated, as in UT99's renderers.
     const Blending blending = (polyFlags & gpu::PF_TRANSLUCENT) != 0  ? Blending::Translucent
                               : (polyFlags & gpu::PF_MODULATED) != 0 ? Blending::Modulated
                                                                       : Blending::Opaque;
     const bool twoSided = (polyFlags & gpu::PF_TWO_SIDED) != 0;
-    return scene_[std::to_underlying(blending)][twoSided ? 1 : 0];
+    const VkPipeline withHighlights = glossy_[std::to_underlying(blending)][twoSided ? 1 : 0];
+    return glossy && withHighlights != VK_NULL_HANDLE ? withHighlights
+                                                      : scene_[std::to_underlying(blending)][twoSided ? 1 : 0];
 }
 
 VkPipeline Pipelines::refractFor(std::uint32_t polyFlags) const noexcept {
@@ -758,6 +771,13 @@ std::vector<std::pair<std::string, VkPipeline>> Pipelines::named() const {
         for (std::size_t twoSided = 0; twoSided < 2; ++twoSided)
             out.emplace_back(std::format("scene {}{}", BLENDING_NAMES[blending], twoSided == 1 ? " two-sided" : ""),
                              scene_[blending][twoSided]);
+    // UTA-0451: after the plain ones, so a reader of the first rows is unmoved.
+    for (std::size_t blending = 0; blending < glossy_.size(); ++blending)
+        for (std::size_t twoSided = 0; twoSided < 2; ++twoSided)
+            if (glossy_[blending][twoSided] != VK_NULL_HANDLE)
+                out.emplace_back(std::format("scene {}{} glossy", BLENDING_NAMES[blending],
+                                             twoSided == 1 ? " two-sided" : ""),
+                                 glossy_[blending][twoSided]);
     if (refract_[0] != VK_NULL_HANDLE) {
         out.emplace_back("scene refract", refract_[0]);
         out.emplace_back("scene refract two-sided", refract_[1]);

@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=454 -->
+<!-- ants-roadmap-id-high-water: UTA=455 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -20629,6 +20629,21 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   **Layman:** Each release would come with ready-made files to download, so players need not build the game themselves.
   Kind: package.
   Source: user-request-2026-11-09.
+
+- 📋 [UTA-0455] **urender: a material with no roughness map draws at roughness 0.5, not umat's default 0.75.**
+  Found working UTA-0451 (2026-11-09). src/urender/Materials.cpp
+  gives a material with no rough map the built-in DEFAULT_ROUGH texture,
+  which is 128 of 255 (0.5). umat's default baseRoughness is 191
+  (src/umat/Generate.h), and scene.frag's DEFAULT_ROUGHNESS, 191 / 255,
+  is never used: material.rough is never NONE, as the loader substitutes
+  the built-in texture. Affects the built-in material and fire looks.
+  Since UTA-0451 they are not glossy, so they draw without highlights
+  and the value shows only once one is. Decide one default; drop the
+  dead branch.
+  **Layman:** A few surfaces with no shininess setting of their own get the wrong one.
+  Kind: fix.
+  Source: in-session-2026-11-09.
+  Lanes: urender.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
