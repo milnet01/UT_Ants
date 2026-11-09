@@ -12,40 +12,53 @@
 #include "light.glsl"
 #include "shadows.glsl"
 
-// UTA-0298: the highlight each light below adds, gathered beside its diffuse
-// light when the caller turns it on. scene.frag sets these before it calls
-// chartedLight or clusterLight; grass.frag leaves specularOn false, so its
-// blades take no highlight and pay nothing for it.
+// UTA-0298: the highlight, gathered beside each light's diffuse light when the
+// caller turns it on. scene.frag sets these before it calls chartedLight or
+// clusterLight; grass.frag leaves specularOn false, so its blades take no
+// highlight and pay nothing for it.
+// UTA-0451: one lobe a fragment, from the lights' dominant direction, in place
+// of one a light. Each light adds only its unit direction, weighted by the
+// light it brings (its luminance); specularShare evaluates the lobe once. The
+// weights' sum is not kept: every caller adds the same light to its direct
+// sum, whose luminance is that sum.
 bool specularOn = false;
-vec3 specularView = vec3(0.0, 0.0, 1.0); // unit, toward the eye
-float specularRoughness = 1.0;           // perceptual, 0 mirror to 1 matte
-vec3 specularF0 = vec3(0.04);            // reflectance face-on
-vec3 specularSum = vec3(0.0);
+vec3 specularDirection = vec3(0.0); // sum of unit directions to the lights, each times its weight
+const vec3 SPECULAR_LUMA = vec3(0.2126, 0.7152, 0.0722);
 
-const float SPECULAR_PI = 3.14159265;
-
-// GGX's lobe with Smith's shadowing (k = alpha / 2) and Schlick's Fresnel,
-// times pi so it sits beside this renderer's diffuse, which takes `lit` --
-// colour, falloff and incidence -- as it is. `lit` already carries N.L.
-vec3 specularOf(Light light, vec3 position, vec3 n, vec3 lit) {
+// `received` is the light this one brings the fragment, shadow included; the
+// caller adds the same to its direct light.
+void gatherSpecular(Light light, vec3 position, vec3 received) {
     vec3 l = light.effect == SUN_EFFECT ? -lightDirection(light.pitch, light.yaw)
                                          : litFrom(light, position) - position;
     float d = length(l);
-    if (d == 0.0) return vec3(0.0);
-    l /= d;
+    if (d == 0.0) return;
+    specularDirection += l * (dot(received, SPECULAR_LUMA) / d);
+}
+
+// GGX's lobe with Smith's shadowing (k = alpha / 2), times pi, toward the
+// gathered direction: the share of the direct light the highlight takes,
+// Fresnel aside (scene.frag applies it). `direct` is the sum of every light
+// gathered. The more the lights' directions disagree, the shorter their sum
+// against its weight, and the wider the lobe is made, so two lights apart give
+// one broad glint rather than one sharp one between them.
+float specularShare(vec3 n, vec3 view, float roughness, vec3 direct) {
+    float length_ = length(specularDirection);
+    float weight = dot(direct, SPECULAR_LUMA);
+    if (length_ == 0.0 || weight <= 0.0) return 0.0;
+    vec3 l = specularDirection / length_;
+    float coherence = min(length_ / weight, 1.0);
     float nl = dot(n, l);
-    float nv = dot(n, specularView);
-    if (nl <= 0.0 || nv <= 0.0) return vec3(0.0);
-    vec3 h = normalize(l + specularView);
-    float alpha = max(specularRoughness * specularRoughness, 0.0064);
-    float a2 = alpha * alpha;
+    float nv = dot(n, view);
+    if (nl <= 0.0 || nv <= 0.0) return 0.0;
+    float alpha = max(roughness * roughness, 0.0064);
+    float a2 = mix(1.0, alpha * alpha, coherence);
+    float k = sqrt(a2) * 0.5;
+    vec3 h = normalize(l + view);
     float nh = max(dot(n, h), 0.0);
     float denominator = nh * nh * (a2 - 1.0) + 1.0;
-    float distribution = a2 / (SPECULAR_PI * denominator * denominator);
-    float k = alpha * 0.5;
     float visibility = 1.0 / (4.0 * (nl * (1.0 - k) + k) * (nv * (1.0 - k) + k));
-    vec3 fresnel = specularF0 + (1.0 - specularF0) * pow(1.0 - max(dot(specularView, h), 0.0), 5.0);
-    return lit * (SPECULAR_PI * distribution * visibility) * fresnel;
+    // pi * D * V, with D = a2 / (pi * denominator^2): the pis cancel.
+    return a2 * visibility / (denominator * denominator);
 }
 
 // UTA-0326 SS 4.5: the direct light at a level fragment, from its chart's pairs
@@ -82,7 +95,7 @@ vec3 chartedLight(vec3 n, vec3 surface, vec3 position, uint maskChart, vec2 mask
                 seen = textureLod(textures[nonuniformEXT(frame.shadowMaskTexture)], at / atlasSize, 0.0).r;
             }
             direct += lit * (light.flicker * seen);
-            if (specularOn) specularSum += specularOf(light, position, n, lit) * (light.flicker * seen);
+            if (specularOn) gatherSpecular(light, position, lit * (light.flicker * seen));
         }
         break;
     }
@@ -92,7 +105,7 @@ vec3 chartedLight(vec3 n, vec3 surface, vec3 position, uint maskChart, vec2 mask
         vec3 lit = lightAt(light, position, n);
         float seen = light.flicker * softShadowOf(light, position, surface);
         direct += lit * seen;
-        if (specularOn) specularSum += specularOf(light, position, n, lit) * seen;
+        if (specularOn) gatherSpecular(light, position, lit * seen);
     }
     return direct;
 }
@@ -114,7 +127,7 @@ vec3 clusterLight(vec3 n, vec3 surface, bool skyFlat, vec3 position) {
         // SS 4.8: the shadow map stands in for UTA-0112's `blocked`.
         float seen = light.flicker * (skyFlat ? 1.0 : softShadowOf(light, position, surface));
         direct += lit * seen;
-        if (specularOn && !skyFlat) specularSum += specularOf(light, position, n, lit) * seen;
+        if (specularOn && !skyFlat) gatherSpecular(light, position, lit * seen);
     }
     return direct;
 }

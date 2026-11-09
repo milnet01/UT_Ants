@@ -568,15 +568,14 @@ void main() {
         // UTA-0298: the highlight, gathered beside the direct light. A liquid
         // keeps its own look (water.glsl); the sky room has no view to catch.
         vec3 reflectanceBase = TILE_VARIATION && !liquid ? base.rgb * variationAt(worldPosition) : base.rgb;
+        // Read before the lights: read after them, its texture coordinates
+        // were held through their loops instead, which cost more registers.
         bool metal = material.metallic != 0u;
         float roughness = material.rough != NONE
             ? tiled(material.rough, shadingUv, duv1, duv2, shuffled, tile, tileMix).r
             : DEFAULT_ROUGHNESS;
         specularOn = SPECULAR && !liquid && !skyFlat;
-        specularView = normalize(frame.eye - worldPosition);
-        specularRoughness = roughness;
-        specularF0 = metal ? reflectanceBase : vec3(DIELECTRIC_F0);
-        specularSum = vec3(0.0);
+        specularDirection = vec3(0.0);
         vec3 direct = charted  ? chartedLight(n, surface, worldPosition, maskChart, maskTexel)
                       : special ? specialLight(n, surface, skyFlat)
                                 : clusterLight(n, surface, skyFlat, worldPosition);
@@ -598,7 +597,7 @@ void main() {
             } else {
                 vec3 sunLit = lightAt(lights[frame.sun], worldPosition, n) * sunSeenAt(lattice, probePoint);
                 direct += sunLit;
-                if (specularOn) specularSum += specularOf(lights[frame.sun], worldPosition, n, sunLit);
+                if (specularOn) gatherSpecular(lights[frame.sun], worldPosition, sunLit);
             }
         }
         // UTA-0292 withdrew UTA-0156 SS 4.4's zone ambient: against exact light
@@ -624,8 +623,8 @@ void main() {
             // UTA-0298: energy kept. The texture's colour is all the light a
             // surface returns, so a highlight moves light toward the glint and
             // adds none. `lobe` is the share of the light as shown that the
-            // highlight takes, specularSum / direct, which averages the
-            // Fresnel term over the light's directions. A non-metal gives
+            // highlight takes: the lobe toward the lights' gathered direction
+            // (specularShare), through the Fresnel term. A non-metal gives
             // that Fresnel share up and takes the lobe's, both through its
             // reflectance, so its glint wears the texture's colour. A metal
             // has no diffuse; its F0 is its colour already, and the probes'
@@ -636,11 +635,16 @@ void main() {
             // a white glint taken from the diffuse whole halved it.
             // Schlick's term with roughness, so a rough surface does not turn
             // to mirror at a grazing view.
-            float nv = max(dot(n, specularView), 0.0);
-            vec3 grazing = max(vec3(1.0 - roughness), specularF0);
-            vec3 fresnel = specularF0 + (grazing - specularF0) * pow(1.0 - nv, 5.0);
+            // UTA-0451: the lobe's Fresnel is this one, taken at the view once
+            // rather than at each light's half vector. The view is taken here,
+            // after the lights, so it is not held through their loops.
+            vec3 view = normalize(frame.eye - worldPosition);
+            vec3 f0 = metal ? reflectanceBase : vec3(DIELECTRIC_F0);
+            float nv = max(dot(n, view), 0.0);
+            vec3 grazing = max(vec3(1.0 - roughness), f0);
+            vec3 fresnel = f0 + (grazing - f0) * pow(1.0 - nv, 5.0);
             vec3 shownDirect = pow(LIGHT_GAIN * direct, vec3(DISPLAY_LIGHT_POWER));
-            vec3 lobe = specularSum / max(direct, vec3(1e-6));
+            vec3 lobe = fresnel * specularShare(n, view, roughness, direct);
             colour = metal ? shownDirect * lobe + fresnel * shownIndirect
                            : reflectance * (shownDirect * (1.0 - fresnel + lobe) + shownIndirect);
         } else {
