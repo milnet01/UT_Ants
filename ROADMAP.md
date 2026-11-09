@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=453 -->
+<!-- ants-roadmap-id-high-water: UTA=454 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -20615,6 +20615,20 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: perf.
   Source: user-request-2026-11-08.
   Lanes: ubake, tests.
+
+- 📋 [UTA-0454] **Release downloads: attach Linux and Windows builds to a GitHub release.**
+  The user's rule (2026-11-09): as soon as there is something for
+  users to use, a release includes a download, and every release after it
+  does too. v0.1.0 (2026-11-04) has none; the user kept it source-only
+  the same day, as 0.1.0 is "look, but not play". Filed in 0.2.0, the
+  next release, so the first usable one is not missed; if 0.2.0 still
+  gives a player nothing to use, ask the user before cutting it without.
+  Decide what an archive holds, build it from the release tag on both
+  platforms, and attach it. Then tell the ants-projects-hub-website
+  session, whose UT Ants page offers whatever a release carries.
+  **Layman:** Each release would come with ready-made files to download, so players need not build the game themselves.
+  Kind: package.
+  Source: user-request-2026-11-09.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
