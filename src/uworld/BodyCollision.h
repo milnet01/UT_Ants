@@ -50,8 +50,9 @@ class BodyWorld {
 public:
     /// The level's mesh and each mover's, each mover at its MOVR pose.
     /// `movers` is the bundle's MOVR list; each of `collision.movers` must
-    /// have a shape there with its export index, and a mesh of at least one
-    /// triangle, or the build refuses naming it.
+    /// have a shape there with its export index, or the build refuses naming
+    /// it. A mover whose mesh has no triangle is kept, so indices still match
+    /// `collision.movers`, and blocks nothing (UTA-0462).
     [[nodiscard]] static Result<BodyWorld> build(const ubundle::Collision& collision,
                                                  std::span<const ubundle::MoverShape> movers);
 

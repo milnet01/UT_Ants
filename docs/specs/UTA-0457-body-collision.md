@@ -129,8 +129,10 @@ public:
 A mover's pose places its tree by UTA-0119 § 4.5's formula, with its
 `MOVR` shape's `postScale`. A postScale after the rotation is not a
 rotation and a scale Jolt can place a shape by, so a turn rebuilds the
-mover's mesh; a move only re-places it. A mover whose `MOVR` shape is missing, or
-whose mesh is empty, refuses the build, naming its export index.
+mover's mesh; a move only re-places it. A mover whose `MOVR` shape is missing
+refuses the build, naming its export index. A mover whose mesh is empty is
+kept, so indices still match `collision.movers`, and blocks nothing
+(UTA-0462): AS-Guardia's crossed not-solid sheets bound no space.
 
 ### 4.4 The queries
 

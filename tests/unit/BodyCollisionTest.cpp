@@ -211,6 +211,37 @@ TEST_CASE("UTA-0457 INV-7: a mover with no MOVR shape refuses the build") {
     CHECK_FALSE(BodyWorld::build(collision, {}).has_value());
 }
 
+TEST_CASE("UTA-0462: a mover with no surface builds, keeps its index and blocks nothing") {
+    // AS-Guardia's Mover8 is crossed not-solid sheets, so its mesh is empty.
+    // The worst such tree is one of no nodes and not outside: solid at every
+    // point, so a check that read it would put every body in solid.
+    uta::ubundle::Collision collision;
+    collision.level = solidBlocks({});
+    collision.movers.push_back({7, uta::ubundle::CollisionTree{}});
+    collision.movers.push_back({9, solidBlocks({box({-8, -64, -100}, {8, 64, 100})})});
+    std::vector<uta::ubundle::MoverShape> movers(2);
+    movers[0].exportIndex = 7;
+    movers[1].exportIndex = 9;
+    movers[1].location = {300, 0, 0};
+    auto built = BodyWorld::build(collision, movers);
+    REQUIRE(built.has_value());
+    auto& world = *built;
+    REQUIRE(world.moverCount() == 2);
+
+    const Vec3 from{0, 0, 0};
+    const auto blocked = world.sweep(BODY, from, {600, 0, 0});
+    CHECK_FALSE(blocked.startsInside);
+    CHECK(blocked.fraction < 1); // mover 1, the door, still blocks
+    CHECK(world.sweep(BODY, from, {0, 600, 0}).fraction == 1);
+
+    // Index 0 is still the surfaceless mover: placing and turning it works,
+    // and leaves the door at index 1 where it was.
+    REQUIRE(world.placeMover(0, {0, 300, 0}, {0, 16384, 0}).has_value());
+    CHECK(world.sweep(BODY, from, {0, 600, 0}).fraction == 1);
+    REQUIRE(world.placeMover(1, {300, 500, 0}, {0, 0, 0}).has_value());
+    CHECK(world.sweep(BODY, from, {600, 0, 0}).fraction == 1);
+}
+
 TEST_CASE("UTA-0457 INV-8: a fixed sequence of sweeps hashes to one constant") {
     // A room of turned walls and a pillar. Nothing here reads std::sin or
     // std::cos, which no standard promises are correctly rounded: the walls

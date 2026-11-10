@@ -143,15 +143,17 @@ struct Mover {
     std::array<std::int32_t, 3> rotation{};
     Matrix turn{};                    ///< rotationOf(rotation)
     Vec3 location{};
-    JPH::RefConst<JPH::Shape> shape;  ///< the mesh rotated and scaled
+    JPH::RefConst<JPH::Shape> shape;  ///< the mesh rotated and scaled; null where it has no surface
     JPH::Mat44 place = JPH::Mat44::sIdentity(); ///< its location
     std::uint32_t exportIndex = 0;
 };
 
 /// A mover's mesh at `rotation`: UTA-0119 SS 4.5's postScale (Y P R q), with
-/// its location left to the shape's placement.
+/// its location left to the shape's placement. Null for a mover with no
+/// surface, as the level's is (UTA-0462): it blocks nothing.
 Result<JPH::RefConst<JPH::Shape>> moverShape(const Mover& mover,
                                              const std::array<std::int32_t, 3>& rotation) {
+    if (mover.mesh.triangles.empty()) return JPH::RefConst<JPH::Shape>();
     const Matrix r = rotationOf(rotation);
     const auto& s = mover.postScale;
     // r is rotationOf(rotation), not mover.turn: placeMover asks before it
@@ -195,9 +197,12 @@ struct BodyWorld::State {
 
     /// Whether `p` is in solid, in the level or a mover. A body whose centre
     /// is deep in solid touches no surface, so the mesh alone cannot see it.
+    /// A mover with no surface is skipped: its tree may read solid
+    /// everywhere, and it blocks nothing.
     [[nodiscard]] bool inSolid(const Vec3& p) const {
         if (!isEmpty(levelTree, p)) return true;
         return std::ranges::any_of(movers, [&](const Mover& m) {
+            if (m.shape == nullptr) return false;
             const auto q = intoPivot(m, p);
             return q && !isEmpty(m.tree, *q);
         });
@@ -223,7 +228,8 @@ struct BodyWorld::State {
     template <typename Visit>
     void eachTarget(Visit visit) const {
         if (level != nullptr) visit(*level, JPH::Mat44::sIdentity());
-        for (const Mover& m : movers) visit(*m.shape, m.place);
+        for (const Mover& m : movers)
+            if (m.shape != nullptr) visit(*m.shape, m.place);
     }
 };
 
