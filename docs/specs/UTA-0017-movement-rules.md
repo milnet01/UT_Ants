@@ -76,12 +76,12 @@ bans the platform maths library from the simulation.
 
 | File | Holds |
 |---|---|
-| `src/uworld/Angles.h`, `.cpp` | § 4.6: sine and cosine of UT99's angle units, the same on every compiler |
+| `src/core/Angles.h` | § 4.6: sine and cosine of UT99's angle units, the same on every compiler, moved from `ubake/LightModel.h` |
 | `src/uworld/Movement.h`, `.cpp` | § 4.2 to § 4.5: the command, the state, the rules and the tick |
 | `src/uworld/FixedTick.h`, `.cpp` | § 4.7: wall time in, whole ticks and the draw's blend out |
 | `src/uworld/BodyCollision.cpp` | a mover's rotation through `Angles.h` (§ 4.6) |
 | `apps/ut-ants/Walker.h`, `.cpp` | § 4.8: the walking mode |
-| `tests/unit/AnglesTest.cpp`, `MovementTest.cpp`, `FixedTickTest.cpp` | § 7's unit cases |
+| `tests/unit/MovementTest.cpp`, `FixedTickTest.cpp` | § 7's unit cases |
 | `tests/real/RealMovementTest.cpp` | § 7's recording case |
 
 ### 4.2 The command and the state
@@ -175,10 +175,13 @@ landing row. The recorded runs `dodge-forward`, `dodge-left` and
 
 ### 4.6 Angles without the maths library
 
-`sinTurn(std::int32_t)` and `cosTurn(std::int32_t)` take UT99's angle
-units, 65536 to a turn. They reduce the angle to an eighth of a turn in
-integers and evaluate a fixed polynomial there, using only `+`, `−` and
-`×` in `double`, so every compiler gives the same bits. A dodge's
+`core::sineOf(std::int32_t)` and `core::cosineOf(std::int32_t)` take
+UT99's angle units, 65536 to a turn. They reduce the angle to an eighth
+of a turn in integers and evaluate a fixed polynomial there, using only
+`+`, `−` and `×` in `double`, so every compiler gives the same bits. The
+baker already had them (UTA-0112); the build moved them from
+`ubake/LightModel.h` to `core/Angles.h`, unchanged, rather than write a
+second copy. A dodge's
 direction and the view's movement axes use them.
 `BodyCollision.cpp`'s mover rotation, which today calls `std::sin` and
 `std::cos`, moves onto them in the same change: a mover turning in a
@@ -250,10 +253,10 @@ above the body's centre. Which key, and its help text, are the build's.
   *Test:* `MovementTest.cpp`.
   *Breaks when:* a single press dodges, or a dodge chains off a dodge.
 
-- **INV-6** — `sinTurn` and `cosTurn` are exact at quarter turns, within
+- **INV-6** — `sineOf` and `cosineOf` are exact at quarter turns, within
   1e-12 of the true value at all 65536 angles, and use no maths library.
-  *Test:* `AnglesTest.cpp`, comparing with `std::sin` inside the test
-  only.
+  *Test:* `BakeLightModelTest.cpp`, which already held them to this
+  before the move, comparing with `std::sin` inside the test only.
   *Breaks when:* the reduction is wrong in any octant.
 
 - **INV-7** — Results match on every compiler. A fixed script of commands
@@ -274,7 +277,7 @@ above the body's centre. Which key, and its help text, are the build's.
 ## 7. Tests
 
 Unit cases on hand trees: INV-1 in `FixedTickTest.cpp`; INV-3, INV-4,
-INV-5 and INV-7 in `MovementTest.cpp`; INV-6 in `AnglesTest.cpp`.
+INV-5 and INV-7 in `MovementTest.cpp`; INV-6 in `BakeLightModelTest.cpp`.
 INV-2's real case, label `real`, bakes `DM-Deck16][` from the install
 and reads the recordings `UTA_MOVEMENT_RECORDINGS` names, through
 `readMovementRecording`, as `RealBodyCollisionTest.cpp` does. It prints
@@ -308,7 +311,7 @@ body (UTA-0458).
 | INV-1 | `FixedTickTest` |
 | INV-2 | `RealMovementTest`, run by hand: nothing runs the real tier automatically |
 | INV-3, INV-4, INV-5 | `MovementTest` |
-| INV-6 | `AnglesTest` |
+| INV-6 | `BakeLightModelTest` |
 | INV-7 | `MovementTest` on GitHub's matrix |
 | § 4.8, the walking mode feels like UT99 | The user, playing it |
 

@@ -2,6 +2,7 @@
 
 #include "uworld/BodyCollision.h"
 
+#include "core/Angles.h"
 #include "uworld/CollisionMesh.h"
 
 // Jolt.h comes before any other Jolt header, as Jolt requires.
@@ -19,7 +20,6 @@
 #include <algorithm>
 #include <cmath>
 #include <mutex>
-#include <numbers>
 #include <optional>
 #include <string>
 #include <utility>
@@ -62,16 +62,16 @@ Vec3 cross(const Vec3& a, const Vec3& b) {
     return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
 }
 
-/// UTA-0119 SS 4.5's Y * P * R, rows by columns, for pitch, yaw and roll with
-/// the exact sine and cosine of 2 pi angle / 65536. The renderer's twin is
-/// urender's Placement.cpp rotationOf; uworld may not link urender (rule 4).
+/// UTA-0119 SS 4.5's Y * P * R, rows by columns, for pitch, yaw and roll.
+/// The sine and cosine are core/Angles.h's, never the platform's: a mover
+/// turning is simulation (UTA-0017 SS 4.6). The renderer's twin is urender's
+/// Placement.cpp rotationOf; uworld may not link urender (rule 4).
 using Matrix = std::array<std::array<double, 3>, 3>;
 
 Matrix rotationOf(const std::array<std::int32_t, 3>& rotation) {
-    const auto angle = [](std::int32_t a) { return a * 2.0 * std::numbers::pi / 65536.0; };
-    const double cp = std::cos(angle(rotation[0])), sp = std::sin(angle(rotation[0]));
-    const double cy = std::cos(angle(rotation[1])), sy = std::sin(angle(rotation[1]));
-    const double cr = std::cos(angle(rotation[2])), sr = std::sin(angle(rotation[2]));
+    const double cp = core::cosineOf(rotation[0]), sp = core::sineOf(rotation[0]);
+    const double cy = core::cosineOf(rotation[1]), sy = core::sineOf(rotation[1]);
+    const double cr = core::cosineOf(rotation[2]), sr = core::sineOf(rotation[2]);
     const Matrix yaw{{{cy, -sy, 0}, {sy, cy, 0}, {0, 0, 1}}};
     const Matrix pitch{{{cp, 0, -sp}, {0, 1, 0}, {sp, 0, cp}}};
     const Matrix roll{{{1, 0, 0}, {0, cr, sr}, {0, -sr, cr}}};
