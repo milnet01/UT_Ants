@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=458 -->
+<!-- ants-roadmap-id-high-water: UTA=459 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -18451,7 +18451,7 @@ stays with movement in 0.2.0.
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
 the weapon wheel, and first-person platforming. Closes S2 and S11.
 
-- 🚧 [UTA-0017] **uworld: collision and the UT99 movement model, measured not guessed.**
+- ✅ [UTA-0017] **uworld: collision and the UT99 movement model, measured not guessed.**
   Cylinder collision against BSP and against other bodies, and the move semantics:
   walking and falling states, air control, dodge impulse, ground friction, jump
   height, step-up, ledge behaviour.
@@ -18490,6 +18490,11 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   (user, 2026-11-10): an 85-a-second tick copying the original at 85
   fps; game speed 110% by default, a server setting; bodies against
   bodies move to UTA-0062 and UTA-0025.
+  Shipped (2026-11-10, 3380e9f, GitHub matrix green): Movement and
+  FixedTick in src/uworld; ut-ants walks by these rules, G toggles;
+  INV-2 green at 30, 60 and 85 fps. Left open: long-tick friction
+  (spec § 14; our tick never meets it) and walkableFloorZ, filed
+  separately.
   **Layman:** Make running, jumping and dodging feel exactly like UT99. This is the part that decides whether the game feels right, so the numbers are measured against the real game rather than estimated.
   Kind: implement.
   Source: design-2026-09-03.
@@ -20765,6 +20770,17 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: feature.
   Source: user-request-2026-11-10.
   Lanes: urender, uworld.
+
+- 📋 [UTA-0459] **Measure the steepest slope a player can walk up in the original.**
+  UTA-0017's walkableFloorZ is 0.7, recalled from UT99 and not
+  confirmed: no recorded run stands on a slope
+  (docs/specs/UTA-0017-movement-rules.md § 4). Record a run onto
+  slopes either side of the limit with UTA-0456's recorder, then
+  confirm or correct the constant.
+  **Layman:** Check how steep a ramp can be before the player slides off, against the real game.
+  Kind: investigate.
+  Source: in-session-2026-11-10.
+  Lanes: uworld.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
