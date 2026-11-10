@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=457 -->
+<!-- ants-roadmap-id-high-water: UTA=458 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -20080,6 +20080,13 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   at three distances, with each corona light's Skin, DrawScale,
   LightRadius and LightBrightness. Waiting-on: UT_MonsterHunt (paired
   capture of AS-Frigate's corona, 2026-11-05).
+  Captures (2026-11-10, UT_MonsterHunt session): the original's
+  AS-Frigate corona frames are in UT_MonsterHunt's work/uta0321/; read
+  its README.txt first. The bright low-left corona is Light40. Every
+  bCorona light there is a Light with Skin GenFX.LensFlar.3, DrawScale
+  0.1. A distance series at x0.5 and x0.75 exists; past x1.0 the camera
+  leaves the world, so a 2x frame needs another line. Unmeasured: x0.75
+  looks about x1.0's size, x0.5 a faint glow.
   **Layman:** Lamps get the soft halo the original game draws around them.
   Kind: feature.
   Source: user-request-2026-10-06.
@@ -20687,7 +20694,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-decision-2026-11-10 split-from-UTA-0017.
   Lanes: tools.
 
-- 📋 [UTA-0457] **uworld: a player-sized body slides along walls, floors and steps of the level's collision tree.**
+- 🚧 [UTA-0457] **uworld: a player-sized body slides along walls, floors and steps of the level's collision tree.**
   Split from UTA-0017 by the user, 2026-11-10; after the recorder
   (UTA-0456). Sweeps UT99's extent (CollisionRadius 17, Height 39 for
   TMale1, UTA-0121) through UTA-0111's COLL tree, levels and movers,
@@ -20699,11 +20706,41 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   parse the files by hand. The runs that touch walls are wall-angle
   (slides along a wall), stair (steps up, then hits a wall head on)
   and ledge, in tools/ut-record/runs.txt.
+  Measured (2026-11-10, wall-angle at 60 fps): UT99 sweeps a square
+  box, stopping the player 1 to 7 units short of a corner; a walking
+  player hovers 4.8 above the floor and 0.347 off a wall; the hover
+  is walking's, as a falling one sinks to 2.2. Decided (user,
+  2026-11-10): collision fits the model, not UT99's box. The body is
+  round, UT99's 17 by 39, and touches floors and walls (the shape was
+  left to the session). Judged by eye through UTA-0458's third-person
+  view. Needs a spec: docs/specs/UTA-0457-body-collision.md.
+  Progress (2026-11-10): spec at docs/specs/UTA-0457-body-collision.md.
+  Building next, in the main checkout: Jolt v5.6.0, then the mesh, the
+  body world and its tests.
   **Layman:** A player-shaped body can move through a map, stopping at walls and sliding along them, the way UT99 does.
   Kind: implement.
   Source: user-decision-2026-11-10 split-from-UTA-0017.
   Lanes: uworld.
   Blocked-by: UTA-0456.
+
+- 📋 [UTA-0458] **A third-person, over-the-shoulder view the player can choose, with the player's own model drawn and animated.**
+  The user, 2026-11-10, while choosing UTA-0457's body shape: a
+  third-person view helps measure collision; if the body looks right
+  against walls and floors from behind, it is right in first person
+  too. The player picks the view. Needs the player's model drawn and
+  animated well enough to judge from behind (no item yet draws player
+  models). Comes after UTA-0457; it is how its round body is judged.
+  UTA-0457's body: round, UT99's 17 by 39, touching floors and walls
+  (user, 2026-11-10).
+  The user, 2026-11-10: characters come in different sizes, so
+  animations scale with the model, and some character types need
+  their own animations. Blender is installed; drive it headless by
+  script for animation work (memory: blender-models-headless). Each
+  character's collision body is sized to its model (UTA-0457).
+  **Layman:** Let players switch between seeing through their character's eyes and seeing their character from behind the shoulder.
+  Kind: feature.
+  Source: user-request-2026-11-10.
+  Lanes: urender, uworld.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
