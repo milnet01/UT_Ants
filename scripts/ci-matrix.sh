@@ -184,10 +184,18 @@ fi
 # other builds evicted what the gate seldom recompiles: a clean rebuild of an
 # unchanged GCC tree missed SDL3 whole, 109 s against 29 s once warm. All
 # three Linux trees fill 0.2 GB, so 2G keeps many pushes' changed files.
-# Beside the shared cache by default. A cache directory reads ITS OWN
-# ccache.conf, so the settings CMakeLists.txt asks for are passed here.
+# Beside the shared cache by default: a UT_Ants folder there where the
+# machine keeps one cache per project, else <shared>-uta-gate. A cache
+# directory reads ITS OWN ccache.conf, so the settings CMakeLists.txt asks
+# for are passed here.
 if command -v ccache >/dev/null; then
-    export CCACHE_DIR=${UTA_GATE_CCACHE_DIR:-$(ccache -k cache_dir)-uta-gate}
+    shared_cache=$(ccache -k cache_dir)
+    if [[ -d $(dirname "$shared_cache")/UT_Ants ]]; then
+        gate_cache=$(dirname "$shared_cache")/UT_Ants
+    else
+        gate_cache=$shared_cache-uta-gate
+    fi
+    export CCACHE_DIR=${UTA_GATE_CCACHE_DIR:-$gate_cache}
     export CCACHE_MAXSIZE=2G CCACHE_BASEDIR=/ CCACHE_NOHASHDIR=true
     export CCACHE_SLOPPINESS=pch_defines,time_macros
 fi
