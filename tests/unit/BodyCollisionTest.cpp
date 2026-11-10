@@ -14,6 +14,7 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
+#include <array>
 #include <bit>
 #include <cmath>
 #include <cstdint>
@@ -213,8 +214,9 @@ TEST_CASE("UTA-0457 INV-7: a mover with no MOVR shape refuses the build") {
 TEST_CASE("UTA-0457 INV-8: a fixed sequence of sweeps hashes to one constant") {
     // A room of turned walls and a pillar. Nothing here reads std::sin or
     // std::cos, which no standard promises are correctly rounded: the walls
-    // turn by 3-4-5 and 7-24-25 triangles' angles, and no mover turns. (A
-    // first version turned them by degrees, and MSVC's hash differed.)
+    // turn by 3-4-5 and 7-24-25 triangles' angles, the moves head along
+    // Pythagorean triples, and no mover turns. (A first version turned walls
+    // and moves by degrees, and MSVC's hash differed from GCC's and Clang's.)
     const auto world = worldOf({box({-400, -400, -64}, {400, 400, 0}), box({300, -400, 0}, {364, 400, 200}, 0.8, 0.6),
                                 box({-60, 80, 0}, {20, 140, 200}, 0.28, 0.96)});
     std::uint64_t hash = 14695981039346656037ULL; // FNV-1a
@@ -225,9 +227,14 @@ TEST_CASE("UTA-0457 INV-8: a fixed sequence of sweeps hashes to one constant") {
             hash *= 1099511628211ULL;
         }
     };
+    // Six triples, each in four quadrants: 24 headings, every one exact.
+    constexpr std::array<std::array<double, 3>, 6> TRIPLES{{
+        {3, 4, 5}, {5, 12, 13}, {8, 15, 17}, {7, 24, 25}, {20, 21, 29}, {12, 35, 37}}};
     for (int k = 0; k < 24; ++k) {
+        const auto& t = TRIPLES[static_cast<std::size_t>(k % 6)];
+        const double sx = (k / 6) % 2 == 0 ? 1 : -1, sy = (k / 12) == 0 ? 1 : -1;
         const Vec3 from{-200.0 + 7 * k, -150.0 + 3 * k, 40};
-        const Vec3 delta = heading(15.0 * k) * 600 + Vec3{0, 0, -30};
+        const Vec3 delta = Vec3{sx * t[0] / t[2], sy * t[1] / t[2], 0} * 600 + Vec3{0, 0, -30};
         const auto move = world.slide(BODY, from, delta);
         mix(move.end.x);
         mix(move.end.y);
@@ -240,5 +247,5 @@ TEST_CASE("UTA-0457 INV-8: a fixed sequence of sweeps hashes to one constant") {
         }
     }
     INFO("hash " << hash);
-    CHECK(hash == 5046665327701816212ULL);
+    CHECK(hash == 6334859207609988200ULL);
 }
