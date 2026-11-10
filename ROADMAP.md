@@ -20807,7 +20807,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: in-session-2026-11-10.
   Lanes: urender.
 
-- 🚧 [UTA-0462] **uworld: one mover with no collision surface refuses walking on the whole map.**
+- ✅ [UTA-0462] **uworld: one mover with no collision surface refuses walking on the whole map.**
   Seen 2026-11-10 in ut-ants on AS-Guardia's bake (6bd4a8c4…):
   G prints "cannot walk here: mover 885 has no surface to collide
   with". BodyWorld::build (src/uworld/BodyCollision.cpp) fails the
@@ -20821,6 +20821,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   none): 1895 of 38364 movers, on 305 of 1614 maps in the install.
   Each of those maps could have refused walking before the fix; the
   proxy does not prove each one's mesh was empty.
+  Shipped 2026-11-10 at 95065e0; GitHub matrix run 42873437578 green.
   **Layman:** On AS-Guardia, pressing G to walk does nothing, because one door or lift has no solid shape.
   Kind: fix.
   Source: in-session-2026-11-10 UTA-0018 viewer check.
