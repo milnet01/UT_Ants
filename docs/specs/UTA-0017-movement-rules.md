@@ -237,7 +237,9 @@ A key toggles the fly camera and a walking body at the camera's place,
 dropped to the floor. Keyboard, mouse and gamepad drive it through the
 same input `FlyCamera` reads, building a `MoveCommand` a tick and
 `DoubleTap` for dodges. The eye sits at `BaseEyeHeight` (27, `PAWN`)
-above the body's centre. Which key, and its help text, are the build's.
+above the body's centre. G, or pressing a pad's right stick, toggles it;
+Space or the right trigger jumps, Ctrl or the left trigger ducks, and
+Shift or pressing the left stick walks (`apps/ut-ants/Cli.cpp`'s help).
 
 ## 5. Invariants
 

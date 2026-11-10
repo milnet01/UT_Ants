@@ -1,9 +1,9 @@
 # ut-ants, the client -- UTA-0016. A RUNTIME target (docs/design.md § Programs).
 #
-# Cli.cpp, FlyCamera.cpp, FrameRate.cpp, MapList.cpp, Png.cpp and Capture.cpp need no window,
+# Cli.cpp, FlyCamera.cpp, FrameRate.cpp, MapList.cpp, Png.cpp, Capture.cpp and Walker.cpp need no window,
 # and tests/CMakeLists.txt compiles them into the unit tests. main.cpp and
 # Launcher.cpp are the SDL half, run by hand: no CI leg has a display.
-add_executable(ut-ants main.cpp Cli.cpp FlyCamera.cpp FrameRate.cpp Launcher.cpp MapList.cpp Png.cpp Capture.cpp)
+add_executable(ut-ants main.cpp Cli.cpp FlyCamera.cpp FrameRate.cpp Launcher.cpp MapList.cpp Png.cpp Capture.cpp Walker.cpp)
 target_link_libraries(ut-ants PRIVATE uta_urender uta_uworld uta_ubundle uta_urecipe uta_core SDL3::SDL3)
 
 # UTA-0191's capture folder writes PNG, and Png.cpp is the one translation unit

@@ -84,6 +84,7 @@ add_executable(uta_unit_tests
     unit/BundleZonesTest.cpp
     unit/ClientCliTest.cpp
     unit/ClientFlyCameraTest.cpp
+    unit/ClientWalkerTest.cpp
     unit/ClientFrameRateTest.cpp
     unit/ClientCaptureTest.cpp
     unit/ClientMapListTest.cpp
@@ -182,7 +183,8 @@ target_sources(uta_unit_tests PRIVATE
     "${PROJECT_SOURCE_DIR}/apps/ut-ants/FrameRate.cpp"
     "${PROJECT_SOURCE_DIR}/apps/ut-ants/MapList.cpp"
     "${PROJECT_SOURCE_DIR}/apps/ut-ants/Capture.cpp"
-    "${PROJECT_SOURCE_DIR}/apps/ut-ants/Png.cpp")
+    "${PROJECT_SOURCE_DIR}/apps/ut-ants/Png.cpp"
+    "${PROJECT_SOURCE_DIR}/apps/ut-ants/Walker.cpp")
 target_include_directories(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/apps")
 # UTA-0191: Png.cpp instantiates the vendored encoder, so the tests need the
 # same header the client does. Without this the capture folder's contents could

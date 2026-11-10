@@ -14,6 +14,7 @@
 #include "FrameRate.h"
 #include "Launcher.h"
 #include "MapList.h"
+#include "Walker.h"
 
 #include "core/Ascii.h"
 #include "core/FileSystem.h"
@@ -21,6 +22,7 @@
 #include "ubundle/Bundle.h"
 #include "ubundle/TileAnswers.h"
 #include "urender/Renderer.h"
+#include "uworld/BodyCollision.h"
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
@@ -199,9 +201,18 @@ struct Viewer {
     std::string mapName =
         !options.notes.empty() ? options.notes.stem().string() : options.bundle.stem().string();
 
+    // UTA-0017: walking, toggled with G; the level's bodies are built on the
+    // first walk.
+    std::optional<uta::uworld::BodyWorld> bodies;
+    std::optional<Walker> walker;
+
     /// UTA-0191: the shown frame, and the same view redrawn linear, written
     /// to a capture folder.
     void writeCaptureFolder();
+
+    /// UTA-0017: from flying to walking at the camera's place, or back to
+    /// flying at the walker's eye.
+    void toggleWalking();
 
     enum class After { Next, Quit, Failed };
     /// One event's action. Mouse motion adds to `input`, the frame's input.
@@ -282,6 +293,36 @@ void Viewer::writeCaptureFolder() {
     std::cerr << "ut-ants: capture written to " << uta::sanitised(folder->string()) << "\n";
 }
 
+void Viewer::toggleWalking() {
+    if (walker) {
+        const uta::urender::Camera eye = walker->eye(start.camera.fov()).camera(config.width, config.height);
+        const double fov = start.camera.fov();
+        start.camera = FlyCamera(eye.location, eye.rotation[0], eye.rotation[1]);
+        start.camera.setFov(fov);
+        walker.reset();
+        std::cerr << "ut-ants: flying\n";
+        return;
+    }
+    if (!bodies) {
+        if (!bundle.collision) {
+            std::cerr << "ut-ants: this bundle has no collision to walk on\n";
+            return;
+        }
+        // The level and its movers where the map places them; riding them is UTA-0205's.
+        static const std::vector<uta::ubundle::MoverShape> none;
+        auto built = uta::uworld::BodyWorld::build(*bundle.collision, bundle.movers ? *bundle.movers : none);
+        if (!built) {
+            std::cerr << "ut-ants: cannot walk here: " << built.error().message() << "\n";
+            return;
+        }
+        bodies = std::move(*built);
+    }
+    const uta::urender::Camera view = start.camera.camera(config.width, config.height);
+    walker.emplace(std::array<double, 3>{view.location[0], view.location[1], view.location[2] - Walker::EYE_HEIGHT},
+                   view.rotation[0], view.rotation[1]);
+    std::cerr << "ut-ants: walking\n";
+}
+
 Viewer::After Viewer::handle(const SDL_Event& event, FlyInput& input) {
     // Each action's key and pad button share one branch.
     if (event.type == SDL_EVENT_QUIT || (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE) ||
@@ -291,6 +332,10 @@ Viewer::After Viewer::handle(const SDL_Event& event, FlyInput& input) {
                (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN &&
                 event.gbutton.button == SDL_GAMEPAD_BUTTON_NORTH)) {
         flashlight = !flashlight; // Triangle on a PlayStation pad, Y on an Xbox one
+    } else if ((event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_G && !event.key.repeat) ||
+               (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN &&
+                event.gbutton.button == SDL_GAMEPAD_BUTTON_RIGHT_STICK)) {
+        toggleWalking(); // UTA-0017: pressing the right stick in on a pad
     } else if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_H && !event.key.repeat) {
         showFrameRate = !showFrameRate; // UTA-0452
         renderer.setOverlayText(showFrameRate ? frameRate.text() : std::string());
@@ -425,9 +470,14 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
         if (viewer.frameRate.add(seconds) && viewer.showFrameRate)
             viewer.renderer.setOverlayText(viewer.frameRate.text());
         viewer.gamepads.addTo(input, seconds);
-        camera.update(input, seconds, level);
-
-        uta::urender::Camera view = camera.camera(viewer.config.width, viewer.config.height);
+        uta::urender::Camera view;
+        if (viewer.walker) {
+            viewer.walker->update(input, seconds, *viewer.bodies);
+            view = viewer.walker->eye(camera.fov()).camera(viewer.config.width, viewer.config.height);
+        } else {
+            camera.update(input, seconds, level);
+            view = camera.camera(viewer.config.width, viewer.config.height);
+        }
         view.flashlight = viewer.flashlight;
         if (const auto result = viewer.renderer.draw(bundle, view); !result) {
             std::cerr << "ut-ants: a frame did not draw: " << result.error().message() << "\n";
