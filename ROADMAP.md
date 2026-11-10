@@ -18472,6 +18472,12 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   against UTA-0456's logs. The user, 2026-11-10: movement is the same
   at every frame rate. Which original frame rate the fixed tick copies
   is chosen from UTA-0456's measurements.
+  Recordings (2026-11-10, 3e16df3): read them through
+  readMovementRecording (tests/support/MovementRecording.h). A row's
+  input acts in the same tick; replay row k's input over row k's dt
+  and compare with row k+1. First record: 30, 60 and 85 fps held
+  their caps; 120 and 200 topped out near 90 fps under Xvfb at load
+  about 13 and are marked missed in summary.tsv.
   **Layman:** Make running, jumping and dodging feel exactly like UT99. This is the part that decides whether the game feels right, so the numbers are measured against the real game rather than estimated.
   Kind: implement.
   Source: design-2026-09-03.
@@ -20664,7 +20670,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: in-session-2026-11-09.
   Lanes: urender.
 
-- 📋 [UTA-0456] **A movement recorder: scripted input in the original UT99, the player's position and velocity logged every tick.**
+- ✅ [UTA-0456] **A movement recorder: scripted input in the original UT99, the player's position and velocity logged every tick.**
   Split from UTA-0017 by the user, 2026-11-10: recorder first, then
   body collision (UTA-0457), then the movement rules (UTA-0017).
   Runs the original headless, as ut-compare does (UTA-0306: install
@@ -20674,6 +20680,8 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   fixed tick can be chosen from measurements.
   The user, 2026-11-10: movement is the same at every frame rate.
   Needs a spec: how input is scripted, the log format, which runs.
+  Shipped 2026-11-10 in 3e16df3, green on GitHub's matrix (GCC,
+  Clang, MSVC). First full record: DM-Deck16][, 15 runs x 5 rates.
   **Layman:** A tool that plays set keypresses in the real UT99 and writes down exactly where the player goes, so our movement can be checked against it.
   Kind: implement.
   Source: user-decision-2026-11-10 split-from-UTA-0017.
@@ -20686,6 +20694,11 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   as UModel::LineCheck with an extent does. CollisionQuery.h tests
   points and segments only. Checked against the recorder's logs where
   a run touches a wall.
+  Recordings (2026-11-10, 3e16df3): read them through
+  readMovementRecording (tests/support/MovementRecording.h); never
+  parse the files by hand. The runs that touch walls are wall-angle
+  (slides along a wall), stair (steps up, then hits a wall head on)
+  and ledge, in tools/ut-record/runs.txt.
   **Layman:** A player-shaped body can move through a map, stopping at walls and sliding along them, the way UT99 does.
   Kind: implement.
   Source: user-decision-2026-11-10 split-from-UTA-0017.
