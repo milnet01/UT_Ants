@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=455 -->
+<!-- ants-roadmap-id-high-water: UTA=457 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -18466,10 +18466,17 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   (docs/specs/UTA-0111-level-collision.md) is what this item reads from
   the COLL section: solidity by IsCsg, the walk by ChildOutside, a point
   in front of a plane taking front, hulls, and a mover's placement.
+  Split by the user, 2026-11-10: the recorder is UTA-0456, body
+  collision UTA-0457; this item keeps the movement rules (walking,
+  falling, air control, dodge, friction, jump, step-up, ledges), tuned
+  against UTA-0456's logs. The user, 2026-11-10: movement is the same
+  at every frame rate. Which original frame rate the fixed tick copies
+  is chosen from UTA-0456's measurements.
   **Layman:** Make running, jumping and dodging feel exactly like UT99. This is the part that decides whether the game feels right, so the numbers are measured against the real game rather than estimated.
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: uworld.
+  Blocked-by: UTA-0456, UTA-0457.
 
 - 📋 [UTA-0018] **uinput: one action set from keyboard, mouse and gamepad.**
   Devices to actions, with per-device bindings, dead zones and response curves.
@@ -20636,7 +20643,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: package.
   Source: user-request-2026-11-09.
 
-- 📋 [UTA-0455] **urender: a material with no roughness map draws at roughness 0.5, not umat's default 0.75.**
+- ✅ [UTA-0455] **urender: a material with no roughness map draws at roughness 0.5, not umat's default 0.75.**
   Found working UTA-0451 (2026-11-09). src/urender/Materials.cpp
   gives a material with no rough map the built-in DEFAULT_ROUGH texture,
   which is 128 of 255 (0.5). umat's default baseRoughness is 191
@@ -20646,10 +20653,44 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Since UTA-0451 they are not glossy, so they draw without highlights
   and the value shows only once one is. Decide one default; drop the
   dead branch.
+  Fixed 2026-11-10 at 001eeaf: the built-in roughness map holds 191,
+  and scene.frag's dead DEFAULT_ROUGHNESS branch is gone. Device test
+  "UTA-0455: a metal with no roughness map draws at umat's default"
+  in RenderSpecularTest.cpp: red before (frames differ), green after
+  on lavapipe and the RX 6600. Shipped, green on GitHub's matrix at
+  c67f745 (run 42789563781).
   **Layman:** A few surfaces with no shininess setting of their own get the wrong one.
   Kind: fix.
   Source: in-session-2026-11-09.
   Lanes: urender.
+
+- 📋 [UTA-0456] **A movement recorder: scripted input in the original UT99, the player's position and velocity logged every tick.**
+  Split from UTA-0017 by the user, 2026-11-10: recorder first, then
+  body collision (UTA-0457), then the movement rules (UTA-0017).
+  Runs the original headless, as ut-compare does (UTA-0306: install
+  copy, Xvfb, bwrap, a ucc-built mutator). A mutator plays a script of
+  inputs (run, strafe, jump, dodge, stop) and logs Location, Velocity
+  and Physics each tick. Records at several frame rates, so the
+  fixed tick can be chosen from measurements.
+  The user, 2026-11-10: movement is the same at every frame rate.
+  Needs a spec: how input is scripted, the log format, which runs.
+  **Layman:** A tool that plays set keypresses in the real UT99 and writes down exactly where the player goes, so our movement can be checked against it.
+  Kind: implement.
+  Source: user-decision-2026-11-10 split-from-UTA-0017.
+  Lanes: tools.
+
+- 📋 [UTA-0457] **uworld: a player-sized body slides along walls, floors and steps of the level's collision tree.**
+  Split from UTA-0017 by the user, 2026-11-10; after the recorder
+  (UTA-0456). Sweeps UT99's extent (CollisionRadius 17, Height 39 for
+  TMale1, UTA-0121) through UTA-0111's COLL tree, levels and movers,
+  as UModel::LineCheck with an extent does. CollisionQuery.h tests
+  points and segments only. Checked against the recorder's logs where
+  a run touches a wall.
+  **Layman:** A player-shaped body can move through a map, stopping at walls and sliding along them, the way UT99 does.
+  Kind: implement.
+  Source: user-decision-2026-11-10 split-from-UTA-0017.
+  Lanes: uworld.
+  Blocked-by: UTA-0456.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
