@@ -360,7 +360,8 @@ S2 reachable.**
   numbers-matching exercise, and a coordinate change would add error to
   every one of them.
 - **Time.** The simulation runs on a fixed tick and is authoritative on
-  the server. Rendering interpolates between ticks. **No gameplay code
+  the server: 85 ticks a wall second, each `gameSpeed / 85` game seconds,
+  game speed 1.1 by default (UTA-0017). Rendering interpolates between ticks. **No gameplay code
   reads wall-clock time**, or the same input produces different results
   on two machines.
 - **Determinism.** Given the same starting state and the same inputs,

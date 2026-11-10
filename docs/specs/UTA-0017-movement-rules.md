@@ -83,6 +83,7 @@ bans the platform maths library from the simulation.
 | `apps/ut-ants/Walker.h`, `.cpp` | § 4.8: the walking mode |
 | `tests/unit/MovementTest.cpp`, `FixedTickTest.cpp` | § 7's unit cases |
 | `tests/real/RealMovementTest.cpp` | § 7's recording case |
+| `tests/real/RealLevel.h` | a map's level collision tree, moved out of `RealBodyCollisionTest.cpp` for both cases |
 
 ### 4.2 The command and the state
 
@@ -104,8 +105,9 @@ enum class Physics : std::uint8_t { Walking, Falling };
 struct MoveState {
     Vec3 location{}, velocity{};
     Physics physics = Physics::Walking;
-    // plus the dodge state and its timers, and a held-over jump;
-    // their shape is the build's
+    DodgeState dodge = DodgeState::None;  // None, Active or Done
+    double dodgeDoneTime = 0;
+    bool jumpHeld = false;  // the last command's jump: a held key jumps once
 };
 
 MoveState tick(const BodyWorld&, const BodySize&, const MoveRules&,
@@ -121,7 +123,9 @@ row's own.
 `Movement.h`, takes each tick's held direction keys and `dt`, and
 returns the `DodgeDir` a second press inside `DodgeClickTime` makes.
 `ut-ants` and the tests both call it; a gamepad's dodge button sets
-`dodge` directly (UTA-0018).
+`dodge` directly (UTA-0018). While a dodge is in the air or just landed
+(`dodgeReady` false), presses are forgotten, so no dodge chains off
+another.
 
 ### 4.3 The rules and their constants
 
@@ -138,15 +142,32 @@ read from the `PAWN` line of every recording, or fitted to the rows:
 | `airControl` | 0.35 | `PAWN` |
 | `maxStepHeight` | 25 | `PAWN` |
 | `dodgeClickTime` | 0.25 | `PAWN` |
-| `walkingPct` | 0.3 | `walk` and `duck-walk` top out at 120 |
+| `walkingPct` | 0.3 | `walk` and `duck-walk` top out at 120 and accelerate at 614.4 |
+| `stopSpeed` | 10 | braking that leaves 9.987 stops dead; 10.065 does not (every run, every rate) |
 | `dodgeSpeedXY`, `dodgeSpeedZ` | 600, 210 | § 2's dodge figures |
-| dodge landing | horizontal ×0.1, no dodge for the measured `DODGE_Done` time | § 2 |
+| `dodgeLandingKeep` | 0.1 | landing from a dodge keeps a tenth of the whole velocity |
+| `dodgeDoneTime` | 0.35 | `DODGE_Done` to `DODGE_None`, `dodge-forward` 85 fps |
+| `walkableFloorZ` | 0.7 | recalled from UT99, **not confirmed**: no recorded run stands on a slope |
 
-The build fits what the table does not yet hold (how acceleration and
-air control combine with friction, the walkable floor slope, a jump
-held over a dodge's landing), from the rows, and adds each to the table
-with how it was measured. **A value recalled from UT99's source or its
-documentation is a hypothesis until a recording confirms it.**
+How the rules combine, each fitted to the rows at 60 and 85 fps
+(2026-11-10):
+
+- **Walking, no key held:** `v −= 2·friction·dt·v`; reversing, or below
+  `stopSpeed`, stops it.
+- **Walking, a key held:** `v −= (v − push·|v|)·friction·dt`, turning the
+  velocity towards the keys at its own speed, then `v += push·accelRate·dt`,
+  capped at `groundSpeed`. Only the keys' direction counts.
+- **Falling:** air control adds `push·airControl·accelRate·dt`. Below
+  `airSpeed` it adds freely (`running-jump` took off at 399.996 and rose
+  to 409.3); at or above it, it turns the velocity without speeding it
+  (`air-strafe` took off at 400.087). Gravity adds `gravityZ·dt`, and the
+  body moves by the mean of the old and new velocity.
+- **A jump or dodge** sets the velocity, and the same tick then falls.
+- **A jump pressed in the air is not held over to landing** (`dodge-jump`
+  presses it for 8 ticks in the air and lands without jumping).
+
+**A value recalled from UT99's source or its documentation is a
+hypothesis until a recording confirms it.**
 
 ### 4.4 Walking and falling
 
@@ -156,10 +177,13 @@ documentation is a hypothesis until a recording confirms it.**
 - **Standing on the floor.** After each walking move, a sweep down of
   `maxStepHeight` finds the floor; the body ends `SKIN` above it. No
   floor within reach, or one too steep to stand on, starts falling with
-  the velocity kept.
-- **Stepping up.** A walking move that hits a wall tries again
-  `maxStepHeight` higher, then sweeps down to the step: up to 25 units
-  climbs, more stops.
+  the velocity kept. A wall whose foot leans out can stop the sweep
+  before the floor; the body then steps `SKIN` off it and sweeps again.
+- **Stepping up.** A walking move that falls short tries again
+  `maxStepHeight` higher, then sweeps back down: up to 25 units climbs,
+  more stops. Falling short includes a lip of floor the body's rounded
+  rim catches edge-on, which a slide cannot pass. A move stopped short
+  leaves the velocity it managed.
 - **Falling** applies gravity and air control and sweeps with `slide`.
   Hitting a floor it can stand on lands it: walking, the body `SKIN`
   above it.
@@ -224,14 +248,27 @@ above the body's centre. Which key, and its help text, are the build's.
   *Breaks when:* a tick takes the frame's time as its `dt`.
 
 - **INV-2** — Our rules copy the original's, tick for tick. Replaying
-  every recorded run at 30, 60 and 85 fps from its row 0, each row's
-  command over that row's `dt`, every row matches the recording: the
-  same physics, horizontal position within 1 unit, velocity within
-  1 unit/s, and height within 1 unit once the original's hover is
-  subtracted. One tick's grace is allowed on either side of a landing,
-  where our feet reach the floor a little after the original's raised
-  box. A run `summary.tsv` marks missed still counts: each row is
-  compared under its own `dt`, never pooled into a rate.
+  every recorded run at 30, 60 and 85 fps, each row starting from the
+  recording's position, velocity and physics and applying that row's
+  command over its `dt`, every row matches the next: the same physics,
+  horizontal position within 0.15, height within 0.15 once the
+  original's hover is subtracted, and velocity within 1 unit/s. A run
+  `summary.tsv` marks missed still counts: each row is compared under its
+  own `dt`, never pooled into a rate. Exempt, and counted:
+  - one tick either side of a change of physics, and a landing up to the
+    original's hover early: falling, the original drops its hover before
+    its box touches;
+  - against a wall, velocity, and position across the wall: the
+    original meets the level as an axis-aligned box, which reaches a
+    turned wall sooner, and stops short by a gap (§ 3 item 4). Position
+    along the wall is held within that reach;
+  - walking friction on a tick over 0.025 s (§ 14);
+  - a row whose start our body cannot fit, where the original's hover
+    clears what ours touches.
+
+  Each row starts from the recording because an open replay turns a
+  hair the original decides by (a speed within float noise of
+  `stopSpeed` or `airSpeed`) into drift for the rest of the run.
   *Test:* `RealMovementTest.cpp`, which prints each run's worst error.
   *Breaks when:* a constant or rule is wrong, or friction ignores `dt`.
 
@@ -278,10 +315,11 @@ above the body's centre. Which key, and its help text, are the build's.
 
 Unit cases on hand trees: INV-1 in `FixedTickTest.cpp`; INV-3, INV-4,
 INV-5 and INV-7 in `MovementTest.cpp`; INV-6 in `BakeLightModelTest.cpp`.
-INV-2's real case, label `real`, bakes `DM-Deck16][` from the install
-and reads the recordings `UTA_MOVEMENT_RECORDINGS` names, through
-`readMovementRecording`, as `RealBodyCollisionTest.cpp` does. It prints
-§ 2's figures and each run's worst error per rate.
+INV-2's real case, label `real`, builds `DM-Deck16][`'s level collision
+from the install and reads the recordings `UTA_MOVEMENT_RECORDINGS`
+names, through `readMovementRecording`, as `RealBodyCollisionTest.cpp`
+does. It prints each run's worst errors per rate, and how many rows each
+exemption took.
 
 ## 8. Alternatives considered (and rejected)
 
@@ -291,6 +329,11 @@ and reads the recordings `UTA_MOVEMENT_RECORDINGS` names, through
 - **Exact continuous-time rules** (friction as an exponential). The
   same at every rate, but matching no rate of the original, so nothing
   could check it tick by tick.
+- **Replaying each recorded run open from its row 0** (INV-2 as first
+  written). Building it showed the original decides two rules by a hair:
+  a speed within float noise of `stopSpeed` or `airSpeed`. Replayed open,
+  one such hair became a drift of several units for the rest of the run,
+  so each row now starts from the recording.
 - **60 or 120 ticks a second.** 60 copies a slower-feeling original;
   120 matches no rate the original held.
 - **Jolt's `CharacterVirtual`.** Its stepping and floor rules are not
@@ -336,6 +379,9 @@ unmeasured until then.
 
 ## 14. Open questions
 
-- Why the original brakes by about 0.5 a tick at 30 fps rather than
-  `1 − 16·dt`. The build finds the rule from the rows; if it cannot,
-  INV-2 keeps 60 and 85 and the user is told what 30 lacks.
+- Why walking friction on a long tick is not `friction·dt`. Braking
+  holds `1 − 16·dt` to `dt` 0.0206 and departs above it: 0.5185 at
+  0.0324, 0.5097 at 0.0367, 0.4570 at 0.0493, the same at every speed.
+  Turning towards the keys departs the same way. Two half-ticks, a cap
+  on `dt` and an exponential were tried (2026-11-10) and miss. Our tick
+  is 0.0129 s, so the game never meets it; INV-2 exempts it.

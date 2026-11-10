@@ -14,14 +14,9 @@
 // make a recorded move freer, so the first two checks lose nothing that a
 // mover in these runs' way would have shown.
 
-#include "core/FileSystem.h"
-#include "ubake/Collision.h"
-#include "ubake/Name.h"
-#include "upkg/Geometry.h"
-#include "upkg/Level.h"
-#include "upkg/Package.h"
 #include "uworld/BodyCollision.h"
 
+#include "RealLevel.h"
 #include "support/MovementRecording.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -55,28 +50,6 @@ constexpr double MAX_WALL_GAP = 2;
 
 const std::set<std::string> RUNS{"stand", "wall-angle", "stair", "ledge"};
 
-uta::ubundle::CollisionTree levelTreeOf(const fs::path& mapPath) {
-    const auto bytes = uta::fs::readFile(mapPath);
-    REQUIRE(bytes.has_value());
-    const auto map = uta::upkg::Package::open(*bytes);
-    REQUIRE(map.has_value());
-    const auto exports = map->exports();
-    const uta::upkg::ExportEntry* levelExport = nullptr;
-    for (const auto& entry : exports)
-        if (entry.objectClass.kind() != uta::upkg::ObjectReferenceKind::Null
-            && uta::ubake::detail::fold(std::string(map->objectName(entry.objectClass).value_or(""))) == "level")
-            levelExport = &entry;
-    REQUIRE(levelExport != nullptr);
-    const auto level = uta::upkg::readLevel(*map, *levelExport);
-    REQUIRE(level.has_value());
-    REQUIRE(level->model.kind() == uta::upkg::ObjectReferenceKind::Export);
-    const auto model = uta::upkg::readModel(*map, exports[level->model.index()]);
-    REQUIRE(model.has_value());
-    auto tree = uta::ubake::buildCollision(*model);
-    REQUIRE(tree.has_value());
-    return std::move(*tree);
-}
-
 struct Held {
     std::string run, rate;
 };
@@ -109,7 +82,7 @@ TEST_CASE("UTA-0457 INV-9: our body fits and moves where the original did, on DM
     const fs::path directory(recordings);
 
     uta::ubundle::Collision collision;
-    collision.level = levelTreeOf(fs::path(UTA_UT_INSTALL_DIR) / "Maps" / "DM-Deck16][.unr");
+    collision.level = uta::test::real::levelTreeOf(fs::path(UTA_UT_INSTALL_DIR) / "Maps" / "DM-Deck16][.unr");
     auto built = BodyWorld::build(collision, {});
     REQUIRE(built.has_value());
     const BodyWorld& world = *built;

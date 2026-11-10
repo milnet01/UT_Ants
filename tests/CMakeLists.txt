@@ -57,6 +57,8 @@ add_executable(uta_unit_tests
     unit/BundleCollisionTest.cpp
     unit/BlockFixture.cpp
     unit/BodyCollisionTest.cpp
+    unit/FixedTickTest.cpp
+    unit/MovementTest.cpp
     unit/CollisionMeshTest.cpp
     unit/BundleFlamesTest.cpp
     unit/GrassSectionTest.cpp
@@ -312,7 +314,8 @@ if(UTA_REAL_ASSET_TESTS)
                                         real/RealCollisionTest.cpp real/RealPathSeedsTest.cpp
                                         real/RealLightProbesTest.cpp real/RealFlamesTest.cpp
                                         real/RealLiquidsTest.cpp real/RealClothTest.cpp
-                                        real/RealMeshTest.cpp real/RealBodyCollisionTest.cpp)
+                                        real/RealMeshTest.cpp real/RealBodyCollisionTest.cpp
+                                        real/RealMovementTest.cpp)
     target_link_libraries(uta_real_asset_tests PRIVATE uta_upkg uta_umap uta_umap_build uta_unav_build
                                                        uta_umat uta_ubake uta_uworld uta_test_support
                                                        Catch2::Catch2WithMain)
