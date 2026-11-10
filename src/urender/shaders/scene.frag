@@ -62,9 +62,7 @@ layout(constant_id = 6) const bool LIGHT_TERMS = false;
 // UTA-0451: on only in the pipelines glossy materials draw with
 // (Pipelines::sceneFor), as compiling it in costs every fragment registers.
 layout(constant_id = 7) const bool SPECULAR = false;
-// UTA-0298: umat's default baseRoughness, 191 of 255, for a material with no
-// roughness map; and a non-metal's reflectance face-on.
-const float DEFAULT_ROUGHNESS = 191.0 / 255.0;
+// UTA-0298: a non-metal's reflectance face-on.
 const float DIELECTRIC_F0 = 0.04;
 // UTA-0040 SS 4.5 step 4: parallax fades out over the mip level above this.
 const float PARALLAX_FADE_MIP = 4.0;
@@ -573,9 +571,8 @@ void main() {
         // Read before the lights: read after them, its texture coordinates
         // were held through their loops instead, which cost more registers.
         bool metal = material.metallic != 0u;
-        float roughness = material.rough != NONE
-            ? tiled(material.rough, shadingUv, duv1, duv2, shuffled, tile, tileMix).r
-            : DEFAULT_ROUGHNESS;
+        // Never NONE: a material with no map of its own has the built-in one.
+        float roughness = tiled(material.rough, shadingUv, duv1, duv2, shuffled, tile, tileMix).r;
         specularOn = SPECULAR && !liquid && !skyFlat;
         specularDirection = vec3(0.0);
         vec3 direct = charted  ? chartedLight(n, surface, worldPosition, maskChart, maskTexel)

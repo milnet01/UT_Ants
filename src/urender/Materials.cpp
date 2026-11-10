@@ -30,11 +30,12 @@ struct Source {
 /// The built-in maps, one texel each and uncompressed. Base is neutral grey,
 /// or magenta -- the conventional colour of something missing -- when a
 /// developer asks to see what the bake could not make (UTA-0177); normal is
-/// flat; roughness is mid; height is zero.
+/// flat; roughness is umat's default baseRoughness, 191 (UTA-0455); height is
+/// zero.
 constexpr std::array<std::byte, 4> DEFAULT_BASE{std::byte{128}, std::byte{128}, std::byte{128}, std::byte{255}};
 constexpr std::array<std::byte, 4> MISSING_BASE{std::byte{255}, std::byte{0}, std::byte{255}, std::byte{255}};
 constexpr std::array<std::byte, 4> DEFAULT_NORMAL{std::byte{128}, std::byte{128}, std::byte{255}, std::byte{255}};
-constexpr std::array<std::byte, 4> DEFAULT_ROUGH{std::byte{128}, std::byte{128}, std::byte{128}, std::byte{255}};
+constexpr std::array<std::byte, 4> DEFAULT_ROUGH{std::byte{191}, std::byte{191}, std::byte{191}, std::byte{255}};
 constexpr std::array<std::byte, 4> DEFAULT_HEIGHT{std::byte{0}, std::byte{0}, std::byte{0}, std::byte{255}};
 
 constexpr VkImageUsageFlags SAMPLED = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;

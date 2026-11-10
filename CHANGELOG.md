@@ -64,6 +64,14 @@ The `[Unreleased]` block stays at the top, always, even when empty.
   read, the newer and the older. Props stand still and cast no shadows
   yet. Bundle format 36, baker revision 78: re-bake every map.
 
+### Fixed
+
+- **A metal with no roughness setting of its own no longer shines too sharply** (UTA-0455)
+  A surface with no roughness map drew at roughness 0.5 rather than the
+  material generator's default of 0.75. Since highlights reach only glossy
+  materials, this showed on metals without a map: their glint was smaller
+  and brighter than intended.
+
 ## [0.1.0] - 2026-11-04
 
 **Theme:** Bake and render.

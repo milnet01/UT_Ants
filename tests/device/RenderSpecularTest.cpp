@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -49,11 +50,16 @@ uta::ubundle::Geometry floorGeometry() {
     return geometry;
 }
 
-/// The floor wearing GREY with every texel's roughness `rough`, of 255.
-uta::ubundle::Bundle room(std::uint8_t rough, bool metal = false) {
+/// The floor wearing GREY with every texel's roughness `rough`, of 255; with
+/// no roughness map, so it draws on the built-in one, when `rough` is empty.
+uta::ubundle::Bundle room(std::optional<std::uint8_t> rough, bool metal = false) {
     uta::ubundle::Bundle bundle = bundleOf(floorGeometry());
     addSolidMaterial(bundle, "floor", GREY);
     bundle.materials->back().metallic = metal;
+    bundle.lights.emplace();
+    bundle.lights->push_back(steadyLight({240, 0, FLOOR_Z + 60}, 160, 20));
+    addEvenProbes(bundle, {0, -300, -100}, {500, 300, 100}, 0.3f);
+    if (!rough) return bundle;
     uta::ubundle::CompressedTexture map;
     map.name = "floor:rough";
     map.format = uta::ubundle::BlockFormat::BC4;
@@ -62,11 +68,8 @@ uta::ubundle::Bundle room(std::uint8_t rough, bool metal = false) {
     map.mipCount = 1;
     // One BC4 block: both endpoints the value, every index 0.
     map.blocks.assign(8, std::byte{0});
-    map.blocks[0] = map.blocks[1] = std::byte{rough};
+    map.blocks[0] = map.blocks[1] = std::byte{*rough};
     bundle.textures->push_back(std::move(map));
-    bundle.lights.emplace();
-    bundle.lights->push_back(steadyLight({240, 0, FLOOR_Z + 60}, 160, 20));
-    addEvenProbes(bundle, {0, -300, -100}, {500, 300, 100}, 0.3f);
     return bundle;
 }
 
@@ -140,4 +143,12 @@ TEST_CASE("UTA-0451: a floor at the default roughness draws without highlights",
     // takes the pipeline without highlights, so switching them on changes
     // no pixel.
     CHECK(frameOf(room(160), false) == frameOf(room(160), true));
+}
+
+TEST_CASE("UTA-0455: a metal with no roughness map draws at umat's default", "[device][specular]") {
+    // A metal is glossy whatever its roughness, so it draws with highlights on
+    // the built-in map. That map is umat's default, 191: the same floor with
+    // a map at 191 draws the same. The built-in map at 128 drew a sharper,
+    // brighter highlight.
+    CHECK(frameOf(room(std::nullopt, true), true) == frameOf(room(191, true), true));
 }
