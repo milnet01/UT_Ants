@@ -211,10 +211,12 @@ TEST_CASE("UTA-0457 INV-7: a mover with no MOVR shape refuses the build") {
 }
 
 TEST_CASE("UTA-0457 INV-8: a fixed sequence of sweeps hashes to one constant") {
-    // A room of turned walls and a pillar. No mover turns here: a turn reads
-    // std::sin, which no standard promises is correctly rounded.
-    const auto world = worldOf({box({-400, -400, -64}, {400, 400, 0}), box({300, -400, 0}, {364, 400, 200}, 17),
-                                box({-60, 80, 0}, {20, 140, 200}, 41)});
+    // A room of turned walls and a pillar. Nothing here reads std::sin or
+    // std::cos, which no standard promises are correctly rounded: the walls
+    // turn by 3-4-5 and 7-24-25 triangles' angles, and no mover turns. (A
+    // first version turned them by degrees, and MSVC's hash differed.)
+    const auto world = worldOf({box({-400, -400, -64}, {400, 400, 0}), box({300, -400, 0}, {364, 400, 200}, 0.8, 0.6),
+                                box({-60, 80, 0}, {20, 140, 200}, 0.28, 0.96)});
     std::uint64_t hash = 14695981039346656037ULL; // FNV-1a
     const auto mix = [&](double v) {
         const auto bits = std::bit_cast<std::uint64_t>(v);
@@ -238,5 +240,5 @@ TEST_CASE("UTA-0457 INV-8: a fixed sequence of sweeps hashes to one constant") {
         }
     }
     INFO("hash " << hash);
-    CHECK(hash == 15691459704039032293ULL);
+    CHECK(hash == 5046665327701816212ULL);
 }

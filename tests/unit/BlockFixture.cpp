@@ -49,9 +49,12 @@ ubundle::CollisionNode faceNode(ubundle::CollisionTree& tree, const std::array<V
 } // namespace
 
 Block box(const Vec3& min, const Vec3& max, double yawDegrees) {
-    const Vec3 centre = (min + max) * 0.5;
     const double a = yawDegrees * std::numbers::pi / 180;
-    const double c = std::cos(a), s = std::sin(a);
+    return box(min, max, std::cos(a), std::sin(a));
+}
+
+Block box(const Vec3& min, const Vec3& max, double c, double s) {
+    const Vec3 centre = (min + max) * 0.5;
     Block block;
     for (int k = 0; k < 8; ++k) {
         const Vec3 p{(k & 1) != 0 ? max.x : min.x, (k & 2) != 0 ? max.y : min.y, (k & 4) != 0 ? max.z : min.z};

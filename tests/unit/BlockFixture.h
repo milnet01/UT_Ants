@@ -35,6 +35,11 @@ struct Block {
 /// centre (counter-clockwise seen from above).
 [[nodiscard]] Block box(const Vec3& min, const Vec3& max, double yawDegrees = 0);
 
+/// The same, turned by the angle whose cosine and sine are given. With no
+/// std::sin or std::cos, whose rounding differs between C libraries, the
+/// corners are the same bits on every compiler: what INV-8 needs.
+[[nodiscard]] Block box(const Vec3& min, const Vec3& max, double cosYaw, double sinYaw);
+
 /// A face that is not solid on either side: water, a portal. Its node is
 /// NF_NotCsg, so a walk passes through it.
 struct Sheet {
