@@ -10,7 +10,7 @@
 
 #include <cmath>
 
-using uta::client::FlyInput;
+using uta::uinput::Frame;
 using uta::client::Walker;
 using uta::test::blocks::box;
 using uta::test::blocks::solidBlocks;
@@ -28,7 +28,7 @@ TEST_CASE("UTA-0017: a walker lands on the floor and walks the way it looks") {
     const auto eye = walker.eye(90).camera(1920, 1080);
     CHECK(std::abs(eye.location[2] - (standing + Walker::EYE_HEIGHT)) < 0.01);
 
-    FlyInput forward;
+    Frame forward;
     forward.forward = 1;
     for (int frame = 0; frame < 60; ++frame) walker.update(forward, 1.0 / 60, *world);
     CHECK(walker.state().location.y > 300); // a second at up to 400 a second
@@ -49,7 +49,7 @@ TEST_CASE("UTA-0017 SS 4.8: the eye eases up a stair step instead of jumping wit
 
     // A frame of 1/85 s runs one tick and leaves a blend of 0, so the view
     // shows the tick before the last.
-    FlyInput forward;
+    Frame forward;
     forward.forward = 1;
     double bodyBefore = walker.state().location.z;
     bool stepped = false;
@@ -70,4 +70,29 @@ TEST_CASE("UTA-0017 SS 4.8: the eye eases up a stair step instead of jumping wit
     for (int frame = 0; frame < 85; ++frame) walker.update({}, 1.0 / 85, *world);
     const double settled = walker.eye(90).camera(1920, 1080).location[2] - walker.state().location.z;
     CHECK(std::abs(settled - Walker::EYE_HEIGHT) < 0.01);
+}
+
+TEST_CASE("UTA-0018: a Dodge press dodges the way the move points and needs a move") {
+    uta::ubundle::Collision collision;
+    collision.level = solidBlocks({box({-4000, -4000, -64}, {4000, 4000, 0})});
+    auto world = uta::uworld::BodyWorld::build(collision, {});
+    REQUIRE(world.has_value());
+    Walker walker({0, 0, 100}, 0, 16384); // facing +Y
+    for (int frame = 0; frame < 120; ++frame) walker.update({}, 1.0 / 60, *world);
+    REQUIRE(walker.state().physics == uta::uworld::Physics::Walking);
+
+    // Standing still, the press is dropped: no direction to dodge in.
+    Frame still;
+    still.pressed.set(static_cast<std::size_t>(uta::uinput::Action::Dodge));
+    walker.update(still, 1.0 / 60, *world);
+    CHECK(walker.state().dodge == uta::uworld::DodgeState::None);
+
+    // Pushed mostly right, it dodges right: off the floor, faster than a run.
+    Frame right = still;
+    right.right = 1;
+    right.forward = 0.3f;
+    walker.update(right, 1.0 / 60, *world);
+    CHECK(walker.state().dodge == uta::uworld::DodgeState::Active);
+    // Facing +Y, its right is -X: a quarter turn of yaw further round.
+    CHECK(walker.state().velocity.x < -500);
 }

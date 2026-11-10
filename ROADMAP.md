@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=461 -->
+<!-- ants-roadmap-id-high-water: UTA=462 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -18501,7 +18501,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Lanes: uworld.
   Blocked-by: UTA-0456, UTA-0457.
 
-- 📋 [UTA-0018] **uinput: one action set from keyboard, mouse and gamepad.**
+- 🚧 [UTA-0018] **uinput: one action set from keyboard, mouse and gamepad.**
   Devices to actions, with per-device bindings, dead zones and response curves.
   SDL3's controller database already knows a DualShock 4.
   A tick consumes an input COMMAND and has no idea which device produced it
@@ -18510,6 +18510,10 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   0.2.0's criterion is that it plays as well on a gamepad as on a mouse, and that
   is met by bindings and curves without an aim assist; the assist itself is
   settled at the start of 0.3.0.
+  User, 2026-11-10: no rebinding before the menus. Built-in bindings,
+  dead zones and curves now; changing them arrives with UTA-0120's
+  settings menu, which also sets the saved format. So no spec
+  (spec-format.md § 1: one new subsystem plus the app, cheap to redo).
   **Layman:** Make a PS4 controller a first-class way to play, not an afterthought -- with sensible dead zones and stick response.
   Kind: implement.
   Source: design-2026-09-03.
@@ -20798,6 +20802,18 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: in-session-2026-11-10.
   Lanes: urender.
 
+- 📋 [UTA-0462] **uworld: one mover with no collision surface refuses walking on the whole map.**
+  Seen 2026-11-10 in ut-ants on AS-Guardia's bake (6bd4a8c4…):
+  G prints "cannot walk here: mover 885 has no surface to collide
+  with". BodyWorld::build (src/uworld/BodyCollision.cpp) fails the
+  whole world when one mover's mesh has no triangles. Decide whether
+  such a mover is skipped (it blocks nothing anyway) or the bake
+  gives it its surface; then census how many maps it refuses.
+  **Layman:** On AS-Guardia, pressing G to walk does nothing, because one door or lift has no solid shape.
+  Kind: fix.
+  Source: in-session-2026-11-10 UTA-0018 viewer check.
+  Lanes: uworld.
+
 ## 0.3.0 — Monsters, bots and Deathmatch
 
 Monsters resolved by ancestry, combat bots on the maps' own waypoints, and
@@ -22714,6 +22730,9 @@ docs/standards/versioning-overrides.md. Closes S8.
   Menu work in earlier items builds under these rules: the map browser and
   voting (UTA-0031), match setup with bots and chat (UTA-0027), gamepad
   play (UTA-0033), the developer console (UTA-0067).
+  User, 2026-11-10: the controls settings include the gamepad's right
+  stick (camera) sensitivity, beside the mouse's. UTA-0018 builds look
+  sensitivity as a uinput setting for this menu to set.
   **Layman:** The game's menus look and work like a modern game's, and still offer at least everything Unreal Tournament's own menus did.
   Kind: feature.
   Source: user-request-2026-09-11.

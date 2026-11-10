@@ -1,7 +1,7 @@
 // Walking in ut-ants -- docs/specs/UTA-0017-movement-rules.md SS 4.8. A body
-// moving by UT99's rules on the fixed tick, driven by the same input the fly
-// camera reads: W, A, S and D or the left stick move, a double tap dodges,
-// Space jumps, Ctrl ducks, Shift walks, and the mouse or right stick looks.
+// moving by UT99's rules on the fixed tick, driven by the same uinput frame the
+// fly camera reads: Forward, Back, Left and Right move, a double tap of one or
+// the Dodge action dodges, Up jumps, Down ducks and Walk walks.
 //
 // No SDL here, so the unit tests can drive it.
 
@@ -25,8 +25,10 @@ public:
     Walker(std::array<double, 3> location, double pitch, double yaw) noexcept;
 
     /// One frame: the look now, then every tick `seconds` makes due, each
-    /// with this frame's keys.
-    void update(const FlyInput& input, double seconds, const uworld::BodyWorld& world) noexcept;
+    /// with this frame's actions. A Dodge press dodges the way the move
+    /// points most, on the next tick; with no move, or while a dodge is not
+    /// ready, it is dropped, as a double tap's press would be.
+    void update(const uinput::Frame& input, double seconds, const uworld::BodyWorld& world) noexcept;
 
     /// The view from the body's eye with a `fov`-degree field of view, drawn
     /// as far from the last tick's place to this one's as the clock's blend.
@@ -37,6 +39,7 @@ public:
 private:
     uworld::FixedTick clock_;
     uworld::DoubleTap tap_;
+    uworld::DodgeDir dodgeAsked_ = uworld::DodgeDir::None; ///< a Dodge press waiting for a tick
     uworld::MoveRules rules_;
     uworld::MoveState state_, previous_;
     /// The eye above the body's centre after the last two ticks: it lags a

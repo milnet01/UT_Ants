@@ -9,9 +9,8 @@ open fix-kind or review-sourced item, oldest first; then 0.2.0. Parked fix
 item: `UTA-0249` (reconfirmed 2026-10-05; `UTA-0186` closed 2026-10-19). `UTA-0098` and
 `UTA-0100` defer themselves. 0.1.0 released 2026-11-04 (tag `v0.1.0`).
 `UTA-0283` waits on UT_MonsterHunt.
-In 0.2.0, movement comes next, split in three (user, 2026-11-10): the
-recorder (`UTA-0456`), body collision (`UTA-0457`), then the movement
-rules (`UTA-0017`).
+In 0.2.0, controls come next: one action set from keyboard, mouse and
+gamepad (`UTA-0018`; user, 2026-11-10, after movement shipped).
 **In flight:** `roadmap_query status:"in-progress"`. Not kept by hand.
 
 > `State:` is a formula, so no session owes it an edit and it cannot

@@ -9,7 +9,7 @@ namespace uta::client {
 namespace {
 
 /// A stick or key pushed this far along an axis counts as the key held, for
-/// a double tap.
+/// a double tap or a Dodge press.
 constexpr float TAP_PRESS = 0.5f;
 
 /// The eye's height above the body's centre after one tick from `before` to
@@ -33,6 +33,14 @@ double eyeAfterTick(double eye, const uworld::MoveState& before, const uworld::M
     return std::clamp(eye, -0.5 * halfHeight, halfHeight + drop);
 }
 
+/// The way a Dodge press goes: along the axis the move points most, or none
+/// when nothing is pushed past TAP_PRESS.
+uworld::DodgeDir dodgeToward(float forward, float right) noexcept {
+    if (std::max(std::abs(forward), std::abs(right)) <= TAP_PRESS) return uworld::DodgeDir::None;
+    if (std::abs(forward) >= std::abs(right)) return forward > 0 ? uworld::DodgeDir::Forward : uworld::DodgeDir::Back;
+    return right > 0 ? uworld::DodgeDir::Right : uworld::DodgeDir::Left;
+}
+
 } // namespace
 
 Walker::Walker(std::array<double, 3> location, double pitch, double yaw) noexcept : pitch_(pitch), yaw_(yaw) {
@@ -42,11 +50,11 @@ Walker::Walker(std::array<double, 3> location, double pitch, double yaw) noexcep
     previous_ = state_;
 }
 
-void Walker::update(const FlyInput& input, double seconds, const uworld::BodyWorld& world) noexcept {
+void Walker::update(const uinput::Frame& input, double seconds, const uworld::BodyWorld& world) noexcept {
     // The look as the fly camera's, so switching between them keeps the view.
-    yaw_ = std::fmod(yaw_ + input.lookRight * FlyCamera::LOOK_UNITS_PER_PIXEL, 65536.0);
-    pitch_ = std::clamp(pitch_ + input.lookUp * FlyCamera::LOOK_UNITS_PER_PIXEL, -double(FlyCamera::PITCH_LIMIT),
-                        double(FlyCamera::PITCH_LIMIT));
+    yaw_ = std::fmod(yaw_ + input.lookRight, 65536.0);
+    pitch_ = std::clamp(pitch_ + input.lookUp, -double(FlyCamera::PITCH_LIMIT), double(FlyCamera::PITCH_LIMIT));
+    if (input.wasPressed(uinput::Action::Dodge)) dodgeAsked_ = dodgeToward(input.forward, input.right);
 
     uworld::MoveCommand command;
     command.forward = input.forward;
@@ -54,13 +62,17 @@ void Walker::update(const FlyInput& input, double seconds, const uworld::BodyWor
     command.yaw = static_cast<std::int32_t>(std::lround(yaw_));
     command.jump = input.up > 0;
     command.duck = input.up < 0;
-    command.walk = input.fast;
+    command.walk = input.walk;
     const uworld::DirectionKeys keys{input.forward > TAP_PRESS, input.forward < -TAP_PRESS, input.right < -TAP_PRESS,
                                      input.right > TAP_PRESS};
 
     const int due = clock_.advance(seconds);
     for (int t = 0; t < due; ++t) {
         command.dodge = tap_.update(keys, clock_.dt(), uworld::dodgeReady(state_));
+        if (dodgeAsked_ != uworld::DodgeDir::None) {
+            if (command.dodge == uworld::DodgeDir::None && uworld::dodgeReady(state_)) command.dodge = dodgeAsked_;
+            dodgeAsked_ = uworld::DodgeDir::None;
+        }
         previous_ = state_;
         state_ = uworld::tick(world, uworld::BodySize{}, rules_, state_, command, clock_.dt());
         previousEyeHeight_ = eyeHeight_;

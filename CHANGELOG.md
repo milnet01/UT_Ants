@@ -14,6 +14,13 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **Keyboard, mouse and gamepad drive one set of game actions** (UTA-0018)
+  Every key and controller button now asks for a named action, such as
+  jump or dodge, so all three devices control the game the same way. On a
+  controller, walking gains a jump on the bottom face button and a dodge on
+  the right face button. Mouse and right-stick look speeds are separate
+  settings, ready for the settings menu to change.
+
 - **A recorder for the original game's player movement** (UTA-0456)
   `ut-record` plays set keypresses in Unreal Tournament 469 and writes down
   where the player goes, every frame, at five frame rates. Our movement

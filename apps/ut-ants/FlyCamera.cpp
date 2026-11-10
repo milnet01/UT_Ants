@@ -73,34 +73,7 @@ uworld::Vec3 easedOut(const ubundle::CollisionTree& level, uworld::Vec3 at) noex
     return at;
 }
 
-/// How far past PAD_DEAD_ZONE `travel` is, rescaled to run from 0 to 1.
-double pastDeadZone(double travel) noexcept {
-    return std::clamp((travel - PAD_DEAD_ZONE) / (1.0 - PAD_DEAD_ZONE), 0.0, 1.0);
-}
-
-/// A stick's direction, its length past the dead zone raised to `power`. The
-/// zone is round, so a diagonal push starts moving where a straight one does.
-std::array<double, 2> stick(float x, float y, int power) noexcept {
-    const double length = std::hypot(x, y);
-    if (length == 0) return {};
-    const double scale = std::pow(pastDeadZone(length), power) / length;
-    return {x * scale, y * scale};
-}
-
 } // namespace
-
-void addPad(FlyInput& input, const PadInput& pad, double seconds) noexcept {
-    const auto move = stick(pad.leftX, pad.leftY, 1);
-    input.right += static_cast<float>(move[0]);
-    input.forward -= static_cast<float>(move[1]); // SDL's y grows downward
-    input.up += static_cast<float>(pastDeadZone(pad.rise) - pastDeadZone(pad.sink));
-    input.fast = input.fast || pad.fast;
-
-    const auto look = stick(pad.rightX, pad.rightY, 2);
-    const double pixels = PAD_LOOK_RATE * seconds / FlyCamera::LOOK_UNITS_PER_PIXEL;
-    input.lookRight += static_cast<float>(look[0] * pixels);
-    input.lookUp -= static_cast<float>(look[1] * pixels);
-}
 
 FlyCamera::FlyCamera(std::array<float, 3> location, std::int32_t pitch, std::int32_t yaw) noexcept
     : location_{location[0], location[1], location[2]},
@@ -111,10 +84,10 @@ FlyCamera::FlyCamera(std::array<float, 3> location, std::int32_t pitch, std::int
                         PITCH_LIMIT)),
       yaw_(yaw) {}
 
-void FlyCamera::update(const FlyInput& input, double seconds, const ubundle::CollisionTree* level) noexcept {
+void FlyCamera::update(const uinput::Frame& input, double seconds, const ubundle::CollisionTree* level) noexcept {
     // Wrapped so a long session's yaw stays a small number.
-    yaw_ = std::fmod(yaw_ + input.lookRight * LOOK_UNITS_PER_PIXEL, 65536.0);
-    pitch_ = std::clamp(pitch_ + input.lookUp * LOOK_UNITS_PER_PIXEL, -double(PITCH_LIMIT),
+    yaw_ = std::fmod(yaw_ + input.lookRight, 65536.0);
+    pitch_ = std::clamp(pitch_ + input.lookUp, -double(PITCH_LIMIT),
                         double(PITCH_LIMIT));
 
     // urender's view looks along UT's rotated +X, with its right a quarter
@@ -132,7 +105,7 @@ void FlyCamera::update(const FlyInput& input, double seconds, const ubundle::Col
         for (double& axis : move) axis /= length;
     }
 
-    const double distance = SPEED * (input.fast ? FAST : 1) * seconds;
+    const double distance = SPEED * (input.walk ? FAST : 1) * seconds;
     uworld::Vec3 at{location_[0], location_[1], location_[2]};
     uworld::Vec3 remaining = uworld::Vec3{move[0], move[1], move[2]} * distance;
     // UTA-0158: without a level, or from inside solid, the camera flies free.

@@ -8,6 +8,7 @@
 #pragma once
 
 #include "ubundle/Bundle.h"
+#include "uinput/Input.h"
 #include "urender/Renderer.h"
 
 #include <array>
@@ -16,43 +17,10 @@
 
 namespace uta::client {
 
-/// One frame's input. The movement axes run from -1 to 1; the look fields are
-/// mouse motion in pixels.
-struct FlyInput {
-    float forward = 0;   ///< along the view, pitch included; negative is back
-    float right = 0;     ///< to the view's right, level with the ground
-    float up = 0;        ///< up the world's Z, whatever the pitch
-    float lookRight = 0; ///< turns the view right
-    float lookUp = 0;    ///< tips the view up
-    bool fast = false;
-};
-
-/// UTA-0167: one gamepad's state, with no SDL in it. The sticks run from -1 to
-/// 1 with +Y down, as SDL reports them; `rise` and `sink` from 0 to 1.
-struct PadInput {
-    float leftX = 0, leftY = 0;   ///< flies, as W, A, S and D do
-    float rightX = 0, rightY = 0; ///< looks, as the mouse does
-    float rise = 0;               ///< as Space does
-    float sink = 0;               ///< as Ctrl does
-    bool fast = false;            ///< as Shift does
-};
-
-/// A stick's travel, 0 to 1, that is ignored around its centre so a resting
-/// stick does not drift the camera. A trigger's first stretch likewise.
-inline constexpr float PAD_DEAD_ZONE = 0.2f;
-/// UT angle units a second a stick held fully over turns the view: half a turn.
-inline constexpr double PAD_LOOK_RATE = 32768;
-
-/// Add `pad`, held for `seconds`, to `input`. Past the dead zone the move
-/// grows in step with the stick, and the look with its square, so a small
-/// push turns slowly enough to aim.
-void addPad(FlyInput& input, const PadInput& pad, double seconds) noexcept;
-
 class FlyCamera {
 public:
     static constexpr double SPEED = 800; ///< units a second; UT99 runs at 400
-    static constexpr double FAST = 4;    ///< the multiplier `fast` applies
-    static constexpr double LOOK_UNITS_PER_PIXEL = 16; ///< UT angle units, 65536 to a turn
+    static constexpr double FAST = 4;    ///< the multiplier the Walk action applies
     /// Just short of a quarter turn, so the view never tips over the top.
     static constexpr std::int32_t PITCH_LIMIT = 16000;
     /// UTA-0158: units kept between the camera and a wall, well beyond the
@@ -79,7 +47,7 @@ public:
     /// eased out to WALL_MARGIN from every surface near it (UTA-0174), and a
     /// move from empty space never ends in solid; a camera already in solid
     /// flies free, so it can leave. Without, it flies through anything.
-    void update(const FlyInput& input, double seconds, const ubundle::CollisionTree* level = nullptr) noexcept;
+    void update(const uinput::Frame& input, double seconds, const ubundle::CollisionTree* level = nullptr) noexcept;
 
     /// The camera for a `width` by `height` view, which the field of view
     /// spans across; a view with no pixels is taken as 4:3.

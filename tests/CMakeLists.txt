@@ -85,6 +85,7 @@ add_executable(uta_unit_tests
     unit/ClientCliTest.cpp
     unit/ClientFlyCameraTest.cpp
     unit/ClientWalkerTest.cpp
+    unit/InputTest.cpp
     unit/ClientFrameRateTest.cpp
     unit/ClientCaptureTest.cpp
     unit/ClientMapListTest.cpp
@@ -146,7 +147,7 @@ add_executable(uta_unit_tests
     unit/WiringGraphTest.cpp)
 target_link_libraries(uta_unit_tests PRIVATE uta_core uta_upkg uta_unav uta_unav_build
                                             uta_umap uta_umap_build uta_ubundle uta_umat
-                                            uta_urecipe uta_ubake uta_urender uta_ufire uta_uworld uta_test_support
+                                            uta_urecipe uta_ubake uta_urender uta_ufire uta_uworld uta_uinput uta_test_support
                                             Catch2::Catch2WithMain
                                             # INV-3's synthetic devices are Vulkan's own feature structs.
                                             Vulkan::Vulkan)

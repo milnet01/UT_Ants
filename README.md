@@ -38,8 +38,8 @@ it stays on your machine.
 ## Status
 
 **You can look, but not play.** Take one of your own maps, and you can fly a
-camera through it and see it lit the way a modern game would light it. There
-is no walking, no weapons and no monsters yet.
+camera through it, or walk it by UT99's movement rules, and see it lit the way
+a modern game would light it. There are no weapons and no monsters yet.
 
 What works today:
 
@@ -165,15 +165,20 @@ ut-ants "<your Unreal Tournament folder>" "<a baked map>"
 The mouse looks around. W, A, S and D fly, Space goes up and Ctrl goes down,
 and Shift flies faster. F turns a flashlight on and off. The top-left corner
 shows frames a second and how long each takes; H hides it. Walls stop you, and
-nothing moves but you: there is no walking, no weapons and no monsters yet.
-Escape quits.
+nothing moves but you: there are no weapons and no monsters yet. Escape quits.
+
+G switches between flying and walking. Walking, the same keys move you, Space
+jumps (twice, for a double jump), Ctrl ducks and Shift walks slowly. Tap a
+direction key twice quickly to dodge that way.
 
 A gamepad, such as a PlayStation or Xbox controller, flies the camera too. The
 left stick moves and the right stick looks. The right trigger or shoulder
 button goes up and the left one goes down. Press the left stick in to fly
 faster, and the top face button (Triangle, or Y) turns the flashlight on and
 off. The Options button (Menu on an Xbox controller) closes the map, as Escape
-does.
+does. Press the right stick in to switch to walking. Then the bottom face
+button (Cross, or A) jumps, and the right face button (Circle, or B) dodges
+the way the left stick points.
 
 P, or the controller's Share, Create or View button, writes down exactly where
 the camera is. From the launcher, that line lands in the map's notes, so a

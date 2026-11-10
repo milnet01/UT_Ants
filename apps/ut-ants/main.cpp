@@ -21,6 +21,7 @@
 #include "core/Log.h"
 #include "ubundle/Bundle.h"
 #include "ubundle/TileAnswers.h"
+#include "uinput/Input.h"
 #include "urender/Renderer.h"
 #include "uworld/BodyCollision.h"
 
@@ -34,6 +35,7 @@
 #include <filesystem>
 #include <iostream>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -111,6 +113,37 @@ Start startingCamera(const uta::ubundle::Bundle& bundle) {
     return {};
 }
 
+// UTA-0018: uinput names keys and buttons by SDL's numbers without including
+// SDL; these hold it to that.
+static_assert(int(uta::uinput::Key::A) == SDL_SCANCODE_A && int(uta::uinput::Key::D) == SDL_SCANCODE_D &&
+              int(uta::uinput::Key::F) == SDL_SCANCODE_F && int(uta::uinput::Key::G) == SDL_SCANCODE_G &&
+              int(uta::uinput::Key::H) == SDL_SCANCODE_H && int(uta::uinput::Key::P) == SDL_SCANCODE_P &&
+              int(uta::uinput::Key::S) == SDL_SCANCODE_S && int(uta::uinput::Key::W) == SDL_SCANCODE_W &&
+              int(uta::uinput::Key::Escape) == SDL_SCANCODE_ESCAPE &&
+              int(uta::uinput::Key::Space) == SDL_SCANCODE_SPACE &&
+              int(uta::uinput::Key::LeftBracket) == SDL_SCANCODE_LEFTBRACKET &&
+              int(uta::uinput::Key::RightBracket) == SDL_SCANCODE_RIGHTBRACKET &&
+              int(uta::uinput::Key::F12) == SDL_SCANCODE_F12 &&
+              int(uta::uinput::Key::LeftCtrl) == SDL_SCANCODE_LCTRL &&
+              int(uta::uinput::Key::LeftShift) == SDL_SCANCODE_LSHIFT &&
+              int(uta::uinput::Key::RightCtrl) == SDL_SCANCODE_RCTRL &&
+              int(uta::uinput::Key::RightShift) == SDL_SCANCODE_RSHIFT);
+static_assert(int(uta::uinput::PadButton::South) == SDL_GAMEPAD_BUTTON_SOUTH &&
+              int(uta::uinput::PadButton::East) == SDL_GAMEPAD_BUTTON_EAST &&
+              int(uta::uinput::PadButton::West) == SDL_GAMEPAD_BUTTON_WEST &&
+              int(uta::uinput::PadButton::North) == SDL_GAMEPAD_BUTTON_NORTH &&
+              int(uta::uinput::PadButton::Back) == SDL_GAMEPAD_BUTTON_BACK &&
+              int(uta::uinput::PadButton::Guide) == SDL_GAMEPAD_BUTTON_GUIDE &&
+              int(uta::uinput::PadButton::Start) == SDL_GAMEPAD_BUTTON_START &&
+              int(uta::uinput::PadButton::LeftStick) == SDL_GAMEPAD_BUTTON_LEFT_STICK &&
+              int(uta::uinput::PadButton::RightStick) == SDL_GAMEPAD_BUTTON_RIGHT_STICK &&
+              int(uta::uinput::PadButton::LeftShoulder) == SDL_GAMEPAD_BUTTON_LEFT_SHOULDER &&
+              int(uta::uinput::PadButton::RightShoulder) == SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER &&
+              int(uta::uinput::PadButton::DpadUp) == SDL_GAMEPAD_BUTTON_DPAD_UP &&
+              int(uta::uinput::PadButton::DpadDown) == SDL_GAMEPAD_BUTTON_DPAD_DOWN &&
+              int(uta::uinput::PadButton::DpadLeft) == SDL_GAMEPAD_BUTTON_DPAD_LEFT &&
+              int(uta::uinput::PadButton::DpadRight) == SDL_GAMEPAD_BUTTON_DPAD_RIGHT);
+
 /// UTA-0167: the gamepads flying the camera, closed when the run ends.
 class Gamepads {
 public:
@@ -143,27 +176,24 @@ public:
         }
     }
 
-    /// Every open gamepad's sticks and buttons, added to `input`.
-    void addTo(FlyInput& input, double seconds) const {
+    /// Every open gamepad's sticks, triggers and buttons.
+    [[nodiscard]] std::vector<uta::uinput::PadState> read() const {
+        std::vector<uta::uinput::PadState> states;
         for (SDL_Gamepad* const pad : pads_) {
             const auto axis = [pad](SDL_GamepadAxis which) {
                 return static_cast<float>(SDL_GetGamepadAxis(pad, which)) / 32767.0f;
             };
-            const auto held = [pad](SDL_GamepadButton which) {
-                return SDL_GetGamepadButton(pad, which) ? 1.0f : 0.0f;
-            };
-            addPad(input,
-                   PadInput{.leftX = axis(SDL_GAMEPAD_AXIS_LEFTX),
-                            .leftY = axis(SDL_GAMEPAD_AXIS_LEFTY),
-                            .rightX = axis(SDL_GAMEPAD_AXIS_RIGHTX),
-                            .rightY = axis(SDL_GAMEPAD_AXIS_RIGHTY),
-                            .rise = std::max(axis(SDL_GAMEPAD_AXIS_RIGHT_TRIGGER),
-                                             held(SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER)),
-                            .sink = std::max(axis(SDL_GAMEPAD_AXIS_LEFT_TRIGGER),
-                                             held(SDL_GAMEPAD_BUTTON_LEFT_SHOULDER)),
-                            .fast = SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_LEFT_STICK)},
-                   seconds);
+            uta::uinput::PadState& state = states.emplace_back(uta::uinput::PadState{
+                .leftX = axis(SDL_GAMEPAD_AXIS_LEFTX),
+                .leftY = axis(SDL_GAMEPAD_AXIS_LEFTY),
+                .rightX = axis(SDL_GAMEPAD_AXIS_RIGHTX),
+                .rightY = axis(SDL_GAMEPAD_AXIS_RIGHTY),
+                .leftTrigger = axis(SDL_GAMEPAD_AXIS_LEFT_TRIGGER),
+                .rightTrigger = axis(SDL_GAMEPAD_AXIS_RIGHT_TRIGGER)});
+            for (std::size_t button = 0; button < uta::uinput::PAD_BUTTON_COUNT; ++button)
+                state.held[button] = SDL_GetGamepadButton(pad, static_cast<SDL_GamepadButton>(button));
         }
+        return states;
     }
 
     [[nodiscard]] std::size_t count() const noexcept { return pads_.size(); }
@@ -184,6 +214,7 @@ struct Viewer {
     uta::urender::Renderer renderer;
     Start start;
     Gamepads gamepads;
+    uta::uinput::Input input; // UTA-0018: every device to one action set
     bool flashlight = false; // UTA-0015 SS 4.5: F toggles it
     bool showFrameRate = true; // UTA-0452: H toggles it
     FrameRate frameRate;
@@ -215,8 +246,10 @@ struct Viewer {
     void toggleWalking();
 
     enum class After { Next, Quit, Failed };
-    /// One event's action. Mouse motion adds to `input`, the frame's input.
-    After handle(const SDL_Event& event, FlyInput& input);
+    /// One event: a device's goes to `input`, a window's is handled here.
+    After handle(const SDL_Event& event);
+    /// What the frame's once-a-press actions ask for.
+    void act(const uta::uinput::Frame& frame);
 };
 
 void Viewer::writeCaptureFolder() {
@@ -323,57 +356,19 @@ void Viewer::toggleWalking() {
     std::cerr << "ut-ants: walking\n";
 }
 
-Viewer::After Viewer::handle(const SDL_Event& event, FlyInput& input) {
-    // Each action's key and pad button share one branch.
-    if (event.type == SDL_EVENT_QUIT || (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE) ||
-        (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN && event.gbutton.button == SDL_GAMEPAD_BUTTON_START)) {
-        return After::Quit; // UTA-0183: Options on a PlayStation pad, Menu on an Xbox one
-    } else if ((event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_F && !event.key.repeat) ||
-               (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN &&
-                event.gbutton.button == SDL_GAMEPAD_BUTTON_NORTH)) {
-        flashlight = !flashlight; // Triangle on a PlayStation pad, Y on an Xbox one
-    } else if ((event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_G && !event.key.repeat) ||
-               (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN &&
-                event.gbutton.button == SDL_GAMEPAD_BUTTON_RIGHT_STICK)) {
-        toggleWalking(); // UTA-0017: pressing the right stick in on a pad
-    } else if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_H && !event.key.repeat) {
-        showFrameRate = !showFrameRate; // UTA-0452
-        renderer.setOverlayText(showFrameRate ? frameRate.text() : std::string());
-    } else if (event.type == SDL_EVENT_KEY_DOWN
-               && (event.key.key == SDLK_LEFTBRACKET || event.key.key == SDLK_RIGHTBRACKET)) {
-        // UTA-0357: until the settings menu's slider (UTA-0297), the
-        // brackets narrow and widen the view, held down to sweep it.
-        start.camera.setFov(start.camera.fov() + (event.key.key == SDLK_RIGHTBRACKET ? FOV_STEP : -FOV_STEP));
-        std::cerr << "ut-ants: field of view " << start.camera.fov() << "\n";
-    } else if ((event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_P && !event.key.repeat) ||
-               (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN &&
-                event.gbutton.button == SDL_GAMEPAD_BUTTON_BACK)) {
-        // UTA-0190: where the camera is, so a finding can be drawn again
-        // with ut-shot. Share or Create on a PlayStation pad, View on an Xbox one.
-        // Before the first frame there is no shown view, so the camera as it stands.
-        const uta::urender::Camera view = shownView ? *shownView : start.camera.camera(config.width, config.height);
-        const std::string line = "Camera (ut-shot): " + poseLine(view, config.width, config.height);
-        std::cerr << line << "\n";
-        if (!options.notes.empty()) {
-            if (const auto added = appendNote(options.notes, line); !added)
-                std::cerr << "ut-ants: the camera did not save: " << uta::sanitised(added.error().message())
-                          << "\n";
-        }
-    } else if ((event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_F12 &&
-                !event.key.repeat) ||
-               (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN &&
-                event.gbutton.button == SDL_GAMEPAD_BUTTON_WEST)) {
-        // UTA-0191: everything needed to find and redraw this view.
-        // Square on a PlayStation pad, X on an Xbox one -- the one face
-        // button the viewer does not already use.
-        writeCaptureFolder();
+Viewer::After Viewer::handle(const SDL_Event& event) {
+    if (event.type == SDL_EVENT_QUIT) {
+        return After::Quit;
+    } else if (event.type == SDL_EVENT_KEY_DOWN) {
+        input.keyDown(static_cast<uta::uinput::Key>(event.key.scancode), event.key.repeat);
+    } else if (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN && event.gbutton.button < uta::uinput::PAD_BUTTON_COUNT) {
+        input.padButtonDown(static_cast<uta::uinput::PadButton>(event.gbutton.button));
     } else if (event.type == SDL_EVENT_GAMEPAD_ADDED) {
         gamepads.open(event.gdevice.which);
     } else if (event.type == SDL_EVENT_GAMEPAD_REMOVED) {
         gamepads.close(event.gdevice.which);
     } else if (event.type == SDL_EVENT_MOUSE_MOTION) {
-        input.lookRight += event.motion.xrel;
-        input.lookUp -= event.motion.yrel; // SDL's y grows downward
+        input.mouseMoved(event.motion.xrel, event.motion.yrel);
     } else if (event.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED && event.window.data1 > 0 &&
                event.window.data2 > 0) {
         config.width = static_cast<std::uint32_t>(event.window.data1);
@@ -389,6 +384,36 @@ Viewer::After Viewer::handle(const SDL_Event& event, FlyInput& input) {
         }
     }
     return After::Next;
+}
+
+void Viewer::act(const uta::uinput::Frame& frame) {
+    using uta::uinput::Action;
+    if (frame.wasPressed(Action::Flashlight)) flashlight = !flashlight;
+    if (frame.wasPressed(Action::ToggleWalking)) toggleWalking(); // UTA-0017
+    if (frame.wasPressed(Action::FrameRate)) {
+        showFrameRate = !showFrameRate; // UTA-0452
+        renderer.setOverlayText(showFrameRate ? frameRate.text() : std::string());
+    }
+    // UTA-0357: until the settings menu's slider (UTA-0297), the brackets
+    // narrow and widen the view, held down to sweep it.
+    if (frame.wasPressed(Action::FovNarrower) != frame.wasPressed(Action::FovWider)) {
+        start.camera.setFov(start.camera.fov() + (frame.wasPressed(Action::FovWider) ? FOV_STEP : -FOV_STEP));
+        std::cerr << "ut-ants: field of view " << start.camera.fov() << "\n";
+    }
+    if (frame.wasPressed(Action::SaveCamera)) {
+        // UTA-0190: where the camera is, so a finding can be drawn again
+        // with ut-shot. Before the first frame there is no shown view, so the
+        // camera as it stands.
+        const uta::urender::Camera view = shownView ? *shownView : start.camera.camera(config.width, config.height);
+        const std::string line = "Camera (ut-shot): " + poseLine(view, config.width, config.height);
+        std::cerr << line << "\n";
+        if (!options.notes.empty()) {
+            if (const auto added = appendNote(options.notes, line); !added)
+                std::cerr << "ut-ants: the camera did not save: " << uta::sanitised(added.error().message())
+                          << "\n";
+        }
+    }
+    if (frame.wasPressed(Action::Capture)) writeCaptureFolder(); // UTA-0191
 }
 
 int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Options& options,
@@ -437,39 +462,31 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
     std::uint64_t drawn = 0;
     Uint64 last = SDL_GetTicksNS();
     for (bool running = true; running;) {
-        FlyInput input;
         SDL_Event event;
         // Every waiting event is handled, even after a quit.
         while (SDL_PollEvent(&event)) {
-            const Viewer::After after = viewer.handle(event, input);
+            const Viewer::After after = viewer.handle(event);
             if (after == Viewer::After::Failed) return EXIT_FAILED;
             if (after == Viewer::After::Quit) running = false;
         }
-        if (!running) break;
+        const Uint64 now = SDL_GetTicksNS();
+        const double seconds = static_cast<double>(now - last) / 1e9;
+        last = now;
+        int keyCount = 0;
+        const bool* const keys = SDL_GetKeyboardState(&keyCount);
+        const uta::uinput::Frame input = viewer.input.frame(
+            std::span<const bool>(keys, static_cast<std::size_t>(keyCount)), viewer.gamepads.read(), seconds);
+        if (!running || input.wasPressed(uta::uinput::Action::Quit)) break;
+        viewer.act(input);
         if ((SDL_GetWindowFlags(window) & SDL_WINDOW_MINIMIZED) != 0) {
             SDL_Delay(10);
             last = SDL_GetTicksNS();
             continue;
         }
 
-        const bool* const keys = SDL_GetKeyboardState(nullptr);
-        const auto axis = [keys](SDL_Scancode positive, SDL_Scancode negative) {
-            return static_cast<float>(keys[positive]) - static_cast<float>(keys[negative]);
-        };
-        input.forward = axis(SDL_SCANCODE_W, SDL_SCANCODE_S);
-        input.right = axis(SDL_SCANCODE_D, SDL_SCANCODE_A);
-        // Either Ctrl and either Shift, as a player expects of them.
-        input.up = static_cast<float>(keys[SDL_SCANCODE_SPACE])
-                   - static_cast<float>(keys[SDL_SCANCODE_LCTRL] || keys[SDL_SCANCODE_RCTRL]);
-        input.fast = keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT];
-
-        const Uint64 now = SDL_GetTicksNS();
-        const double seconds = static_cast<double>(now - last) / 1e9;
-        last = now;
         // UTA-0452: start to start, so the count includes waiting for the display.
         if (viewer.frameRate.add(seconds) && viewer.showFrameRate)
             viewer.renderer.setOverlayText(viewer.frameRate.text());
-        viewer.gamepads.addTo(input, seconds);
         uta::urender::Camera view;
         if (viewer.walker) {
             viewer.walker->update(input, seconds, *viewer.bodies);

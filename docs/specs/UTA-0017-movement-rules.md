@@ -244,11 +244,13 @@ does not freeze the game catching up.
 
 A key toggles the fly camera and a walking body at the camera's place,
 dropped to the floor. Keyboard, mouse and gamepad drive it through the
-same input `FlyCamera` reads, building a `MoveCommand` a tick and
-`DoubleTap` for dodges. Its rules allow one air jump (§ 3 item 7). G,
-or pressing a pad's right stick, toggles it;
-Space or the right trigger jumps, Ctrl or the left trigger ducks, and
-Shift or pressing the left stick walks (`apps/ut-ants/Cli.cpp`'s help).
+same `uinput` frame `FlyCamera` reads (UTA-0018), building a
+`MoveCommand` a tick and `DoubleTap` for dodges. A pad's Dodge press
+dodges the way the left stick points most. Its rules allow one air jump
+(§ 3 item 7). G, or pressing a pad's right stick, toggles it; Space, the
+bottom face button or the right trigger jumps, Ctrl or the left trigger
+ducks, and Shift or pressing the left stick walks
+(`apps/ut-ants/Cli.cpp`'s help).
 
 **The eye** rests at `BaseEyeHeight` (27, `PAWN`) above the body's
 centre. It copies UT99's `PlayerPawn.UpdateEyeHeight`, read from the
