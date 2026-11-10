@@ -40,8 +40,10 @@ the same figures):
   39-unit half-height. A falling one sinks to 41.2 (`ledge`, tick 135)
   and is lifted to 43.3 on landing, so the hover is walking's rule,
   not the sweep's.
-- **A sliding player stays 0.347 off a wall** (`wall-angle`, ticks 117
-  on, a wall square to the axes).
+- **A sliding player stays off a wall by a gap that shrinks as the frame
+  rate rises** (`wall-angle`, a wall square to the axes): about 0.8 at
+  30 fps once settled, 0.35 at 60 (a run `summary.tsv` marks missed), and
+  0.24 at 85.
 
 ## 3. Scope decisions (agreed with the user)
 
@@ -87,14 +89,18 @@ the same figures):
 tree's own space. For each node a walk from node 0 reaches (UTA-0111
 § 4.5) with an outline of three or more points:
 
-1. **Probe both sides.** Take the outline's centroid `c` and the node's
-   plane normal `n`. Ask `isEmpty` at `c + n·PROBE` and `c − n·PROBE`,
-   with `PROBE` 0.5 units.
-2. **Keep the face only when exactly one side is empty.** A face with
-   empty space on both sides is a sheet nothing stands on: water, a
-   zone portal, a non-solid brush. One with solid on both sides is
+1. **Probe both sides at several samples**: the outline's centroid `c`,
+   and the midpoint from `c` to each of its points. At each sample `s`,
+   with the node's plane normal `n`, ask `isEmpty` at `s + n·PROBE` and
+   `s − n·PROBE`, with `PROBE` 0.5 units.
+2. **Keep the face when any sample has exactly one side empty.** A face
+   partly covered still bounds space where it is open; dropping it would
+   leave a hole (found building it: a floor whose centroid lies under a
+   pillar). A face empty on both sides at every sample is a sheet nothing
+   stands on: water, a zone portal, a non-solid brush. Any other face is
    buried.
-3. **Wind it to face the empty side**, and fan it into triangles from
+3. **Wind it to face the side most of those samples find empty**, and
+   fan it into triangles from
    its first point. An outline's own order says nothing about which
    way it faces (UTA-0111 § 4.5).
 
@@ -110,9 +116,10 @@ public:
     /// The level's mesh and each mover's, every mover at its MOVR pose.
     static Result<BodyWorld> build(const ubundle::Collision& collision,
                                    std::span<const ubundle::MoverShape> movers);
-    /// Moves mover `i` (its index in `collision.movers`) to a new pose.
-    void placeMover(std::size_t i, const Vec3& location,
-                    const std::array<std::int32_t, 3>& rotation);  // MOVR's pitch, yaw, roll
+    /// Moves mover `i` (its index in `collision.movers`) to a new pose;
+    /// refuses an `i` past the last, changing nothing.
+    Result<void> placeMover(std::size_t i, const Vec3& location,
+                            const std::array<std::int32_t, 3>& rotation);  // MOVR's pitch, yaw, roll
     ...
 };
 
@@ -120,7 +127,9 @@ public:
 ```
 
 A mover's pose places its tree by UTA-0119 § 4.5's formula, with its
-`MOVR` shape's `postScale`. A mover whose `MOVR` shape is missing, or
+`MOVR` shape's `postScale`. A postScale after the rotation is not a
+rotation and a scale Jolt can place a shape by, so a turn rebuilds the
+mover's mesh; a move only re-places it. A mover whose `MOVR` shape is missing, or
 whose mesh is empty, refuses the build, naming its export index.
 
 ### 4.4 The queries
@@ -146,15 +155,20 @@ bool     BodyWorld::fits(const BodySize&, const Vec3& at) const;
   cylinder stands along Z.
 - **`sweep` stops a skin short of contact.** With `d` the unit
   direction and `n` the hit normal, the body travels
-  `max(0, contact − SKIN / |d·n|)`, which leaves it `SKIN` off the hit
-  surface. `SKIN` is 0.125 units; the user chose touching (§ 3 item 3).
+  `max(0, contact − SKIN / max(|d·n|, 1/32))`, which leaves it `SKIN`
+  off the hit surface; a body gliding nearly along a surface stops
+  closer. `SKIN` is 0.125 units; the user chose touching (§ 3 item 3).
 - **A body starting inside** returns `fraction 0`, `startsInside`, and
-  the direction that leaves soonest as `normal`.
+  as `normal` the way out of its deepest overlap. Where its centre is in
+  solid, by the trees' `isEmpty`, `normal` is zero: a face knows its
+  plane, not which side of it is solid. A body deep in solid touches no
+  face, so the trees, not the mesh, are what find it.
 - **`slide`** sweeps `delta`; on a hit it removes the remainder's
   component into the surface and sweeps again; on a second hit it moves
   along the crease the two surfaces make; it stops after `MAX_SLIDES`
   (2) slides. Stepping up, the floor and the hover are UTA-0017's.
-- **`fits`** says whether the body at `at` overlaps nothing.
+- **`fits`** says whether the body at `at` overlaps nothing: no face by
+  more than 0.01 units, and its centre not in solid.
 - **Same results on every machine.** Jolt is built cross-platform
   deterministic (§ 4.6), so GCC, Clang and MSVC agree bit for bit.
 
@@ -179,7 +193,8 @@ joins `docs/design.md` § The stack.
 
 - **INV-1** — The mesh holds exactly the faces between empty and solid. A
   sheet with empty space on both sides is dropped, a buried face is dropped,
-  and every kept face's normal points into empty space.
+  a face partly covered is kept, and every kept face's normal points into
+  empty space.
   *Test:* `CollisionMeshTest.cpp`, a hand tree of a room with a sheet across it.
   *Breaks when:* every outline is kept (water becomes a floor), or a face is
   wound by its outline's order.
@@ -204,13 +219,16 @@ joins `docs/design.md` § The stack.
 
 - **INV-5** — A slide keeps the move's part along the wall. A move into a
   wall at an angle ends where that part takes it; a move into a 90° inside
-  corner stops in the corner.
+  corner stops in the corner; a fall into a corner sharper than square
+  slides on down its crease.
   *Test:* `BodyCollisionTest.cpp`.
   *Breaks when:* the body stops dead at a hit, or slides through the second
   wall.
 
 - **INV-6** — A body starting inside says so and does not move: `sweep`
-  returns `startsInside` and fraction 0.
+  returns `startsInside` and fraction 0, with the way out where its centre
+  is in empty space, and a zero normal where it is in solid. A body wholly
+  inside solid, touching no face, is inside.
   *Test:* `BodyCollisionTest.cpp`.
   *Breaks when:* a body overlapping solid is treated as free.
 
@@ -230,9 +248,12 @@ joins `docs/design.md` § The stack.
   every rate the recording held, on `DM-Deck16][`: `fits` holds at every
   recorded location; a sweep between two rows the original moved between
   freely (the same Z, or falling without landing) travels the whole way; and
-  where the original slid along a wall, our body reaches within
-  `0.347 + SKIN + 0.01` of it.
-  *Test:* `RealBodyCollisionTest.cpp`, which also prints § 2's figures.
+  where the original slid along a wall, our body finds that wall within 2
+  units: the original's gap reaches 1.57 on a slide's first ticks at 30 fps,
+  and a missing wall would leave 5 units free.
+  *Test:* `RealBodyCollisionTest.cpp`, which also prints § 2's hover and
+  each rate's wall gap. It reads the level only: a mover's `MOVR` shape
+  needs the whole bake's materials, and these runs ride no mover.
   *Breaks when:* the body or mesh is bigger than the original's (the first
   two), or a wall is missing from the mesh (the third).
 

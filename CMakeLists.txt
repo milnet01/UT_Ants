@@ -281,6 +281,48 @@ FetchContent_Declare(glm
     SYSTEM)
 FetchContent_MakeAvailable(glm)
 
+# Jolt Physics -- route 1, fetched at an exact tag, for a body's sweeps through
+# the level (docs/specs/UTA-0457-body-collision.md § 4.6). Here at the root
+# because uta_uworld, a src/ target, links it.
+#
+# Built cross-platform deterministic, so GCC, Clang and MSVC agree bit for bit
+# (that spec's INV-8). Everything else that would reach past the Jolt target
+# is off: its own compiler flags, warnings-as-errors, link-time optimisation
+# and static MSVC runtime would each change or clash with this build's; its
+# GPU compute, debug renderer, profiler, object stream and install rules are
+# unused. Instructions past SSE4.2 are off, so a player's CPU needs nothing
+# the rest of the game does not.
+set(CROSS_PLATFORM_DETERMINISTIC ON)
+set(OVERRIDE_CXX_FLAGS OFF)
+set(ENABLE_ALL_WARNINGS OFF)
+set(INTERPROCEDURAL_OPTIMIZATION OFF)
+set(USE_STATIC_MSVC_RUNTIME_LIBRARY OFF)
+set(GENERATE_DEBUG_SYMBOLS OFF)
+set(FLOATING_POINT_EXCEPTIONS_ENABLED OFF)
+set(JPH_USE_DX12 OFF)
+set(JPH_USE_VK OFF)
+set(JPH_USE_MTL OFF)
+set(JPH_USE_CPU_COMPUTE OFF)
+set(DEBUG_RENDERER_IN_DEBUG_AND_RELEASE OFF)
+set(PROFILER_IN_DEBUG_AND_RELEASE OFF)
+set(ENABLE_OBJECT_STREAM OFF)
+set(ENABLE_INSTALL OFF)
+set(USE_AVX OFF)
+set(USE_AVX2 OFF)
+set(USE_AVX512 OFF)
+set(USE_LZCNT OFF)
+set(USE_TZCNT OFF)
+set(USE_F16C OFF)
+set(USE_FMADD OFF)
+FetchContent_Declare(JoltPhysics
+    GIT_REPOSITORY https://github.com/jrouwe/JoltPhysics.git
+    GIT_TAG        v5.6.0         # current release, resolved 2026-11-10
+    GIT_SHALLOW    TRUE
+    SOURCE_SUBDIR  Build
+    EXCLUDE_FROM_ALL
+    SYSTEM)
+FetchContent_MakeAvailable(JoltPhysics)
+
 # The client, ut-ants (UTA-0016). It needs the tools because docs/design.md
 # rule 16 has it run ut-bake to check an install rather than read one itself.
 option(UTA_BUILD_CLIENT "Build the ut-ants client" ON)

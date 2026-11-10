@@ -18478,6 +18478,14 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   and compare with row k+1. First record: 30, 60 and 85 fps held
   their caps; 120 and 200 topped out near 90 fps under Xvfb at load
   about 13 and are marked missed in summary.tsv.
+  Measured (2026-11-10, UTA-0457's real case on wall-angle): the
+  original slides off a wall by a gap that shrinks as the frame rate
+  rises, about 0.8 at 30 fps, 0.35 at 60, 0.24 at 85, and up to 1.57 on
+  a slide's first ticks at 30. A walking player's centre hovers 4.8
+  above its half-height over a flat floor at every rate (4.7 on stair).
+  UTA-0457's body touches both instead (user, 2026-11-10); the hover is
+  this item's to remove. BodyWorld's sweep, slide and fits are in
+  src/uworld/BodyCollision.h.
   **Layman:** Make running, jumping and dodging feel exactly like UT99. This is the part that decides whether the game feels right, so the numbers are measured against the real game rather than estimated.
   Kind: implement.
   Source: design-2026-09-03.

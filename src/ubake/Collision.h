@@ -3,8 +3,8 @@
 //
 // SCOPE: transcribe, do not interpret (SS 3 decision 3). Every node field is
 // the Model's own value. Which nodes are solid, how an extent is tested and
-// which extra flags a caller passes are the readers' -- UTA-0017 and UTA-0114,
-// to SS 4.5.
+// which extra flags a caller passes are the readers' -- UTA-0457, UTA-0017
+// and UTA-0114, to SS 4.5.
 //
 // THE SAME BYTES ON EVERY COMPILER, as Movers.h: a mover's tree is moved by a
 // subtraction, a multiplication, a division and a square root in double, and

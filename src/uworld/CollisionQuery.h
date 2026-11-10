@@ -1,6 +1,6 @@
 // Point and segment checks against a collision tree, to
-// docs/specs/UTA-0121-bot-path-seeds.md SS 4.4. Body-against-level collision
-// for the game is UTA-0017's; this tests points and segments.
+// docs/specs/UTA-0121-bot-path-seeds.md SS 4.4. This tests points and
+// segments; a body against the level is BodyCollision.h's (UTA-0457).
 //
 // A reader of UTA-0111's tree, to that item's SS 4.5: a walk starts at node 0
 // with the tree's `outside`, descends by FBspNode::ChildOutside with no extra

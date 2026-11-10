@@ -55,6 +55,9 @@ add_executable(uta_unit_tests
     unit/BakeZonesTest.cpp
     unit/BundleActorsTest.cpp
     unit/BundleCollisionTest.cpp
+    unit/BlockFixture.cpp
+    unit/BodyCollisionTest.cpp
+    unit/CollisionMeshTest.cpp
     unit/BundleFlamesTest.cpp
     unit/GrassSectionTest.cpp
     unit/GrassBakeTest.cpp
@@ -140,7 +143,7 @@ add_executable(uta_unit_tests
     unit/WiringGraphTest.cpp)
 target_link_libraries(uta_unit_tests PRIVATE uta_core uta_upkg uta_unav uta_unav_build
                                             uta_umap uta_umap_build uta_ubundle uta_umat
-                                            uta_urecipe uta_ubake uta_urender uta_ufire uta_test_support
+                                            uta_urecipe uta_ubake uta_urender uta_ufire uta_uworld uta_test_support
                                             Catch2::Catch2WithMain
                                             # INV-3's synthetic devices are Vulkan's own feature structs.
                                             Vulkan::Vulkan)
@@ -309,9 +312,10 @@ if(UTA_REAL_ASSET_TESTS)
                                         real/RealCollisionTest.cpp real/RealPathSeedsTest.cpp
                                         real/RealLightProbesTest.cpp real/RealFlamesTest.cpp
                                         real/RealLiquidsTest.cpp real/RealClothTest.cpp
-                                        real/RealMeshTest.cpp)
+                                        real/RealMeshTest.cpp real/RealBodyCollisionTest.cpp)
     target_link_libraries(uta_real_asset_tests PRIVATE uta_upkg uta_umap uta_umap_build uta_unav_build
-                                                       uta_umat uta_ubake Catch2::Catch2WithMain)
+                                                       uta_umat uta_ubake uta_uworld uta_test_support
+                                                       Catch2::Catch2WithMain)
     # tests/support/FCoordsPort.h, header-only -- UTA-0119 SS 7.
     target_include_directories(uta_real_asset_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     # ut-paths, as built once (UTA-0433); the tests use all but its command
