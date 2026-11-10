@@ -9,8 +9,7 @@ open fix-kind or review-sourced item, oldest first; then 0.2.0. Parked fix
 item: `UTA-0249` (reconfirmed 2026-10-05; `UTA-0186` closed 2026-10-19). `UTA-0098` and
 `UTA-0100` defer themselves. 0.1.0 released 2026-11-04 (tag `v0.1.0`).
 `UTA-0283` waits on UT_MonsterHunt.
-0.2.0 starts with glass (`UTA-0272`), see-through water (`UTA-0273`),
-vegetation (`UTA-0293`).
+In 0.2.0, movement comes next (`UTA-0017`; user, 2026-11-10).
 **In flight:** `roadmap_query status:"in-progress"`. Not kept by hand.
 
 > `State:` is a formula, so no session owes it an edit and it cannot
