@@ -1,0 +1,99 @@
+# UTA-0456's first set: what UTA-0457 and UTA-0017 need (spec section 4.3).
+#
+#   run <name> <map> <x> <y> <z> <yaw>
+#   <seconds> <keys>        F B L R J D W, or - for none; held until the next line
+#   end <seconds>
+#
+# Poses are DM-Deck16][ player starts, chosen from a probe that ran forward
+# 4 s from each (ut-record --starts, 2026-11-10):
+#   open floor  -161.570267 903.514954 -661.320068 -15144   4 s forward, nothing hit
+#   stair       -527.732483 -201.715439 -671.894226 32496   steps up at 0.8 s, wall head-on at 1.7 s
+#   wall        891.129211 -1558.009521 -727.897827 26904   slides along a wall at 1.8 s
+#   ledge       895.093323 -1530.065552 -151.900269 16336   falls at 1.4 s, lands at 2.5 s
+#
+# A dodge is a double tap: press, release, press within DodgeClickTime (0.25 s).
+
+run stand DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+0 -
+end 1.5
+
+run run-release DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+0 F
+1.5 -
+end 2.5
+
+run strafe DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+0 R
+1 -
+end 1.5
+
+run forward-strafe DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+0 FL
+1 -
+end 1.5
+
+run walk DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+0 FW
+1.5 -
+end 2
+
+run duck-walk DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+0 FD
+1.5 -
+end 2
+
+run jump DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+0 J
+0.1 -
+end 1.5
+
+run running-jump DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+0 F
+1 FJ
+1.1 F
+end 2.5
+
+run dodge-forward DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+0 -
+0.1 F
+0.2 -
+0.3 F
+0.4 -
+end 1.5
+
+run dodge-left DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+0 -
+0.1 L
+0.2 -
+0.3 L
+0.4 -
+end 1.5
+
+# The jump is pressed while the dodge animation plays: the original holds it
+# over (PlayerWalking.PlayerMove's bSaveJump).
+run dodge-jump DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+0 -
+0.1 F
+0.2 -
+0.3 F
+0.45 FJ
+0.55 F
+end 1.5
+
+run air-strafe DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+0 F
+0.5 FJ
+0.6 FR
+end 1.6
+
+run wall-angle DM-Deck16][ 891.129211 -1558.009521 -727.897827 26904
+0 F
+end 3
+
+run stair DM-Deck16][ -527.732483 -201.715439 -671.894226 32496
+0 F
+end 2
+
+run ledge DM-Deck16][ 895.093323 -1530.065552 -151.900269 16336
+0 F
+end 3

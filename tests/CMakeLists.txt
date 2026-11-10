@@ -15,8 +15,11 @@ include(Catch)
 # The synthetic fixtures. Test-only by design: docs/design.md rule 2 keeps the
 # package reader out of every runtime target, and this is the writer that
 # feeds it.
-add_library(uta_test_support STATIC support/UnrealPackageBuilder.cpp)
+add_library(uta_test_support STATIC support/UnrealPackageBuilder.cpp
+    # UTA-0456: the original game's movement, as tools/ut-record writes it.
+    support/MovementRecording.cpp)
 target_include_directories(uta_test_support PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(uta_test_support PUBLIC uta_core)
 
 add_executable(uta_unit_tests
     unit/BakeActorsTest.cpp
@@ -119,6 +122,7 @@ add_executable(uta_unit_tests
     unit/RenderDeviceTest.cpp
     unit/RenderLightsTest.cpp
     unit/GrassCullTest.cpp
+    unit/MovementRecordingTest.cpp
     unit/RenderMoverPlacementTest.cpp
     unit/RenderMaterialsTest.cpp
     unit/RenderShadowsTest.cpp

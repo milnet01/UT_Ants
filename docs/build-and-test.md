@@ -120,6 +120,18 @@ is hidden from it, so no window reaches the desktop. The run fails if a file
 in the install's `System` directories changed. The original's lights pulse on
 their own clock; ours are pinned at time 0.
 
+**`ut-record` logs the original's player movement, tick by tick**
+(`UTA-0456`). It plays `tools/ut-record/runs.txt` at several frame rates, with
+`ut-compare`'s safety (`tools/common/ut_original.py`):
+
+```sh
+python3 -I tools/ut-record/ut-record.py --install <install>
+```
+
+Recordings go to `~/.cache/ut-ants/movement/` and are never committed. Tests
+read them through `tests/support/MovementRecording.h`. `--help` lists the
+rest.
+
 **`ut-ref` measures our light against exact light** (`UTA-0292`). It traces
 UTA-0112's light model with the probe bake's own code, and scores
 `ut-shot`'s light terms against it, per 8×8 block:

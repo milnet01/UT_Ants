@@ -14,6 +14,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **A recorder for the original game's player movement** (UTA-0456)
+  `ut-record` plays set keypresses in Unreal Tournament 469 and writes down
+  where the player goes, every frame, at five frame rates. Our movement
+  will be checked against these recordings.
+
 - **A frame-rate counter on every map** (UTA-0452)
   The viewer's top-left corner shows frames a second and the average
   frame's milliseconds, updated twice a second, in white on a small black

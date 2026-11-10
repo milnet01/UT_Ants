@@ -106,7 +106,11 @@ would leave, then calls `Super.PlayerInput`:
 K is the value a held key leaves in its axis when `PlayerInput` starts. The
 aliases say `Speed=300`; the native code that turns that into a value is not
 local. So a calibration run (§ 4.6) measures K, and the mutator's config
-holds the measured value.
+holds the measured value. Measured 2026-11-10: 6000 on every held tick, at
+30 and 120 fps.
+
+While a run is active the pawn also zeroes the mouse and turn axes: turning
+is out of scope (§ 9).
 
 Everything after `PlayerInput` is the original's own code: the dodge edges,
 `PlayerMove`, `ProcessMove` and native physics.
@@ -154,19 +158,29 @@ edits never reach a compare run. Before each launch it sets:
 | `Botpack.DeathMatchPlus` | `MinPlayers`, `InitialBots` | `0` |
 | `Engine.GameInfo` | `GameSpeed` | `1.0` |
 | `SDLDrv.SDLClient` | `FrameRateLimit` | the run's rate |
+| `SDLDrv.SDLClient` | `UseJoystick` | `False` |
+| `Engine.Input` (User.ini) | every `Joy…` binding | empty |
+| `OpenGLDrv.OpenGLRenderDevice` | `FrameRateLimit`, `UseVSync` | `0`, `False` |
 
 Hardcore mode makes `DeathMatchPlus.SetGameSpeed` set `TimeDilation` to
 1.1 (`bChallengeMode` is set only by `ChallengeDMP`). The viewport is 640x480, so drawing does not hold the frame rate down.
 
+The joystick rows exist because this machine's game controller reaches the
+client. This install binds `JoyX` to `aStrafe`, and the first calibration
+logged its drift on every tick. The render device has a cap of its own; `0`
+leaves the client's in charge.
+
 The rates are 30, 60, 85, 120 and 200 frames a second: one client launch per
 map and rate, running every run on that map. The log records the achieved
-rate; the cap is only a request (§ 6).
+rate; the cap is only a request (§ 6). Measured 2026-11-10, load average
+about 13: the 120 and 200 fps caps reached about 90 fps under Xvfb, and
+every such run was marked `missed`.
 
 ### 4.5 The recording
 
 The client log carries one line per event, prefixed `UTAREC`. The tool
 writes each run's lines, prefix and log decoration removed, to
-`<out>/<run>-<rate>.utarec`. `<out>` defaults to
+`<out>/<run>-<rate>.utarec`. So a file's lines begin with the version. `<out>` defaults to
 `~/.cache/ut-ants/movement/<time>/`.
 
 ```
@@ -180,8 +194,9 @@ UTAREC 1 END run=<name> ticks=<n>
 - `PAWN` lists the live values at the run's start: `GroundSpeed`,
   `AirSpeed`, `AccelRate`, `JumpZ`, `AirControl`, `MaxStepHeight`,
   `CollisionRadius`, `CollisionHeight`, `DodgeClickTime`, `BaseEyeHeight`,
-  `Mass`, `TimeDilation`, and the zone's `ZoneGravity.Z` and
-  `ZoneGroundFriction`.
+  `Mass`, `TimeDilation`, the zone's `ZoneGravity.Z` and
+  `ZoneGroundFriction` (as `ZoneGravityZ` and `ZoneGroundFriction`), and
+  `Bots`, the number of bots in the level (INV-2).
 - A `T` row is written at the start of `PlayerInput`. Its state columns
   (`x` to `base`) are as the previous tick left them. `keys`, `fwd` and
   `strafe` are this tick's input: the letters held, and `aBaseY` and
@@ -230,13 +245,14 @@ struct MovementRecording {
     std::string pawnClass;
     std::vector<RecordedTick> ticks;
 };
-core::Result<MovementRecording> readMovementRecording(std::string_view text);
+uta::Result<MovementRecording> readMovementRecording(std::string_view text);
 }
 ```
 
 It refuses a version other than 1, a missing `BEGIN`, `PAWN` or `END`, an
 `END` count that differs from the rows, a row with the wrong column count or
-a field that does not parse, and rows whose ticks are not 0, 1, 2 in order.
+a field that does not parse, rows whose ticks are not 0, 1, 2 in order, and
+rows whose times step by other than the later row's `dt` (INV-4).
 Numbers parse with `std::from_chars`.
 
 ## 5. Invariants
@@ -319,6 +335,9 @@ Numbers parse with `std::from_chars`.
   `missed` (INV-7). The rates are a request; the log is the truth.
 - **A pose is in a wall, or the player never settles** → the run is skipped
   after 5 s with `UTAREC SKIP <name>` and the tool reports it.
+- **The player leaves `PlayerWalking`** (dies in a pit, falls into water) →
+  the run is skipped with `UTAREC SKIP`, a dead player is restarted for the
+  next run, and the tool reports it.
 - **K varies with the frame time** → calibration fails; § 4.2 is amended to
   reproduce the measured rule (Step 8).
 - **`xdotool` cannot reach the window** → calibration fails, naming it.
@@ -399,9 +418,11 @@ dependency: `xdotool`, for calibration only.
 
 ## 14. Open questions
 
-Each is settled by the first real recording, and recorded by Step 8:
+None. The first full record (2026-11-10, DM-Deck16][, all five rates)
+settled each:
 
-- Does native physics run after `PlayerInput` in the same tick? A jump
-  pressed at row k should show a rising `vz` at row k+1.
-- Which row's `dt` matches the time step (INV-4).
-- K (§ 4.6).
+- Native physics runs after `PlayerInput` in the same tick: a jump pressed
+  at row k shows a rising `vz` at row k+1, at every rate.
+- INV-4 holds as written, with `dt[k+1]`: worst error 4e-6 s over 75
+  recordings.
+- K is 6000 (§ 4.2).
