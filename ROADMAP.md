@@ -20702,7 +20702,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-decision-2026-11-10 split-from-UTA-0017.
   Lanes: tools.
 
-- 🚧 [UTA-0457] **uworld: a player-sized body slides along walls, floors and steps of the level's collision tree.**
+- ✅ [UTA-0457] **uworld: a player-sized body slides along walls, floors and steps of the level's collision tree.**
   Split from UTA-0017 by the user, 2026-11-10; after the recorder
   (UTA-0456). Sweeps UT99's extent (CollisionRadius 17, Height 39 for
   TMale1, UTA-0121) through UTA-0111's COLL tree, levels and movers,
@@ -20725,6 +20725,12 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Progress (2026-11-10): spec at docs/specs/UTA-0457-body-collision.md.
   Building next, in the main checkout: Jolt v5.6.0, then the mesh, the
   body world and its tests.
+  Shipped 2026-11-10 in 674e4d4..09379c8, green on GitHub's matrix
+  (GCC 14, Clang 19, MSVC; run 42820273224). BodyWorld in
+  src/uworld/BodyCollision.h: Jolt v5.6.0 cylinder sweeps, slide and
+  fits; collisionMesh in CollisionMesh.h. The real case
+  (tests/real/RealBodyCollisionTest.cpp, label real-assets) needs
+  UTA_MOVEMENT_RECORDINGS set to a ut-record run's directory.
   **Layman:** A player-shaped body can move through a map, stopping at walls and sliding along them, the way UT99 does.
   Kind: implement.
   Source: user-decision-2026-11-10 split-from-UTA-0017.
