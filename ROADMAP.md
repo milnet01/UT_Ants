@@ -19417,6 +19417,12 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   is cheap now and expensive to retrofit; that argument is worth
   revisiting when UTA-0014 lands, and it is an argument about ordering
   rather than about the release condition.
+  Prior art for the temporal resolve (DOOM_Ants, 2026-11-10; know_how
+  topic "taau-temporal-upscaler-flicker"): a current-frame blend of 1/12
+  on still pixels, rising to 0.2 by 2 display px/frame of motion, cut
+  flicker 36-44 % at no frame cost and no ghosting on a fast turn. Narrow
+  a jitter-distance kernel when lowering the peak. Score sharpness by edge
+  agreement against a full-res reference, not gradient energy.
   **Layman:** Groundwork that lets the game render at a lower resolution and scale it up cleanly later. Cheap to build in now, expensive to retrofit.
   Kind: implement.
   Source: user-request-2026-09-08.
