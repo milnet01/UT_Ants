@@ -18501,7 +18501,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Lanes: uworld.
   Blocked-by: UTA-0456, UTA-0457.
 
-- 🚧 [UTA-0018] **uinput: one action set from keyboard, mouse and gamepad.**
+- ✅ [UTA-0018] **uinput: one action set from keyboard, mouse and gamepad.**
   Devices to actions, with per-device bindings, dead zones and response curves.
   SDL3's controller database already knows a DualShock 4.
   A tick consumes an input COMMAND and has no idea which device produced it
@@ -18514,6 +18514,8 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   dead zones and curves now; changing them arrives with UTA-0120's
   settings menu, which also sets the saved format. So no spec
   (spec-format.md § 1: one new subsystem plus the app, cheap to redo).
+  Shipped 2026-11-10 in 669d0b4; GitHub's matrix green on MSVC, GCC 14
+  and Clang 19 (run 42866599987).
   **Layman:** Make a PS4 controller a first-class way to play, not an afterthought -- with sensible dead zones and stick response.
   Kind: implement.
   Source: design-2026-09-03.
@@ -19490,6 +19492,9 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   User direction (2026-09-14): the engine's first iteration uses the
   cheapest methods that still make it look like a modern game. Fully
   modern features, this item among them, come after.
+  DOOM Ants, 2026-11-10: on noisy input, YCoCg variance clipping doubled
+  flicker and cut edge detail against a plain per-channel min/max clamp,
+  at every width tried. know_how topic taau-temporal-upscaler-flicker.
   **Layman:** Render the game smaller and scale it up, so it runs faster without looking soft. AMD's version first because it is the only good one that works with our graphics setup.
   Kind: implement.
   Source: user-request-2026-09-08.
@@ -23307,6 +23312,10 @@ docs/standards/versioning-overrides.md. Closes S8.
   median on DM-ArchNemesis moved 32.6 to 24.9 ms between two reps at load
   6-10, while its scene step held 18.2-18.7.
   UTA-0129 governs ut-bench's JSON; amend it with the build.
+  frameledger, 2026-11-10: its run header already has optional load,
+  gpu_busy_pct and gpu_clock_mhz (FLED-0001 § 4.2) for this to fill.
+  FLED-0030 (its 0.4.0) warns when two runs' load or GPU clock differ,
+  and FLED-0029 adds an ABAB run helper.
   **Layman:** Record how busy the machine was and repeat each run, so a slow figure caused by something else running is caught rather than believed.
   Kind: feature.
   Source: user-request-2026-10-24.
@@ -23324,6 +23333,9 @@ docs/standards/versioning-overrides.md. Closes S8.
   shader under test is the one that ships; a constant compiles a different
   shader.
   UTA-0129 governs ut-bench's JSON; amend it with the build.
+  frameledger, 2026-11-10: FLED-0034 (its 0.5.0) compares named
+  variants against one base, which this item's switch runs need.
+  compare --by-scene groups by scene, so it does not cover this.
   **Layman:** Measure how much each visual effect costs on each map by drawing the map with that effect turned off, without editing the shaders by hand.
   Kind: feature.
   Source: user-request-2026-10-24.
