@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=460 -->
+<!-- ants-roadmap-id-high-water: UTA=461 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -20784,6 +20784,19 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: investigate.
   Source: in-session-2026-11-10.
   Lanes: uworld.
+
+- 📋 [UTA-0461] **urender: anisotropic texture filtering, so floors and walls stay sharp at a grazing angle.**
+  No sampler in src/ sets anisotropyEnable or maxAnisotropy
+  (searched 2026-11-10), though scene.frag and water.glsl read with
+  textureGrad. DOOM_Ants measured the trap (DOOM-0600, 2026-11-10):
+  without anisotropyEnable, textureGrad takes the long axis's level and
+  blurs. With 16x it gained far-edge agreement for flat frame time.
+  know_how topic: ray-traced-texture-lod-anisotropic-cone. Measure the
+  frame cost per map (ut-bench frame) and compare views before and after.
+  **Layman:** Keep floors and walls sharp when seen at a low angle instead of blurring into the distance.
+  Kind: enhancement.
+  Source: in-session-2026-11-10.
+  Lanes: urender.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
