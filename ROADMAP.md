@@ -18451,7 +18451,7 @@ stays with movement in 0.2.0.
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
 the weapon wheel, and first-person platforming. Closes S2 and S11.
 
-- 📋 [UTA-0017] **uworld: collision and the UT99 movement model, measured not guessed.**
+- 🚧 [UTA-0017] **uworld: collision and the UT99 movement model, measured not guessed.**
   Cylinder collision against BSP and against other bodies, and the move semantics:
   walking and falling states, air control, dodge impulse, ground friction, jump
   height, step-up, ledge behaviour.
@@ -18486,6 +18486,10 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   UTA-0457's body touches both instead (user, 2026-11-10); the hover is
   this item's to remove. BodyWorld's sweep, slide and fits are in
   src/uworld/BodyCollision.h.
+  Spec (2026-11-10): docs/specs/UTA-0017-movement-rules.md. Decided
+  (user, 2026-11-10): an 85-a-second tick copying the original at 85
+  fps; game speed 110% by default, a server setting; bodies against
+  bodies move to UTA-0062 and UTA-0025.
   **Layman:** Make running, jumping and dodging feel exactly like UT99. This is the part that decides whether the game feels right, so the numbers are measured against the real game rather than estimated.
   Kind: implement.
   Source: design-2026-09-03.
