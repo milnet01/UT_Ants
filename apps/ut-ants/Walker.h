@@ -37,7 +37,11 @@ public:
 private:
     uworld::FixedTick clock_;
     uworld::DoubleTap tap_;
+    uworld::MoveRules rules_;
     uworld::MoveState state_, previous_;
+    /// The eye above the body's centre after the last two ticks: it lags a
+    /// step up or down and eases back to EYE_HEIGHT (spec SS 4.8).
+    double eyeHeight_ = EYE_HEIGHT, previousEyeHeight_ = EYE_HEIGHT;
     double pitch_, yaw_; ///< UT angle units, as FlyCamera keeps them
 };
 

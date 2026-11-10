@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=459 -->
+<!-- ants-roadmap-id-high-water: UTA=460 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -20766,6 +20766,9 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   their own animations. Blender is installed; drive it headless by
   script for animation work (memory: blender-models-headless). Each
   character's collision body is sized to its model (UTA-0457).
+  The user, 2026-11-10: the third-person character needs inverse
+  kinematics and the rest of a modern character animation setup, so
+  feet meet stairs and slopes and the body follows its movement.
   **Layman:** Let players switch between seeing through their character's eyes and seeing their character from behind the shoulder.
   Kind: feature.
   Source: user-request-2026-11-10.
@@ -23435,6 +23438,16 @@ docs/standards/versioning-overrides.md. Closes S8.
   Kind: investigate.
   Source: in-session-2026-10-30.
   Lanes: render.
+
+- 📋 [UTA-0460] **uui: a game rules menu where every gameplay rule can be turned on and off.**
+  The user, 2026-11-10: in the final UI a user can turn everything on
+  and off, such as double jumping and fall damage. Each rule is a
+  setting, never hard-wired: the double jump is MoveRules::airJumps
+  (UTA-0017), landing damage UTA-0108. The graphics twin is UTA-0297.
+  **Layman:** Whoever runs the game can switch each rule, such as double jumping or fall damage, on or off from a menu.
+  Kind: feature.
+  Source: user-request-2026-11-10.
+  Lanes: uui, ugame.
 
 ## After 1.0.0
 

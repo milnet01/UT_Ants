@@ -107,6 +107,7 @@ MoveState fall(const BodyWorld& world, const BodySize& size, const MoveRules& ru
     s.velocity = v;
     if (landed) {
         s.physics = Physics::Walking;
+        s.airJumpsUsed = 0;
         if (s.dodge == DodgeState::Active) {
             s.velocity = s.velocity * rules.dodgeLandingKeep;
             s.dodge = DodgeState::Done;
@@ -195,6 +196,10 @@ MoveState tick(const BodyWorld& world, const BodySize& size, const MoveRules& ru
             s.velocity.z = rules.jumpZ;
             s.physics = Physics::Falling;
         }
+    } else if (jumpPressed && s.airJumpsUsed < rules.airJumps) {
+        // The same rise as a jump from the floor, whatever the fall's speed.
+        s.velocity.z = rules.jumpZ;
+        ++s.airJumpsUsed;
     }
     if (s.physics == Physics::Falling) return fall(world, size, rules, s, push, dt);
     return walk(world, size, rules, s, push, command.walk || command.duck, dt);

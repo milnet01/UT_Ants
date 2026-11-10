@@ -39,6 +39,7 @@ struct MoveState {
     DodgeState dodge = DodgeState::None;
     double dodgeDoneTime = 0; ///< game seconds spent in DodgeState::Done
     bool jumpHeld = false;    ///< the last command's jump, so a held key jumps once
+    int airJumpsUsed = 0;     ///< jumps made in the air since the body last landed
 };
 
 /// The movement constants. The defaults are the player's, each from the
@@ -58,6 +59,9 @@ struct MoveRules {
     double dodgeLandingKeep = 0.1; ///< of the velocity, landing from a dodge
     double dodgeDoneTime = 0.35;   ///< after a dodge lands, before the next
     double walkableFloorZ = 0.7;   ///< the least normal.z a body can stand on
+    /// Jumps a body may make in the air before it lands (spec SS 4.4). The
+    /// original has none, so the default copies it; ut-ants allows one.
+    int airJumps = 0;
 };
 
 /// The next state: `command` applied to `state` over `dt` game seconds. A

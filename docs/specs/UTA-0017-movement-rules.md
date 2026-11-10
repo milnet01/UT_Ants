@@ -69,6 +69,11 @@ bans the platform maths library from the simulation.
    UTA-0062 and UTA-0025 take it. No recording has a second body.
 6. **Every constant is measured from the recordings**, with how, in
    § 4.3's table.
+7. **ut-ants allows a double jump** (user, 2026-11-10), which the
+   original lacks. A second jump in the air rises exactly as high as the
+   first. It is a rule, `airJumps`, so a menu can turn it off
+   (UTA-0460). The default copies the original, so INV-2 replays
+   recordings with none.
 
 ## 4. Design
 
@@ -188,6 +193,10 @@ hypothesis until a recording confirms it.**
   Hitting a floor it can stand on lands it: walking, the body `SKIN`
   above it.
 - **Jumping** from walking sets `velocity.z = jumpZ` and falls.
+- **Jumping in the air**, up to `airJumps` times before landing, sets
+  `velocity.z = jumpZ`, whatever the fall's speed, so each rises as high
+  as a jump from the floor. Landing gives them back. The jump key must
+  be pressed again: a held key jumps once.
 
 ### 4.5 Dodging
 
@@ -236,10 +245,23 @@ does not freeze the game catching up.
 A key toggles the fly camera and a walking body at the camera's place,
 dropped to the floor. Keyboard, mouse and gamepad drive it through the
 same input `FlyCamera` reads, building a `MoveCommand` a tick and
-`DoubleTap` for dodges. The eye sits at `BaseEyeHeight` (27, `PAWN`)
-above the body's centre. G, or pressing a pad's right stick, toggles it;
+`DoubleTap` for dodges. Its rules allow one air jump (§ 3 item 7). G,
+or pressing a pad's right stick, toggles it;
 Space or the right trigger jumps, Ctrl or the left trigger ducks, and
 Shift or pressing the left stick walks (`apps/ut-ants/Cli.cpp`'s help).
+
+**The eye** rests at `BaseEyeHeight` (27, `PAWN`) above the body's
+centre. It copies UT99's `PlayerPawn.UpdateEyeHeight`, read from the
+script text in `Engine.u`, run once a tick:
+
+- **Walking**, the eye keeps its height in the world when the body
+  steps. Each tick it then closes `min(1, 10·t)` of the gap to 27, `t`
+  being a tick in real seconds. It stays between `−0.5·halfHeight` and
+  `halfHeight` plus the tick's drop, the drop capped at `maxStepHeight`.
+- **In the air, and on the tick it lands**, it closes at least 0.35 of
+  the gap a tick.
+
+So a stair lifts the view over several ticks, not in one.
 
 ## 5. Invariants
 

@@ -188,6 +188,53 @@ TEST_CASE("UTA-0017: a held jump jumps once") {
     CHECK(s.physics == Physics::Walking);
 }
 
+namespace {
+
+/// Presses jump for one tick from `s`, then lets go until the body stops
+/// rising; returns that state and how far it rose from the press.
+std::pair<MoveState, double> jumpToTop(const BodyWorld& world, const MoveRules& rules, MoveState s) {
+    MoveCommand jump;
+    jump.jump = true;
+    const double from = s.location.z;
+    s = tick(world, BODY, rules, s, jump, DT);
+    for (int k = 0; k < 300 && s.velocity.z > 0; ++k) s = tick(world, BODY, rules, s, {}, DT);
+    return {s, s.location.z - from};
+}
+
+} // namespace
+
+TEST_CASE("UTA-0017: a jump in the air rises exactly as high as the first, once per fall") {
+    const auto world = levelOf({});
+    MoveRules rules = RULES;
+    rules.airJumps = 1;
+
+    const auto [top, first] = jumpToTop(world, rules, standingAt(0, 0));
+    REQUIRE(top.physics == Physics::Falling);
+    CHECK(first > 50);
+    const auto [higher, second] = jumpToTop(world, rules, top);
+    CHECK(std::abs(second - first) < 1e-6);
+    CHECK(higher.location.z > top.location.z + 50);
+
+    // A third press does nothing: the velocity stays gravity's.
+    const auto [still, third] = jumpToTop(world, rules, higher);
+    CHECK(third < 1e-6);
+    CHECK(still.airJumpsUsed == 1);
+
+    // Landing gives the air jump back.
+    MoveState s = still;
+    for (int k = 0; k < 600 && s.physics == Physics::Falling; ++k) s = tick(world, BODY, rules, s, {}, DT);
+    REQUIRE(s.physics == Physics::Walking);
+    CHECK(s.airJumpsUsed == 0);
+}
+
+TEST_CASE("UTA-0017: the original's rules make no jump in the air") {
+    const auto world = levelOf({});
+    const auto [top, first] = jumpToTop(world, RULES, standingAt(0, 0));
+    const auto [after, second] = jumpToTop(world, RULES, top);
+    CHECK(second < 1e-6);
+    CHECK(after.airJumpsUsed == 0);
+}
+
 TEST_CASE("UTA-0017: walking off a ledge keeps its speed into the fall") {
     // A shelf 100 high ending at x = 100.
     const auto world = levelOf({box({-500, -200, 0}, {100, 200, 100})});
