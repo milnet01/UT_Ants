@@ -30,7 +30,7 @@ charge-max = 1             # unmeasured
 charge-scales = damage
 damage = 60                # unmeasured
 momentum = 66000           # unmeasured
-range = 60                 # unmeasured
+range = 120                # unmeasured: the eye is 66 above the floor
 self-momentum = 66000      # unmeasured
 
 [fire impact-hammer alt]

@@ -171,6 +171,8 @@ A projectile kind carries `speed`, `radius`, `gravity`, `lifetime`,
 striking: **explode**, **bounce** (`bounces`, `bounce-keep`), **stick**
 (Bio's glob, exploding after `fuse`), or **split** into another kind
 (the flak shell). `combo` names what an instant hit on it sets off.
+`expire` says whether it explodes or vanishes when its `lifetime` ends
+(the grenade explodes).
 
 A new archetype is a code change; a new weapon built from existing
 archetypes is not. That is the line § 3 item 3 draws.
@@ -182,30 +184,34 @@ archetypes is not. That is the line § 3 item 3 draws.
 timers); the live projectiles; a tick count; and one random generator,
 a seeded integer generator whose state is part of the game state.
 
-`ugame::tick(world, set, game, commands)` runs, per tick, for each body
-in order: weapon switching, then movement (`uworld::tick`), then firing.
-Then each projectile moves, sweeping its radius through the `BodyWorld`
-and against body cylinders, and strikes. Damage and momentum land at the
-end of the tick, so bodies' order changes no result.
+`ugame::tick(world, set, rules, game, commands, dt)` runs, per tick:
+each body switches weapon and moves (`uworld::tick`); then each body
+fires; then each projectile moves, sweeping its radius through the
+`BodyWorld` and against body cylinders, and strikes. A projectile of
+radius 0 is traced as a segment, by `BodyWorld::trace`. Damage and
+momentum land at the end of the tick. Every body moves before any
+fires, so no body's place in the order changes what a shot hits.
 
 - **Bodies are UT99's upright cylinders** (`BodySize`). A segment or a
   projectile hits one where it enters the cylinder. A hit in its upper
   part counts as a head where the mode has `headshot-scale`; that
-  height is measured (§ 4.7).
+  height is `[set]`'s `head-height`, a share of the half-height above
+  the centre, measured (§ 4.7).
 - **Spread** draws from the game's generator, as angle units, turned
   into a direction through `core/Angles.h`. No platform maths: design
   rule 9 and UTA-0049's numeric contract hold for `ugame` as for
   `uworld`.
 - **Self-damage and self-push** follow the original: a rocket at your
   feet and a hammer against the floor both throw you (**S2**). How
-  much damage the firer takes is measured.
+  much damage the firer takes is `[set]`'s `self-damage`, measured.
 - **A body at zero health** is dead. In `ut-ants` the player respawns at
   a `PlayerStart` with the full set, and a dummy is removed.
 
 ### 4.6 The command and the push (amends UTA-0017 § 4.2)
 
 `MoveCommand` gains `pitch` (65536 to a turn) and button bits `fire`,
-`altFire`, and `weapon`: a slot asked for this tick, or none. One
+`altFire`, `weaponSlot` (a number key pressed this tick, or none) and
+`weaponStep` (next or previous weapon). One
 command per tick still carries all input (design rule 12).
 `uworld` gains a push: momentum added to a body's velocity, lifting a
 walking body into `Falling` where the original does. Movement with no

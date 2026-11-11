@@ -4,6 +4,8 @@
 # that draws, plays or shows.
 
 add_library(uta_ugame STATIC
+    Fire.cpp
+    Game.cpp
     WeaponSet.cpp)
 target_link_libraries(uta_ugame PUBLIC uta_core uta_uworld)
 

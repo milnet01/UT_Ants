@@ -356,6 +356,34 @@ BodyMove BodyWorld::slide(const BodySize& size, const Vec3& from, const Vec3& de
     return move;
 }
 
+BodyHit BodyWorld::trace(const Vec3& from, const Vec3& to) const {
+    if (state_->inSolid(from)) return BodyHit{0, {}, true};
+    Hit first = uworld::trace(state_->levelTree, from, to);
+    for (const Mover& mover : state_->movers) {
+        if (mover.shape == nullptr) continue;
+        const auto a = intoPivot(mover, from);
+        const auto b = intoPivot(mover, to);
+        if (!a || !b) continue;
+        // The pivot map is affine, so a fraction along the mapped segment is
+        // the same fraction along this one.
+        const Hit hit = uworld::trace(mover.tree, *a, *b);
+        if (hit.fraction >= first.fraction) continue;
+        // A normal maps back by the transpose of the map's inverse: the turn
+        // undone, then divided by the scale.
+        const std::array<double, 3> n{hit.normal.x, hit.normal.y, hit.normal.z};
+        std::array<double, 3> back{};
+        for (int row = 0; row < 3; ++row) {
+            for (int col = 0; col < 3; ++col) back[row] += mover.turn[row][col] * n[col];
+            back[row] /= mover.postScale[row];
+        }
+        first = Hit{hit.fraction, Vec3{back[0], back[1], back[2]}};
+    }
+    if (first.fraction >= 1) return BodyHit{};
+    Vec3 normal = unit(first.normal);
+    if (dot(normal, to - from) > 0) normal = normal * -1;
+    return BodyHit{first.fraction, normal, false};
+}
+
 bool BodyWorld::fits(const BodySize& size, const Vec3& at) const {
     JPH::CylinderShape body(static_cast<float>(size.halfHeight * TO_JOLT), static_cast<float>(size.radius * TO_JOLT),
                             static_cast<float>(RIM * TO_JOLT));

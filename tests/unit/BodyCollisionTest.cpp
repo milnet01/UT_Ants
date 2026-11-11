@@ -280,3 +280,44 @@ TEST_CASE("UTA-0457 INV-8: a fixed sequence of sweeps hashes to one constant") {
     INFO("hash " << hash);
     CHECK(hash == 6334859207609988200ULL);
 }
+
+TEST_CASE("UTA-0019 SS 4.1: a segment stops at the level and at a mover where it is placed", "[uworld][trace]") {
+    uta::ubundle::Collision collision;
+    collision.level = solidBlocks({box({-2000, -2000, -64}, {2000, 2000, 0})});
+    collision.movers.push_back({7, solidBlocks({box({-8, -64, 0}, {8, 64, 200})})});
+    uta::ubundle::MoverShape shape;
+    shape.exportIndex = 7;
+    shape.location = {100, 300, 0};
+    const std::vector<uta::ubundle::MoverShape> movers{shape};
+    auto built = BodyWorld::build(collision, movers);
+    REQUIRE(built.has_value());
+    auto& world = *built;
+
+    // Down onto the floor: a quarter of the way, the floor's normal facing up.
+    const auto floor = world.trace({0, 0, 100}, {0, 0, -300});
+    CHECK(floor.fraction == Catch::Approx(0.25));
+    CHECK(floor.normal.z == Catch::Approx(1));
+    CHECK_FALSE(floor.startsInside);
+
+    // Across the mover's face at x = 92, from either side.
+    const auto east = world.trace({0, 300, 100}, {200, 300, 100});
+    CHECK(east.fraction == Catch::Approx(0.46));
+    CHECK(east.normal.x == Catch::Approx(-1));
+    const auto west = world.trace({200, 300, 100}, {0, 300, 100});
+    CHECK(west.fraction == Catch::Approx(0.46));
+    CHECK(west.normal.x == Catch::Approx(1));
+
+    // Moved away, it stops nothing; turned a quarter, its long side faces the
+    // segment, at x = 100 - 64.
+    REQUIRE(world.placeMover(0, {500, 300, 0}, {0, 0, 0}).has_value());
+    CHECK(world.trace({0, 300, 100}, {200, 300, 100}).fraction == 1);
+    REQUIRE(world.placeMover(0, {100, 300, 0}, {0, 16384, 0}).has_value());
+    const auto turned = world.trace({0, 300, 100}, {200, 300, 100});
+    CHECK(turned.fraction == Catch::Approx(0.18));
+    CHECK(turned.normal.x == Catch::Approx(-1));
+
+    // A segment starting inside solid stops at once.
+    const auto inside = world.trace({0, 0, -10}, {0, 0, 100});
+    CHECK(inside.startsInside);
+    CHECK(inside.fraction == 0);
+}

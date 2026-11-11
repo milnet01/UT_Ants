@@ -26,6 +26,12 @@ struct MoveCommand {
     bool jump = false;              ///< held; a jump starts on the tick it is pressed
     bool walk = false, duck = false;
     DodgeDir dodge = DodgeDir::None; ///< a dodge asked for this tick
+    // UTA-0019 SS 4.6: aim and the fire buttons, which movement ignores and
+    // ugame reads, so one command still carries a tick's whole input.
+    std::int32_t pitch = 0;         ///< the view's, 65536 to a turn, up positive
+    bool fire = false, altFire = false; ///< held
+    std::int8_t weaponSlot = -1;    ///< a number key pressed this tick, 0 to 9; -1 for none
+    std::int8_t weaponStep = 0;     ///< +1 next weapon, -1 previous, 0 neither
 };
 
 enum class Physics : std::uint8_t { Walking, Falling };
@@ -69,6 +75,10 @@ struct MoveRules {
 /// its physics.
 [[nodiscard]] MoveState tick(const BodyWorld& world, const BodySize& size, const MoveRules& rules,
                              const MoveState& state, const MoveCommand& command, double dt);
+
+/// UTA-0019 SS 4.6: `velocity` added to a body, as the original's
+/// AddVelocity does; a walking body is lifted into Falling. A pure function.
+[[nodiscard]] MoveState push(const MoveState& state, const Vec3& velocity);
 
 /// The direction keys held on one tick.
 struct DirectionKeys {

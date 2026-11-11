@@ -58,6 +58,7 @@ add_executable(uta_unit_tests
     unit/BlockFixture.cpp
     unit/BodyCollisionTest.cpp
     unit/FixedTickTest.cpp
+    unit/GameTest.cpp
     unit/MovementTest.cpp
     unit/CollisionMeshTest.cpp
     unit/BundleFlamesTest.cpp

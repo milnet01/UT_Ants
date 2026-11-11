@@ -80,6 +80,13 @@ public:
     /// along the crease of two, for at most MAX_SLIDES turns.
     [[nodiscard]] BodyMove slide(const BodySize& size, const Vec3& from, const Vec3& delta) const;
 
+    /// A segment from `from` to `to` against the level and the movers, by
+    /// their collision trees (UTA-0019 SS 4.1): a shot, or a projectile too
+    /// small to sweep. `fraction` is where it first enters solid, `normal`
+    /// that surface's, facing `from`. A segment starting in solid stops at
+    /// once: fraction 0, startsInside, no normal.
+    [[nodiscard]] BodyHit trace(const Vec3& from, const Vec3& to) const;
+
     /// Whether a body at `at` overlaps nothing: no surface by more than a
     /// hundredth of a unit, and its centre not in solid.
     [[nodiscard]] bool fits(const BodySize& size, const Vec3& at) const;

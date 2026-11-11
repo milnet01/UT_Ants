@@ -205,6 +205,13 @@ MoveState tick(const BodyWorld& world, const BodySize& size, const MoveRules& ru
     return walk(world, size, rules, s, push, command.walk || command.duck, dt);
 }
 
+MoveState push(const MoveState& state, const Vec3& velocity) {
+    MoveState s = state;
+    s.velocity = s.velocity + velocity;
+    if (s.physics == Physics::Walking) s.physics = Physics::Falling;
+    return s;
+}
+
 DodgeDir DoubleTap::update(const DirectionKeys& held, double dt, bool ready) noexcept {
     const DirectionKeys was = was_;
     was_ = held;
