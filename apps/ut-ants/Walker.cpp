@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 namespace uta::client {
 namespace {
@@ -43,7 +44,8 @@ uworld::DodgeDir dodgeToward(float forward, float right) noexcept {
 
 } // namespace
 
-Walker::Walker(std::array<double, 3> location, double pitch, double yaw) noexcept : pitch_(pitch), yaw_(yaw) {
+Walker::Walker(std::array<double, 3> location, double pitch, double yaw, uworld::Teleporters teleporters) noexcept
+    : teleporters_(std::move(teleporters)), pitch_(pitch), yaw_(yaw) {
     rules_.airJumps = 1; // a double jump (user, 2026-11-10)
     state_.location = {location[0], location[1], location[2]};
     state_.physics = uworld::Physics::Falling;
@@ -77,6 +79,14 @@ void Walker::update(const uinput::Frame& input, double seconds, const uworld::Bo
         state_ = uworld::tick(world, uworld::BodySize{}, rules_, state_, command, clock_.dt());
         previousEyeHeight_ = eyeHeight_;
         eyeHeight_ = eyeAfterTick(eyeHeight_, previous_, state_);
+        if (const auto arrival = teleporters_.touch(world, uworld::BodySize{}, state_.location, state_.velocity, yaw_)) {
+            state_.location = arrival->location;
+            state_.velocity = arrival->velocity;
+            yaw_ = arrival->yaw;
+            command.yaw = static_cast<std::int32_t>(std::lround(yaw_));
+            previous_ = state_; // the view jumps, rather than sweeping across the map
+            previousEyeHeight_ = eyeHeight_;
+        }
     }
 }
 

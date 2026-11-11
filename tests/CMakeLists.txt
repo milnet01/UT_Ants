@@ -85,6 +85,7 @@ add_executable(uta_unit_tests
     unit/ClientCliTest.cpp
     unit/ClientFlyCameraTest.cpp
     unit/ClientWalkerTest.cpp
+    unit/TeleportersTest.cpp
     unit/InputTest.cpp
     unit/ClientFrameRateTest.cpp
     unit/ClientCaptureTest.cpp

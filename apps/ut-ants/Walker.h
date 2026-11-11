@@ -11,6 +11,7 @@
 
 #include "uworld/FixedTick.h"
 #include "uworld/Movement.h"
+#include "uworld/Teleporters.h"
 
 #include <array>
 
@@ -21,11 +22,13 @@ public:
     /// UT99's BaseEyeHeight: the eye above the body's centre (the PAWN line).
     static constexpr double EYE_HEIGHT = 27;
 
-    /// A body with its centre at `location`, falling until it meets a floor.
-    Walker(std::array<double, 3> location, double pitch, double yaw) noexcept;
+    /// A body with its centre at `location`, falling until it meets a floor,
+    /// in a level with `teleporters` (UTA-0205).
+    Walker(std::array<double, 3> location, double pitch, double yaw, uworld::Teleporters teleporters = {}) noexcept;
 
     /// One frame: the look now, then every tick `seconds` makes due, each
-    /// with this frame's actions. A Dodge press dodges the way the move
+    /// with this frame's actions, each followed by any teleport it ends in.
+    /// A Dodge press dodges the way the move
     /// points most, on the next tick; with no move, or while a dodge is not
     /// ready, it is dropped, as a double tap's press would be.
     void update(const uinput::Frame& input, double seconds, const uworld::BodyWorld& world) noexcept;
@@ -41,6 +44,7 @@ private:
     uworld::DoubleTap tap_;
     uworld::DodgeDir dodgeAsked_ = uworld::DodgeDir::None; ///< a Dodge press waiting for a tick
     uworld::MoveRules rules_;
+    uworld::Teleporters teleporters_;
     uworld::MoveState state_, previous_;
     /// The eye above the body's centre after the last two ticks: it lags a
     /// step up or down and eases back to EYE_HEIGHT (spec SS 4.8).

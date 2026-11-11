@@ -341,7 +341,7 @@ void Viewer::toggleWalking() {
             std::cerr << "ut-ants: this bundle has no collision to walk on\n";
             return;
         }
-        // The level and its movers where the map places them; riding them is UTA-0205's.
+        // The level and its movers where the map places them; nothing moves them yet.
         static const std::vector<uta::ubundle::MoverShape> none;
         auto built = uta::uworld::BodyWorld::build(*bundle.collision, bundle.movers ? *bundle.movers : none);
         if (!built) {
@@ -352,7 +352,9 @@ void Viewer::toggleWalking() {
     }
     const uta::urender::Camera view = start.camera.camera(config.width, config.height);
     walker.emplace(std::array<double, 3>{view.location[0], view.location[1], view.location[2] - Walker::EYE_HEIGHT},
-                   view.rotation[0], view.rotation[1]);
+                   view.rotation[0], view.rotation[1],
+                   bundle.placements ? uta::uworld::Teleporters::fromPlacements(*bundle.placements)
+                                     : uta::uworld::Teleporters{});
     std::cerr << "ut-ants: walking\n";
 }
 

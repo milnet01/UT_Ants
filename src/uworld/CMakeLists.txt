@@ -10,7 +10,8 @@ add_library(uta_uworld STATIC
     CollisionMesh.cpp
     CollisionQuery.cpp
     FixedTick.cpp
-    Movement.cpp)
+    Movement.cpp
+    Teleporters.cpp)
 target_link_libraries(uta_uworld PUBLIC uta_core uta_ubundle PRIVATE Jolt)
 
 # Asserted at configure time, in the form every sibling uses. A link beyond

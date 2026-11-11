@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=462 -->
+<!-- ants-roadmap-id-high-water: UTA=463 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -18769,7 +18769,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-09-16.
   Lanes: ut-ants.
 
-- 📋 [UTA-0205] **The map launcher's player cannot use teleporters, so a map whose first room exits by teleporter cannot be left.**
+- 🚧 [UTA-0205] **The map launcher's player cannot use teleporters, so a map whose first room exits by teleporter cannot be left.**
   Reported by the user 2026-09-25, from the map launcher. On a map whose
   start room is left only by a teleporter, walking into it does nothing.
   So the rest of the map is out of reach.
@@ -18786,6 +18786,18 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   holds work its release does not wait on. The user may move it.
   Related: UTA-0142 settles which teleporters start switched off and what
   switches them on.
+  Progress 2026-11-11 (still 🚧). Built: src/uworld/Teleporters.{h,cpp}
+  (UT 469 Engine.u's Teleporter.Touch and Accept, read from the script text
+  in System/Engine.u), wired into apps/ut-ants Walker and main.cpp. Unit
+  tests tests/unit/TeleportersTest.cpp: 7 cases green; 11 hand mutants all
+  killed. Custom subclasses split to UTA-0463.
+  Open: on a real bundle (cache 325797b9..., teleporters tudamt/tudamb) a
+  walker walking at teleporter tudamt (294,-773,-3826) from 150 units off
+  passes under it: its centre ends at z -3928, 102 below the teleporter's,
+  beyond the 79 a touch reaches (40 + 39). Find why before shipping: is the
+  teleporter raised in the map, or does UT's touch reach further (e.g. a
+  pawn's collision or a different CollisionHeight)? Probe:
+  Scratchpad/UT_Ants/mut/ZzProbeTeleportersTest.cpp.
   **Layman:** Stepping into a teleporter in the map launcher does nothing, so maps that start in a room with only a teleporter out can't be explored.
   Kind: feature.
   Source: user-request-2026-09-25.
@@ -20825,6 +20837,23 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   **Layman:** On AS-Guardia, pressing G to walk does nothing, because one door or lift has no solid shape.
   Kind: fix.
   Source: in-session-2026-11-10 UTA-0018 viewer check.
+  Lanes: uworld.
+
+- 📋 [UTA-0463] **A map's own Teleporter subclass sends nobody: jump pads and custom teleporters are destinations only.**
+  Found building UTA-0205. A subclass may replace Teleporter.Touch (swJumpPad
+  launches the player instead), and the bundle carries no script, so
+  UTA-0205 lets only Engine.Teleporter, Botpack.VisibleTeleporter and
+  UnrealShare.FavoritesTeleporter send; any subclass is still a destination.
+
+  Census 2026-11-11 (ut-dump --wiring-graph over the install's Maps): 853 of
+  1615 maps hold a stock teleporter; 121 hold a map's own subclass, 36 of
+  them only those. Commonest: PlayerDest (58 maps), swJumpPad (26),
+  Shortcut (58), PlayerTeleporter (11), XVisibleTeleporter (5). Each class
+  needs its own behaviour read from its script; UTA-0023 resolves custom
+  classes generally. Script: Scratchpad/UT_Ants/mut/census.py.
+  **Layman:** Some maps use their own kinds of teleporter or jump pad; stepping into those does nothing yet.
+  Kind: feature.
+  Source: in-session-2026-11-11.
   Lanes: uworld.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
