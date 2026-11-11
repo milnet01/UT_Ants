@@ -61,6 +61,12 @@ std::int32_t spreadDraw(Game& game, std::uint32_t spread) {
     return static_cast<std::int32_t>(draw(game) % span) - static_cast<std::int32_t>(spread);
 }
 
+Vec3 spreadAim(Game& game, std::int32_t yaw, std::int32_t pitch, std::uint32_t spread) {
+    const std::int32_t yawOff = spreadDraw(game, spread);
+    const std::int32_t pitchOff = spreadDraw(game, spread);
+    return aimOf(yaw + yawOff, pitch + pitchOff);
+}
+
 Vec3 eyeOf(const Body& body) { return body.move.location + Vec3{0, 0, EYE_HEIGHT}; }
 
 SegmentHit traceSegment(const Tick& tick, const Vec3& from, const Vec3& to, int ignore, bool combos) {
@@ -149,8 +155,7 @@ void fire(Tick& tick, int index, const FireMode& mode, double scale) {
     case Archetype::InstantHit: {
         carried.ammo -= mode.ammo;
         for (std::uint32_t pellet = 0; pellet < mode.pellets; ++pellet) {
-            const Vec3 aim = aimOf(body.yaw + spreadDraw(tick.game, mode.spread),
-                                   body.pitch + spreadDraw(tick.game, mode.spread));
+            const Vec3 aim = spreadAim(tick.game, body.yaw, body.pitch, mode.spread);
             const Vec3 end = eye + aim * mode.range;
             const SegmentHit hit = traceSegment(tick, eye, end, index, true);
             const Vec3 stop = eye + (end - eye) * std::min(hit.fraction, 1.0);
@@ -188,8 +193,7 @@ void fire(Tick& tick, int index, const FireMode& mode, double scale) {
             std::ranges::find(tick.set.projectiles, mode.projectile, &Projectile::name) - tick.set.projectiles.begin());
         const double speed = tick.set.projectiles[kind].speed;
         for (std::uint32_t i = 0; i < count; ++i) {
-            const Vec3 aim = aimOf(body.yaw + spreadDraw(tick.game, mode.spread),
-                                   body.pitch + spreadDraw(tick.game, mode.spread));
+            const Vec3 aim = spreadAim(tick.game, body.yaw, body.pitch, mode.spread);
             tick.spawned.push_back(Shot{.kind = kind, .owner = index, .location = eye, .velocity = aim * speed,
                                         .damageScale = damageScale});
         }

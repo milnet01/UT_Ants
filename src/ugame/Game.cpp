@@ -161,8 +161,7 @@ void explode(Tick& tick, std::size_t index, int struck, const Vec3& away) {
                                                                           : (centre.y >= 0 ? 16384 : 49152);
     const std::int32_t basePitch = centre.z > 0.7 ? 16384 : centre.z < -0.7 ? -16384 : 0;
     for (std::uint32_t i = 0; i < kind.splitCount; ++i) {
-        const Vec3 aim = aimOf(baseYaw + detail::spreadDraw(tick.game, kind.splitSpread),
-                               basePitch + detail::spreadDraw(tick.game, kind.splitSpread));
+        const Vec3 aim = detail::spreadAim(tick.game, baseYaw, basePitch, kind.splitSpread);
         tick.spawned.push_back(Shot{.kind = into, .owner = shot.owner, .location = shot.location,
                                     .velocity = aim * speed});
     }

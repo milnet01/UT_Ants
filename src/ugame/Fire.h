@@ -34,6 +34,11 @@ struct Tick {
 /// An angle in [-spread, spread] units from the game's generator.
 [[nodiscard]] std::int32_t spreadDraw(Game& game, std::uint32_t spread);
 
+/// `yaw` and `pitch` each moved by a spread draw, the yaw's drawn first,
+/// as a direction. The draws are sequenced here: two in one call's
+/// arguments would come in an order each compiler picks (INV-5).
+[[nodiscard]] Vec3 spreadAim(Game& game, std::int32_t yaw, std::int32_t pitch, std::uint32_t spread);
+
 /// The eye of `body`.
 [[nodiscard]] Vec3 eyeOf(const Body& body);
 

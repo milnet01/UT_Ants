@@ -291,5 +291,5 @@ TEST_CASE("INV-5: a scripted fight is the same at every frame rate and on every 
         CHECK(again == reference);
     }
     INFO("final hash " << reference.back());
-    CHECK(reference.back() == 15636726512813428711u);
+    CHECK(reference.back() == 11606313218953778414u);
 }
