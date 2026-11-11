@@ -9,7 +9,9 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <cmath>
+#include <numbers>
 
 using uta::test::blocks::box;
 using uta::test::blocks::solidBlocks;
@@ -280,4 +282,233 @@ TEST_CASE("UTA-0205: the walker walks into a teleporter and comes out at its des
     CHECK(std::abs(eye.location[0] - 2000) < 30);
     CHECK(std::abs(eye.location[1]) < 30);
     CHECK(std::abs(eye.rotation[1] - 32768) < 2);
+}
+
+namespace {
+
+/// A swJumpPad as its class sets it: 64 across, 24 high, 45 degrees, aimed
+/// at `target` with no ground trace.
+Teleporter jumpPad(Vec3 at, Vec3 target, double angle = 45) {
+    Teleporter t = teleporter(at, "pad", "there");
+    t.radius = 64;
+    t.height = 24;
+    uta::uworld::JumpPad pad;
+    pad.angle = angle;
+    pad.traceGround = false;
+    pad.target = target;
+    pad.targetHeight = 0;
+    t.jumpPad = pad;
+    return t;
+}
+
+/// Where a launch from `feet` with `v` under gravity `g` is, at the target's
+/// horizontal distance: the arc's height there, less the target's.
+double missAtTarget(const Vec3& feet, const Vec3& v, const Vec3& target, double g) {
+    const double out = std::hypot(target.x - feet.x, target.y - feet.y);
+    const double t = out / std::hypot(v.x, v.y);
+    return feet.z + v.z * t - 0.5 * g * t * t - target.z;
+}
+
+} // namespace
+
+TEST_CASE("UTA-0463: a jump pad launches a body on an arc through its target") {
+    const BodyWorld world = floorWorld();
+    const BodySize size;
+    for (const double angle : {30.0, 45.0, 75.0}) {
+        for (const Vec3 target : {Vec3{192, 0, 256}, Vec3{-600, 400, 0}, Vec3{0, 900, -200}}) {
+            Teleporters teleporters({jumpPad({0, 0, 24}, target, angle)});
+            const Vec3 at{10, 0, 39};
+            const auto launched = teleporters.touch(world, size, at, {}, 1234, {}, 1.0 / 60);
+            REQUIRE(launched);
+            CHECK(launched->launched);
+            CHECK(near(launched->location, at)); // it stays where it is
+            CHECK(launched->yaw == 1234);        // and keeps its view
+            // Aimed straight at the target, and coming down on it.
+            const Vec3& v = launched->velocity;
+            const Vec3 feet{at.x, at.y, at.z - size.halfHeight};
+            const double across = (target.x - feet.x) * v.y - (target.y - feet.y) * v.x;
+            CHECK(std::abs(across) / std::hypot(v.x, v.y) < 0.01 * std::hypot(target.x - feet.x, target.y - feet.y));
+            CHECK(std::abs(missAtTarget(feet, v, target, 950)) < 2);
+        }
+    }
+}
+
+TEST_CASE("UTA-0463: the walker rides a jump pad to its target") {
+    const BodyWorld world = floorWorld();
+    // The target is the floor 900 units along +Y; the pad is on the floor.
+    Teleporters teleporters({jumpPad({0, 300, 24}, {0, 1200, 0}, 60)});
+    uta::client::Walker walker({0, 0, 100}, 0, 16384, std::move(teleporters));
+    for (int frame = 0; frame < 60; ++frame) walker.update({}, 1.0 / 60, world);
+    uta::uinput::Frame forward;
+    forward.forward = 1;
+    bool flying = false;
+    for (int frame = 0; frame < 120 && !flying; ++frame) {
+        walker.update(forward, 1.0 / 60, world);
+        flying = walker.state().velocity.z > 100;
+    }
+    REQUIRE(flying);
+    double highest = 0;
+    for (int frame = 0; frame < 600 && walker.state().physics == uta::uworld::Physics::Falling; ++frame) {
+        walker.update({}, 1.0 / 60, world);
+        highest = std::max(highest, walker.state().location.z);
+    }
+    CHECK(highest > 200); // it flew, rather than walking there
+    CHECK(walker.state().physics == uta::uworld::Physics::Walking);
+    CHECK(std::abs(walker.state().location.x) < 20);
+    CHECK(std::abs(walker.state().location.y - 1200) < 60);
+}
+
+TEST_CASE("UTA-0463: a jump pad waits its JumpWait before launching the same body again") {
+    const BodyWorld world = floorWorld();
+    const BodySize size;
+    Teleporters teleporters({jumpPad({0, 0, 24}, {500, 0, 0})});
+    const Vec3 on{0, 0, 39}, off{300, 0, 39};
+    REQUIRE(teleporters.touch(world, size, on, {}, 0, {}, 0.1));
+    CHECK_FALSE(teleporters.touch(world, size, off, {}, 0, {}, 0.1));
+    CHECK_FALSE(teleporters.touch(world, size, on, {}, 0, {}, 0.1)); // back 0.2 s later: too soon
+    CHECK_FALSE(teleporters.touch(world, size, off, {}, 0, {}, 0.5));
+    CHECK(teleporters.touch(world, size, on, {}, 0, {}, 0.5)); // 1.2 s after the launch
+}
+
+TEST_CASE("UTA-0463: a jump pad launches nobody without a target, for bots only, or for another team") {
+    const BodyWorld world = floorWorld();
+    const BodySize size;
+    const Vec3 on{0, 0, 39};
+    Teleporter none = jumpPad({0, 0, 24}, {500, 0, 0});
+    none.jumpPad->target.reset();
+    Teleporter bots = jumpPad({0, 0, 24}, {500, 0, 0});
+    bots.jumpPad->botsOnly = true;
+    Teleporter team = jumpPad({0, 0, 24}, {500, 0, 0});
+    team.jumpPad->teamOnly = true;
+    for (const Teleporter& pad : {none, bots, team}) {
+        Teleporters teleporters({pad});
+        CHECK_FALSE(teleporters.touch(world, size, on, {}, 0, {}, 0.1));
+    }
+    // The player has no team: UT's 255, the one TeamNumber a team-only pad
+    // launches it for.
+    team.jumpPad->teamNumber = 255;
+    Teleporters open({team});
+    CHECK(open.touch(world, size, on, {}, 0, {}, 0.1));
+}
+
+TEST_CASE("UTA-0463: AM_Extremes alternates JumpAngle + AngleRand with JumpAngle; AM_Owned takes the steep one") {
+    const BodyWorld world = floorWorld();
+    const BodySize size;
+    const auto steepness = [&](Teleporters& teleporters, double dt) {
+        const auto launched = teleporters.touch(world, size, {0, 0, 39}, {}, 0, {}, dt);
+        REQUIRE(launched);
+        CHECK_FALSE(teleporters.touch(world, size, {300, 0, 39}, {}, 0, {}, 0)); // step off
+        return std::atan2(launched->velocity.z, std::hypot(launched->velocity.x, launched->velocity.y)) * 180
+               / std::numbers::pi;
+    };
+    Teleporter extremes = jumpPad({0, 0, 24}, {800, 0, 0}, 30);
+    extremes.jumpPad->angleRand = 40;
+    extremes.jumpPad->angleMode = 1;
+    Teleporters alternating({extremes});
+    CHECK(std::abs(steepness(alternating, 2) - 70) < 0.1);
+    CHECK(std::abs(steepness(alternating, 2) - 30) < 0.1);
+    CHECK(std::abs(steepness(alternating, 2) - 70) < 0.1);
+
+    Teleporter owned = extremes;
+    owned.jumpPad->angleMode = 2;
+    owned.jumpPad->teamNumber = 1;
+    Teleporters others({owned});
+    CHECK(std::abs(steepness(others, 2) - 70) < 0.1);
+}
+
+TEST_CASE("UTA-0463: a target above the jump angle's line raises the angle until the arc reaches it") {
+    const BodyWorld world = floorWorld();
+    const BodySize size;
+    // 100 out and 400 up: the line to it is about 76 degrees, above 45.
+    Teleporter steep = jumpPad({0, 0, 24}, {100, 0, 400});
+    steep.jumpPad->minAngle = 1;
+    steep.jumpPad->maxAngle = 89;
+    steep.jumpPad->minAngleCurve = 3;
+    steep.jumpPad->minAngleFinder = 0.75;
+    Teleporters teleporters({steep});
+    const auto launched = teleporters.touch(world, size, {0, 0, 39}, {}, 0, {}, 0.1);
+    REQUIRE(launched);
+    const Vec3& v = launched->velocity;
+    CHECK(std::atan2(v.z, std::hypot(v.x, v.y)) > 76 * std::numbers::pi / 180);
+    CHECK(std::abs(missAtTarget({0, 0, 0}, v, {100, 0, 400}, 950)) < 2);
+}
+
+TEST_CASE("UTA-0463: a jump pad aims at the floor below its target when it traces the ground, raised by TargetZOffset") {
+    const BodyWorld world = floorWorld();
+    const BodySize size;
+    Teleporter pad = jumpPad({0, 0, 24}, {600, 0, 300});
+    pad.jumpPad->traceGround = true;
+    pad.jumpPad->targetHeight = 24;
+    pad.jumpPad->targetZOffset = 40;
+    Teleporters teleporters({pad});
+    const auto launched = teleporters.touch(world, size, {0, 0, 39}, {}, 0, {}, 0.1);
+    REQUIRE(launched);
+    CHECK(std::abs(missAtTarget({0, 0, 0}, launched->velocity, {600, 0, 40}, 950)) < 2); // the floor, raised 40
+}
+
+TEST_CASE("UTA-0463: a stock teleporter cannot send a body to a jump pad, whose Accept refuses") {
+    const BodyWorld world = floorWorld();
+    Teleporter pad = jumpPad({1000, 0, 40}, {2000, 0, 0}); // high enough for a body to fit
+    pad.tag = "b";
+    Teleporters teleporters({teleporter({0, 0, 40}, "a", "b"), pad});
+    CHECK_FALSE(teleporters.touch(world, BodySize{}, {-30, 0, 40}, {}, 0));
+}
+
+TEST_CASE("UTA-0463: effects-only subclasses send, jump pads read their settings and target, others stay destinations") {
+    Placements placements;
+    ActorClass base;
+    base.path = "engine.teleporter";
+    base.resolved = true;
+    base.defaults = {record("bCollideActors", ValueKind::Bool, true), record("bEnabled", ValueKind::Bool, true)};
+    ActorClass effects = base;
+    effects.path = "mh-somemap.silentteleporter";
+    effects.ancestry = {"engine.teleporter"};
+    ActorClass custom = effects;
+    custom.path = "mh-somemap.playerteleporter";
+    ActorClass pad = effects;
+    pad.path = "dm-somemap.swjumppad";
+    pad.defaults.push_back(record("JumpAngle", ValueKind::Float, 45.0f));
+    pad.defaults.push_back(record("JumpWait", ValueKind::Float, 1.0f));
+    pad.defaults.push_back(record("bTraceGround", ValueKind::Bool, true));
+    ActorClass node;
+    node.path = "engine.pathnode";
+    placements.classes = {pad, node, base, custom, effects}; // ascending by path
+
+    const auto actor = [](std::uint32_t index, std::uint32_t classIndex, std::vector<PropertyRecord> properties) {
+        ActorPlacement a;
+        a.exportIndex = index;
+        a.classIndex = classIndex;
+        a.properties = std::move(properties);
+        return a;
+    };
+    const auto at = [](float x) { return record("Location", ValueKind::Vector, std::array<float, 3>{x, 0, 0}); };
+    placements.actors = {
+        actor(1, 4, {at(0), record("URL", ValueKind::String, std::string("Out"))}),
+        actor(2, 3, {at(100), record("URL", ValueKind::String, std::string("Out"))}),
+        actor(3, 1, {at(300), record("Tag", ValueKind::Name, std::string("up"))}),
+        actor(4, 1, {at(400), record("Tag", ValueKind::Name, std::string("UP")),
+                     record("CollisionHeight", ValueKind::Float, 50.0f)}),
+        // Last, and tagged as its own URL names: it does not aim at itself.
+        actor(5, 0, {at(200), record("Tag", ValueKind::Name, std::string("Up")),
+                     record("URL", ValueKind::String, std::string("Up")),
+                     record("JumpAngle", ValueKind::Float, 75.0f), record("JumpWait", ValueKind::Float, 9.0f),
+                     record("AngleRandMode", ValueKind::Byte, std::uint8_t{2})}),
+    };
+
+    const Teleporters teleporters = Teleporters::fromPlacements(placements);
+    REQUIRE(teleporters.list().size() == 3);
+    CHECK(teleporters.list()[0].sends);       // effects only: Teleporter's Touch
+    CHECK_FALSE(teleporters.list()[1].sends); // its own Touch, unread
+    const Teleporter& jump = teleporters.list()[2];
+    CHECK(jump.sends);
+    REQUIRE(jump.jumpPad);
+    CHECK(jump.jumpPad->angle == 75);
+    CHECK(jump.jumpPad->angleMode == 2);
+    CHECK(jump.jumpPad->traceGround);
+    CHECK(jump.jumpPad->wait == 1); // default.JumpWait: the class's, not the actor's
+    // The last actor tagged Up, of any class and itself excepted.
+    REQUIRE(jump.jumpPad->target);
+    CHECK(near(*jump.jumpPad->target, {400, 0, 0}));
+    CHECK(jump.jumpPad->targetHeight == 50);
+    CHECK_FALSE(teleporters.list()[0].jumpPad);
 }

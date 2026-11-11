@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=463 -->
+<!-- ants-roadmap-id-high-water: UTA=464 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -20861,7 +20861,30 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Shortcut (58), PlayerTeleporter (11), XVisibleTeleporter (5). Each class
   needs its own behaviour read from its script; UTA-0023 resolves custom
   classes generally. Script: Scratchpad/UT_Ants/mut/census.py.
+  Built 2026-11-11: swJumpPad and BCEJumpPad launch the body by their
+  own CalcVelocity (source carried in the maps), at the last actor their
+  URL tags; the effects-only subclasses (PlayTeleportEffect or nothing
+  replaced) send as Teleporter. On DM-300k-RunningDog's pad the walker
+  flew 192 up and landed 11 units past the target pad's centre. The
+  classes with no source moved to UTA-0464.
   **Layman:** Some maps use their own kinds of teleporter or jump pad; stepping into those does nothing yet.
+  Kind: feature.
+  Source: in-session-2026-11-11.
+  Lanes: uworld.
+
+- 📋 [UTA-0464] **A Teleporter subclass that replaces Touch or Accept with no source in the map still sends nobody.**
+  Split from UTA-0463, which made jump pads (swJumpPad, BCEJumpPad)
+  and the effects-only subclasses work. The rest define Touch, PostTouch
+  or Accept, and most ship without their ScriptText, so only their
+  compiled script says what they do. Census 2026-11-11 (functions each
+  class defines, Maps and System): PlayerTeleporter (11 maps, Touch),
+  PlayerDest (58 maps, Accept and Trigger; a destination, which lands
+  bodies by stock Accept today), myTeleporter in maps (4, Touch),
+  UTJumpPad (XJumpPad.u), DoubleJumpSpot (XPaths.u), fadeoutTeleporter
+  (SevenB.u), and a tail of one-map classes. ADR-0004 reads custom
+  actors by ancestry and defaults, not script; UTA-0023 is the general
+  route. Script: Scratchpad/UT_Ants/tp463/funcs.py.
+  **Layman:** Some maps' own teleporters still do nothing when stepped into, because the map does not say how they work.
   Kind: feature.
   Source: in-session-2026-11-11.
   Lanes: uworld.

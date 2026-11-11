@@ -79,7 +79,13 @@ void Walker::update(const uinput::Frame& input, double seconds, const uworld::Bo
         state_ = uworld::tick(world, uworld::BodySize{}, rules_, state_, command, clock_.dt());
         previousEyeHeight_ = eyeHeight_;
         eyeHeight_ = eyeAfterTick(eyeHeight_, previous_, state_);
-        if (const auto arrival = teleporters_.touch(world, uworld::BodySize{}, state_.location, state_.velocity, yaw_)) {
+        if (const auto arrival = teleporters_.touch(world, uworld::BodySize{}, state_.location, state_.velocity, yaw_,
+                                                    rules_, clock_.dt())) {
+            if (arrival->launched) { // a jump pad: SetPhysics(PHYS_Falling), in place
+                state_.velocity = arrival->velocity;
+                state_.physics = uworld::Physics::Falling;
+                continue;
+            }
             state_.location = arrival->location;
             state_.velocity = arrival->velocity;
             yaw_ = arrival->yaw;
