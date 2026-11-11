@@ -20849,7 +20849,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: in-session-2026-11-10 UTA-0018 viewer check.
   Lanes: uworld.
 
-- 📋 [UTA-0463] **A map's own Teleporter subclass sends nobody: jump pads and custom teleporters are destinations only.**
+- ✅ [UTA-0463] **A map's own Teleporter subclass sends nobody: jump pads and custom teleporters are destinations only.**
   Found building UTA-0205. A subclass may replace Teleporter.Touch (swJumpPad
   launches the player instead), and the bundle carries no script, so
   UTA-0205 lets only Engine.Teleporter, Botpack.VisibleTeleporter and
@@ -20867,6 +20867,8 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   replaced) send as Teleporter. On DM-300k-RunningDog's pad the walker
   flew 192 up and landed 11 units past the target pad's centre. The
   classes with no source moved to UTA-0464.
+  Shipped on GitHub's matrix 2026-11-11 (2475ccf, run 43084295634: GCC,
+  Clang, MSVC).
   **Layman:** Some maps use their own kinds of teleporter or jump pad; stepping into those does nothing yet.
   Kind: feature.
   Source: in-session-2026-11-11.
