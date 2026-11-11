@@ -20805,7 +20805,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-11-10.
   Lanes: urender, uworld.
 
-- 📋 [UTA-0459] **Measure the steepest slope a player can walk up in the original.**
+- ✅ [UTA-0459] **Measure the steepest slope a player can walk up in the original.**
   UTA-0017's walkableFloorZ is 0.7, recalled from UT99 and not
   confirmed: no recorded run stands on a slope
   (docs/specs/UTA-0017-movement-rules.md § 4). Record a run onto
@@ -20816,12 +20816,14 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   slope of 0.6983 (slope-0698), so 0.7 stands; ut-ants' walker did the
   same in a probe from the same start points (Conveyor from -1260,1024:
   peak 1975 against the original's 1978; Chasm: -13398 against -13398). No code change.
+  Shipped on GitHub's matrix 2026-11-11 (4f406f3, run 43093246492: GCC,
+  Clang, MSVC).
   **Layman:** Check how steep a ramp can be before the player slides off, against the real game.
   Kind: investigate.
   Source: in-session-2026-11-10.
   Lanes: uworld.
 
-- 📋 [UTA-0461] **urender: anisotropic texture filtering, so floors and walls stay sharp at a grazing angle.**
+- ✅ [UTA-0461] **urender: anisotropic texture filtering, so floors and walls stay sharp at a grazing angle.**
   No sampler in src/ sets anisotropyEnable or maxAnisotropy
   (searched 2026-11-10), though scene.frag and water.glsl read with
   textureGrad. DOOM_Ants measured the trap (DOOM-0600, 2026-11-10):
@@ -20838,6 +20840,8 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   round; whole frames varied more between rounds than between A and B.
   Floor detail (mean Laplacian of luma, lower half of the frame) rose
   by 1.00x to 2.14x, never fell.
+  Shipped on GitHub's matrix 2026-11-11 (711dcb7, run 43093246492: GCC,
+  Clang, MSVC).
   **Layman:** Keep floors and walls sharp when seen at a low angle instead of blurring into the distance.
   Kind: enhancement.
   Source: in-session-2026-11-10.
