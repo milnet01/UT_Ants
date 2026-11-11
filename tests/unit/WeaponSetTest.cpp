@@ -1,0 +1,274 @@
+// Locks docs/specs/UTA-0019-weapon-set.md INV-1 (a set file is strict),
+// INV-2 (write reads back) and INV-3 (the shipped stock set parses and names
+// each stock class once).
+
+#include "ugame/WeaponSet.h"
+
+#include <catch2/catch_test_macros.hpp>
+
+#include <algorithm>
+#include <format>
+#include <string>
+#include <vector>
+
+namespace {
+
+/// A small set using every archetype, strike, charge and optional key.
+constexpr std::string_view SMALL = R"(ut-ants weapons 1
+[set]
+name = "Small # set"
+self-damage = 0.5
+head-height = 0.62
+
+[weapon gun]
+class = Botpack.ShockRifle
+slot = 4
+ammo-max = 50
+ammo-start = 20
+switch-time = 0.3
+
+[fire gun primary]
+archetype = instant-hit
+refire = 0.7
+ammo = 1
+spread = 100
+damage = 40
+momentum = 60000
+range = 10000
+pellets = 3
+headshot-scale = 2.5
+
+[fire gun alt]
+archetype = projectile
+refire = 0.6
+ammo = 2
+charge-time = 4
+charge-min = 0.25
+charge-max = 1
+charge-scales = count
+projectile = ball
+count = 4
+
+[weapon hammer]
+class = botpack.impacthammer
+slot = 1
+ammo-max = 0
+ammo-start = 0
+switch-time = 0
+
+[fire hammer primary]
+archetype = melee
+refire = 0.75
+ammo = 0
+charge-time = 1.5
+charge-min = 0.2
+charge-max = 1
+charge-scales = damage
+damage = 60
+momentum = 66000
+range = 60
+self-momentum = 66000
+
+[fire hammer alt]
+archetype = beam
+refire = 0.1
+ammo = 10
+damage = 72
+momentum = 8500
+range = 1100
+
+[projectile ball]
+speed = 1000
+radius = 12
+lifetime = 10
+damage = 55
+momentum = 70000
+splash-radius = 70
+strike = explode
+combo = boom
+
+[projectile shell]
+speed = 1200
+radius = 0
+gravity = 1
+lifetime = 6
+damage = 70
+momentum = 75000
+strike = split
+split-into = chunk
+split-count = 5
+split-spread = 6000
+
+[projectile chunk]
+speed = 2500
+radius = 0
+lifetime = 2.9
+damage = 16
+momentum = 10000
+strike = bounce
+bounces = 2
+bounce-keep = 0.6
+
+[projectile gel]
+speed = 840
+radius = 2
+gravity = 1
+lifetime = 12
+expire = explode
+damage = 20
+momentum = 20000
+strike = stick
+fuse = 3
+
+[combo boom]
+damage = 165
+momentum = 120000
+splash-radius = 250
+)";
+
+/// `SMALL` with `from` replaced by `to`, once; `from` must be in it.
+std::string edited(std::string_view from, std::string_view to) {
+    std::string text(SMALL);
+    const std::size_t at = text.find(from);
+    REQUIRE(at != std::string::npos);
+    text.replace(at, from.size(), to);
+    return text;
+}
+
+/// The line `needle` starts on in `text`, counting from 1.
+std::size_t lineOf(std::string_view text, std::string_view needle) {
+    const std::size_t at = text.find(needle);
+    REQUIRE(at != std::string_view::npos);
+    return static_cast<std::size_t>(std::count(text.begin(), text.begin() + static_cast<std::ptrdiff_t>(at), '\n')) + 1;
+}
+
+} // namespace
+
+TEST_CASE("INV-2: the small set parses and reads back from write", "[ugame][weapons]") {
+    const auto set = uta::ugame::parse(SMALL);
+    REQUIRE(set.has_value());
+    CHECK(set->name == "Small # set");
+    REQUIRE(set->weapons.size() == 2);
+    CHECK(set->weapons[0].className == "botpack.shockrifle");
+    CHECK(set->weapons[0].primary.pellets == 3);
+    CHECK(set->weapons[0].primary.headshotScale == 2.5);
+    REQUIRE(set->weapons[0].alt);
+    REQUIRE(set->weapons[0].alt->charge);
+    CHECK(set->weapons[0].alt->charge->scales == uta::ugame::ChargeScales::Count);
+    CHECK(set->weapons[1].alt->archetype == uta::ugame::Archetype::Beam);
+    CHECK(set->projectile("gel")->expireExplodes);
+    CHECK_FALSE(set->projectile("chunk")->expireExplodes);
+    CHECK(set->projectile("shell")->splitInto == "chunk");
+    CHECK(set->combo("boom")->splashRadius == 250);
+
+    const std::string written = uta::ugame::write(*set);
+    const auto again = uta::ugame::parse(written);
+    REQUIRE(again.has_value());
+    CHECK(*again == *set);
+    CHECK(uta::ugame::write(*again) == written);
+}
+
+TEST_CASE("INV-2: a decimal is written so it reads back exactly", "[ugame][weapons]") {
+    auto set = uta::ugame::parse(SMALL).value();
+    set.weapons[0].primary.refire = 1.0 / 3.0;
+    set.projectiles[0].speed = 1234.5678901234567;
+    const auto again = uta::ugame::parse(uta::ugame::write(set));
+    REQUIRE(again.has_value());
+    CHECK(*again == set);
+}
+
+TEST_CASE("INV-1: each refusal names its line", "[ugame][weapons]") {
+    struct Refusal {
+        std::string_view what;
+        std::string text;
+        std::string_view at; ///< the text the refused line starts with
+        std::string_view says;
+    };
+    const std::vector<Refusal> refusals{
+        {"an unknown section", edited("[combo boom]", "[bomb boom]"), "[bomb boom]", "there is no [bomb boom] section"},
+        {"an unknown key", edited("pellets = 3", "pelets = 3"), "pelets", "has no key 'pelets'"},
+        {"a repeated key", edited("pellets = 3", "pellets = 3\npellets = 4"), "pellets = 4", "given twice"},
+        {"a repeated section", edited("[combo boom]", "[projectile gel]"), "[projectile gel]\ndamage = 165",
+         "is given twice"},
+        {"a repeated fire mode", edited("[weapon hammer]", "[fire gun alt]\n[weapon hammer]"),
+         "[fire gun alt]\n[weapon hammer]", "is given twice"},
+        {"a missing required key", edited("refire = 0.7\n", ""), "[fire gun primary]", "has no `refire`"},
+        {"a missing [set] key", edited("head-height = 0.62\n", ""), "[set]", "has no `head-height`"},
+        {"an out-of-range decimal", edited("bounce-keep = 0.6", "bounce-keep = 1.5"), "bounce-keep",
+         "is not a number from 0 to 1"},
+        {"an out-of-range number", edited("slot = 4", "slot = 10"), "slot = 10", "from 0 to 9"},
+        {"a count of zero", edited("count = 4", "count = 0"), "count = 0", "count is from 1 to 64"},
+        {"start ammo above the most", edited("ammo-start = 20", "ammo-start = 51"), "ammo-start",
+         "from 0 to 50"},
+        {"another archetype's key", edited("pellets = 3", "projectile = ball"), "projectile = ball\nheadshot",
+         "an instant-hit fire has no key 'projectile'"},
+        {"another strike's key", edited("fuse = 3", "fuse = 3\nbounces = 2"), "bounces = 2\n\n[combo",
+         "a projectile that strikes to stick has no key 'bounces'"},
+        {"a charge on a beam", edited("ammo = 10", "ammo = 10\ncharge-time = 1"), "charge-time = 1\n",
+         "a beam fire has no key 'charge-time'"},
+        {"a part of a charge", edited("charge-min = 0.2\n", ""), "[fire hammer primary]", "has no `charge-min`"},
+        {"a count charge on a melee", edited("charge-scales = damage", "charge-scales = count"),
+         "charge-scales = count\ndamage", "only a projectile fire charges its count"},
+        {"an unknown archetype", edited("archetype = melee", "archetype = laser"), "archetype = laser",
+         "'laser' is not one of: instant-hit, projectile, beam, melee"},
+        {"a missing projectile", edited("projectile = ball", "projectile = bal"), "[fire gun alt]",
+         "there is no [projectile bal]"},
+        {"a missing split kind", edited("split-into = chunk", "split-into = chunks"), "[projectile shell]",
+         "there is no [projectile chunks]"},
+        {"a missing combo", edited("combo = boom", "combo = bom"), "[projectile ball]", "there is no [combo bom]"},
+        {"a fire before its weapon", edited("[fire gun primary]", "[fire gnu primary]"), "[fire gnu primary]",
+         "there is no [weapon gnu] above this line"},
+        {"a bad name", edited("[weapon hammer]", "[weapon Hammer]"), "[weapon Hammer]", "is not a [weapon] name"},
+        {"a bad class", edited("class = Botpack.ShockRifle", "class = ShockRifle"), "class = ShockRifle",
+         "is not a class"},
+        {"a second [set]", edited("[weapon gun]", "[set]\n[weapon gun]"), "[set]\n[weapon gun]", "a second [set]"},
+    };
+    for (const Refusal& refusal : refusals) {
+        CAPTURE(refusal.what);
+        const auto set = uta::ugame::parse(refusal.text);
+        REQUIRE_FALSE(set.has_value());
+        CHECK(set.error().code() == uta::ErrorCode::MalformedData);
+        const std::string message(set.error().message());
+        CAPTURE(message);
+        CHECK(message.starts_with(std::format("weapon set line {}: ", lineOf(refusal.text, refusal.at))));
+        CHECK(message.find(refusal.says) != std::string::npos);
+    }
+}
+
+TEST_CASE("INV-1: a weapon with no primary fire is refused at its heading", "[ugame][weapons]") {
+    std::string onlyAlt(SMALL);
+    const std::size_t from = onlyAlt.find("[fire hammer primary]");
+    const std::size_t to = onlyAlt.find("[fire hammer alt]");
+    onlyAlt.erase(from, to - from);
+    const auto set = uta::ugame::parse(onlyAlt);
+    REQUIRE_FALSE(set.has_value());
+    const std::string message(set.error().message());
+    CHECK(message.starts_with(std::format("weapon set line {}: ", lineOf(onlyAlt, "[weapon hammer]"))));
+    CHECK(message.find("has no [fire hammer primary]") != std::string::npos);
+}
+
+TEST_CASE("INV-1: a newer set is unsupported, and no [set] is refused", "[ugame][weapons]") {
+    const auto newer = uta::ugame::parse(edited("ut-ants weapons 1", "ut-ants weapons 2"));
+    REQUIRE_FALSE(newer.has_value());
+    CHECK(newer.error().code() == uta::ErrorCode::UnsupportedVersion);
+    const auto noSet = uta::ugame::parse("ut-ants weapons 1\n");
+    REQUIRE_FALSE(noSet.has_value());
+    CHECK(noSet.error().message() == "weapon set line 1: the weapon set has no [set] section");
+}
+
+TEST_CASE("INV-3: the stock set parses and maps each stock class to one weapon", "[ugame][weapons]") {
+    const auto set = uta::ugame::load(uta::ugame::shippedDirectory() / "stock.weapons");
+    REQUIRE(set.has_value());
+    for (const std::string_view stockClass :
+         {"botpack.impacthammer", "botpack.chainsaw", "botpack.enforcer", "botpack.ut_biorifle", "botpack.shockrifle",
+          "botpack.pulsegun", "botpack.ripper", "botpack.minigun2", "botpack.ut_flakcannon", "botpack.ut_eightball",
+          "botpack.sniperrifle"}) {
+        CAPTURE(stockClass);
+        CHECK(std::ranges::count(set->weapons, stockClass, &uta::ugame::Weapon::className) == 1);
+    }
+    CHECK(set->weapons.size() == 11);
+    // INV-2 holds for it too.
+    const auto again = uta::ugame::parse(uta::ugame::write(*set));
+    REQUIRE(again.has_value());
+    CHECK(*again == *set);
+}

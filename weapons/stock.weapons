@@ -1,0 +1,385 @@
+ut-ants weapons 1
+# The stock weapon set: UT99's Botpack weapons but the Redeemer and the
+# Translocator (docs/specs/UTA-0019-weapon-set.md SS 3).
+#
+# Each number says where it came from:
+#   "default: Class.Property" -- the class's default properties, read from
+#     the 469 install's Botpack.u by upkg::effectiveDefaults (SS 4.7).
+#   "unmeasured" -- a stand-in until SS 4.7's weapon runs measure it from
+#     the original. Nothing marked so is trusted; INV-6 is what checks.
+
+[set]
+name = "Stock"
+self-damage = 1            # unmeasured
+head-height = 0.62         # unmeasured
+
+[weapon impact-hammer]
+class = botpack.impacthammer
+slot = 1                   # default: ImpactHammer.InventoryGroup
+ammo-max = 0               # the hammer needs no ammo
+ammo-start = 0
+switch-time = 0.5          # unmeasured
+
+[fire impact-hammer primary]
+archetype = melee
+refire = 0.75              # unmeasured
+ammo = 0
+charge-time = 1.5          # unmeasured
+charge-min = 0.2           # unmeasured
+charge-max = 1             # unmeasured
+charge-scales = damage
+damage = 60                # unmeasured
+momentum = 66000           # unmeasured
+range = 60                 # unmeasured
+self-momentum = 66000      # unmeasured
+
+[fire impact-hammer alt]
+archetype = melee
+refire = 0.5               # unmeasured
+ammo = 0
+damage = 20                # unmeasured
+momentum = 30000           # unmeasured
+range = 180                # unmeasured
+
+[weapon chainsaw]
+class = botpack.chainsaw
+slot = 1                   # default: ChainSaw.InventoryGroup
+ammo-max = 0
+ammo-start = 0
+switch-time = 0.5          # unmeasured
+
+[fire chainsaw primary]
+archetype = melee
+refire = 0.1               # unmeasured
+ammo = 0
+damage = 20                # unmeasured
+momentum = 15000           # unmeasured
+range = 90                 # default: ChainSaw.Range
+
+[fire chainsaw alt]
+archetype = melee
+refire = 0.9               # unmeasured
+ammo = 0
+damage = 110               # unmeasured
+momentum = 15000           # unmeasured
+range = 90                 # default: ChainSaw.Range
+
+[weapon enforcer]
+class = botpack.enforcer
+slot = 2                   # default: Enforcer.InventoryGroup
+ammo-max = 199             # default: Miniammo.MaxAmmo
+ammo-start = 30            # default: Enforcer.PickupAmmoCount
+switch-time = 0.5          # unmeasured
+
+[fire enforcer primary]
+archetype = instant-hit
+refire = 0.27              # unmeasured
+ammo = 1
+damage = 17                # unmeasured
+momentum = 3000            # unmeasured
+range = 10000              # unmeasured
+
+[fire enforcer alt]
+archetype = instant-hit
+refire = 0.2               # unmeasured
+ammo = 1
+spread = 700               # unmeasured
+damage = 17                # unmeasured
+momentum = 3000            # unmeasured
+range = 10000              # unmeasured
+
+[weapon bio-rifle]
+class = botpack.ut_biorifle
+slot = 3                   # default: UT_BioRifle.InventoryGroup
+ammo-max = 100             # default: BioAmmo.MaxAmmo
+ammo-start = 25            # default: UT_BioRifle.PickupAmmoCount
+switch-time = 0.5          # unmeasured
+
+[fire bio-rifle primary]
+archetype = projectile
+refire = 0.3               # unmeasured
+ammo = 1
+projectile = bio-gel
+
+[fire bio-rifle alt]
+archetype = projectile
+refire = 0.5               # unmeasured
+ammo = 1
+charge-time = 4.1          # unmeasured
+charge-min = 1             # unmeasured
+charge-max = 5             # unmeasured
+charge-scales = count
+projectile = bio-glob
+count = 1
+
+[weapon shock-rifle]
+class = botpack.shockrifle
+slot = 4                   # default: ShockRifle.InventoryGroup
+ammo-max = 50              # default: ShockCore.MaxAmmo
+ammo-start = 20            # default: ShockRifle.PickupAmmoCount
+switch-time = 0.5          # unmeasured
+
+[fire shock-rifle primary]
+archetype = instant-hit
+refire = 0.73              # unmeasured
+ammo = 1
+damage = 40                # unmeasured
+momentum = 60000           # unmeasured
+range = 10000              # unmeasured
+
+[fire shock-rifle alt]
+archetype = projectile
+refire = 0.6               # unmeasured
+ammo = 1
+projectile = shock-ball
+
+[weapon pulse-gun]
+class = botpack.pulsegun
+slot = 5                   # default: PulseGun.InventoryGroup
+ammo-max = 199             # default: PAmmo.MaxAmmo
+ammo-start = 60            # default: PulseGun.PickupAmmoCount
+switch-time = 0.5          # unmeasured
+
+[fire pulse-gun primary]
+archetype = projectile
+refire = 0.18              # unmeasured
+ammo = 1
+projectile = plasma
+
+[fire pulse-gun alt]
+archetype = beam
+refire = 0.1               # unmeasured
+ammo = 10                  # unmeasured: per second
+damage = 72                # default: StarterBolt.Damage; unmeasured: whether per second
+momentum = 8500            # default: StarterBolt.MomentumTransfer
+range = 1100               # unmeasured
+
+[weapon ripper]
+class = botpack.ripper
+slot = 6                   # default: Ripper.InventoryGroup
+ammo-max = 75              # default: BladeHopper.MaxAmmo
+ammo-start = 15            # default: Ripper.PickupAmmoCount
+switch-time = 0.5          # unmeasured
+
+[fire ripper primary]
+archetype = projectile
+refire = 0.4               # unmeasured
+ammo = 1
+projectile = razor
+
+[fire ripper alt]
+archetype = projectile
+refire = 0.4               # unmeasured
+ammo = 1
+projectile = razor-alt
+
+[weapon minigun]
+class = botpack.minigun2
+slot = 7                   # default: Minigun2.InventoryGroup
+ammo-max = 199             # default: Miniammo.MaxAmmo
+ammo-start = 50            # default: Minigun2.PickupAmmoCount
+switch-time = 0.5          # unmeasured
+
+[fire minigun primary]
+archetype = instant-hit
+refire = 0.13              # unmeasured
+ammo = 1
+spread = 200               # unmeasured
+damage = 9                 # unmeasured
+momentum = 2500            # unmeasured
+range = 10000              # unmeasured
+
+[fire minigun alt]
+archetype = instant-hit
+refire = 0.08              # unmeasured
+ammo = 1
+spread = 700               # unmeasured
+damage = 9                 # unmeasured
+momentum = 2500            # unmeasured
+range = 10000              # unmeasured
+
+[weapon flak-cannon]
+class = botpack.ut_flakcannon
+slot = 8                   # default: UT_FlakCannon.InventoryGroup
+ammo-max = 50              # default: FlakAmmo.MaxAmmo
+ammo-start = 10            # default: UT_FlakCannon.PickupAmmoCount
+switch-time = 0.5          # unmeasured
+
+[fire flak-cannon primary]
+archetype = projectile
+refire = 0.9               # unmeasured
+ammo = 1
+spread = 1000              # unmeasured
+projectile = flak-chunk
+count = 9                  # unmeasured
+
+[fire flak-cannon alt]
+archetype = projectile
+refire = 1.1               # unmeasured
+ammo = 1
+projectile = flak-shell
+
+[weapon rocket-launcher]
+class = botpack.ut_eightball
+slot = 9                   # default: UT_Eightball.InventoryGroup
+ammo-max = 48              # default: RocketPack.MaxAmmo
+ammo-start = 6             # default: UT_Eightball.PickupAmmoCount
+switch-time = 0.5          # unmeasured
+
+[fire rocket-launcher primary]
+archetype = projectile
+refire = 0.9               # unmeasured
+ammo = 1
+spread = 600               # unmeasured
+charge-time = 4.5          # unmeasured
+charge-min = 0.1667        # unmeasured: one rocket of six
+charge-max = 1             # unmeasured
+charge-scales = count
+projectile = rocket
+count = 6                  # unmeasured
+
+[fire rocket-launcher alt]
+archetype = projectile
+refire = 0.9               # unmeasured
+ammo = 1
+spread = 600               # unmeasured
+charge-time = 4.5          # unmeasured
+charge-min = 0.1667        # unmeasured
+charge-max = 1             # unmeasured
+charge-scales = count
+projectile = grenade
+count = 6                  # unmeasured
+
+[weapon sniper-rifle]
+class = botpack.sniperrifle
+slot = 0                   # default: SniperRifle.InventoryGroup is 10, the 0 key
+ammo-max = 50              # default: BulletBox.MaxAmmo
+ammo-start = 8             # default: SniperRifle.PickupAmmoCount
+switch-time = 0.5          # unmeasured
+
+[fire sniper-rifle primary]
+archetype = instant-hit
+refire = 0.67              # unmeasured
+ammo = 1
+damage = 45                # unmeasured
+momentum = 35000           # unmeasured
+range = 10000              # unmeasured
+headshot-scale = 2.23      # unmeasured
+
+[fire sniper-rifle alt]
+archetype = instant-hit
+refire = 0.67              # unmeasured
+ammo = 1
+damage = 45                # unmeasured
+momentum = 35000           # unmeasured
+range = 10000              # unmeasured
+headshot-scale = 2.23      # unmeasured
+
+[projectile bio-gel]
+speed = 840                # default: UT_BioGel.speed
+radius = 2                 # default: UT_BioGel.CollisionRadius
+gravity = 1                # default: UT_BioGel.Physics is PHYS_Falling
+lifetime = 12              # default: UT_BioGel.LifeSpan
+damage = 20                # default: UT_BioGel.Damage
+momentum = 20000           # default: UT_BioGel.MomentumTransfer
+splash-radius = 75         # unmeasured
+strike = stick
+fuse = 3                   # unmeasured
+
+[projectile bio-glob]
+speed = 700                # default: BioGlob.speed
+radius = 2                 # default: BioGlob.CollisionRadius
+gravity = 1                # default: BioGlob.Physics is PHYS_Falling
+lifetime = 12              # default: BioGlob.LifeSpan
+damage = 75                # default: BioGlob.Damage
+momentum = 30000           # default: BioGlob.MomentumTransfer
+splash-radius = 120        # unmeasured
+strike = stick
+fuse = 3                   # unmeasured
+
+[projectile shock-ball]
+speed = 1000               # default: ShockProj.speed
+radius = 12                # default: ShockProj.CollisionRadius
+lifetime = 10              # default: ShockProj.LifeSpan
+damage = 55                # default: ShockProj.Damage
+momentum = 70000           # default: ShockProj.MomentumTransfer
+splash-radius = 70         # unmeasured
+strike = explode
+combo = shock-combo
+
+[projectile plasma]
+speed = 1450               # default: PlasmaSphere.speed
+radius = 0                 # default: PlasmaSphere.CollisionRadius
+lifetime = 2               # unmeasured: PlasmaSphere.LifeSpan reads 0.5
+damage = 20                # default: PlasmaSphere.Damage
+momentum = 10000           # default: PlasmaSphere.MomentumTransfer
+strike = explode
+
+[projectile razor]
+speed = 1300               # default: Razor2.speed
+radius = 0                 # default: Razor2.CollisionRadius
+lifetime = 6               # default: Razor2.LifeSpan
+damage = 30                # default: Razor2.Damage
+momentum = 15000           # default: Razor2.MomentumTransfer
+strike = bounce
+bounces = 6                # unmeasured
+bounce-keep = 1            # unmeasured
+
+[projectile razor-alt]
+speed = 1300               # default: Razor2Alt.speed
+radius = 0                 # default: Razor2Alt.CollisionRadius
+lifetime = 6               # default: Razor2Alt.LifeSpan
+damage = 34                # default: Razor2Alt.Damage
+momentum = 87000           # default: Razor2Alt.MomentumTransfer
+splash-radius = 180        # unmeasured
+strike = explode
+
+[projectile flak-chunk]
+speed = 2500               # default: UTChunk1.speed
+radius = 0                 # default: UTChunk1.CollisionRadius
+lifetime = 2.9             # default: UTChunk1.LifeSpan
+damage = 16                # default: UTChunk1.Damage
+momentum = 10000           # default: UTChunk1.MomentumTransfer
+strike = bounce
+bounces = 2                # unmeasured
+bounce-keep = 0.6          # unmeasured
+
+[projectile flak-shell]
+speed = 1200               # default: flakslug.speed
+radius = 0                 # default: flakslug.CollisionRadius
+gravity = 1                # default: flakslug.Physics is PHYS_Falling
+lifetime = 6               # default: flakslug.LifeSpan
+damage = 70                # default: flakslug.Damage
+momentum = 75000           # default: flakslug.MomentumTransfer
+splash-radius = 150        # unmeasured
+strike = split
+split-into = flak-chunk
+split-count = 5            # unmeasured
+split-spread = 6000        # unmeasured
+
+[projectile rocket]
+speed = 900                # default: RocketMk2.speed
+radius = 0                 # default: RocketMk2.CollisionRadius
+lifetime = 6               # default: RocketMk2.LifeSpan
+damage = 75                # default: RocketMk2.Damage
+momentum = 80000           # default: RocketMk2.MomentumTransfer
+splash-radius = 220        # unmeasured
+strike = explode
+
+[projectile grenade]
+speed = 600                # default: UT_Grenade.speed
+radius = 0                 # default: UT_Grenade.CollisionRadius
+gravity = 1                # default: UT_Grenade.Physics is PHYS_Falling
+lifetime = 2.5             # unmeasured: UT_Grenade.LifeSpan reads 140
+expire = explode
+damage = 80                # default: UT_Grenade.Damage
+momentum = 50000           # default: UT_Grenade.MomentumTransfer
+splash-radius = 200        # unmeasured
+strike = bounce
+bounces = 100              # unmeasured: a grenade bounces until its fuse
+bounce-keep = 0.5          # unmeasured
+
+[combo shock-combo]
+damage = 165               # unmeasured
+momentum = 120000          # unmeasured
+splash-radius = 250        # unmeasured
