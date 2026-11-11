@@ -18798,6 +18798,14 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   teleporter raised in the map, or does UT's touch reach further (e.g. a
   pawn's collision or a different CollisionHeight)? Probe:
   Scratchpad/UT_Ants/mut/ZzProbeTeleportersTest.cpp.
+  Resolved 2026-11-11: the map raises them, and UT's touch reaches no
+  further. DM-FoT-SimpleX places both FavoritesTeleporters (CollisionRadius
+  32, CollisionHeight 40) over a TorchFlame, about 100 above the floor of
+  a room linked to nothing else; their only reach specs join each other.
+  FavoritesTeleporter's script (UnrealShare.u) changes no collision. So a
+  standing player misses them in UT too, and must jump in. Probe: walking
+  in passes under from all four sides; holding Up from 80 units out
+  teleports from all four sides, both teleporters. No fix.
   **Layman:** Stepping into a teleporter in the map launcher does nothing, so maps that start in a room with only a teleporter out can't be explored.
   Kind: feature.
   Source: user-request-2026-09-25.
