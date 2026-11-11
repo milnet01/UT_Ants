@@ -97,3 +97,15 @@ end 2
 run ledge DM-Deck16][ 895.093323 -1530.065552 -151.900269 16336
 0 F
 end 3
+
+# UTA-0459: walk straight up a slope either side of walkableFloorZ 0.7.
+# DM-Conveyor's 45-degree ramp, normal Z 0.7071: walked up (2026-11-11).
+# DM-Chasm's terrain, normal Z 0.6983: slid back to its foot (2026-11-11).
+
+run slope-0707 DM-Conveyor -1300 1300 1760 0
+0 F
+end 4
+
+run slope-0698 DM-Chasm 6300 2500 -13489 63553
+0 F
+end 4

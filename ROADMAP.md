@@ -20811,6 +20811,11 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   (docs/specs/UTA-0017-movement-rules.md § 4). Record a run onto
   slopes either side of the limit with UTA-0456's recorder, then
   confirm or correct the constant.
+  Measured 2026-11-11: the original walks up DM-Conveyor's ramp of
+  normal Z 0.7071 (ut-record run slope-0707) and slides back off DM-Chasm's
+  slope of 0.6983 (slope-0698), so 0.7 stands; ut-ants' walker did the
+  same in a probe from the same start points (Conveyor from -1260,1024:
+  peak 1975 against the original's 1978; Chasm: -13398 against -13398). No code change.
   **Layman:** Check how steep a ramp can be before the player slides off, against the real game.
   Kind: investigate.
   Source: in-session-2026-11-10.

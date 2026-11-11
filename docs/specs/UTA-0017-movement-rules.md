@@ -152,7 +152,7 @@ read from the `PAWN` line of every recording, or fitted to the rows:
 | `dodgeSpeedXY`, `dodgeSpeedZ` | 600, 210 | § 2's dodge figures |
 | `dodgeLandingKeep` | 0.1 | landing from a dodge keeps a tenth of the whole velocity |
 | `dodgeDoneTime` | 0.35 | `DODGE_Done` to `DODGE_None`, `dodge-forward` 85 fps |
-| `walkableFloorZ` | 0.7 | recalled from UT99, **not confirmed**: no recorded run stands on a slope |
+| `walkableFloorZ` | 0.7 | `slope-0707` walks up a ramp of normal Z 0.7071; `slope-0698` slides back off one of 0.6983 (2026-11-11, `UTA-0459`) |
 
 How the rules combine, each fitted to the rows at 60 and 85 fps
 (2026-11-10):
