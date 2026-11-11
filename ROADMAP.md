@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=464 -->
+<!-- ants-roadmap-id-high-water: UTA=468 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -20908,6 +20908,43 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: feature.
   Source: in-session-2026-11-11.
   Lanes: uworld.
+
+- 📋 [UTA-0465] **The Redeemer: a missile steered from its own camera.**
+  Split out of UTA-0019 by the user (2026-11-11): it is not a gun, and
+  needs a second view to steer from. Builds on UTA-0019's weapon-set
+  file and firing archetypes
+  (docs/specs/UTA-0019-weapon-set.md § 9).
+  **Layman:** The big guided nuke. It works unlike any gun, so it was kept out of the first weapon set.
+  Kind: implement.
+  Source: user-request-2026-11-11.
+  Lanes: ugame.
+
+- 📋 [UTA-0466] **The Translocator: throw a disc and teleport to it.**
+  Split out of UTA-0019 by the user (2026-11-11). Throwing reuses
+  UTA-0019's projectile archetype; the teleport and telefrag are new
+  (docs/specs/UTA-0019-weapon-set.md § 9).
+  **Layman:** The teleport gadget. It moves the player rather than hurting anyone, so it gets its own item.
+  Kind: implement.
+  Source: user-request-2026-11-11.
+  Lanes: ugame.
+
+- 📋 [UTA-0467] **Weapon models in hand, muzzle flashes and weapon sounds.**
+  UTA-0019 ships stand-in shapes and no sound (user, 2026-11-11).
+  Needs animated meshes and the mixer (UTA-0056) first.
+  (docs/specs/UTA-0019-weapon-set.md § 9).
+  **Layman:** Real guns on screen and the sounds they make, in place of the simple stand-in shapes.
+  Kind: implement.
+  Source: user-request-2026-11-11.
+  Lanes: ugame, urender, uaudio.
+
+- 📋 [UTA-0468] **The stock weapons' remaining behaviours: rocket lock-on, double Enforcers, the hammer turning projectiles away.**
+  Left out of UTA-0019 to keep that item one size
+  (docs/specs/UTA-0019-weapon-set.md § 9). Each is checked against
+  recordings of the original, as UTA-0019's INV-6 does.
+  **Layman:** Three finer UT99 weapon tricks left out of the first weapon set.
+  Kind: implement.
+  Source: user-request-2026-11-11.
+  Lanes: ugame.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 

@@ -1,0 +1,385 @@
+<!-- ants-spec-format: 1 -->
+# UTA-0019 — the core weapon set, as data
+
+**Status:** accepted (2026-11-11), unreviewed. Contract reviews are cancelled for this project (`CLAUDE.md` § Contract reviews); building it is the reviewer.
+**Kind:** implement.
+**Source:** ROADMAP UTA-0019 (design-2026-09-03; § 3 answered by the user 2026-11-11).
+**Blocker for:** UTA-0020, UTA-0029.
+
+**Layman:** The guns. Each one is a block of numbers in a text file, so a different set, such as your super weapons, is a different file rather than new code. You can fire all of them in the map launcher, drawn as simple stand-in shapes until the real models and sounds arrive.
+
+## 1. Goal
+
+A new part, `ugame`, reads a **weapon set**: a hand-editable text file
+of weapon definitions. A definition is numbers — damage, refire time,
+projectile, spread, ammo — plus one of a few **firing archetypes** for
+behaviour that genuinely differs (`docs/design.md` § Weapons, monsters
+and pickups are data, not code). `ugame`'s tick fires them on UT99's
+rules, measured from the original as UTA-0017 measured movement. The
+game ships the stock set. `ut-ants`' walking mode carries every stock
+weapon, draws shots and projectiles as stand-in shapes, and can drop
+target dummies to shoot.
+
+## 2. Problem
+
+1. **Nothing can be fired or hurt.** There is no health, damage or
+   inventory anywhere in `src/`. `uworld::MoveCommand` carries no fire
+   button and no pitch. `uinput::Action` has no Fire, AltFire or weapon
+   choice.
+2. **There is no `ugame`.** `docs/design.md` § The parts gives it the
+   rules, weapons included, and design rule 8 makes it their only home.
+3. **The renderer draws only the bake.** `urender::Renderer::draw` takes
+   a bundle and a camera; the only extra is `setOverlayText`. A
+   projectile or a dummy has nowhere to be drawn.
+4. **Much of a UT99 weapon is script, not defaults.** `upkg` decodes a
+   class's default properties (UTA-0005), so a projectile's `Speed` and
+   `Damage` can be read. Refire times come from animation rates and
+   instant-hit damage from function bodies, which ADR-0004 never runs.
+   Those must be measured.
+5. **The 0.2.0 criterion asks for it.** `docs/standards/versioning-overrides.md`:
+   "Movement and core weapons measure within tolerance of UT99 (**S2**)".
+   **S2** names hammer jumps and shock combos.
+
+## 3. Scope decisions (agreed with the user)
+
+1. **Playable, with a simple look** (user, 2026-11-11). Every weapon
+   fires in `ut-ants`. Shots, projectiles, explosions and dummies are
+   stand-in shapes, with a crosshair and a text readout. No sounds, no
+   weapon models: those wait for `uaudio` (UTA-0056) and animated
+   meshes, as their own items.
+2. **The stock weapons except two** (user, 2026-11-11), by their
+   Botpack class: `ImpactHammer`, `ChainSaw`, `Enforcer`,
+   `UT_BioRifle`, `ShockRifle`, `PulseGun`, `ripper`, `Minigun2`,
+   `UT_FlakCannon`, `UT_Eightball`, `SniperRifle`. The Redeemer
+   (`WarheadLauncher`) and the Translocator each get their own item:
+   neither works like a gun. Each name was checked present in the 469
+   install's `System/Botpack.u` (`strings -n4 Botpack.u | grep -iw`).
+3. **A weapon set is an editable file** (user, 2026-11-11), so a new set
+   needs no rebuild. It uses the recipe's `.ini`-style text (UTA-0113
+   § 4.2), which UT99 players already edit. No new library.
+4. **The numbers are ours, measured once** (user, 2026-11-11). They are
+   measured from the original and written into the shipped stock file.
+   The game never reads them from a player's install, so every player
+   and server plays the same set.
+5. **The tolerance is UT99's** (`versioning-overrides.md`'s 0.2.0 row,
+   not a choice made here): each stock mode is checked against
+   recordings of the original (INV-6).
+
+## 4. Design
+
+### 4.1 Files
+
+| File | Holds |
+|---|---|
+| `src/core/IniText.h`, `.cpp` | § 4.3's line reader, moved out of `urecipe/Recipe.cpp` |
+| `src/urecipe/Recipe.cpp` | reads through `IniText`; behaviour unchanged |
+| `src/ugame/WeaponSet.h`, `.cpp` | § 4.2's definitions; `parse`, `write`, `shippedDirectory()` |
+| `src/ugame/Game.h`, `.cpp` | § 4.5's state and tick |
+| `src/ugame/Fire.cpp` | § 4.4's archetypes |
+| `src/uworld/Movement.h`, `.cpp` | § 4.6: the command gains aim and buttons; a body takes a push |
+| `src/uworld/BodyCollision.h`, `.cpp` | a segment against the level and movers, if `sweep` at zero size cannot serve |
+| `src/uinput/Input.h`, `.cpp` | Fire, AltFire, NextWeapon, PrevWeapon, Weapon1 to Weapon0 |
+| `src/urender/Renderer.h`, stand-in shapes | § 4.8 |
+| `apps/ut-ants/Walker.cpp` | § 4.8: carries the set, drops dummies |
+| `weapons/stock.weapons` | the stock set, § 4.7's measured numbers |
+| `tools/ut-record/` | § 4.7's weapon runs |
+| `tests/unit/IniTextTest.cpp`, `WeaponSetTest.cpp`, `GameTest.cpp` | § 7 |
+| `tests/real/RealWeaponTest.cpp` | INV-6 |
+
+### 4.2 The weapon-set file
+
+UTA-0113 § 4.2's rules hold: UTF-8, `#` comments, `[section]` headings,
+`key = value`, a byte-order mark skipped, and **strict**: an unknown
+section or key, a repeated one, a value out of range or a missing
+required key is refused with `MalformedData` naming the line. A header
+version above `WEAPON_SET_VERSION` is refused with `UnsupportedVersion`.
+`write` emits a canonical form, and `parse(write(s))` equals `s`.
+
+The shape, with values left out (§ 4.7 measures them):
+
+```ini
+ut-ants weapons 1
+
+[set]
+name = "Stock"
+
+[weapon shock-rifle]
+class = botpack.shockrifle   # the UT99 class it stands for (ADR-0004)
+slot = 4                     # the number key; ties order by file order
+ammo-max = …
+ammo-start = …
+switch-time = …              # seconds to bring it up
+
+[fire shock-rifle primary]
+archetype = instant-hit
+refire = …                   # game seconds between shots while held
+ammo = 1
+damage = …
+momentum = …
+spread = 0                   # UT99 angle units, 65536 to a turn
+
+[fire shock-rifle alt]
+archetype = projectile
+projectile = shock-ball
+
+[projectile shock-ball]
+speed = …
+radius = …
+damage = …
+splash-radius = …
+combo = shock-combo          # an instant hit on it sets this off
+```
+
+- **Names** are lower-case kebab words, unique per kind. A `fire`,
+  `projectile` or `combo` reference to a missing name is refused.
+- **Units** are UT99's: unrealunits, game seconds, angle units. Decimals
+  are read with `std::from_chars`.
+- **`class`** maps a placed or custom UT99 weapon to a definition. A
+  custom class resolves by ancestry to the nearest class a set names,
+  as ADR-0004 does for monsters.
+- The game reads `weapons/` from `ugame::shippedDirectory()`, compiled in
+  as `urecipe::shippedDirectory()` is (UTA-0113 § 4.3). `ut-ants
+  --weapons <file>` loads another set; a missing file is refused, not
+  passed over. Choosing a set per map is UTA-0029's.
+
+### 4.3 The shared line reader
+
+`Recipe.cpp`'s line helpers (`trimmed`, `valueOf`, `headingOf`,
+`boolOf`, `numberOf` and the header check) move to `core::IniText`
+unchanged, with a decimal reader added. Both formats then refuse the
+same malformed line in the same words. The recipe's tests pass
+unedited: the move changes no recipe's reading, so no bake name moves.
+
+### 4.4 Firing archetypes
+
+Each `fire` section names one archetype. Its keys are the archetype's;
+another archetype's key is refused.
+
+| Archetype | Does | Stock modes |
+|---|---|---|
+| `instant-hit` | a segment from the eye along the aim, plus spread; the first body or surface hit takes damage and momentum. `pellets`, `headshot-scale` | Enforcer, Shock primary, Minigun, Sniper |
+| `projectile` | spawns `count` projectiles of a named kind, with spread | Bio, Shock alt, Pulse primary, Ripper, Flak, Rocket |
+| `beam` | a segment of `range` every tick while held, damage per second | Pulse alt |
+| `melee` | a short segment; on a surface, pushes the firer back | Hammer, Chainsaw |
+
+Two modifiers apply to any archetype: **`charge`**, held to build up and
+fired on release (the hammer, Bio alt, the rocket launcher's loading),
+and a refire held per mode.
+
+A projectile kind carries `speed`, `radius`, `gravity`, `lifetime`,
+`damage`, `momentum`, `splash-radius`, and at most one behaviour on
+striking: **explode**, **bounce** (`bounces`, `bounce-keep`), **stick**
+(Bio's glob, exploding after `fuse`), or **split** into another kind
+(the flak shell). `combo` names what an instant hit on it sets off.
+
+A new archetype is a code change; a new weapon built from existing
+archetypes is not. That is the line § 3 item 3 draws.
+
+### 4.5 The game state and its tick
+
+`ugame::Game` holds the bodies, each a `uworld::MoveState`, a
+`BodySize`, health and an inventory (weapon, ammo, refire and charge
+timers); the live projectiles; a tick count; and one random generator,
+a seeded integer generator whose state is part of the game state.
+
+`ugame::tick(world, set, game, commands)` runs, per tick, for each body
+in order: weapon switching, then movement (`uworld::tick`), then firing.
+Then each projectile moves, sweeping its radius through the `BodyWorld`
+and against body cylinders, and strikes. Damage and momentum land at the
+end of the tick, so bodies' order changes no result.
+
+- **Bodies are UT99's upright cylinders** (`BodySize`). A segment or a
+  projectile hits one where it enters the cylinder. A hit in its upper
+  part counts as a head where the mode has `headshot-scale`; that
+  height is measured (§ 4.7).
+- **Spread** draws from the game's generator, as angle units, turned
+  into a direction through `core/Angles.h`. No platform maths: design
+  rule 9 and UTA-0049's numeric contract hold for `ugame` as for
+  `uworld`.
+- **Self-damage and self-push** follow the original: a rocket at your
+  feet and a hammer against the floor both throw you (**S2**). How
+  much damage the firer takes is measured.
+- **A body at zero health** is dead. In `ut-ants` the player respawns at
+  a `PlayerStart` with the full set, and a dummy is removed.
+
+### 4.6 The command and the push (amends UTA-0017 § 4.2)
+
+`MoveCommand` gains `pitch` (65536 to a turn) and button bits `fire`,
+`altFire`, and `weapon`: a slot asked for this tick, or none. One
+command per tick still carries all input (design rule 12).
+`uworld` gains a push: momentum added to a body's velocity, lifting a
+walking body into `Falling` where the original does. Movement with no
+push is unchanged, so UTA-0017's INV-2 replays as before.
+
+### 4.7 Measuring the original
+
+`ut-record` (UTA-0456) gains weapon runs: its mutator gives the player
+one weapon, fires a scripted pattern at 85 fps, and logs per tick each
+shot fired, each projectile's position and velocity, and each damage
+taken with its momentum. A target is a stand-in pawn with health enough
+never to die, at known distances. The runs cover every mode in § 3 item
+2, a hammer jump, a rocket jump and a shock combo.
+
+Each number in `stock.weapons` comes from a run, or from the class's
+defaults where `upkg::effectiveDefaults` reads it. A comment on each
+line says which. A number the original decides by frame rate is
+recorded at more than one rate before it is trusted.
+
+### 4.8 What `ut-ants` shows
+
+- **Stand-in shapes.** The renderer gains a per-frame list of simple
+  shapes in world space: spheres, lines and upright cylinders, each with
+  a flat colour, depth-tested against the level. Projectiles are
+  spheres, beams and instant hits short-lived lines, explosions a sphere
+  that grows and fades, dummies cylinders.
+- **A crosshair** at the screen's centre, and the overlay text gains the
+  weapon's name, its ammo and the player's health.
+- **The walking mode carries the whole set** with full ammo. Placed
+  weapon pickups wait for the game modes (UTA-0027).
+- **A key drops a dummy** a few metres ahead, standing on the floor,
+  with the player's size and health.
+- **The sniper's zoom** narrows the view; it is the client's, not a tick
+  input.
+
+## 5. Invariants
+
+- **INV-1** — A set file is strict. An unknown key, an unknown section,
+  a repeated key, a missing required key, an out-of-range value, a key
+  of another archetype, and a reference to a missing name are each
+  refused with `MalformedData` naming the line.
+  *Test:* `WeaponSetTest.cpp`, one case per refusal.
+  *Breaks when:* the parser skips what it does not know.
+
+- **INV-2** — `parse(write(s))` equals `s` for every parsed set,
+  the shipped stock set included.
+  *Test:* `WeaponSetTest.cpp`.
+  *Breaks when:* `write` drops or reorders a key, or rounds a decimal.
+
+- **INV-3** — The shipped stock set parses, and each of § 3 item 2's
+  eleven classes maps to exactly one weapon.
+  *Test:* `WeaponSetTest.cpp`, reading `ugame::shippedDirectory()`.
+  *Breaks when:* a weapon is missing, doubled, or names a missing
+  projectile.
+
+- **INV-4** — Behaviour comes from the file. A set differing from the
+  stock set in one mode's damage, refire or projectile speed changes
+  that result, and only that, in a scripted tick.
+  *Test:* `GameTest.cpp`, the stock set against an edited copy.
+  *Breaks when:* a number is fixed in code rather than read.
+
+- **INV-5** — The tick is deterministic. A fixed script firing every
+  mode, with spread, gives bit-identical game states across runs, across
+  the frame mixes of UTA-0017's INV-1, and across GCC, Clang and MSVC.
+  The cross-compiler leg hashes the state's integers and the bits of
+  its doubles, with no `std::sin` among the inputs.
+  *Test:* `GameTest.cpp` on GitHub's matrix.
+  *Breaks when:* a draw uses an unseeded or global generator, or the
+  platform maths library.
+
+- **INV-6** — The stock set matches the original. Replaying each
+  weapon run of § 4.7, each from its recorded start: shots land on the
+  same ticks, give or take one; projectiles stay within 1 unit of the
+  recording; damage taken is equal; and a body's velocity after a push,
+  the hammer and rocket jumps included, is within 1 unit/s.
+  *Test:* `RealWeaponTest.cpp`, label `real`, which prints each run's
+  worst error.
+  *Breaks when:* a measured number or an archetype's rule is wrong.
+
+- **INV-7** — Ammo is never spent below zero. A mode with less ammo than
+  its `ammo` fires nothing and changes nothing.
+  *Test:* `GameTest.cpp`.
+  *Breaks when:* the check follows the spend.
+
+- **INV-8** — A combo needs a hit. An instant hit that enters a shock
+  ball's radius sets off its combo and removes the ball; one passing
+  outside it, by any margin, does not.
+  *Test:* `GameTest.cpp`, a ball and two shots on a hand-built level.
+  *Breaks when:* the test uses the ball's centre or ignores its radius.
+
+- **INV-9** — A body is hit where its cylinder is. A segment passing
+  at `radius − 0.01` from the axis hits; at `radius + 0.01` it misses;
+  above or below the cylinder it misses.
+  *Test:* `GameTest.cpp`.
+  *Breaks when:* bodies are tested as spheres or boxes.
+
+## 6. Failure modes
+
+- No stock set at `shippedDirectory()`, or a `--weapons` file that
+  does not exist or does not parse: `ut-ants` refuses to start the
+  walking mode and says which file and line.
+- The install or the recordings missing: `RealWeaponTest` fails, naming
+  what it lacks; it never skips.
+- A projectile spawning inside solid strikes at once, where it is.
+- A body inside solid when pushed keeps UTA-0017's rule: it does not
+  move that tick.
+
+## 7. Tests
+
+`IniTextTest.cpp` for the moved reader; the recipe's existing tests
+unchanged. INV-1, INV-2 and INV-3 in `WeaponSetTest.cpp`. INV-4,
+INV-5, INV-7, INV-8 and INV-9 in `GameTest.cpp`, on hand-built levels. INV-6 in
+`RealWeaponTest.cpp`, label `real`, reading the recordings
+`UTA_WEAPON_RECORDINGS` names, as `RealMovementTest.cpp` does. A
+`scripts/mutations/` file for `ugame` covers INV-4, INV-7, INV-8 and
+INV-9.
+
+## 8. Alternatives considered (and rejected)
+
+- **Weapons as code, one class each.** A super-weapon set would then
+  be a second codebase, which `docs/design.md` rules out.
+- **A TOML or JSON file with a library.** A new dependency, and a
+  second format beside the recipe's for the same audience.
+- **Reading numbers from each player's `Botpack.u`.** The user chose
+  one shared table (§ 3 item 4). A modified install would change play,
+  and much of a weapon is script that is never read.
+- **Numbers compiled in for now.** Rejected by the user: a set would
+  need a rebuild, and the format would still be owed to UTA-0029.
+- **Hitboxes rather than cylinders.** Not how the original hits, and
+  **S2** asks for the original's feel.
+
+## 9. Out of scope
+
+The Redeemer and the Translocator (own items). Weapon models, hand
+animation, muzzle flashes and sounds (own item, after UTA-0056).
+Placed weapon and ammo pickups (UTA-0027). Rocket lock-on, double
+Enforcers and the hammer's alt-fire turning projectiles away (own item).
+Choosing a set per map (UTA-0029). The weapon wheel (UTA-0020).
+Sending a set to a joining player (with networking). Armour.
+
+## 10. What checks this
+
+| Invariant | Checked by |
+|---|---|
+| INV-1, INV-2, INV-3 | `WeaponSetTest` |
+| INV-4, INV-7, INV-8, INV-9 | `GameTest`, and the `ugame` mutation file |
+| INV-5 | `GameTest` on GitHub's matrix |
+| INV-6 | `RealWeaponTest`, run by hand: nothing runs the real tier automatically |
+| § 4.3, the recipe reads as before | the recipe's existing tests |
+| § 4.8, firing feels like UT99 | The user, playing it |
+
+## 11. Cross-doc impact
+
+- UTA-0017's spec § 4.2: `MoveCommand` gains aim and buttons (§ 4.6).
+- UTA-0113's spec § 4.2: its line reader lives in `core::IniText`.
+- `docs/design.md` § The parts: `ugame` exists; `weapons/` ships beside
+  `recipes/`.
+- UTA-0020: the wheel shows the inventory § 4.5 holds.
+- UTA-0029: a per-map weapon set is a file in § 4.2's format.
+- ADR-0004: a weapon class resolves through `class` (§ 4.2).
+
+## 12. Cold-eyes loop log
+
+No review: the gate is cancelled here (`CLAUDE.md` § Contract
+reviews). Building it is the reviewer. Record:
+`docs/reviews/UTA-0019-weapon-set-loop-log.md`.
+
+## 13. Resource cost
+
+A shot is one segment test, or a few projectiles each swept once a
+tick. Unmeasured until built; `GameTest` prints a busy tick's time.
+
+## 14. Open questions
+
+- Whether any refire time in the original moves with frame rate, as
+  its walking friction does (UTA-0017 § 14). § 4.7 records at more than
+  one rate to find out.

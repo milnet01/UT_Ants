@@ -10,8 +10,8 @@ item: `UTA-0249` (reconfirmed 2026-10-05; `UTA-0186` closed 2026-10-19). `UTA-00
 `UTA-0100` defer themselves. 0.1.0 released 2026-11-04 (tag `v0.1.0`).
 `UTA-0283` waits on UT_MonsterHunt.
 In 0.2.0, `UTA-0205`, `UTA-0463`, `UTA-0459` and `UTA-0461` shipped
-2026-11-11. Next is `UTA-0019` (user 2026-11-11), which needs a spec and
-the user's answers to its design questions first.
+2026-11-11. Next is `UTA-0019` (user 2026-11-11): its spec,
+`docs/specs/UTA-0019-weapon-set.md`, holds the user's answers; build it.
 **In flight:** `roadmap_query status:"in-progress"`. Not kept by hand.
 
 > `State:` is a formula, so no session owes it an edit and it cannot

@@ -124,6 +124,10 @@ MoveState tick(const BodyWorld&, const BodySize&, const MoveRules&,
 game passes § 4.7's fixed value, and the recording tests pass each
 row's own.
 
+UTA-0019 § 4.6 (`docs/specs/UTA-0019-weapon-set.md`) adds `pitch` and
+fire and weapon buttons to `MoveCommand`, and a push to a body's
+velocity. A tick with no push moves as above.
+
 **A double tap becomes a dodge before the command.** `DoubleTap`, in
 `Movement.h`, takes each tick's held direction keys and `dt`, and
 returns the `DodgeDir` a second press inside `DodgeClickTime` makes.
