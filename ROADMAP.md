@@ -18769,7 +18769,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-09-16.
   Lanes: ut-ants.
 
-- 🚧 [UTA-0205] **The map launcher's player cannot use teleporters, so a map whose first room exits by teleporter cannot be left.**
+- ✅ [UTA-0205] **The map launcher's player cannot use teleporters, so a map whose first room exits by teleporter cannot be left.**
   Reported by the user 2026-09-25, from the map launcher. On a map whose
   start room is left only by a teleporter, walking into it does nothing.
   So the rest of the map is out of reach.
@@ -18806,6 +18806,8 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   standing player misses them in UT too, and must jump in. Probe: walking
   in passes under from all four sides; holding Up from 80 units out
   teleports from all four sides, both teleporters. No fix.
+  Shipped 2026-11-11 on GitHub's matrix (run 43076905235, bc99dca): GCC
+  14, Clang 19 and MSVC green.
   **Layman:** Stepping into a teleporter in the map launcher does nothing, so maps that start in a room with only a teleporter out can't be explored.
   Kind: feature.
   Source: user-request-2026-09-25.
