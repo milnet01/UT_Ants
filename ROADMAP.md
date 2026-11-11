@@ -18521,7 +18521,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: design-2026-09-03.
   Lanes: uinput.
 
-- 📋 [UTA-0019] **The core weapon set, as data.**
+- 🚧 [UTA-0019] **The core weapon set, as data.**
   A weapon is a definition: damage, fire rate, projectile, spread, ammo, model,
   sounds. Behaviour that genuinely differs sits behind a small set of firing
   archetypes.

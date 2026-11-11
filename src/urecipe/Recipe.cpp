@@ -8,6 +8,7 @@
 #include "urecipe/Recipe.h"
 
 #include "core/Ascii.h"
+#include "core/IniText.h"
 #include "core/Sha256.h"
 
 #include <algorithm>
@@ -15,77 +16,29 @@
 #include <charconv>
 #include <cmath>
 #include <format>
-#include <set>
 #include <span>
 #include <utility>
 
 namespace uta::urecipe {
 namespace {
 
-constexpr std::string_view HEADER = "ut-ants recipe ";
-constexpr std::string_view BOM = "\xEF\xBB\xBF";
+constexpr ini::Format FORMAT{.noun = "recipe", .header = "ut-ants recipe ", .version = RECIPE_VERSION};
+constexpr std::string_view HEADER = FORMAT.header;
 
 /// The same fold umat::materialId lowers a texture's id with, so a recipe's
 /// texture names compare equal to the ids the bake makes.
 using uta::asciiFolded;
+using ini::isBlank;
+using ini::nameAfter;
+using ini::quotedIfNeeded;
+using ini::wordsOf;
 
-bool isBlank(char character) { return character == ' ' || character == '\t'; }
+std::unexpected<Error> refuse(std::size_t line, std::string_view why) { return ini::refuse(FORMAT, line, why); }
 
-std::string_view trimmed(std::string_view text) {
-    while (!text.empty() && isBlank(text.front())) text.remove_prefix(1);
-    while (!text.empty() && isBlank(text.back())) text.remove_suffix(1);
-    return text;
-}
+Result<bool> boolOf(std::string_view value, std::size_t line) { return ini::boolOf(FORMAT, value, line); }
 
-/// What is left after a value or a heading: nothing, or a comment.
-bool onlyComment(std::string_view rest) {
-    rest = trimmed(rest);
-    return rest.empty() || rest.front() == '#';
-}
-
-std::unexpected<Error> refuse(std::size_t line, std::string_view why) {
-    return fail(ErrorCode::MalformedData, std::format("recipe line {}: {}", line, why));
-}
-
-/// A key's value: quoted, with `\"` and `\\` its only escapes, or bare up to
-/// a comment.
-Result<std::string> valueOf(std::string_view rest, std::size_t line) {
-    rest = trimmed(rest);
-    if (rest.empty() || rest.front() != '"') {
-        const std::string_view bare = trimmed(rest.substr(0, rest.find('#')));
-        if (bare.empty()) return refuse(line, "the key has no value");
-        return std::string(bare);
-    }
-    std::string value;
-    for (std::size_t at = 1; at < rest.size(); ++at) {
-        const char character = rest[at];
-        if (character == '"') {
-            if (!onlyComment(rest.substr(at + 1))) return refuse(line, "text after the closing quote");
-            return value;
-        }
-        if (character == '\\') {
-            if (at + 1 >= rest.size() || (rest[at + 1] != '"' && rest[at + 1] != '\\'))
-                return refuse(line, "a quoted value's only escapes are \\\" and \\\\");
-            ++at;
-        }
-        value += rest[at];
-    }
-    return refuse(line, "an unclosed quote");
-}
-
-Result<bool> boolOf(std::string_view value, std::size_t line) {
-    if (value == "true") return true;
-    if (value == "false") return false;
-    return refuse(line, std::format("'{}' is not true or false", value));
-}
-
-/// A decimal in [0, max], digits only.
 Result<std::uint32_t> numberOf(std::string_view value, std::uint32_t max, std::size_t line) {
-    std::uint32_t number = 0;
-    const auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), number);
-    if (error != std::errc{} || end != value.data() + value.size() || number > max)
-        return refuse(line, std::format("'{}' is not a whole number from 0 to {}", value, max));
-    return number;
+    return ini::numberOf(FORMAT, value, max, line);
 }
 
 Result<std::array<std::byte, 32>> digestOf(std::string_view value, std::size_t line) {
@@ -104,14 +57,6 @@ Result<std::array<std::byte, 32>> digestOf(std::string_view value, std::size_t l
         digest[i] = static_cast<std::byte>(high * 16 + low);
     }
     return digest;
-}
-
-/// The text of a `[...]` heading, or a refusal.
-Result<std::string_view> headingOf(std::string_view text, std::size_t line) {
-    const std::size_t close = text.find(']');
-    if (close == std::string_view::npos) return refuse(line, "a [section] heading with no ]");
-    if (!onlyComment(text.substr(close + 1))) return refuse(line, "text after a [section] heading");
-    return trimmed(text.substr(1, close - 1));
 }
 
 Result<std::string> textureOf(std::string_view name, std::size_t line) {
@@ -138,32 +83,12 @@ Result<std::string> sectionNameOf(std::string_view section, std::string_view nam
     return std::string(name);
 }
 
-/// The name after `keyword` in a `[keyword NAME]` heading -- empty for a bare
-/// `[keyword]` -- or nullopt where the heading is not that section's.
-std::optional<std::string_view> nameAfter(std::string_view heading, std::string_view keyword) {
-    if (!heading.starts_with(keyword)) return std::nullopt;
-    const std::string_view rest = heading.substr(keyword.size());
-    if (!rest.empty() && !isBlank(rest.front())) return std::nullopt;
-    return trimmed(rest);
-}
-
 /// An actor's name as the map spells it: letters, digits and _.
 bool isObjectName(std::string_view name) {
     return !name.empty() && std::ranges::all_of(name, [](char character) {
         return (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z')
                || (character >= '0' && character <= '9') || character == '_';
     });
-}
-
-/// The blank-separated words of a value.
-std::vector<std::string_view> wordsOf(std::string_view value) {
-    std::vector<std::string_view> words;
-    while (!(value = trimmed(value)).empty()) {
-        const std::size_t end = std::min(value.find(' '), value.find('\t'));
-        words.push_back(value.substr(0, end));
-        value.remove_prefix(end == std::string_view::npos ? value.size() : end);
-    }
-    return words;
 }
 
 /// Three finite numbers. from_chars, not stod: no locale reaches it.
@@ -366,19 +291,6 @@ Result<void> setMaterialKey(Recipe& recipe, std::string_view key, const std::str
     return {};
 }
 
-/// `value` as `write` emits it: bare where it reads back the same, else quoted.
-std::string quotedIfNeeded(std::string_view value, bool always) {
-    const bool needs = always || value.empty() || isBlank(value.front()) || isBlank(value.back())
-                       || value.front() == '"' || value.find('#') != std::string_view::npos;
-    if (!needs) return std::string(value);
-    std::string out = "\"";
-    for (const char character : value) {
-        if (character == '"' || character == '\\') out += '\\';
-        out += character;
-    }
-    return out + '"';
-}
-
 std::vector<MaterialAssignment> sortedMaterials(const Recipe& recipe) {
     std::vector<MaterialAssignment> sorted = recipe.materials;
     std::ranges::sort(sorted, {}, &MaterialAssignment::texture);
@@ -502,21 +414,18 @@ std::optional<std::pair<std::size_t, std::string_view>> kindOf(std::string_view 
 } // namespace
 
 Result<Recipe> parse(std::string_view text) {
-    if (text.starts_with(BOM)) text.remove_prefix(BOM.size()); // what Windows editors write
-
+    ini::Reader reader(FORMAT, text);
     Recipe recipe;
-    std::uint32_t version = 0; // 0 until the header is read
     std::size_t headerLine = 1;
     // Where each section opened, one list per row of KINDS.
     std::array<std::vector<std::size_t>, KINDS.size()> opened;
     std::optional<std::size_t> in; // the open section's row of KINDS
     std::string inName;            // its name, for a named kind
-    std::set<std::string, std::less<>> keysSeen; // in the current section
     const auto sectionComplete = [&]() -> Result<void> {
         if (!in) return {};
         const Kind& kind = KINDS[*in];
         for (const RequiredKey& required : kind.required)
-            if (version < required.below && !keysSeen.contains(required.key)) {
+            if (reader.version() < required.below && !reader.keysSeen().contains(required.key)) {
                 const std::string label = kind.named ? std::format("[{} {}]", kind.keyword, inName)
                                                      : std::format("[{}]", kind.keyword);
                 return refuse(opened[*in].back(), std::format("{} has no `{}`", label, required.key));
@@ -524,42 +433,19 @@ Result<Recipe> parse(std::string_view text) {
         return {};
     };
 
-    std::size_t line = 0;
-    while (!text.empty() || line == 0) {
-        ++line;
-        const std::size_t end = text.find('\n');
-        std::string_view raw = text.substr(0, end);
-        text.remove_prefix(end == std::string_view::npos ? text.size() : end + 1);
-        if (raw.ends_with('\r')) raw.remove_suffix(1);
-        const std::string_view content = trimmed(raw);
-        if (content.empty() || content.front() == '#') {
-            if (text.empty()) break;
-            continue;
-        }
-
-        if (version == 0) {
-            const std::string_view header = trimmed(content.substr(0, content.find('#')));
-            if (!header.starts_with(HEADER))
-                return refuse(line, std::format("the first line must be `{}{}`", HEADER, RECIPE_VERSION));
-            const std::string_view digits = header.substr(HEADER.size());
-            const auto [last, error] = std::from_chars(digits.data(), digits.data() + digits.size(), version);
-            if (error != std::errc{} || last != digits.data() + digits.size() || version == 0)
-                return refuse(line, std::format("'{}' is not a recipe version", digits));
-            if (version > RECIPE_VERSION)
-                return fail(ErrorCode::UnsupportedVersion,
-                            std::format("recipe line {}: the recipe is version {}, and this game reads up to "
-                                        "version {}",
-                                        line, version, RECIPE_VERSION));
+    while (true) {
+        UTA_TRY(const std::optional<ini::Line> next, reader.next());
+        if (!next) break;
+        const std::size_t line = next->number;
+        if (next->kind == ini::Line::Kind::Header) {
             headerLine = line;
-        } else if (content.front() == '[') {
-            UTA_TRY(const std::string_view heading, headingOf(content, line));
+        } else if (next->kind == ini::Line::Kind::Heading) {
             UTA_CHECK(sectionComplete());
-            keysSeen.clear();
-            const auto found = kindOf(heading);
-            if (!found) return refuse(line, std::format("there is no [{}] section", heading));
+            const auto found = kindOf(next->heading);
+            if (!found) return refuse(line, std::format("there is no [{}] section", next->heading));
             const auto [kind, name] = *found;
             std::vector<std::size_t>& lines = opened[kind];
-            if (version < KINDS[kind].version)
+            if (reader.version() < KINDS[kind].version)
                 return refuse(line, std::format("a [{}] needs `ut-ants recipe {}`", KINDS[kind].keyword,
                                                 KINDS[kind].version));
             if (!KINDS[kind].named && !lines.empty())
@@ -569,20 +455,10 @@ Result<Recipe> parse(std::string_view text) {
             lines.push_back(line);
             in = kind;
         } else {
-            const std::size_t equals = content.find('=');
-            if (equals == std::string_view::npos) return refuse(line, "expected `key = value`");
-            const std::string_view key = trimmed(content.substr(0, equals));
-            if (!in) return refuse(line, "a key before any [section]");
-            if (!keysSeen.insert(std::string(key)).second)
-                return refuse(line, std::format("'{}' is given twice in one section", key));
-            UTA_TRY(const std::string value, valueOf(content.substr(equals + 1), line));
-            UTA_CHECK(KINDS[*in].set(recipe, key, value, version, line));
+            UTA_CHECK(KINDS[*in].set(recipe, next->key, next->value, reader.version(), line));
         }
-        if (text.empty()) break;
     }
 
-    if (version == 0) return refuse(1, std::format("the recipe is empty; its first line must be `{}{}`",
-                                                   HEADER, RECIPE_VERSION));
     if (opened[MAP].empty()) return refuse(headerLine, "the recipe has no [map] section");
     // setMapKey refuses an empty `file`, so an empty map name means none.
     if (recipe.map.empty()) return refuse(opened[MAP].front(), "[map] has no `file`");

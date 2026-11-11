@@ -113,7 +113,8 @@ UTF-8, lines ending `LF` or `CR LF`. A `#` starts a comment to the end of
 its line, outside a quoted value. Blank lines are ignored. The first
 non-blank line is the header; then `key = value` lines, grouped by
 `[section]` headings, in the shape Unreal Tournament's own `.ini` files
-use, which its players already edit (§ 14 question 1).
+use, which its players already edit (§ 14 question 1). The line reader
+lives in `core::IniText`, shared with the weapon set (UTA-0019 § 4.3).
 
 ```ini
 ut-ants recipe 1

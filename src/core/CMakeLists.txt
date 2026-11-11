@@ -6,6 +6,7 @@ find_package(Threads REQUIRED)
 
 add_library(uta_core STATIC
     Error.cpp
+    IniText.cpp
     Log.cpp
     FileSystem.cpp
     Jobs.cpp

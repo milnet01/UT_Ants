@@ -9,3 +9,4 @@ is never edited.
 
 | Loop | Date | Lanes | Q1 | Q2 | Q3 | Q4 | Outcome |
 |------|------|-------|----|----|----|----|---------|
+| impl | 2026-11-11 | none | – | – | – | – | UTA-0019 moved the line reader to `core::IniText`; § 4.2 says so. No reviewer dispatched: the gate is cancelled here. |
