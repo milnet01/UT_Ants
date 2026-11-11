@@ -1,0 +1,522 @@
+# UTA-0019's weapon runs (docs/specs/UTA-0019-weapon-set.md section 4.7).
+#
+#   run <name> <map> <x> <y> <z> <yaw>
+#   aim <pitch> / weapon <class> / switch <class> / target <distance>
+#   <seconds> <keys>        adds P (fire), A (alt fire), N (switch)
+#   end <seconds>
+#
+# All start at UTA-0456's open-floor pose on DM-Deck16][, which ran forward
+# 4 s and hit nothing: the line ahead along its yaw is clear.
+#
+# The target stands 400 ahead unless a run says otherwise; a melee one 50
+# (centres), so the 17-radius bodies are 16 apart. Aim 0 is level: the eye's
+# line meets the target 27 above its centre, its head. Aim -1000 drops 38
+# over 400, a body shot. Aim -16384 is straight down.
+#
+# Key lines hold until the next; a tap is 0.08 s, two ticks at 30 fps.
+
+# -- every mode held 2.5 s: refire, ammo, damage, momentum, flight (section 3 item 2)
+
+run hammer-primary DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.ImpactHammer
+target 50
+0 P
+2.5 -
+end 4
+
+run hammer-alt DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.ImpactHammer
+target 50
+0 A
+2.5 -
+end 4
+
+run chainsaw-primary DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.ChainSaw
+target 50
+0 P
+2.5 -
+end 4
+
+run chainsaw-alt DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.ChainSaw
+target 50
+0 A
+2.5 -
+end 4
+
+run enforcer-primary DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.Enforcer
+target 400
+0 P
+2.5 -
+end 4
+
+run enforcer-alt DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.Enforcer
+target 400
+0 A
+2.5 -
+end 4
+
+run bio-primary DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.UT_BioRifle
+target 400
+0 P
+2.5 -
+end 4
+
+run bio-alt DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.UT_BioRifle
+target 400
+0 A
+2.5 -
+end 4
+
+run shock-primary DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.ShockRifle
+target 400
+0 P
+2.5 -
+end 4
+
+run shock-alt DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.ShockRifle
+target 400
+0 A
+2.5 -
+end 4
+
+run pulse-primary DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.PulseGun
+target 400
+0 P
+2.5 -
+end 4
+
+run pulse-alt DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.PulseGun
+target 400
+0 A
+2.5 -
+end 4
+
+run ripper-primary DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.ripper
+target 400
+0 P
+2.5 -
+end 4
+
+run ripper-alt DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.ripper
+target 400
+0 A
+2.5 -
+end 4
+
+run minigun-primary DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.Minigun2
+target 400
+0 P
+2.5 -
+end 4
+
+run minigun-alt DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.Minigun2
+target 400
+0 A
+2.5 -
+end 4
+
+run flak-primary DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.UT_FlakCannon
+target 400
+0 P
+2.5 -
+end 4
+
+run flak-alt DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.UT_FlakCannon
+target 400
+0 A
+2.5 -
+end 4
+
+run rocket-primary DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.UT_Eightball
+target 400
+0 P
+2.5 -
+end 4
+
+run rocket-alt DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.UT_Eightball
+target 400
+0 A
+2.5 -
+end 4
+
+run sniper-primary DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim -1000
+weapon Botpack.SniperRifle
+target 400
+0 P
+2.5 -
+end 4
+
+run sniper-alt DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim -1000
+weapon Botpack.SniperRifle
+target 400
+0 A
+2.5 -
+end 4
+
+# -- one shot each, for a clean flight and the first shot's tick
+
+run enforcer-tap DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.Enforcer
+target 400
+0 P
+0.08 -
+end 3
+
+run enforcer-alt-tap DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.Enforcer
+target 400
+0 A
+0.08 -
+end 3
+
+run shock-tap DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.ShockRifle
+target 400
+0 P
+0.08 -
+end 3
+
+run shock-alt-tap DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.ShockRifle
+target 400
+0 A
+0.08 -
+end 3
+
+run pulse-tap DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.PulseGun
+target 400
+0 P
+0.08 -
+end 3
+
+run pulse-alt-tap DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.PulseGun
+target 400
+0 A
+0.08 -
+end 3
+
+run ripper-tap DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.ripper
+target 400
+0 P
+0.08 -
+end 3
+
+run ripper-alt-tap DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.ripper
+target 400
+0 A
+0.08 -
+end 3
+
+run flak-tap DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.UT_FlakCannon
+target 400
+0 P
+0.08 -
+end 3
+
+run flak-alt-tap DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.UT_FlakCannon
+target 400
+0 A
+0.08 -
+end 3
+
+run bio-tap DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.UT_BioRifle
+target 400
+0 P
+0.08 -
+end 3
+
+run bio-alt-tap DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.UT_BioRifle
+target 400
+0 A
+0.08 -
+end 3
+
+# -- charges
+
+run hammer-charge-0.5 DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.ImpactHammer
+target 50
+0 P
+0.5 -
+end 2.0
+
+run hammer-charge-1 DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.ImpactHammer
+target 50
+0 P
+1 -
+end 2.5
+
+run hammer-charge-2 DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.ImpactHammer
+target 50
+0 P
+2 -
+end 3.5
+
+run bio-charge-1 DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.UT_BioRifle
+target 200
+0 A
+1 -
+end 4
+
+run bio-charge-4 DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.UT_BioRifle
+target 200
+0 A
+4 -
+end 7
+
+run rocket-load-0.08 DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.UT_Eightball
+target 600
+0 P
+0.08 -
+end 2.58
+
+run grenade-load-0.08 DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.UT_Eightball
+target 600
+0 A
+0.08 -
+end 3.58
+
+run rocket-load-1.2 DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.UT_Eightball
+target 600
+0 P
+1.2 -
+end 3.7
+
+run grenade-load-1.2 DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.UT_Eightball
+target 600
+0 A
+1.2 -
+end 4.7
+
+run rocket-load-5 DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.UT_Eightball
+target 600
+0 P
+5 -
+end 7.5
+
+run grenade-load-5 DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.UT_Eightball
+target 600
+0 A
+5 -
+end 8.5
+
+# -- aim: the head, and arcs under gravity
+
+run sniper-head DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.SniperRifle
+target 400
+0 P
+0.08 -
+end 1.5
+
+run sniper-body DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim -1000
+weapon Botpack.SniperRifle
+target 400
+0 P
+0.08 -
+end 1.5
+
+run bio-arc DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim 3000
+weapon Botpack.UT_BioRifle
+0 P
+0.08 -
+end 4
+
+run grenade-arc DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim 3000
+weapon Botpack.UT_Eightball
+0 A
+0.08 -
+end 4
+
+# -- S2: hammer jump, rocket jump, shock combo
+
+run hammer-floor DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim -16384
+weapon Botpack.ImpactHammer
+0 P
+1.4 -
+end 3
+
+run hammer-jump DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim -16384
+weapon Botpack.ImpactHammer
+0 P
+1.4 PJ
+1.48 J
+1.6 -
+end 3.5
+
+run rocket-floor DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim -16384
+weapon Botpack.UT_Eightball
+0 P
+0.08 -
+end 2.5
+
+run rocket-jump DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim -16384
+weapon Botpack.UT_Eightball
+0 PJ
+0.08 J
+0.3 -
+end 2.5
+
+run shock-combo-0.3 DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.ShockRifle
+target 600
+0 A
+0.08 -
+0.3 P
+0.38 -
+end 3
+
+run shock-combo-0.5 DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.ShockRifle
+target 600
+0 A
+0.08 -
+0.5 P
+0.58 -
+end 3
+
+# -- switching from the Enforcer: N, then fire held; the first shot is the weapon up
+
+run switch-hammer DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.Enforcer
+switch Botpack.ImpactHammer
+0 N
+0.08 -
+0.16 P
+2 -
+end 2.5
+
+run switch-chainsaw DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.Enforcer
+switch Botpack.ChainSaw
+0 N
+0.08 -
+0.16 P
+2 -
+end 2.5
+
+run switch-bio DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.Enforcer
+switch Botpack.UT_BioRifle
+0 N
+0.08 -
+0.16 P
+2 -
+end 2.5
+
+run switch-shock DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.Enforcer
+switch Botpack.ShockRifle
+0 N
+0.08 -
+0.16 P
+2 -
+end 2.5
+
+run switch-pulse DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.Enforcer
+switch Botpack.PulseGun
+0 N
+0.08 -
+0.16 P
+2 -
+end 2.5
+
+run switch-ripper DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.Enforcer
+switch Botpack.ripper
+0 N
+0.08 -
+0.16 P
+2 -
+end 2.5
+
+run switch-minigun DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.Enforcer
+switch Botpack.Minigun2
+0 N
+0.08 -
+0.16 P
+2 -
+end 2.5
+
+run switch-flak DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.Enforcer
+switch Botpack.UT_FlakCannon
+0 N
+0.08 -
+0.16 P
+2 -
+end 2.5
+
+run switch-rocket DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.Enforcer
+switch Botpack.UT_Eightball
+0 N
+0.08 -
+0.16 P
+2 -
+end 2.5
+
+run switch-sniper DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.Enforcer
+switch Botpack.SniperRifle
+0 N
+0.08 -
+0.16 P
+2 -
+end 2.5
+
+run switch-enforcer DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.ShockRifle
+switch Botpack.Enforcer
+0 N
+0.08 -
+0.16 P
+2 -
+end 2.5

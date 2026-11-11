@@ -31,6 +31,15 @@ A run in the runs file:
 keys is a string of F B L R J D W (forward, back, strafe left and right, jump,
 duck, walk), or - for none. A line holds from its time until the next.
 
+A weapon run (UTA-0019 section 4.7; weapons.txt) adds, before its first key line:
+
+    aim <pitch>          the view's pitch, 65536 to a turn, up positive
+    weapon <class>       in hand before the run starts, with full ammo
+    switch <class>       carried too; the key N raises it
+    target <distance>    a stand-in pawn this far ahead along the yaw
+
+and the keys P (fire), A (alt fire) and N (switch weapon).
+
 Each launch pins the game as shipped, not this install's settings: dodging on
 (DodgeClickTime 0.25), hardcore (TimeDilation 1.1), AirControl 0.35, no bots.
 A recording that shows otherwise fails the run.
@@ -63,9 +72,10 @@ from ut_original import (
 )
 
 PACKAGE = "UTARec"
-MAX_RUNS = 64   # UTARec's Runs[64]; change both
+MAX_RUNS = 64   # UTARec's Runs[64]; change both. More runs on a map take more launches.
 MAX_STEPS = 32  # UTARec's MaxSteps; change both
-KEYS = set("FBLRJDW")
+KEYS = set("FBLRJDWPAN")
+DIRECTIVES = {"aim", "weapon", "switch", "target"}  # a weapon run's, before its keys
 TIME_DILATION = 1.1  # hardcore mode (DeathMatchPlus.SetGameSpeed)
 # The game as shipped (spec section 4.4, INV-2): what each recording's PAWN line must show.
 SHIPPED = {"DodgeClickTime": 0.25, "AirControl": 0.35, "TimeDilation": TIME_DILATION, "Bots": 0}
@@ -78,6 +88,7 @@ class Run:
         self.name, self.map, self.pose = name, map_name, pose
         self.steps = []  # (seconds, keys)
         self.end = None
+        self.directives = {}  # aim, weapon, switch, target: a weapon run's
 
     def keys_at(self, t):
         keys = "-"
@@ -88,8 +99,8 @@ class Run:
 
     def line(self):
         """The run as UTARec.ini holds it."""
-        return ";".join([f"{self.name} {' '.join(self.pose)}"] + [f"{t} {k}" for t, k in self.steps]
-                        + [f"end {self.end}"])
+        return ";".join([f"{self.name} {' '.join(self.pose)}"] + [f"{k} {v}" for k, v in self.directives.items()]
+                        + [f"{t} {k}" for t, k in self.steps] + [f"end {self.end}"])
 
 
 def read_runs(path):
@@ -109,6 +120,14 @@ def read_runs(path):
             run = Run(fields[1], fields[2], fields[3:])
         elif run is None:
             fail(f"{where}: a line outside a run")
+        elif fields[0] in DIRECTIVES:
+            if run.steps:
+                fail(f"{where}: {fields[0]} comes before run {run.name}'s first key line")
+            if len(fields) != 2 or fields[0] in run.directives:
+                fail(f"{where}: one {fields[0]} <value> a run")
+            if fields[0] in ("aim", "target"):
+                float(fields[1])
+            run.directives[fields[0]] = fields[1]
         elif fields[0] == "end":
             run.end = float(fields[1])
             if not run.steps or run.steps[0][0] != 0:
@@ -120,7 +139,7 @@ def read_runs(path):
         else:
             t, keys = float(fields[0]), fields[1] if len(fields) > 1 else "-"
             if keys != "-" and not set(keys) <= KEYS:
-                fail(f"{where}: keys are F B L R J D W, or -")
+                fail(f"{where}: keys are F B L R J D W P A N, or -")
             if run.steps and t <= run.steps[-1][0]:
                 fail(f"{where}: times must increase")
             run.steps.append((t, keys))
@@ -130,8 +149,6 @@ def read_runs(path):
         fail(f"{path}: run {run.name} has no end")
     if len({r.name for r in runs}) != len(runs):
         fail(f"{path}: two runs share a name")
-    if len(runs) > MAX_RUNS:
-        fail(f"{path}: {len(runs)} runs; at most {MAX_RUNS}")
     return runs
 
 
@@ -285,13 +302,15 @@ def record(args, install, copy, system, out):
                 "status"]]
     failed = []
     for map_name in sorted({r.map for r in runs}):
-        on_map = [r for r in runs if r.map == map_name]
-        for rate in args.rates:
+        on_map_all = [r for r in runs if r.map == map_name]
+        for rate, first in itertools.product(args.rates, range(0, len(on_map_all), MAX_RUNS)):
+            on_map = on_map_all[first:first + MAX_RUNS]
+            batch = f"-{first // MAX_RUNS}" if len(on_map_all) > MAX_RUNS else ""
             pin_settings(system, rate)
             # 90 s to load, then each run's settling and length, doubled: a
             # loaded machine runs the game slower than the clock.
             deadline = 90 + 2 * sum(SKIP_SECONDS + r.end + 2 for r in on_map)
-            lines = launch(copy, system, install, map_name, out / f"{map_name}-{rate}.log",
+            lines = launch(copy, system, install, map_name, out / f"{map_name}-{rate}{batch}.log",
                            [f"MapName={map_name}", f"Rate={rate}"]
                            + [f"Runs[{i}]={r.line()}" for i, r in enumerate(on_map)], deadline)
             recorded, skipped = split_runs(lines)
