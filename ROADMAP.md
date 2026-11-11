@@ -20829,6 +20829,15 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   blurs. With 16x it gained far-edge agreement for flat frame time.
   know_how topic: ray-traced-texture-lod-anisotropic-cone. Measure the
   frame cost per map (ut-bench frame) and compare views before and after.
+  Built 2026-11-11: the material sampler filters at 16x (or the
+  device's limit) where the device reports samplerAnisotropy; RADV and
+  lavapipe both report 16. A/B in one job at High, 3840x2160, render scale
+  2/3, on DM-Conveyor, DM-Chasm and DM-Barricade, two low-pitch views
+  each, under a machine load near 40: the opaque pass moved by -0.16 to
+  +0.33 ms, and once by +0.70 ms in a view that moved 0 in the other
+  round; whole frames varied more between rounds than between A and B.
+  Floor detail (mean Laplacian of luma, lower half of the frame) rose
+  by 1.00x to 2.14x, never fell.
   **Layman:** Keep floors and walls sharp when seen at a low angle instead of blurring into the distance.
   Kind: enhancement.
   Source: in-session-2026-11-10.

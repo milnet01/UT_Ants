@@ -413,6 +413,12 @@ enables it, on either path, only where `Config::shaderStatistics` asks and
 the device reports `pipelineExecutableInfo`. A device without it draws the
 same and reports no statistics.
 
+`samplerAnisotropy` is not a requirement either: `UTA-0461` enables it where
+the device reports it, and the material sampler then filters at 16x, or the
+device's `maxSamplerAnisotropy` if lower. A device without it draws with no
+anisotropy. Mesa's CPU driver and RADV report both, at 16 (`vulkaninfo`,
+2026-11-11).
+
 **Read the feature bit, never the extension string** — except for
 `VK_KHR_swapchain`, which has no feature bit. A sibling project states
 the reason in its own source

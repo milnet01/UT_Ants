@@ -53,11 +53,18 @@ struct DeviceCandidate {
     /// UTA-0322: the widest 2D image the device makes, from
     /// `VkPhysicalDeviceLimits`.
     std::uint32_t maxImageDimension2D = 0;
+    /// UTA-0461: `VkPhysicalDeviceLimits::maxSamplerAnisotropy`.
+    float maxSamplerAnisotropy = 0;
 };
 
 /// The first SS 4.4 requirement `candidate` fails, in that table's order, or
 /// an empty view when it meets every one.
 [[nodiscard]] std::string_view firstMissingRequirement(const DeviceCandidate& candidate) noexcept;
+
+/// UTA-0461: the anisotropy the material sampler asks for: 16, or the
+/// device's limit if lower, where it offers samplerAnisotropy; else 1, which
+/// is none.
+[[nodiscard]] float materialAnisotropy(const DeviceCandidate& candidate) noexcept;
 
 /// The index of the device to use: the first that meets every requirement,
 /// preferring a discrete GPU, then an integrated one, then anything else. When
@@ -114,6 +121,9 @@ public:
     [[nodiscard]] VkPhysicalDeviceType type() const noexcept { return type_; }
     /// UTA-0352: whether pipelines made from this can report their statistics.
     [[nodiscard]] bool capturesShaderStatistics() const noexcept { return shaderStatistics_; }
+    /// UTA-0461: the material sampler's maxAnisotropy; 1 where the device
+    /// offers none, and samplerAnisotropy is then not enabled.
+    [[nodiscard]] float materialAnisotropy() const noexcept { return anisotropy_; }
     /// The summed size of the heaps flagged VK_MEMORY_HEAP_DEVICE_LOCAL_BIT --
     /// UTA-0051 SS 4.3's input to the default tier.
     [[nodiscard]] std::uint64_t deviceLocalBytes() const noexcept {
@@ -166,6 +176,7 @@ private:
     std::unique_ptr<ValidationLog> log_ = std::make_unique<ValidationLog>();
     bool failOnValidationError_ = false;
     bool shaderStatistics_ = false;
+    float anisotropy_ = 1;
 };
 
 } // namespace uta::urender

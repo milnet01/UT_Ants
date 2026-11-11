@@ -841,7 +841,13 @@ Result<void> Renderer::Impl::createSamplers() {
     // SS 4.11: this item renders at output resolution and applies no mip bias.
     info.mipLodBias = 0.0f;
     info.maxLod = VK_LOD_CLAMP_NONE;
+    // UTA-0461: without it textureGrad takes the long axis's level, and a
+    // floor seen at a grazing angle blurs.
+    info.anisotropyEnable = gpu->materialAnisotropy() > 1 ? VK_TRUE : VK_FALSE;
+    info.maxAnisotropy = gpu->materialAnisotropy();
     UTA_CHECK(created(vkCreateSampler(gpu->device(), &info, nullptr, &materialSampler), materialSampler, "vkCreateSampler"));
+    info.anisotropyEnable = VK_FALSE; // the samplers below read screen-sized images
+    info.maxAnisotropy = 1;
 
     info.magFilter = VK_FILTER_NEAREST;
     info.minFilter = VK_FILTER_NEAREST;

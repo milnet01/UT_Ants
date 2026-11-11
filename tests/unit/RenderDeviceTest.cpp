@@ -160,3 +160,23 @@ TEST_CASE("an instance with no physical device is refused as having none", "[ren
     REQUIRE_FALSE(chosen.has_value());
     CHECK_THAT(std::string(chosen.error().message()), ContainsSubstring("no physical device"));
 }
+
+TEST_CASE("UTA-0461: the material sampler asks for 16x anisotropy or the device's limit and none without the feature") {
+    using uta::urender::materialAnisotropy;
+    DeviceCandidate c = qualifying("card");
+    c.maxSamplerAnisotropy = 16;
+    CHECK(materialAnisotropy(c) == 1); // the limit alone, without the feature: none
+    c.core.samplerAnisotropy = VK_TRUE;
+    CHECK(materialAnisotropy(c) == 16);
+    c.maxSamplerAnisotropy = 8;
+    CHECK(materialAnisotropy(c) == 8); // a lower limit caps it
+    c.maxSamplerAnisotropy = 64;
+    CHECK(materialAnisotropy(c) == 16); // a higher one does not raise it
+    c.maxSamplerAnisotropy = 1;
+    CHECK(materialAnisotropy(c) == 1);
+    c.maxSamplerAnisotropy = 0; // a driver breaking Vulkan's floor of 16 still gets a valid 1
+    CHECK(materialAnisotropy(c) == 1);
+    // A requirement it does not add: a device without it still qualifies.
+    c.core.samplerAnisotropy = VK_FALSE;
+    CHECK(firstMissingRequirement(c).empty());
+}

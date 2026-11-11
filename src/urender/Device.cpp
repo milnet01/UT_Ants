@@ -139,6 +139,7 @@ DeviceCandidate describe(VkPhysicalDevice device, VkSurfaceKHR surface) {
         candidate.subgroupStages = v11.subgroupSupportedStages;
         candidate.subgroupOperations = v11.subgroupSupportedOperations;
         candidate.maxImageDimension2D = properties2.properties.limits.maxImageDimension2D;
+        candidate.maxSamplerAnisotropy = properties2.properties.limits.maxSamplerAnisotropy;
     }
     candidate.v12.pNext = nullptr;
     candidate.v13.pNext = nullptr;
@@ -191,6 +192,12 @@ std::string_view firstMissingRequirement(const DeviceCandidate& candidate) noexc
     for (const Requirement& requirement : REQUIREMENTS)
         if (!requirement.met(candidate)) return requirement.name;
     return {};
+}
+
+float materialAnisotropy(const DeviceCandidate& candidate) noexcept {
+    constexpr float MOST = 16; // DOOM_Ants' DOOM-0600 measured 16x at a flat frame time
+    if (candidate.core.samplerAnisotropy != VK_TRUE || !(candidate.maxSamplerAnisotropy > 1)) return 1;
+    return std::min(MOST, candidate.maxSamplerAnisotropy);
 }
 
 Result<std::size_t> selectDevice(std::span<const DeviceCandidate> candidates) {
@@ -369,13 +376,15 @@ Result<std::unique_ptr<Gpu>> Gpu::create(bool validation, std::span<const std::s
     gpu->physical_ = devices[chosen];
     gpu->name_ = candidates[chosen].name;
     gpu->type_ = candidates[chosen].type;
+    gpu->anisotropy_ = urender::materialAnisotropy(candidates[chosen]);
     // Always engaged for a selected device: a graphics queue, and on the
     // presenting path present support, are requirements.
     gpu->family_ = familyOf(gpu->physical_, gpu->surface_).value_or(0);
     vkGetPhysicalDeviceMemoryProperties(gpu->physical_, &gpu->memory_);
 
     // Enable exactly what SS 4.4 required, and nothing else -- but UTA-0352's
-    // statistics, where the caller asked and the device offers them.
+    // statistics, where the caller asked and the device offers them, and
+    // UTA-0461's anisotropy, where the device offers it.
     gpu->shaderStatistics_ = shaderStatistics && offersShaderStatistics(gpu->physical_);
     VkPhysicalDevicePipelineExecutablePropertiesFeaturesKHR enableExecutables{};
     enableExecutables.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_EXECUTABLE_PROPERTIES_FEATURES_KHR;
@@ -398,6 +407,7 @@ Result<std::unique_ptr<Gpu>> Gpu::create(bool validation, std::span<const std::s
     enable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
     enable.pNext = &enable12;
     enable.features.textureCompressionBC = VK_TRUE;
+    enable.features.samplerAnisotropy = gpu->anisotropy_ > 1 ? VK_TRUE : VK_FALSE;
 
     const float priority = 1.0f;
     VkDeviceQueueCreateInfo queueInfo{};
