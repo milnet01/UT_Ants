@@ -71,6 +71,13 @@ struct FireMode {
     double windUp = 0;        ///< game seconds from a press at idle to its shot, which a release does not stop
     std::uint32_t ammo = 0;   ///< spent per shot; per second for a beam
     std::uint32_t pressAmmo = 0; ///< spent by the press that starts a wind-up, with no shot
+    /// A hold on a wound-up mode presses again this often, counted from its
+    /// press: it pays `pressAmmo` and winds up again. 0 for never.
+    double repress = 0;
+    /// A hold on a wound-up mode fires every `spinRefire` until it has been
+    /// held this long, and every `refire` from the shot after. 0 for no spin-up.
+    double spinUp = 0;
+    double spinRefire = 0;
     std::uint32_t spread = 0; ///< the cone's half-angle, in angle units
     std::optional<Charge> charge;
     double damage = 0;   ///< instant-hit, melee; per second for a beam

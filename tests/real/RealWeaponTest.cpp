@@ -247,10 +247,36 @@ std::string str(const Vec3& v) {
     return out.str();
 }
 
-Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& set,
+/// THE ORIGINAL'S SLEEP ENDS AT THE TICK NEAREST ITS TIME, and carries
+/// nothing over: a mode that sleeps between shots (Minigun2, the Enforcer's
+/// alt) keeps a cadence of whole ticks, which moves with the frame rate.
+/// Ours keeps its times at any rate (INV-5). So a run is replayed with each
+/// wound-up mode's times rounded to that run's ticks, at least one.
+ugame::WeaponSet slept(ugame::WeaponSet set, double dt) {
+    const auto whole = [dt](double& time) {
+        if (time > 0) time = std::max(1.0, std::round(time / dt)) * dt;
+    };
+    const auto mode = [&whole](ugame::FireMode& fire) {
+        if (fire.windUp <= 0) return;
+        whole(fire.windUp);
+        whole(fire.refire);
+        whole(fire.spinRefire);
+    };
+    for (ugame::Weapon& weapon : set.weapons) {
+        mode(weapon.primary);
+        if (weapon.alt) mode(*weapon.alt);
+    }
+    return set;
+}
+
+Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
               const uta::test::MovementRecording& recording) {
     const bool detail = detailed(recording);
     const auto& rows = recording.ticks;
+    std::vector<double> dts;
+    for (const auto& row : rows) dts.push_back(row.dt);
+    std::ranges::nth_element(dts, dts.begin() + static_cast<std::ptrdiff_t>(dts.size() / 2));
+    const ugame::WeaponSet set = slept(stock, dts[dts.size() / 2]);
     REQUIRE(recording.weapon.size() == rows.size());
     // A run with no target logs no G lines; its target is dead and away.
     const bool targeted = !recording.target.empty();

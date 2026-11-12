@@ -41,6 +41,9 @@ struct Body {
     double refireLeft = 0;        ///< seconds until the weapon in hand may fire again
     int winding = -1;             ///< 0 primary, 1 alt, while a wind-up runs; else -1
     double windLeft = 0;          ///< seconds until the wind-up's shot
+    int holding = -1;             ///< 0 primary, 1 alt, while the press that wound up is still held; else -1
+    double heldFor = 0;           ///< seconds since that press
+    double repressLeft = 0;       ///< seconds until that hold presses again (`repress`)
     int charging = -1;            ///< 0 primary, 1 alt, while a charge is held; else -1
     double charged = 0;           ///< seconds a charge has been held; a stepped damage charge's steps
     double stepHeld = 0;          ///< seconds a stepped charge has been held since its last step

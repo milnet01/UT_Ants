@@ -327,8 +327,9 @@ TEST_CASE("INV-4: one mode's damage, refire or speed changes only that", "[ugame
     }
     SECTION("refire") {
         WeaponSet edited = stock();
-        edited.weapons[static_cast<std::size_t>(weaponNamed(edited, "minigun"))].primary.refire *= 2;
-        Game a = duel(stock(), "minigun", 600), b = duel(edited, "minigun", 600);
+        // The Enforcer: its cadence is its refire alone.
+        edited.weapons[static_cast<std::size_t>(weaponNamed(edited, "enforcer"))].primary.refire *= 2;
+        Game a = duel(stock(), "enforcer", 600), b = duel(edited, "enforcer", 600);
         const int shotsA = eventsWhileHeld(world, stock(), a, 170, Event::Kind::InstantHit);
         const int shotsB = eventsWhileHeld(world, edited, b, 170, Event::Kind::InstantHit);
         CAPTURE(shotsA, shotsB);
@@ -532,6 +533,86 @@ TEST_CASE("SS 4.9: a wind-up delays a press's shot, which a release does not sto
     REQUIRE(shots.size() == 1);
     CHECK(std::abs(shots[0] + 1 - alt.windUp / DT) <= 1);
     CHECK(game.bodies[0].weapons[static_cast<std::size_t>(game.bodies[0].weapon)].ammo == full - alt.ammo);
+}
+
+/// A hold of the Minigun's trigger: the ticks it fired in, and the ticks it
+/// spent a round in and fired nothing.
+struct Held {
+    std::vector<int> shots, wasted;
+};
+
+/// `ticks` ticks, the trigger down for the first `down` of them.
+Held holdMinigun(const BodyWorld& world, const WeaponSet& set, bool alt, int ticks, int down = 1 << 30) {
+    Game game = duel(set, "minigun", 600);
+    const std::size_t gun = static_cast<std::size_t>(weaponNamed(set, "minigun"));
+    std::vector<MoveCommand> commands(2);
+    Held held;
+    for (int k = 0; k < ticks; ++k) {
+        (alt ? commands[0].altFire : commands[0].fire) = k < down;
+        const std::uint32_t ammo = game.bodies[0].weapons[gun].ammo;
+        tick(world, set, RULES, game, commands, DT);
+        const bool shot = std::ranges::count(game.events, Event::Kind::InstantHit, &Event::kind) > 0;
+        if (shot) held.shots.push_back(k);
+        else if (game.bodies[0].weapons[gun].ammo < ammo) held.wasted.push_back(k);
+    }
+    return held;
+}
+
+TEST_CASE("SS 4.9: a hold presses again every repress, paying the press's ammo and winding up again",
+          "[ugame][game]") {
+    const BodyWorld world = arena();
+    // Times that fall inside ticks, so a moment and its tick's end differ.
+    WeaponSet set = stock();
+    FireMode& mode = set.weapons[static_cast<std::size_t>(weaponNamed(set, "minigun"))].primary;
+    mode.repress = 20.9 * DT;
+    mode.windUp = 5.5 * DT;
+    mode.refire = 5 * DT;
+    REQUIRE(mode.pressAmmo > 0);
+    const Held held = holdMinigun(world, set, false, static_cast<int>(3.5 * mode.repress / DT));
+    // The press, then one every repress, counted from the press.
+    REQUIRE(held.wasted.size() == 4);
+    // The tick a time falls in: the first to end at or after it.
+    const auto tickOf = [](double time) { return static_cast<int>(std::ceil(time / DT - 1e-9)) - 1; };
+    for (std::size_t k = 1; k < held.wasted.size(); ++k)
+        CHECK(held.wasted[k] == tickOf(static_cast<double>(k) * mode.repress));
+    // After each, the next shot is a wind-up after that moment, not after
+    // its tick's end, and not a refire after the last shot.
+    for (std::size_t k = 1; k < held.wasted.size(); ++k) {
+        const auto next = std::ranges::upper_bound(held.shots, held.wasted[k]);
+        REQUIRE(next != held.shots.end());
+        CHECK(*next == tickOf(static_cast<double>(k) * mode.repress + mode.windUp));
+    }
+}
+
+TEST_CASE("SS 4.9: a released hold presses no more", "[ugame][game]") {
+    const BodyWorld world = arena();
+    const FireMode& mode = primaryOf(stock(), "minigun");
+    const int down = static_cast<int>(0.5 * mode.repress / DT);
+    const Held held = holdMinigun(world, stock(), false, static_cast<int>(3 * mode.repress / DT), down);
+    CHECK(held.wasted == std::vector<int>{0});
+    REQUIRE(!held.shots.empty());
+    CHECK(held.shots.back() <= down);
+}
+
+TEST_CASE("SS 4.9: a hold fires every spin-refire until it has been held for spin-up, and every refire after",
+          "[ugame][game]") {
+    const BodyWorld world = arena();
+    const FireMode& mode = *stock().weapons[static_cast<std::size_t>(weaponNamed(stock(), "minigun"))].alt;
+    REQUIRE(mode.spinUp > 2 * mode.spinRefire);
+    REQUIRE(mode.spinRefire > mode.refire + 2 * DT);
+    const Held held = holdMinigun(world, stock(), true, static_cast<int>(3 * mode.spinUp / DT));
+    REQUIRE(held.shots.size() > 8);
+    int slow = 0, fast = 0;
+    for (std::size_t k = 0; k + 1 < held.shots.size(); ++k) {
+        // The shot that finds the spin-up over is the first the faster time follows.
+        const bool spun = (held.shots[k] + 1) * DT >= mode.spinUp;
+        const double gap = (held.shots[k + 1] - held.shots[k]) * DT;
+        CAPTURE(k, gap);
+        CHECK(std::abs(gap - (spun ? mode.refire : mode.spinRefire)) <= DT + 1e-9);
+        ++(spun ? fast : slow);
+    }
+    CHECK(slow >= 2);
+    CHECK(fast >= 5);
 }
 
 TEST_CASE("SS 4.9: a press's press-ammo is spent at once, with no shot", "[ugame][game]") {
@@ -1017,5 +1098,5 @@ TEST_CASE("INV-5: a scripted fight is the same at every frame rate and on every 
         CHECK(again == reference);
     }
     INFO("final hash " << reference.back());
-    CHECK(reference.back() == 3279872724148564251u);
+    CHECK(reference.back() == 12313652342103652296u);
 }

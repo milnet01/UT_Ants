@@ -85,6 +85,9 @@ refire-lead = 0.05
 wind-up = 0.25
 ammo = 10
 press-ammo = 2
+repress = 0.8
+spin-up = 0.5
+spin-refire = 0.2
 damage = 72
 momentum = 8500
 range = 1100
@@ -188,6 +191,9 @@ TEST_CASE("INV-2: the small set parses and reads back from write", "[ugame][weap
     CHECK(set->weapons[1].alt->refireLead == 0.05);
     CHECK(set->weapons[1].alt->windUp == 0.25);
     CHECK(set->weapons[1].alt->pressAmmo == 2);
+    CHECK(set->weapons[1].alt->repress == 0.8);
+    CHECK(set->weapons[1].alt->spinUp == 0.5);
+    CHECK(set->weapons[1].alt->spinRefire == 0.2);
     CHECK(set->projectile("ball")->acceleration == 50);
     CHECK(set->projectile("chunk")->turnRandom == 1000);
     CHECK(set->projectile("chunk")->bounceOff == 0.3);
@@ -281,6 +287,8 @@ TEST_CASE("INV-1: each refusal names its line", "[ugame][weapons]") {
          "speed-random is more than speed"},
         {"a bounce draw below nothing", edited("bounce-off-random = 0.2", "bounce-off-random = 0.4"),
          "[projectile chunk]", "bounce-off-random is more than bounce-off"},
+        {"a spin-up with no spin-refire", edited("spin-refire = 0.2\n", ""), "[fire hammer alt]", "has no `spin-refire`"},
+        {"a spin-refire with no spin-up", edited("spin-up = 0.5\n", ""), "spin-refire = 0.2", "has no key 'spin-refire'"},
         {"a lifetime draw to zero", edited("lifetime-random = 0.5", "lifetime-random = 2.9"), "[projectile chunk]",
          "lifetime-random is not less than lifetime"},
         {"an unknown rule", edited("rule = rocket-fan", "rule = spiral"), "rule = spiral",

@@ -18594,6 +18594,21 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   The 2.5 moves every blast: rocket-floor's self push is now 17.9 off
   at 30 and 85 fps, 11.5 at 120, and its damage 1 off. Still the hover
   departure: the original's centre is 43.8 above the floor, ours 39.
+  2026-11-12, Minigun (closes the Minigun paragraph above). New keys
+  on a wound-up mode: repress (primary 0.424: a held trigger presses
+  again that often, a round with no bullet and a new wind-up),
+  spin-up and spin-refire (alt: every 0.13 until held 0.5, then every
+  0.08). Primary refire is the script's 0.13. Measured from the
+  recordings' spend times at 85 and 120 fps.
+  The original's Sleep ends at the nearest tick, so its cadence moves
+  with frame rate (0.147 and 0.073 at 30 fps). Ours does not (INV-5).
+  The replay rounds a wound-up mode's times to each run's ticks
+  (slept() in RealWeaponTest.cpp). That is the session's recommended
+  answer to the open question, built without waiting; the user has not
+  confirmed it. Failures 225 -> 223: spend counts now match in all six
+  Minigun runs but alt 85 (30/29) and primary 120 (23/24), each one
+  round at the hold's end.
+  Not built: FinishFire's unwind (0.9 s before the gun is idle again).
   **Layman:** The guns. Built as a table of numbers rather than as code, so a different set -- your super weapons -- is a different table rather than a second codebase.
   Kind: implement.
   Source: design-2026-09-03.

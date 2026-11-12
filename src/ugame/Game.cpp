@@ -65,6 +65,9 @@ void switchWeapon(const WeaponSet& set, Body& body, const uworld::MoveCommand& c
         body.switchLeft = set.weapons[static_cast<std::size_t>(asked)].switchTime;
         body.winding = -1;
         body.windLeft = 0;
+        body.holding = -1;
+        body.heldFor = 0;
+        body.repressLeft = 0;
         body.charging = -1;
         body.charged = 0;
         body.stepHeld = 0;
@@ -115,8 +118,34 @@ void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
             carried.ammo -= mode->pressAmmo;
             body.winding = which;
             body.windLeft = mode->windUp;
+            body.holding = which;
+            body.heldFor = 0;
+            body.repressLeft = mode->repress;
         }
     }
+    // A hold lasts while its own trigger is down. Minigun2.NormalFire's
+    // AnimEnd: it presses again every `repress`, paying the press's ammo and
+    // winding up again; the time past that moment counts toward the wind-up.
+    if (body.holding >= 0 && !(body.holding == 0 ? command.fire : command.altFire)) body.holding = -1;
+    if (body.holding >= 0) {
+        const FireMode& mode = *modeOf(body.holding);
+        body.heldFor += tick.dt;
+        body.repressLeft -= tick.dt;
+        if (mode.repress > 0 && body.repressLeft <= 0) {
+            if (carried.ammo >= mode.pressAmmo + mode.ammo) {
+                carried.ammo -= mode.pressAmmo;
+                body.winding = body.holding;
+                body.windLeft = mode.windUp + body.repressLeft + tick.dt;
+                body.repressLeft += mode.repress;
+            } else {
+                body.holding = -1;
+            }
+        }
+    }
+    // Minigun2.AltFiring: slower shots until the hold has spun it up.
+    const auto refireOf = [&body](const FireMode& mode, int which) {
+        return mode.spinUp > 0 && body.holding == which && body.heldFor < mode.spinUp ? mode.spinRefire : mode.refire;
+    };
     if (body.winding >= 0) {
         // The shot leaves when the wind-up ends, held or not, and the time
         // past its end counts toward the refire.
@@ -124,7 +153,7 @@ void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
         body.windLeft -= tick.dt;
         if (body.windLeft <= 0) {
             detail::fire(tick, index, mode, 1);
-            body.refireLeft = mode.refire + body.windLeft;
+            body.refireLeft = refireOf(mode, body.winding) + body.windLeft;
             body.winding = -1;
             body.windLeft = 0;
             fired = true;
@@ -189,7 +218,7 @@ void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
             body.loaded = 1;
         } else {
             detail::fire(tick, index, *mode, 1);
-            body.refireLeft += mode->refire + (idle ? mode->refireLead : 0);
+            body.refireLeft += refireOf(*mode, which) + (idle ? mode->refireLead : 0);
             fired = true;
         }
     }
@@ -454,6 +483,9 @@ std::uint64_t stateHash(const Game& game) {
         addDouble(body.refireLeft);
         add(static_cast<std::uint64_t>(body.winding));
         addDouble(body.windLeft);
+        add(static_cast<std::uint64_t>(body.holding));
+        addDouble(body.heldFor);
+        addDouble(body.repressLeft);
         add(static_cast<std::uint64_t>(body.charging));
         addDouble(body.charged);
         addDouble(body.stepHeld);

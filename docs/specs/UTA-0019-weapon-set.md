@@ -384,8 +384,16 @@ Botpack `DeathMatchPlus.ReduceDamage`):
 - **Pulse:** primary every 0.18 s, its start circling the muzzle. Alt
   spends 1 ammo every 0.24 s; the beam reaches 810 in 81-unit pieces.
 - **Minigun:** damage 9 to 14 at random; momentum zero, or one hit in
-  five a push. Recorded: 9 to 14. Alt fires every 0.13 s for its first
-  three shots, then faster. Recorded.
+  five a push. Recorded: 9 to 14. Both modes wind up 0.13 s. A held
+  primary fires every 0.13 s and presses again every 0.424 s
+  (`repress`): a round with no bullet, and a new wind-up
+  (`Minigun2.NormalFire`'s `AnimEnd`). A held alt fires every 0.13 s
+  (`spin-refire`) until it has been held 0.5 s (`spin-up`), and every
+  0.08 s from the shot after. Recorded at 30, 85 and 120 frames a
+  second. The original's `Sleep` ends at the tick nearest its time, so
+  its cadence moves with the frame rate: 0.147 and 0.073 s at 30. Ours
+  does not (INV-5); INV-6's replay rounds these times to each run's
+  ticks.
 - **Flak:** eight chunks at fixed offsets, each turned up to ±1000 and
   its speed ±100 at random. Alt tosses a slug with lift 200. The slug's
   five chunks keep its aim, not the surface's normal. A chunk bounces
