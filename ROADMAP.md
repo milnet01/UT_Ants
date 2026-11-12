@@ -18990,7 +18990,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-10-03.
   Lanes: urender, umat, ubake.
 
-- 📋 [UTA-0280] **urender: harmful liquids bubble and splash, so danger reads from the surface, not just the colour.**
+- 📋 [UTA-0280] **urender: every harmful liquid bubbles, pops, splashes and steams, so danger reads from the surface; acid also turns clear green.**
   User (2026-10-03): "for the liquids that do the player harm, like acid,
   please add bubbling and splashes (like a constant chemical reaction is
   taking place). I want us to be able to see what liquid is dangerous and
@@ -19016,10 +19016,37 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   So the cast light is skipped (or fades out) where the liquid is in
   sunlight. One open point: whether a map that already places lights
   over its lava gets ours on top, which would double them.
-  **Layman:** Acid, slime and other liquids that hurt you should fizz, bubble and spit, so you can tell at a glance which pools are safe to swim in.
+  Merged from UTA-0304 (user, 2026-11-12: "slightly different but
+  basically are the same thing"). Its text, unchanged:
+  The user, 2026-10-06, on DM-Deck16][: "The acid looks great, please
+  remove the green texture they have and add a green tint to the acid.
+  Please also add bubbling and steam to the surface. Perhaps popping
+  bubbles as well."
+  So: drop the acid's own painted texture from its surface, keep the
+  look's lighting and reflection, and colour what shows through by a
+  green tint that deepens with depth (the see-through path is UTA-0273's).
+  Cheap tricks: bubbles as a few small rising sprites per pool, spawned
+  at random points, each growing and popping into a brief ring on the
+  surface; steam as soft camera-facing sprites drifting up and fading,
+  sparse, lit by the room. Both are capped per pool and switch off with
+  their own setting (UTA-0297). Which liquids are acid is the liquid
+  kind UTA-0105 already bakes; a per-map override goes in the recipe so
+  the editor can set it (UTA-0034).
+  Widened by the user (2026-10-06): this is how ALL dangerous liquids
+  are to be managed. Every one bubbles, has popping bubbles and gives off
+  steam, showing a constant reaction that makes it dangerous. So the
+  trigger is the danger, not the acid: a liquid zone that hurts (UT99's
+  pain zone, its damage per second above zero) gets the effect, whatever
+  its texture, which catches slime, lava and waste alongside acid. Each
+  kind keeps its own colour for bubbles and steam (lava's reads as smoke
+  and heat). Removing the painted texture in favour of a clear tint was
+  asked for acid only; other liquids keep their look unless the user says
+  otherwise.
+  Evidence: /home/ants/Pictures/Screenshots/Screenshot_20261006_092759.png
+  **Layman:** Every pool that hurts you, such as acid, slime or lava, bubbles, pops, splashes and steams, so you can tell at a glance which are safe to swim in; acid also turns into clear green liquid.
   Kind: feature.
   Source: user-request-2026-10-03.
-  Lanes: urender, ubake.
+  Lanes: urender, ubake, umat.
 
 - 📋 [UTA-0282] **urender: replace each map's skybox with a proper-looking sky inspired by its original sky texture.**
   User (2026-10-03), with the screenshot on the sky-surface fix filed
@@ -19203,7 +19230,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-10-06.
   Lanes: urecipe, urender.
 
-- 📋 [UTA-0304] **urender: every dangerous liquid bubbles, pops and steams; acid also turns clear green.**
+- 🚫 [UTA-0304] **urender: every dangerous liquid bubbles, pops and steams; acid also turns clear green.**
   The user, 2026-10-06, on DM-Deck16][: "The acid looks great, please
   remove the green texture they have and add a green tint to the acid.
   Please also add bubbling and steam to the surface. Perhaps popping
@@ -19229,11 +19256,14 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   and heat). Removing the painted texture in favour of a clear tint was
   asked for acid only; other liquids keep their look unless the user says
   otherwise.
+  Merged into UTA-0280 (user, 2026-11-12: the two are basically the
+  same thing). Its whole text is carried there.
   **Layman:** Every pool that hurts you, such as acid, slime or lava, bubbles, pops and steams so it looks dangerous; acid also turns into clear green liquid.
   Kind: feature.
   Source: user-request-2026-10-06.
   Lanes: urender, umat.
   Evidence: /home/ants/Pictures/Screenshots/Screenshot_20261006_092759.png
+  Duplicate-of: UTA-0280.
 
 - 📋 [UTA-0044] **urender and umat: subsurface scattering on curated materials.**
   Blocked by a design change: docs/design.md lists urender's
