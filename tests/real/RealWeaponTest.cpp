@@ -368,9 +368,7 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& set,
             c.weaponSlot = static_cast<std::int8_t>(set.weapons[static_cast<std::size_t>(other)].slot);
         commands[TARGET].yaw = 0;
 
-        const int heldBefore = game.bodies[FIRER].weapon;
-        const std::uint32_t ammoBefore =
-            heldBefore >= 0 ? game.bodies[FIRER].weapons[static_cast<std::size_t>(heldBefore)].ammo : 0;
+        const std::vector<ugame::Carried> carriedBefore = game.bodies[FIRER].weapons;
         const std::array<double, 2> healthBefore{game.bodies[0].health, game.bodies[1].health};
         const std::vector<ugame::Shot> shotsBefore = game.shots;
 
@@ -381,9 +379,12 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& set,
                 if (event.kind == ugame::Event::Kind::Explosion || event.kind == ugame::Event::Kind::Combo)
                     std::cout << "  explosion " << tick << " at " << str(event.from) << " radius " << event.radius << "\n";
 
-        if (heldBefore >= 0 && game.bodies[FIRER].weapon == heldBefore &&
-            game.bodies[FIRER].weapons[static_cast<std::size_t>(heldBefore)].ammo < ammoBefore)
-            ourSpends.push_back(tick);
+        // A weapon may fire in the tick it comes up: any weapon's ammo counts.
+        for (std::size_t i = 0; i < carriedBefore.size(); ++i)
+            if (game.bodies[FIRER].weapons[i].ammo < carriedBefore[i].ammo) {
+                ourSpends.push_back(tick);
+                break;
+            }
         for (int b = 0; b < 2; ++b) {
             const double lost = healthBefore[static_cast<std::size_t>(b)] - game.bodies[static_cast<std::size_t>(b)].health;
             if (lost > 0) ourHits.push_back({tick, b, lost, game.bodies[static_cast<std::size_t>(b)].move.velocity});

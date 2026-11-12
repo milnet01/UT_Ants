@@ -352,6 +352,12 @@ Botpack `DeathMatchPlus.ReduceDamage`):
   A hold's first interval can be longer, by `refire-lead`. Recorded
   2026-11-12 at 30, 85 and 120 fps: the Ripper's primary, 0.404 to
   0.409 s against 0.384 s. The script does not say why.
+- **Wind-up:** a press at idle on a mode with `wind-up` fires that long
+  after, held or not, and spends `press-ammo` at once with no shot. The
+  Enforcer's alt turns the gun first (`Enforcer.AltFiring`; recorded
+  0.185 s at 30, 85 and 120 fps, a tap too). The Minigun's press uses a
+  round and its first bullet follows a 0.13 s sleep (`Minigun2.Fire`,
+  `NormalFire`, `AltFiring`; recorded).
 - **Hammer:** charge grows 0.75 a second, capped at 1.5. On release it
   traces 120: a body within 90 takes 60 × charge and 66000 × charge;
   the level costs the firer 36 and pushes back 69000 × charge, with

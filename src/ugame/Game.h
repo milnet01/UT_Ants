@@ -39,6 +39,8 @@ struct Body {
     int pending = -1;             ///< the weapon being brought up; -1 for none
     double switchLeft = 0;        ///< seconds until `pending` is in hand
     double refireLeft = 0;        ///< seconds until the weapon in hand may fire again
+    int winding = -1;             ///< 0 primary, 1 alt, while a wind-up runs; else -1
+    double windLeft = 0;          ///< seconds until the wind-up's shot
     int charging = -1;            ///< 0 primary, 1 alt, while a charge is held; else -1
     double charged = 0;           ///< seconds a charge has been held; a stepped damage charge's steps
     double stepHeld = 0;          ///< seconds a stepped charge has been held since its last step

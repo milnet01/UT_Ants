@@ -63,6 +63,8 @@ void switchWeapon(const WeaponSet& set, Body& body, const uworld::MoveCommand& c
     if (asked >= 0 && asked != (body.pending >= 0 ? body.pending : body.weapon)) {
         body.pending = asked;
         body.switchLeft = set.weapons[static_cast<std::size_t>(asked)].switchTime;
+        body.winding = -1;
+        body.windLeft = 0;
         body.charging = -1;
         body.charged = 0;
         body.stepHeld = 0;
@@ -103,7 +105,31 @@ void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
     body.refireLeft -= tick.dt;
     bool fired = false, beamed = false;
     Carried& carried = body.weapons[static_cast<std::size_t>(body.weapon)];
-    if (body.charging >= 0) {
+    // A press at idle on a mode with a wind-up starts it, and pays its
+    // press-ammo; the press's own tick counts toward it.
+    if (idle && body.winding < 0 && body.charging < 0) {
+        const int which = command.fire ? 0 : command.altFire ? 1 : -1;
+        const FireMode* mode = which >= 0 ? modeOf(which) : nullptr;
+        // INV-7: a press it cannot pay for changes nothing.
+        if (mode != nullptr && mode->windUp > 0 && carried.ammo >= mode->pressAmmo + mode->ammo) {
+            carried.ammo -= mode->pressAmmo;
+            body.winding = which;
+            body.windLeft = mode->windUp;
+        }
+    }
+    if (body.winding >= 0) {
+        // The shot leaves when the wind-up ends, held or not, and the time
+        // past its end counts toward the refire.
+        const FireMode& mode = *modeOf(body.winding);
+        body.windLeft -= tick.dt;
+        if (body.windLeft <= 0) {
+            detail::fire(tick, index, mode, 1);
+            body.refireLeft = mode.refire + body.windLeft;
+            body.winding = -1;
+            body.windLeft = 0;
+            fired = true;
+        }
+    } else if (body.charging >= 0) {
         const FireMode& mode = *modeOf(body.charging);
         const Charge& charge = *mode.charge;
         const bool count = charge.scales == ChargeScales::Count;
@@ -413,6 +439,8 @@ std::uint64_t stateHash(const Game& game) {
         add(static_cast<std::uint64_t>(body.pending));
         addDouble(body.switchLeft);
         addDouble(body.refireLeft);
+        add(static_cast<std::uint64_t>(body.winding));
+        addDouble(body.windLeft);
         add(static_cast<std::uint64_t>(body.charging));
         addDouble(body.charged);
         addDouble(body.stepHeld);

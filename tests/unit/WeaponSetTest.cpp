@@ -82,7 +82,9 @@ self-momentum = 66000
 archetype = beam
 refire = 0.1
 refire-lead = 0.05
+wind-up = 0.25
 ammo = 10
+press-ammo = 2
 damage = 72
 momentum = 8500
 range = 1100
@@ -181,6 +183,8 @@ TEST_CASE("INV-2: the small set parses and reads back from write", "[ugame][weap
     CHECK(set->weapons[0].primary.pushChance == 0.2);
     CHECK(set->weapons[1].alt->hitEvery == 0.22);
     CHECK(set->weapons[1].alt->refireLead == 0.05);
+    CHECK(set->weapons[1].alt->windUp == 0.25);
+    CHECK(set->weapons[1].alt->pressAmmo == 2);
     CHECK(set->projectile("ball")->acceleration == 50);
     CHECK(set->projectile("chunk")->turnRandom == 1000);
     CHECK(set->projectile("gel")->lift == 120);

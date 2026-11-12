@@ -18555,6 +18555,18 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   does not say why). The test reads a recorded row past the first as
   either frame, for spends, hits and pairing, and compares a flight age
   for age. Failures 249 -> 224.
+  Then: a mode may carry wind-up and press-ammo. The Enforcer's alt
+  fires 0.185 after its press, a tap too; the Minigun's press spends a
+  round with no shot and its first bullet follows 0.13 later. The test
+  counts a spend by a weapon in the tick it comes up. Failures
+  224 -> 215.
+  Still open, Minigun: Minigun2.NormalFire's AnimEnd calls Fire again
+  about every 0.42, which spends a round with no bullet and restarts
+  the 0.13 sleep; the alt fires every 0.13 until its first animation
+  ends, then every 0.08. Both run on Sleep, which the engine ends at
+  the nearest tick with no carry, so the original's rate moves with
+  frame rate (0.073 at 30 fps, 0.078 at 85). Ours does not; whether the
+  test should allow for that is undecided.
   Still open: a chunk's first bounce. The original keeps 0.8 along the
   wall and a random 0 to 0.64 off it, falls at half gravity after, and
   in that tick moves a whole extra tick (flak-alt-tap 30, UTChunk28,

@@ -68,7 +68,9 @@ struct FireMode {
     std::array<double, 3> offset{};
     double refire = 0;        ///< game seconds between shots while held
     double refireLead = 0;    ///< added once, after a shot fired from idle: the firing animation's blend-in
+    double windUp = 0;        ///< game seconds from a press at idle to its shot, which a release does not stop
     std::uint32_t ammo = 0;   ///< spent per shot; per second for a beam
+    std::uint32_t pressAmmo = 0; ///< spent by the press that starts a wind-up, with no shot
     std::uint32_t spread = 0; ///< the cone's half-angle, in angle units
     std::optional<Charge> charge;
     double damage = 0;   ///< instant-hit, melee; per second for a beam

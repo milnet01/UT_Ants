@@ -512,6 +512,53 @@ std::uint32_t kindOf(const WeaponSet& set, std::string_view name) {
                                       set.projectiles.begin());
 }
 
+TEST_CASE("SS 4.9: a wind-up delays a press's shot, which a release does not stop", "[ugame][game]") {
+    const BodyWorld world = arena();
+    const WeaponSet& set = stock();
+    const FireMode& alt = *set.weapons[static_cast<std::size_t>(weaponNamed(set, "enforcer"))].alt;
+    REQUIRE(alt.windUp > 3 * DT);
+    REQUIRE(alt.pressAmmo == 0);
+    Game game = duel(set, "enforcer", 600);
+    const std::uint32_t full = game.bodies[0].weapons[static_cast<std::size_t>(game.bodies[0].weapon)].ammo;
+    std::vector<MoveCommand> commands(2);
+    commands[0].altFire = true;
+    std::vector<int> shots; // the ticks a shot left in
+    for (int k = 0; k < 60; ++k) {
+        tick(world, set, RULES, game, commands, DT);
+        commands[0].altFire = false; // a tap
+        if (std::ranges::count(game.events, Event::Kind::InstantHit, &Event::kind) > 0) shots.push_back(k);
+    }
+    // The press's own tick counts toward the wind-up.
+    REQUIRE(shots.size() == 1);
+    CHECK(std::abs(shots[0] + 1 - alt.windUp / DT) <= 1);
+    CHECK(game.bodies[0].weapons[static_cast<std::size_t>(game.bodies[0].weapon)].ammo == full - alt.ammo);
+}
+
+TEST_CASE("SS 4.9: a press's press-ammo is spent at once, with no shot", "[ugame][game]") {
+    const BodyWorld world = arena();
+    const WeaponSet& set = stock();
+    const FireMode& mode = primaryOf(set, "minigun");
+    REQUIRE(mode.pressAmmo > 0);
+    REQUIRE(mode.windUp > 3 * DT);
+    Game game = duel(set, "minigun", 600);
+    const Carried& carried = game.bodies[0].weapons[static_cast<std::size_t>(game.bodies[0].weapon)];
+    const std::uint32_t full = carried.ammo;
+    CHECK(eventsWhileHeld(world, set, game, 1, Event::Kind::InstantHit) == 0);
+    CHECK(carried.ammo == full - mode.pressAmmo);
+
+    // INV-7: a press it cannot pay for changes nothing.
+    Game empty = duel(set, "minigun", 600);
+    empty.bodies[0].weapons[static_cast<std::size_t>(empty.bodies[0].weapon)].ammo = 0;
+    const std::uint64_t before = stateHash(empty);
+    Game idle = empty;
+    std::vector<MoveCommand> none(2);
+    none[1].yaw = 32768;
+    hold(world, set, empty, 1);
+    tick(world, set, RULES, idle, none, DT);
+    CHECK(stateHash(empty) == stateHash(idle));
+    CHECK(before != stateHash(idle)); // the tick itself is counted
+}
+
 TEST_CASE("SS 4.9: a mode's refire-lead delays only the shot after one fired from idle", "[ugame][game]") {
     const BodyWorld world = arena();
     WeaponSet set = stock();
@@ -875,5 +922,5 @@ TEST_CASE("INV-5: a scripted fight is the same at every frame rate and on every 
         CHECK(again == reference);
     }
     INFO("final hash " << reference.back());
-    CHECK(reference.back() == 7403521874434074121u);
+    CHECK(reference.back() == 14848985937006132581u);
 }
