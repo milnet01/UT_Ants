@@ -64,6 +64,16 @@ target dummies to shoot.
 5. **The tolerance is UT99's** (`versioning-overrides.md`'s 0.2.0 row,
    not a choice made here): each stock mode is checked against
    recordings of the original (INV-6).
+6. **Every fixed rule is copied; random parts keep the original's
+   ranges** (user, 2026-11-12). Where a shot starts, a rocket's speeding
+   up, a toss's lift, damage and timing all follow § 4.9. A random part,
+   such as the Minigun's damage or the flak's scatter, draws from the
+   original's range with the game's own generator (§ 4.5). Each
+   archetype gains the keys this needs, so a new weapon is still a file.
+   Behaviour no key can express, such as the rocket launcher's circle of
+   rockets, is a named rule of its archetype.
+7. **The sniper rifle's alt fire zooms** (user, 2026-11-12), as in the
+   original: it fires nothing. The zoom is the client's (§ 4.8).
 
 ## 4. Design
 
@@ -231,6 +241,18 @@ defaults where `upkg::effectiveDefaults` reads it. A comment on each
 line says which. A number the original decides by frame rate is
 recorded at more than one rate before it is trusted.
 
+The runs are `tools/ut-record/weapons.txt`. The target is
+`UTARecTarget`: a pawn the player's size, counted as a player and
+carrying an item, so its damage passes through hardcore's scaling as an
+armed opponent's does. A run at a missed frame rate (UTA-0456 INV-7)
+measures damage, momentum and flight, never timing.
+
+**The rules of § 4.9 come from the original's script.** Export it from
+a copy of the install, never into this repository (ADR-0003):
+`ucc-bin-amd64 batchexport ../System/Botpack.u class .uc <dir>`, run
+from the copy's `System64`, and the same for `Engine.u`. A rule read
+there is trusted once a recording agrees.
+
 ### 4.8 What `ut-ants` shows
 
 - **Stand-in shapes.** The renderer gains a per-frame list of simple
@@ -246,6 +268,71 @@ recorded at more than one rate before it is trusted.
   with the player's size and health.
 - **The sniper's zoom** narrows the view; it is the client's, not a tick
   input.
+
+### 4.9 The original's rules
+
+Read from the exported script (§ 4.7), 2026-11-12. "Recorded" marks a
+rule a weapon run has confirmed. Class names are Botpack's unless marked
+Engine.
+
+**Damage and push** (Engine `Pawn.TakeDamage`, `Pawn.AddVelocity`;
+Botpack `DeathMatchPlus.ReduceDamage`):
+
+- Hardcore mode multiplies damage by 1.5, truncated to a whole number,
+  for a victim carrying any item. Recorded: 40 takes 60, 45 takes 67.
+- A push is momentum ÷ mass (100). On a walking body its upward part is
+  raised to at least 0.4 of its length. Recorded.
+- A push the body gave itself is scaled by 0.6.
+- A push lifts a walking body into falling. Where the body already rises
+  faster than 380, a push's upward part is halved.
+
+**Where a shot starts** (Engine `Weapon.ProjectileFire`,
+`Weapon.TraceFire`, `Inventory.CalcDrawOffset`):
+
+- From the body's centre, plus the eye height, plus the weapon's view
+  offset and `FireOffset`, both turned by the aim. Each weapon's
+  numbers are its defaults. Recorded for the rocket: 16 above the
+  centre, not 27.
+- An instant hit leaves out `FireOffset`'s forward part (Shock, Minigun,
+  hammer, chainsaw); the Enforcer scales `FireOffset` by 0.35; the sniper
+  starts at the eye.
+
+**Per weapon** (each class's fire functions and states):
+
+- **Refire** ends with the firing animation, at the rate each class
+  passes. The script does not hold animation lengths, so the runs
+  measure refire.
+- **Hammer:** charge grows 0.75 a second, capped at 1.5. On release it
+  traces 120: a body within 90 takes 60 × charge and 66000 × charge;
+  the level costs the firer 36 and pushes back 69000 × charge, with
+  charge at least 1. Alt traces 180, scaled by distance ÷ 180: 20 and
+  30000 to a body, 24 and 40000 to the firer off the level. Recorded:
+  1.01 s of charge gave 45.
+- **Chainsaw:** one trace every 0.30 s while held, 20 damage, momentum
+  15000 towards the firer. Alt is one slash, 110 damage.
+- **Enforcer:** 17 damage, momentum 3000; one hit in five, momentum
+  15000. Alt fires repeatedly, its spread growing each shot.
+- **Shock:** 40 damage, 60000. A hit on a ball spends 2 ammo and sets off
+  the combo: 165 damage, radius 250, momentum 140000. Recorded: 40.
+- **Pulse:** primary every 0.18 s, its start circling the muzzle. Alt
+  spends 1 ammo every 0.24 s; the beam reaches 810 in 81-unit pieces.
+- **Minigun:** damage 9 to 14 at random; momentum zero, or one hit in
+  five a push. Recorded: 9 to 14.
+- **Flak:** eight chunks at fixed offsets, each turned up to ±1000 and
+  its speed ±100 at random. Alt tosses a slug with lift 200.
+- **Rockets:** up to six loaded while held. Fired together, they leave
+  around a circle and fan out in yaw by fixed steps. A rocket gains
+  speed by 50 a second²; a grenade's speed, fuse and bounce are part
+  random.
+- **Bio:** a gel is tossed with lift 120 and bursts after its fuse or on
+  a body. The alt charge adds a share per half second, up to 4.1, and
+  scales the glob.
+- **Sniper:** a hit above 0.62 of the body's half-height is a head: 100
+  and 35000; elsewhere 45 and 30000. Alt zooms (§ 3 item 7).
+
+**Explosions** (Engine `Actor.HurtRadius`): damage and momentum fall off
+linearly from the victim's edge, not its centre, as `Fire.cpp`'s
+`splash` already does.
 
 ## 5. Invariants
 
@@ -286,7 +373,10 @@ recorded at more than one rate before it is trusted.
   weapon run of § 4.7, each from its recorded start: shots land on the
   same ticks, give or take one; projectiles stay within 1 unit of the
   recording; damage taken is equal; and a body's velocity after a push,
-  the hammer and rocket jumps included, is within 1 unit/s.
+  the hammer and rocket jumps included, is within 1 unit/s. Where the
+  original draws at random (§ 3 item 6), the recorded value lies within
+  the range our rule draws from, and the rest of the shot matches as
+  above.
   *Test:* `RealWeaponTest.cpp`, label `real`, which prints each run's
   worst error.
   *Breaks when:* a measured number or an archetype's rule is wrong.
