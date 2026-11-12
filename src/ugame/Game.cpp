@@ -340,14 +340,21 @@ void tick(const uworld::BodyWorld& world, const WeaponSet& set, const uworld::Mo
     }
     for (std::size_t i = 0; i < count; ++i)
         if (game.bodies[i].alive()) fireBody(tick, static_cast<int>(i), commands[i]);
-    for (std::size_t i = 0; i < game.shots.size(); ++i)
-        if (!tick.shotGone[i]) fly(tick, i);
+    // A shot flies in the tick it was fired, and so does a piece split from
+    // one, as UT99 ticks an actor spawned mid-frame in that same frame.
+    for (std::size_t i = 0;;) {
+        game.shots.insert(game.shots.end(), tick.spawned.begin(), tick.spawned.end());
+        tick.spawned.clear();
+        tick.shotGone.resize(game.shots.size(), false);
+        if (i == game.shots.size()) break;
+        for (; i < game.shots.size(); ++i)
+            if (!tick.shotGone[i]) fly(tick, i);
+    }
     land(tick);
 
     std::vector<Shot> kept;
     for (std::size_t i = 0; i < game.shots.size(); ++i)
         if (!tick.shotGone[i]) kept.push_back(game.shots[i]);
-    kept.insert(kept.end(), tick.spawned.begin(), tick.spawned.end());
     game.shots = std::move(kept);
     ++game.ticks;
 }

@@ -63,6 +63,16 @@ Vec3 levelStart(const FireMode& mode) {
     return {mode.offset[0], mode.offset[1], STANDING + EYE_HEIGHT + mode.offset[2]};
 }
 
+/// `shot` as it was launched this tick: a shot flies in the tick it is
+/// fired, so its one move is backed out. For a shot that struck nothing.
+Shot launchedThisTick(const WeaponSet& set, const Shot& shot) {
+    Shot was = shot;
+    const double fall = RULES.gravityZ * set.projectiles[shot.kind].gravity;
+    was.location = shot.location - shot.velocity * DT;
+    was.velocity = shot.velocity - (Vec3{0, 0, fall} + shot.acceleration) * DT;
+    return was;
+}
+
 /// Damage as it lands: whole, scaled by the set's damage-scale, whole again.
 double landed(const WeaponSet& set, double damage) { return std::trunc(std::trunc(damage) * set.damageScale); }
 
@@ -279,7 +289,7 @@ TEST_CASE("SS 4.9: three rockets leave around the launcher's circle and fan by i
     const double speed = stock().projectile("rocket")->speed;
     for (std::size_t i = 0; i < 3; ++i) {
         CAPTURE(i);
-        const Shot& shot = game.shots[i];
+        const Shot shot = launchedThisTick(stock(), game.shots[i]);
         CHECK(std::abs(shot.location.y - (start.y - (sines[i] * 4 - 7.5))) < 1e-9);
         CHECK(std::abs(shot.location.z - (start.z + (cosines[i] * 4 - 7))) < 1e-9);
         CHECK(shot.location.x <= start.x + 1e-9);
@@ -485,8 +495,9 @@ TEST_CASE("SS 4.9: a shot starts at the eye plus its mode's offset", "[ugame][ga
     // From where the body stands now: it settles a hair onto the floor.
     const std::array<double, 3>& offset = primaryOf(stock(), "rocket-launcher").offset;
     const Vec3 body = game.bodies[0].move.location;
-    CHECK(game.shots[0].location == body + Vec3{offset[0], offset[1], EYE_HEIGHT + offset[2]});
-    CHECK(game.shots[0].location.z - body.z == 16);
+    const Vec3 at = launchedThisTick(stock(), game.shots[0]).location;
+    CHECK(uta::uworld::length(at - (body + Vec3{offset[0], offset[1], EYE_HEIGHT + offset[2]})) < 1e-9);
+    CHECK(std::abs(at.z - body.z - 16) < 1e-9);
 }
 
 namespace {
@@ -555,9 +566,9 @@ TEST_CASE("SS 4.9: a rocket speeds up by its acceleration, to its most", "[ugame
     tapCharge(world, set, game, false);
     REQUIRE(game.shots.size() == 1);
     const Projectile& rocket = set.projectiles[kindOf(set, "rocket")];
-    CHECK(game.shots[0].velocity == Vec3{rocket.speed, 0, 0});
+    CHECK(uta::uworld::length(launchedThisTick(set, game.shots[0]).velocity - Vec3{rocket.speed, 0, 0}) < 1e-9);
     std::vector<MoveCommand> idle(2);
-    double expected = rocket.speed;
+    double expected = rocket.speed + rocket.acceleration * DT; // it flew in its launch tick
     for (int k = 0; k < 10; ++k) {
         tick(world, set, RULES, game, idle, DT);
         expected += rocket.acceleration * DT;
@@ -583,7 +594,8 @@ TEST_CASE("SS 4.9: a tossed shot leaves with its lift, its share of the firer's 
         game.bodies[1].move.location.y = 500;
         hold(world, set, game, 1);
         REQUIRE(game.shots.size() == 1);
-        CHECK(game.shots[0].velocity == Vec3{set.projectiles[kindOf(set, "bio-gel")].speed, 0, 120});
+        const Vec3 velocity = launchedThisTick(set, game.shots[0]).velocity;
+        CHECK(uta::uworld::length(velocity - Vec3{set.projectiles[kindOf(set, "bio-gel")].speed, 0, 120}) < 1e-9);
     }
     SECTION("a grenade takes 0.4 of the firer's speed, and its speed and fuse are drawn in range") {
         const WeaponSet unspread = unspreadRockets();
@@ -599,11 +611,11 @@ TEST_CASE("SS 4.9: a tossed shot leaves with its lift, its share of the firer's 
             firer.move.velocity = {300, 0, 0};
             tapCharge(world, unspread, game, true);
             REQUIRE(game.shots.size() == 1);
-            const Shot& shot = game.shots[0];
+            const Shot shot = launchedThisTick(unspread, game.shots[0]);
             const double own = shot.velocity.x - grenade.inherit * 300;
             CHECK(own >= 600);
             CHECK(own <= 700);
-            CHECK(shot.velocity.z == 210);
+            CHECK(std::abs(shot.velocity.z - 210) < 1e-9);
             CHECK(shot.lifetime >= 2.5);
             CHECK(shot.lifetime <= 3.0);
             speeds.insert(own);
@@ -760,5 +772,5 @@ TEST_CASE("INV-5: a scripted fight is the same at every frame rate and on every 
         CHECK(again == reference);
     }
     INFO("final hash " << reference.back());
-    CHECK(reference.back() == 3716189806358076463u);
+    CHECK(reference.back() == 17954599428131284997u);
 }

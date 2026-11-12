@@ -18528,6 +18528,17 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   This is the mechanism per-map weapon sets need at 0.4.0, and the landing place
   ADR-0004 needs for a custom weapon class read out of a package.
   Blocked-by: the movement model.
+  2026-11-12, step 4: a shot now flies in the tick it is fired, and
+  a split piece in the tick it splits, as UT99 ticks an actor spawned
+  mid-frame in that frame. The recorder logs a shot before that
+  frame's move, so the replay compares its row k + 1 with ours after
+  tick k, and fresh shots pair with recorded ones in launch order.
+  Replay failures 340 -> 276.
+  Rocket-floor's self push stays 9.86 off at every rate: that is the
+  hover departure (UTA-0457), not the blast. Our body sits 4.67 lower
+  than the original's, so the blast is nearer. Undecided: an allowance
+  in the test, or accept the miss.
+  Still open: 54 runs launch one tick before the original.
   **Layman:** The guns. Built as a table of numbers rather than as code, so a different set -- your super weapons -- is a different table rather than a second codebase.
   Kind: implement.
   Source: design-2026-09-03.

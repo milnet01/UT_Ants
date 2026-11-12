@@ -131,7 +131,7 @@ double hoverAt(const uworld::BodyWorld& world, const uworld::BodySize& size, con
     return -drop.z * floor.fraction;
 }
 
-/// One recorded shot: its rows, by our tick (row - 1).
+/// One recorded shot: its rows, by row; each is logged before that frame moves it.
 struct RecordedShot {
     std::string kind;
     std::int64_t first = 0;
@@ -142,7 +142,7 @@ struct RecordedShot {
 struct OurShot {
     std::uint32_t kind = 0;
     std::int64_t first = 0;
-    std::map<std::int64_t, ugame::Shot> rows; ///< after our tick k
+    std::map<std::int64_t, ugame::Shot> rows; ///< k + 1: after our tick k; its first, the launch
     int recorded = -1;                        ///< the recorded shot it was matched to
 };
 
@@ -377,11 +377,12 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& set,
             if (lost > 0) ourHits.push_back({tick, b, lost, game.bodies[static_cast<std::size_t>(b)].move.velocity});
         }
 
-        // Follow our shots: survivors keep their order, the new ones come last.
+        // Follow our shots: survivors keep their order, the new ones come
+        // last, having flown this one tick.
         std::vector<int> next;
         std::size_t from = 0;
         for (const ugame::Shot& shot : game.shots) {
-            const bool fresh = shot.age == 0 && !shot.stuck;
+            const bool fresh = shot.age == row.dt && !shot.stuck;
             int id = -1;
             if (!fresh) {
                 for (std::size_t j = from; j < shotsBefore.size(); ++j) {
@@ -402,9 +403,20 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& set,
         }
         live = std::move(next);
 
-        // Each new shot of ours to the nearest unclaimed recorded one of its
-        // kind starting within a tick. A random launch (SS 3 item 6) in its
-        // range takes the recorded velocity, so its flight can be compared.
+        // The recording logs a shot before it moves in a frame, so its row
+        // k + 1 is ours after tick k, and its first row is the launch. Ours
+        // has flown once since its launch, which is backed out of it here.
+        const auto launched = [&](const ugame::Shot& shot) {
+            const ugame::Projectile& kind = set.projectiles[shot.kind];
+            ugame::Shot was = shot;
+            was.location = shot.location - shot.velocity * row.dt;
+            was.velocity = shot.velocity - (Vec3{0, 0, rules.gravityZ * kind.gravity} + shot.acceleration) * row.dt;
+            return was;
+        };
+        // Each new shot of ours to the first unclaimed recorded one of its
+        // kind starting within a tick: both launch in the same order. A
+        // random launch (SS 3 item 6) in its range takes the recorded first
+        // move, so its flight can be compared.
         std::map<std::uint32_t, int> freshOfKind;
         for (std::size_t i = 0; i < game.shots.size(); ++i)
             if (ours[static_cast<std::size_t>(live[i])].first == tick) ++freshOfKind[game.shots[i].kind];
@@ -412,16 +424,14 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& set,
             OurShot& s = ours[static_cast<std::size_t>(live[i])];
             ugame::Shot& shot = game.shots[i];
             if (s.first == tick && s.recorded < 0) {
+                ugame::Shot launch = launched(shot);
                 const ugame::Projectile& kind = set.projectiles[shot.kind];
                 int best = -1;
-                double bestDistance = 1e300;
                 for (std::size_t r = 0; r < theirOrder.size(); ++r) {
                     const RecordedShot& t = theirs.at(theirOrder[r]);
                     if (claimed[r] || t.kind != kind.name || std::abs(t.first - tick) > MAX_TICK_ERROR) continue;
-                    Vec3 want = vec(t.rows.front().second.location);
-                    want.z -= firerHover;
-                    const double d = uworld::length(shot.location - want);
-                    if (d < bestDistance) best = static_cast<int>(r), bestDistance = d;
+                    best = static_cast<int>(r);
+                    break;
                 }
                 if (best >= 0) {
                     claimed[static_cast<std::size_t>(best)] = true;
@@ -431,20 +441,27 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& set,
                     const LaunchRange range = rangeOf(*mode, kind, freshOfKind[shot.kind] > 1);
                     if (range.random()) {
                         const std::string at = theirOrder[static_cast<std::size_t>(best)] + " launch";
-                        if (!launchInRange(kind, range, vec(first.velocity), shot.velocity)) outOfRange(at);
-                        shot.velocity = vec(first.velocity);
-                        // A start drawn behind ours takes the recorded one,
-                        // where the recording has it unmoved.
+                        if (!launchInRange(kind, range, vec(first.velocity), launch.velocity)) outOfRange(at);
+                        // A start drawn behind ours takes the recorded one.
                         if (range.back > 0 && t.first == tick) {
-                            if (bestDistance > range.back + MAX_POSITION_ERROR) outOfRange(at);
                             Vec3 want = vec(first.location);
                             want.z -= firerHover;
+                            if (uworld::length(launch.location - want) > range.back + MAX_POSITION_ERROR)
+                                outOfRange(at);
+                            launch.location = want;
+                        }
+                        const auto moved = std::ranges::find(t.rows, tick + 1, [](const auto& r) { return r.first; });
+                        if (moved != t.rows.end()) {
+                            Vec3 want = vec(moved->second.location);
+                            want.z -= firerHover;
                             shot.location = want;
+                            shot.velocity = vec(moved->second.velocity);
                         }
                     }
                 }
+                s.rows[tick] = launch;
             }
-            s.rows[tick] = shot;
+            s.rows[tick + 1] = shot;
         }
     }
 

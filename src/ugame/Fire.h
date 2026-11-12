@@ -24,7 +24,7 @@ struct Tick {
     Game& game;
     double dt;
     std::vector<Owed> owed;
-    std::vector<Shot> spawned;     ///< fly from the next tick
+    std::vector<Shot> spawned;     ///< fired or split this tick; they fly this tick too
     std::vector<bool> shotGone;    ///< per game.shots, set when one is used up
 };
 
@@ -51,7 +51,7 @@ struct Tick {
 /// A projectile of kind `kind` leaving `at` along `yaw` and `pitch`, after
 /// the kind's own launch rules: its turn, speed and lifetime draws, its
 /// lift, and its share of `firerVelocity`; its velocity then x `speedScale`.
-/// It flies from the next tick.
+/// It flies this tick, after the shots already in flight.
 void launch(Tick& tick, std::uint32_t kind, int owner, const Vec3& at, std::int32_t yaw, std::int32_t pitch,
             const Vec3& firerVelocity, double damageScale, double speedScale);
 
