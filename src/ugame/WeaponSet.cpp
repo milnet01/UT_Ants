@@ -11,6 +11,8 @@
 #include "core/IniText.h"
 
 #include <algorithm>
+#include <array>
+#include <tuple>
 #include <format>
 #include <utility>
 
@@ -39,6 +41,9 @@ bool isClassName(std::string_view name) {
     };
     return dot != std::string_view::npos && word(name.substr(0, dot)) && word(name.substr(dot + 1));
 }
+
+/// Forward, right, up: a comma-free name, so it passes through UTA_TRY.
+using Triple = std::array<double, 3>;
 
 struct Entry {
     std::string key;
@@ -85,6 +90,19 @@ public:
         return std::optional<std::uint32_t>{value};
     }
 
+    /// Three decimals, each from `-limit` to `limit`.
+    Result<std::optional<Triple>> triple(std::string_view key, double limit) {
+        UTA_TRY(const std::optional<Entry> entry, take(key, false));
+        if (!entry) return std::optional<Triple>{};
+        const std::vector<std::string_view> words = ini::wordsOf(entry->value);
+        if (words.size() != 3) return refuse(entry->line, std::format("{} is three numbers: forward right up", key));
+        Triple value{};
+        for (std::size_t i = 0; i < 3; ++i) {
+            UTA_TRY(value[i], ini::decimalOf(FORMAT, words[i], -limit, limit, entry->line));
+        }
+        return std::optional<Triple>{value};
+    }
+
     Result<std::optional<std::string>> name(std::string_view key, bool required) {
         UTA_TRY(const std::optional<Entry> entry, take(key, required));
         if (!entry) return std::optional<std::string>{};
@@ -116,6 +134,7 @@ constexpr double AMOUNT_MAX = 1e6;
 constexpr std::uint32_t AMMO_MAX = 10000;
 constexpr std::uint32_t COUNT_MAX = 64;
 constexpr std::uint32_t SPREAD_MAX = 16384; // a quarter turn
+constexpr double OFFSET_MAX = 1000;
 
 constexpr std::string_view ARCHETYPE_NAMES[] = {"instant-hit", "projectile", "beam", "melee"};
 constexpr std::string_view STRIKE_NAMES[] = {"explode", "bounce", "stick", "split"};
@@ -139,6 +158,8 @@ Result<void> readSet(WeaponSet& set, Keys& keys) {
     set.selfDamage = *selfDamage;
     UTA_TRY(const std::optional<double> headHeight, keys.decimal("head-height", true, 0, 1));
     set.headHeight = *headHeight;
+    UTA_TRY(const std::optional<double> damageScale, keys.decimal("damage-scale", false, 0, 10));
+    set.damageScale = damageScale.value_or(1);
     return keys.finish("[set]");
 }
 
@@ -188,6 +209,8 @@ Result<void> readFire(FireMode& mode, Keys& keys) {
     mode.ammo = *ammo;
     UTA_TRY(const std::optional<std::uint32_t> spread, keys.number("spread", false, 0, SPREAD_MAX));
     mode.spread = spread.value_or(0);
+    UTA_TRY(const std::optional<Triple> offset, keys.triple("offset", OFFSET_MAX));
+    mode.offset = offset.value_or(Triple{});
     UTA_CHECK(readCharge(mode, keys));
 
     if (mode.archetype == Archetype::Projectile) {
@@ -206,7 +229,20 @@ Result<void> readFire(FireMode& mode, Keys& keys) {
     if (mode.archetype == Archetype::InstantHit) {
         UTA_TRY(const std::optional<std::uint32_t> pellets, keys.number("pellets", false, 1, COUNT_MAX));
         mode.pellets = pellets.value_or(1);
-        UTA_TRY(mode.headshotScale, keys.decimal("headshot-scale", false, 1, 100));
+        UTA_TRY(const std::optional<std::uint32_t> random, keys.number("damage-random", false, 0, AMMO_MAX));
+        mode.damageRandom = random.value_or(0);
+        UTA_TRY(const std::optional<double> chance, keys.decimal("push-chance", false, 0, 1));
+        mode.pushChance = chance.value_or(0);
+        UTA_TRY(const std::optional<double> pushScale, keys.decimal("push-scale", mode.pushChance > 0, 0, 100));
+        mode.pushScale = pushScale.value_or(1);
+        UTA_TRY(mode.headDamage, keys.decimal("head-damage", false, 0, AMOUNT_MAX));
+        UTA_TRY(const std::optional<double> headMomentum,
+                keys.decimal("head-momentum", mode.headDamage.has_value(), 0, AMOUNT_MAX));
+        mode.headMomentum = headMomentum.value_or(0);
+    }
+    if (mode.archetype == Archetype::Beam) {
+        UTA_TRY(const std::optional<double> every, keys.decimal("hit-every", false, 0, TIME_MAX));
+        mode.hitEvery = every.value_or(0);
     }
     if (mode.archetype == Archetype::Melee) {
         UTA_TRY(const std::optional<double> self, keys.decimal("self-momentum", false, 0, AMOUNT_MAX));
@@ -216,7 +252,7 @@ Result<void> readFire(FireMode& mode, Keys& keys) {
     return keys.finish(std::format("{} {} fire", name.front() == 'i' ? "an" : "a", name));
 }
 
-Result<void> readProjectile(Projectile& projectile, Keys& keys) {
+Result<void> readProjectile(Projectile& projectile, Keys& keys, std::size_t heading) {
     const auto need = [&keys](std::string_view key, double min, double max) -> Result<double> {
         UTA_TRY(const std::optional<double> value, keys.decimal(key, true, min, max));
         return *value;
@@ -226,8 +262,22 @@ Result<void> readProjectile(Projectile& projectile, Keys& keys) {
     UTA_TRY(projectile.lifetime, need("lifetime", 0.01, TIME_MAX));
     UTA_TRY(projectile.damage, need("damage", 0, AMOUNT_MAX));
     UTA_TRY(projectile.momentum, need("momentum", 0, AMOUNT_MAX));
-    UTA_TRY(const std::optional<double> gravity, keys.decimal("gravity", false, 0, 10));
-    projectile.gravity = gravity.value_or(0);
+    for (auto [key, field, max] : {std::tuple{"gravity", &projectile.gravity, 10.0},
+                                   std::tuple{"acceleration", &projectile.acceleration, DISTANCE_MAX},
+                                   std::tuple{"max-speed", &projectile.maxSpeed, DISTANCE_MAX},
+                                   std::tuple{"lift", &projectile.lift, DISTANCE_MAX},
+                                   std::tuple{"inherit", &projectile.inherit, 1.0},
+                                   std::tuple{"speed-random", &projectile.speedRandom, DISTANCE_MAX},
+                                   std::tuple{"lifetime-random", &projectile.lifetimeRandom, TIME_MAX}}) {
+        UTA_TRY(const std::optional<double> value, keys.decimal(key, false, 0, max));
+        *field = value.value_or(0);
+    }
+    if (projectile.speedRandom > projectile.speed)
+        return refuse(heading, "speed-random is more than speed");
+    if (projectile.lifetimeRandom >= projectile.lifetime)
+        return refuse(heading, "lifetime-random is not less than lifetime");
+    UTA_TRY(const std::optional<std::uint32_t> turn, keys.number("turn-random", false, 0, SPREAD_MAX));
+    projectile.turnRandom = turn.value_or(0);
     UTA_TRY(const std::optional<double> splash, keys.decimal("splash-radius", false, 0, DISTANCE_MAX));
     projectile.splashRadius = splash.value_or(0);
     UTA_TRY(const std::optional<Entry> expire, keys.take("expire", false));
@@ -331,7 +381,7 @@ Result<WeaponSet> parse(std::string_view text) {
         }
         case SectionKind::Projectile: {
             Projectile& projectile = set.projectiles.back();
-            UTA_CHECK(readProjectile(projectile, keys));
+            UTA_CHECK(readProjectile(projectile, keys, heading));
             if (projectile.strike == Strike::Split) projectileRefs.emplace_back(projectile.splitInto, heading);
             if (!projectile.combo.empty()) comboRefs.emplace_back(projectile.combo, heading);
             break;
@@ -423,8 +473,10 @@ namespace {
 std::string fireText(std::string_view weapon, std::string_view which, const FireMode& mode) {
     const auto decimal = ini::decimalText;
     const auto archetype = ARCHETYPE_NAMES[static_cast<std::size_t>(mode.archetype)];
-    std::string out = std::format("\n[fire {} {}]\narchetype = {}\nrefire = {}\nammo = {}\nspread = {}\n", weapon,
-                                  which, archetype, decimal(mode.refire), mode.ammo, mode.spread);
+    std::string out = std::format("\n[fire {} {}]\narchetype = {}\nrefire = {}\nammo = {}\nspread = {}\n"
+                                  "offset = {} {} {}\n",
+                                  weapon, which, archetype, decimal(mode.refire), mode.ammo, mode.spread,
+                                  decimal(mode.offset[0]), decimal(mode.offset[1]), decimal(mode.offset[2]));
     if (mode.charge)
         out += std::format("charge-time = {}\ncharge-min = {}\ncharge-max = {}\ncharge-scales = {}\n",
                            decimal(mode.charge->time), decimal(mode.charge->min), decimal(mode.charge->max),
@@ -436,9 +488,13 @@ std::string fireText(std::string_view weapon, std::string_view which, const Fire
     out += std::format("damage = {}\nmomentum = {}\nrange = {}\n", decimal(mode.damage), decimal(mode.momentum),
                        decimal(mode.range));
     if (mode.archetype == Archetype::InstantHit) {
-        out += std::format("pellets = {}\n", mode.pellets);
-        if (mode.headshotScale) out += std::format("headshot-scale = {}\n", decimal(*mode.headshotScale));
+        out += std::format("pellets = {}\ndamage-random = {}\npush-chance = {}\npush-scale = {}\n", mode.pellets,
+                           mode.damageRandom, decimal(mode.pushChance), decimal(mode.pushScale));
+        if (mode.headDamage)
+            out += std::format("head-damage = {}\nhead-momentum = {}\n", decimal(*mode.headDamage),
+                               decimal(mode.headMomentum));
     }
+    if (mode.archetype == Archetype::Beam) out += std::format("hit-every = {}\n", decimal(mode.hitEvery));
     if (mode.archetype == Archetype::Melee) out += std::format("self-momentum = {}\n", decimal(mode.selfMomentum));
     return out;
 }
@@ -447,9 +503,9 @@ std::string fireText(std::string_view weapon, std::string_view which, const Fire
 
 std::string write(const WeaponSet& set) {
     const auto decimal = ini::decimalText;
-    std::string out = std::format("{}{}\n\n[set]\nname = {}\nself-damage = {}\nhead-height = {}\n", FORMAT.header,
-                                  WEAPON_SET_VERSION, ini::quotedIfNeeded(set.name, true), decimal(set.selfDamage),
-                                  decimal(set.headHeight));
+    std::string out = std::format("{}{}\n\n[set]\nname = {}\nself-damage = {}\nhead-height = {}\ndamage-scale = {}\n",
+                                  FORMAT.header, WEAPON_SET_VERSION, ini::quotedIfNeeded(set.name, true),
+                                  decimal(set.selfDamage), decimal(set.headHeight), decimal(set.damageScale));
     for (const Weapon& weapon : set.weapons) {
         out += std::format("\n[weapon {}]\nclass = {}\nslot = {}\nammo-max = {}\nammo-start = {}\nswitch-time = {}\n",
                            weapon.name, weapon.className, weapon.slot, weapon.ammoMax, weapon.ammoStart,
@@ -465,6 +521,11 @@ std::string write(const WeaponSet& set) {
                            EXPIRE_NAMES[projectile.expireExplodes ? 1 : 0], decimal(projectile.damage),
                            decimal(projectile.momentum), decimal(projectile.splashRadius),
                            STRIKE_NAMES[static_cast<std::size_t>(projectile.strike)]);
+        out += std::format("acceleration = {}\nmax-speed = {}\nlift = {}\ninherit = {}\nspeed-random = {}\n"
+                           "turn-random = {}\nlifetime-random = {}\n",
+                           decimal(projectile.acceleration), decimal(projectile.maxSpeed), decimal(projectile.lift),
+                           decimal(projectile.inherit), decimal(projectile.speedRandom), projectile.turnRandom,
+                           decimal(projectile.lifetimeRandom));
         switch (projectile.strike) {
         case Strike::Explode: break;
         case Strike::Bounce:

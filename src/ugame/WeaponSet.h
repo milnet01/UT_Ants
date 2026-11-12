@@ -10,6 +10,7 @@
 
 #include "core/Error.h"
 
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <optional>
@@ -43,6 +44,10 @@ struct Charge {
 /// parser refuses another archetype's key.
 struct FireMode {
     Archetype archetype = Archetype::InstantHit;
+    /// Where the shot starts from the eye, turned by the aim: forward,
+    /// right, up. The weapon's view offset plus the part of its fire offset
+    /// the original's class adds (SS 4.9).
+    std::array<double, 3> offset{};
     double refire = 0;        ///< game seconds between shots while held
     std::uint32_t ammo = 0;   ///< spent per shot; per second for a beam
     std::uint32_t spread = 0; ///< the cone's half-angle, in angle units
@@ -50,8 +55,13 @@ struct FireMode {
     double damage = 0;   ///< instant-hit, melee; per second for a beam
     double momentum = 0; ///< instant-hit, melee; per second for a beam
     double range = 0;    ///< instant-hit, beam, melee
+    double hitEvery = 0; ///< beam: seconds of hold it stores before it hurts; 0 every tick
     std::uint32_t pellets = 1;            ///< instant-hit
-    std::optional<double> headshotScale;  ///< instant-hit
+    std::uint32_t damageRandom = 0;       ///< instant-hit: a whole number from 0 to this, added
+    double pushChance = 0;                ///< instant-hit: of hits whose momentum is scaled by `pushScale`
+    double pushScale = 1;                 ///< instant-hit
+    std::optional<double> headDamage;     ///< instant-hit: a head hit's damage, in place of `damage`
+    double headMomentum = 0;              ///< instant-hit: a head hit's momentum, with `headDamage`
     std::string projectile;               ///< projectile: the kind it spawns
     std::uint32_t count = 1;              ///< projectile
     double selfMomentum = 0;              ///< melee: pushes the firer back off a surface
@@ -76,7 +86,14 @@ struct Projectile {
     std::string name;
     double speed = 0, radius = 0;
     double gravity = 0; ///< of the world's gravity: 0 flies straight, 1 falls
+    double acceleration = 0;   ///< along its launch direction, per second squared
+    double maxSpeed = 0;       ///< what acceleration stops at; 0 for no limit
+    double lift = 0;           ///< added upward at launch
+    double inherit = 0;        ///< of the firer's velocity along the aim, added at launch
+    double speedRandom = 0;    ///< a launch speed from `speed` less this to `speed` plus this
+    std::uint32_t turnRandom = 0; ///< its yaw and pitch each turned by up to this, angle units
     double lifetime = 0;
+    double lifetimeRandom = 0; ///< a lifetime from `lifetime` less this to `lifetime` plus this
     bool expireExplodes = false; ///< at the end of its lifetime: explodes, else vanishes
     double damage = 0, momentum = 0;
     double splashRadius = 0; ///< 0 hits only what it strikes
@@ -101,6 +118,7 @@ struct Combo {
 struct WeaponSet {
     std::string name;
     double selfDamage = 1;  ///< of the damage the firer's own shots do it
+    double damageScale = 1; ///< every hit's damage, after truncating to a whole number: hardcore's 1.5
     double headHeight = 0;  ///< of a body's half-height above its centre where its head starts
     std::vector<Weapon> weapons;
     std::vector<Projectile> projectiles;

@@ -42,6 +42,7 @@ struct Body {
     int charging = -1;            ///< 0 primary, 1 alt, while a charge is held; else -1
     double charged = 0;           ///< seconds a charge has been held
     double beamAmmo = 0;          ///< a beam's ammo owed, below one round
+    double beamHeld = 0;          ///< seconds a beam has stored toward its next hit (`hit-every`)
     std::int32_t yaw = 0, pitch = 0; ///< the last command's aim
     bool fireHeld = false, altHeld = false;
 
@@ -52,6 +53,8 @@ struct Shot {
     std::uint32_t kind = 0; ///< an index into the set's projectiles
     int owner = -1;         ///< the body that fired it
     Vec3 location{}, velocity{};
+    Vec3 acceleration{};    ///< its kind's, along its launch direction
+    double lifetime = 0;    ///< its kind's, with its random part drawn
     double age = 0;         ///< seconds since it was fired
     std::uint32_t bounces = 0;
     bool stuck = false;

@@ -11,7 +11,8 @@ ut-ants weapons 1
 [set]
 name = "Stock"
 self-damage = 1            # unmeasured
-head-height = 0.62         # unmeasured
+head-height = 0.62         # SS 4.9: SniperRifle.ProcessTraceHit
+damage-scale = 1.5         # SS 4.9: hardcore, DeathMatchPlus.ReduceDamage; recorded
 
 [weapon impact-hammer]
 class = botpack.impacthammer
@@ -22,6 +23,7 @@ switch-time = 0.5          # unmeasured
 
 [fire impact-hammer primary]
 archetype = melee
+offset = 3.8 1.6 -1.8      # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
 refire = 0.75              # unmeasured
 ammo = 0
 charge-time = 1.5          # unmeasured
@@ -35,6 +37,7 @@ self-momentum = 66000      # unmeasured
 
 [fire impact-hammer alt]
 archetype = melee
+offset = 3.8 1.6 -1.8      # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
 refire = 0.5               # unmeasured
 ammo = 0
 damage = 20                # unmeasured
@@ -50,6 +53,7 @@ switch-time = 0.5          # unmeasured
 
 [fire chainsaw primary]
 archetype = melee
+offset = 2 3.6 4.1         # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
 refire = 0.1               # unmeasured
 ammo = 0
 damage = 20                # unmeasured
@@ -58,6 +62,7 @@ range = 90                 # default: ChainSaw.Range
 
 [fire chainsaw alt]
 archetype = melee
+offset = 12 3.6 4.1        # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
 refire = 0.9               # unmeasured
 ammo = 0
 damage = 110               # unmeasured
@@ -73,19 +78,25 @@ switch-time = 0.5          # unmeasured
 
 [fire enforcer primary]
 archetype = instant-hit
+offset = 3.3 5.5 -4.4      # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
 refire = 0.27              # unmeasured
 ammo = 1
-damage = 17                # unmeasured
-momentum = 3000            # unmeasured
+damage = 17                # SS 4.9: Enforcer.HitDamage
+momentum = 3000            # SS 4.9
+push-chance = 0.2          # SS 4.9: one hit in five
+push-scale = 5             # SS 4.9
 range = 10000              # unmeasured
 
 [fire enforcer alt]
 archetype = instant-hit
+offset = 3.3 5.5 -4.4      # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
 refire = 0.2               # unmeasured
 ammo = 1
 spread = 700               # unmeasured
-damage = 17                # unmeasured
-momentum = 3000            # unmeasured
+damage = 17                # SS 4.9: Enforcer.HitDamage
+momentum = 3000            # SS 4.9
+push-chance = 0.2          # SS 4.9: one hit in five
+push-scale = 5             # SS 4.9
 range = 10000              # unmeasured
 
 [weapon bio-rifle]
@@ -97,12 +108,14 @@ switch-time = 0.5          # unmeasured
 
 [fire bio-rifle primary]
 archetype = projectile
+offset = 13.7 11.85 -6.95  # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
 refire = 0.3               # unmeasured
 ammo = 1
 projectile = bio-gel
 
 [fire bio-rifle alt]
 archetype = projectile
+offset = 13.7 11.85 -6.95  # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
 refire = 0.5               # unmeasured
 ammo = 1
 charge-time = 4.1          # unmeasured
@@ -121,6 +134,7 @@ switch-time = 0.5          # unmeasured
 
 [fire shock-rifle primary]
 archetype = instant-hit
+offset = 4.4 6.7 -9.6      # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
 refire = 0.73              # unmeasured
 ammo = 1
 damage = 40                # unmeasured
@@ -129,6 +143,7 @@ range = 10000              # unmeasured
 
 [fire shock-rifle alt]
 archetype = projectile
+offset = 14.4 6.7 -9.6     # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
 refire = 0.6               # unmeasured
 ammo = 1
 projectile = shock-ball
@@ -142,17 +157,20 @@ switch-time = 0.5          # unmeasured
 
 [fire pulse-gun primary]
 archetype = projectile
+offset = 16.5 15 0         # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
 refire = 0.18              # unmeasured
 ammo = 1
 projectile = plasma
 
 [fire pulse-gun alt]
 archetype = beam
+offset = 16.5 15 0         # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
 refire = 0.1               # unmeasured
 ammo = 10                  # unmeasured: per second
-damage = 72                # default: StarterBolt.Damage; unmeasured: whether per second
-momentum = 8500            # default: StarterBolt.MomentumTransfer
+damage = 72                # default: StarterBolt.Damage; SS 4.9: per second of hold
+momentum = 0               # SS 4.9: none with the 469 default NoLockdown=1
 range = 1100               # unmeasured
+hit-every = 0.22           # SS 4.9: PBolt's stored hits
 
 [weapon ripper]
 class = botpack.ripper
@@ -163,12 +181,14 @@ switch-time = 0.5          # unmeasured
 
 [fire ripper primary]
 archetype = projectile
+offset = 3 16.6 -15.4      # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
 refire = 0.4               # unmeasured
 ammo = 1
 projectile = razor
 
 [fire ripper alt]
 archetype = projectile
+offset = 3 16.6 -15.4      # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
 refire = 0.4               # unmeasured
 ammo = 1
 projectile = razor-alt
@@ -182,20 +202,24 @@ switch-time = 0.5          # unmeasured
 
 [fire minigun primary]
 archetype = instant-hit
+offset = 2.1 5.35 -5.7     # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
 refire = 0.13              # unmeasured
 ammo = 1
 spread = 200               # unmeasured
-damage = 9                 # unmeasured
-momentum = 2500            # unmeasured
+damage = 9                 # SS 4.9: Minigun2.TraceFire, 9 + Rand(6); recorded
+damage-random = 5          # SS 4.9
+momentum = 0               # SS 4.9: none with the 469 default NoLockdown=1
 range = 10000              # unmeasured
 
 [fire minigun alt]
 archetype = instant-hit
+offset = 2.1 5.35 -5.7     # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
 refire = 0.08              # unmeasured
 ammo = 1
 spread = 700               # unmeasured
-damage = 9                 # unmeasured
-momentum = 2500            # unmeasured
+damage = 9                 # SS 4.9: Minigun2.TraceFire, 9 + Rand(6); recorded
+damage-random = 5          # SS 4.9
+momentum = 0               # SS 4.9: none with the 469 default NoLockdown=1
 range = 10000              # unmeasured
 
 [weapon flak-cannon]
@@ -207,6 +231,7 @@ switch-time = 0.5          # unmeasured
 
 [fire flak-cannon primary]
 archetype = projectile
+offset = 11.5 12 -16.65    # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
 refire = 0.9               # unmeasured
 ammo = 1
 spread = 1000              # unmeasured
@@ -215,6 +240,7 @@ count = 9                  # unmeasured
 
 [fire flak-cannon alt]
 archetype = projectile
+offset = 11.5 12 -16.65    # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
 refire = 1.1               # unmeasured
 ammo = 1
 projectile = flak-shell
@@ -228,6 +254,7 @@ switch-time = 0.5          # unmeasured
 
 [fire rocket-launcher primary]
 archetype = projectile
+offset = 12.4 6 -11        # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
 refire = 0.9               # unmeasured
 ammo = 1
 spread = 600               # unmeasured
@@ -240,6 +267,7 @@ count = 6                  # unmeasured
 
 [fire rocket-launcher alt]
 archetype = projectile
+offset = 12.4 6 -11        # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
 refire = 0.9               # unmeasured
 ammo = 1
 spread = 600               # unmeasured
@@ -259,21 +287,15 @@ switch-time = 0.5          # unmeasured
 
 [fire sniper-rifle primary]
 archetype = instant-hit
+offset = 0 0 0             # SS 4.9: the sniper starts at the eye
 refire = 0.67              # unmeasured
 ammo = 1
-damage = 45                # unmeasured
-momentum = 35000           # unmeasured
+damage = 45                # SS 4.9: SniperRifle.ProcessTraceHit, a body
+momentum = 30000           # SS 4.9
 range = 10000              # unmeasured
-headshot-scale = 2.23      # unmeasured
-
-[fire sniper-rifle alt]
-archetype = instant-hit
-refire = 0.67              # unmeasured
-ammo = 1
-damage = 45                # unmeasured
-momentum = 35000           # unmeasured
-range = 10000              # unmeasured
-headshot-scale = 2.23      # unmeasured
+head-damage = 100          # SS 4.9
+head-momentum = 35000      # SS 4.9
+# No alt fire: the sniper's alt zooms, the client's (SS 3 item 7).
 
 [projectile bio-gel]
 speed = 840                # default: UT_BioGel.speed
@@ -285,6 +307,7 @@ momentum = 20000           # default: UT_BioGel.MomentumTransfer
 splash-radius = 75         # unmeasured
 strike = stick
 fuse = 3                   # unmeasured
+lift = 120                 # SS 4.9: UT_BioGel's Flying state
 
 [projectile bio-glob]
 speed = 700                # default: BioGlob.speed
@@ -296,6 +319,7 @@ momentum = 30000           # default: BioGlob.MomentumTransfer
 splash-radius = 120        # unmeasured
 strike = stick
 fuse = 3                   # unmeasured
+lift = 120                 # SS 4.9: BioGlob extends UT_BioGel
 
 [projectile shock-ball]
 speed = 1000               # default: ShockProj.speed
@@ -338,6 +362,8 @@ strike = explode
 speed = 2500               # default: UTChunk1.speed
 radius = 0                 # default: UTChunk1.CollisionRadius
 lifetime = 2.9             # default: UTChunk1.LifeSpan
+speed-random = 100         # SS 4.9: UTChunk, speed +-100
+turn-random = 1000         # SS 4.9: UTChunk, yaw and pitch +-1000
 damage = 16                # default: UTChunk1.Damage
 momentum = 10000           # default: UTChunk1.MomentumTransfer
 strike = bounce
@@ -356,6 +382,7 @@ strike = split
 split-into = flak-chunk
 split-count = 5            # unmeasured
 split-spread = 6000        # unmeasured
+lift = 200                 # SS 4.9: flakslug
 
 [projectile rocket]
 speed = 900                # default: RocketMk2.speed
@@ -365,19 +392,25 @@ damage = 75                # default: RocketMk2.Damage
 momentum = 80000           # default: RocketMk2.MomentumTransfer
 splash-radius = 220        # unmeasured
 strike = explode
+acceleration = 50          # SS 4.9: RocketMk2
+max-speed = 1600           # default: RocketMk2.MaxSpeed
 
 [projectile grenade]
-speed = 600                # default: UT_Grenade.speed
+speed = 650                # SS 4.9: UT_Grenade, 600 + FRand() * 100
+speed-random = 50          # SS 4.9
+lift = 210                 # SS 4.9
+inherit = 0.4              # SS 4.9: of the firer's velocity along the aim
 radius = 0                 # default: UT_Grenade.CollisionRadius
 gravity = 1                # default: UT_Grenade.Physics is PHYS_Falling
-lifetime = 2.5             # unmeasured: UT_Grenade.LifeSpan reads 140
+lifetime = 2.75            # SS 4.9: UT_Grenade's fuse, 2.5 + FRand() * 0.5
+lifetime-random = 0.25     # SS 4.9
 expire = explode
 damage = 80                # default: UT_Grenade.Damage
 momentum = 50000           # default: UT_Grenade.MomentumTransfer
 splash-radius = 200        # unmeasured
 strike = bounce
 bounces = 100              # unmeasured: a grenade bounces until its fuse
-bounce-keep = 0.5          # unmeasured
+bounce-keep = 0.75         # SS 4.9: UT_Grenade.HitWall
 
 [combo shock-combo]
 damage = 165               # unmeasured

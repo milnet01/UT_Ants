@@ -76,6 +76,9 @@ struct MoveRules {
 [[nodiscard]] MoveState tick(const BodyWorld& world, const BodySize& size, const MoveRules& rules,
                              const MoveState& state, const MoveCommand& command, double dt);
 
+/// Pawn.AddVelocity: above this upward speed, a push's upward part is halved.
+inline constexpr double PUSH_FAST_RISE = 380;
+
 /// UTA-0019 SS 4.6: `velocity` added to a body, as the original's
 /// AddVelocity does; a walking body is lifted into Falling. A pure function.
 [[nodiscard]] MoveState push(const MoveState& state, const Vec3& velocity);

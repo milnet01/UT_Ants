@@ -67,7 +67,39 @@ Vec3 spreadAim(Game& game, std::int32_t yaw, std::int32_t pitch, std::uint32_t s
     return aimOf(yaw + yawOff, pitch + pitchOff);
 }
 
+double rangeDraw(Game& game, double range) {
+    if (range == 0) return 0;
+    // 53 bits as a fraction in [0, 1): exact, so the same on every compiler.
+    const double unit = static_cast<double>(draw(game) >> 11) * 0x1p-53;
+    return range * (2 * unit - 1);
+}
+
 Vec3 eyeOf(const Body& body) { return body.move.location + Vec3{0, 0, EYE_HEIGHT}; }
+
+Vec3 startOf(const Body& body, const FireMode& mode) {
+    // UT99's GetAxes of the view rotation: forward, right and up.
+    const double sy = core::sineOf(body.yaw), cy = core::cosineOf(body.yaw);
+    const double sp = core::sineOf(body.pitch), cp = core::cosineOf(body.pitch);
+    const Vec3 forward{cp * cy, cp * sy, sp};
+    const Vec3 right{-sy, cy, 0};
+    const Vec3 up{-sp * cy, -sp * sy, cp};
+    return eyeOf(body) + forward * mode.offset[0] + right * mode.offset[1] + up * mode.offset[2];
+}
+
+void launch(Tick& tick, std::uint32_t kind, int owner, const Vec3& at, std::int32_t yaw, std::int32_t pitch,
+            const Vec3& firerVelocity, double damageScale) {
+    const Projectile& projectile = tick.set.projectiles[kind];
+    const std::int32_t yawTurn = spreadDraw(tick.game, projectile.turnRandom);
+    const std::int32_t pitchTurn = spreadDraw(tick.game, projectile.turnRandom);
+    const Vec3 direction = aimOf(yaw + yawTurn, pitch + pitchTurn);
+    const double speed = projectile.speed + rangeDraw(tick.game, projectile.speedRandom);
+    const double lifetime = projectile.lifetime + rangeDraw(tick.game, projectile.lifetimeRandom);
+    Vec3 velocity = direction * speed + direction * (uworld::dot(firerVelocity, direction) * projectile.inherit);
+    velocity.z += projectile.lift;
+    tick.spawned.push_back(Shot{.kind = kind, .owner = owner, .location = at, .velocity = velocity,
+                                .acceleration = direction * projectile.acceleration, .lifetime = lifetime,
+                                .damageScale = damageScale});
+}
 
 SegmentHit traceSegment(const Tick& tick, const Vec3& from, const Vec3& to, int ignore, bool combos) {
     SegmentHit first;
@@ -121,25 +153,39 @@ void setOffCombo(Tick& tick, int shot, int instigator) {
 
 namespace {
 
-/// What a hit on a body costs it: damage, the head's share, and momentum along the shot.
-void hitBody(Tick& tick, int body, int instigator, const Vec3& from, const Vec3& to, double fraction,
-             double damage, double momentum, const std::optional<double>& headshotScale) {
+/// What a hit on a body costs it: damage and momentum along the shot.
+void hitBody(Tick& tick, int body, int instigator, const Vec3& from, const Vec3& to, double damage,
+             double momentum) {
     const Vec3 direction = to - from;
     const double length = uworld::length(direction);
     const Vec3 unitDir = length > 0 ? direction * (1 / length) : Vec3{};
-    const Body& target = tick.game.bodies[static_cast<std::size_t>(body)];
-    const Vec3 at = from + direction * fraction;
-    if (headshotScale && at.z - target.move.location.z > tick.set.headHeight * target.size.halfHeight)
-        damage *= *headshotScale;
     tick.owed.push_back(Owed{body, damage, unitDir * momentum, instigator});
+}
+
+/// An instant hit's damage and momentum on `body`: a head's where the mode
+/// has one and the hit is above the set's head height, else its own with
+/// the random part drawn and a chance of a bigger push (SS 4.9).
+void instantHit(Tick& tick, int body, int instigator, const Vec3& from, const Vec3& to, double fraction,
+                const FireMode& mode, double scale) {
+    const Body& target = tick.game.bodies[static_cast<std::size_t>(body)];
+    const double atZ = from.z + (to.z - from.z) * fraction;
+    double damage = mode.damage, momentum = mode.momentum;
+    if (mode.headDamage && atZ - target.move.location.z > tick.set.headHeight * target.size.halfHeight) {
+        damage = *mode.headDamage;
+        momentum = mode.headMomentum;
+    } else {
+        if (mode.damageRandom > 0) damage += static_cast<double>(draw(tick.game) % (mode.damageRandom + 1u));
+        if (mode.pushChance > 0 && rangeDraw(tick.game, 0.5) + 0.5 < mode.pushChance) momentum *= mode.pushScale;
+    }
+    hitBody(tick, body, instigator, from, to, damage * scale, momentum * scale);
 }
 
 } // namespace
 
 bool meleeTouches(const Tick& tick, int index, const FireMode& mode) {
     const Body& body = tick.game.bodies[static_cast<std::size_t>(index)];
-    const Vec3 eye = eyeOf(body);
-    const SegmentHit hit = traceSegment(tick, eye, eye + aimOf(body.yaw, body.pitch) * mode.range, index, false);
+    const Vec3 start = startOf(body, mode);
+    const SegmentHit hit = traceSegment(tick, start, start + aimOf(body.yaw, body.pitch) * mode.range, index, false);
     return hit.fraction <= 1;
 }
 
@@ -149,20 +195,18 @@ void fire(Tick& tick, int index, const FireMode& mode, double scale) {
 
     const bool scalesCount = mode.charge && mode.charge->scales == ChargeScales::Count;
     const double damageScale = mode.charge && !scalesCount ? scale : 1;
-    const Vec3 eye = eyeOf(body);
+    const Vec3 start = startOf(body, mode);
 
     switch (mode.archetype) {
     case Archetype::InstantHit: {
         carried.ammo -= mode.ammo;
         for (std::uint32_t pellet = 0; pellet < mode.pellets; ++pellet) {
             const Vec3 aim = spreadAim(tick.game, body.yaw, body.pitch, mode.spread);
-            const Vec3 end = eye + aim * mode.range;
-            const SegmentHit hit = traceSegment(tick, eye, end, index, true);
-            const Vec3 stop = eye + (end - eye) * std::min(hit.fraction, 1.0);
-            tick.game.events.push_back(Event{Event::Kind::InstantHit, eye, stop, 0});
-            if (hit.body >= 0)
-                hitBody(tick, hit.body, index, eye, end, hit.fraction, mode.damage * damageScale,
-                        mode.momentum * damageScale, mode.headshotScale);
+            const Vec3 end = start + aim * mode.range;
+            const SegmentHit hit = traceSegment(tick, start, end, index, true);
+            const Vec3 stop = start + (end - start) * std::min(hit.fraction, 1.0);
+            tick.game.events.push_back(Event{Event::Kind::InstantHit, start, stop, 0});
+            if (hit.body >= 0) instantHit(tick, hit.body, index, start, end, hit.fraction, mode, damageScale);
             if (hit.shot >= 0) setOffCombo(tick, hit.shot, index);
         }
         break;
@@ -170,12 +214,12 @@ void fire(Tick& tick, int index, const FireMode& mode, double scale) {
     case Archetype::Melee: {
         carried.ammo -= mode.ammo;
         const Vec3 aim = aimOf(body.yaw, body.pitch);
-        const Vec3 end = eye + aim * mode.range;
-        const SegmentHit hit = traceSegment(tick, eye, end, index, false);
-        tick.game.events.push_back(Event{Event::Kind::Melee, eye, eye + (end - eye) * std::min(hit.fraction, 1.0), 0});
+        const Vec3 end = start + aim * mode.range;
+        const SegmentHit hit = traceSegment(tick, start, end, index, false);
+        const Vec3 stop = start + (end - start) * std::min(hit.fraction, 1.0);
+        tick.game.events.push_back(Event{Event::Kind::Melee, start, stop, 0});
         if (hit.body >= 0)
-            hitBody(tick, hit.body, index, eye, end, hit.fraction, mode.damage * damageScale,
-                    mode.momentum * damageScale, std::nullopt);
+            hitBody(tick, hit.body, index, start, end, mode.damage * damageScale, mode.momentum * damageScale);
         else if (hit.surface && mode.selfMomentum > 0)
             // The hammer against a wall or floor throws its firer back (S2).
             tick.owed.push_back(Owed{index, 0, aim * (-mode.selfMomentum * damageScale), index});
@@ -191,11 +235,10 @@ void fire(Tick& tick, int index, const FireMode& mode, double scale) {
         }
         const std::uint32_t kind = static_cast<std::uint32_t>(
             std::ranges::find(tick.set.projectiles, mode.projectile, &Projectile::name) - tick.set.projectiles.begin());
-        const double speed = tick.set.projectiles[kind].speed;
         for (std::uint32_t i = 0; i < count; ++i) {
-            const Vec3 aim = spreadAim(tick.game, body.yaw, body.pitch, mode.spread);
-            tick.spawned.push_back(Shot{.kind = kind, .owner = index, .location = eye, .velocity = aim * speed,
-                                        .damageScale = damageScale});
+            const std::int32_t yawOff = spreadDraw(tick.game, mode.spread);
+            const std::int32_t pitchOff = spreadDraw(tick.game, mode.spread);
+            launch(tick, kind, index, start, body.yaw + yawOff, body.pitch + pitchOff, body.move.velocity, damageScale);
         }
         break;
     }
@@ -213,13 +256,21 @@ void beam(Tick& tick, int index, const FireMode& mode) {
         body.beamAmmo -= rounds;
         carried.ammo -= std::min(rounds, carried.ammo);
     }
-    const Vec3 eye = eyeOf(body);
+    const Vec3 start = startOf(body, mode);
     const Vec3 aim = aimOf(body.yaw, body.pitch);
-    const Vec3 end = eye + aim * mode.range;
-    const SegmentHit hit = traceSegment(tick, eye, end, index, false);
-    tick.game.events.push_back(Event{Event::Kind::Beam, eye, eye + (end - eye) * std::min(hit.fraction, 1.0), 0});
-    if (hit.body >= 0)
-        tick.owed.push_back(Owed{hit.body, mode.damage * tick.dt, aim * (mode.momentum * tick.dt), index});
+    const Vec3 end = start + aim * mode.range;
+    const SegmentHit hit = traceSegment(tick, start, end, index, false);
+    tick.game.events.push_back(Event{Event::Kind::Beam, start, start + (end - start) * std::min(hit.fraction, 1.0), 0});
+    // The original's beam stores its hold and hurts once the store passes
+    // `hit-every`, so its whole-number damage is not cut to nothing a tick.
+    double held = tick.dt;
+    if (mode.hitEvery > 0) {
+        body.beamHeld += tick.dt;
+        if (body.beamHeld <= mode.hitEvery) return;
+        held = body.beamHeld;
+        body.beamHeld = 0;
+    }
+    if (hit.body >= 0) tick.owed.push_back(Owed{hit.body, mode.damage * held, aim * (mode.momentum * held), index});
 }
 
 } // namespace detail

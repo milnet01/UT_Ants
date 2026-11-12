@@ -87,14 +87,17 @@ void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
     Body& body = tick.game.bodies[static_cast<std::size_t>(index)];
     body.fireHeld = command.fire;
     body.altHeld = command.altFire;
-    if (body.weapon < 0 || body.pending >= 0) return;
+    if (body.weapon < 0 || body.pending >= 0) {
+        body.beamHeld = 0;
+        return;
+    }
     const Weapon& weapon = tick.set.weapons[static_cast<std::size_t>(body.weapon)];
     const auto modeOf = [&weapon](int which) -> const FireMode* {
         return which == 0 ? &weapon.primary : weapon.alt ? &*weapon.alt : nullptr;
     };
 
     body.refireLeft -= tick.dt;
-    bool fired = false;
+    bool fired = false, beamed = false;
     if (body.charging >= 0) {
         const FireMode& mode = *modeOf(body.charging);
         const bool held = body.charging == 0 ? command.fire : command.altFire;
@@ -117,6 +120,7 @@ void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
         } else if (mode->archetype == Archetype::Beam) {
             detail::beam(tick, index, *mode);
             fired = true;
+            beamed = true;
         } else if (carried.ammo < mode->ammo) {
             // INV-7: too little ammo fires nothing and changes nothing.
         } else if (mode->charge) {
@@ -130,6 +134,8 @@ void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
     }
     // A held trigger keeps its cadence; an idle one owes nothing.
     if (!fired && body.refireLeft < 0) body.refireLeft = 0;
+    // A released beam is gone, and its store with it.
+    if (!beamed) body.beamHeld = 0;
 }
 
 /// A shot's strike: splash where it has one, else the body struck alone.
@@ -151,7 +157,6 @@ void explode(Tick& tick, std::size_t index, int struck, const Vec3& away) {
     // The flak shell breaks into pieces flying out from where it burst.
     const std::uint32_t into = static_cast<std::uint32_t>(
         std::ranges::find(tick.set.projectiles, kind.splitInto, &Projectile::name) - tick.set.projectiles.begin());
-    const double speed = tick.set.projectiles[into].speed;
     const double awayLength = uworld::length(away);
     const Vec3 centre = awayLength > 0 ? away * (1 / awayLength) : Vec3{0, 0, 1};
     // The centre as a yaw and pitch, to spread around: atan2 would be the
@@ -161,9 +166,9 @@ void explode(Tick& tick, std::size_t index, int struck, const Vec3& away) {
                                                                           : (centre.y >= 0 ? 16384 : 49152);
     const std::int32_t basePitch = centre.z > 0.7 ? 16384 : centre.z < -0.7 ? -16384 : 0;
     for (std::uint32_t i = 0; i < kind.splitCount; ++i) {
-        const Vec3 aim = detail::spreadAim(tick.game, baseYaw, basePitch, kind.splitSpread);
-        tick.spawned.push_back(Shot{.kind = into, .owner = shot.owner, .location = shot.location,
-                                    .velocity = aim * speed});
+        const std::int32_t yawOff = detail::spreadDraw(tick.game, kind.splitSpread);
+        const std::int32_t pitchOff = detail::spreadDraw(tick.game, kind.splitSpread);
+        detail::launch(tick, into, shot.owner, shot.location, baseYaw + yawOff, basePitch + pitchOff, Vec3{}, 1);
     }
 }
 
@@ -179,12 +184,18 @@ void fly(Tick& tick, std::size_t index) {
         if (shot.age >= kind.fuse) explode(tick, index, -1, Vec3{0, 0, 1});
         return;
     }
-    if (shot.age >= kind.lifetime) {
+    if (shot.age >= shot.lifetime) {
         if (kind.expireExplodes) explode(tick, index, -1, shot.velocity * -1);
         else tick.shotGone[index] = true;
         return;
     }
     shot.velocity.z += tick.rules.gravityZ * kind.gravity * tick.dt;
+    if (kind.acceleration > 0) {
+        // The engine's projectile physics: speed up, but no faster than its most.
+        shot.velocity = shot.velocity + shot.acceleration * tick.dt;
+        const double speed = uworld::length(shot.velocity);
+        if (kind.maxSpeed > 0 && speed > kind.maxSpeed) shot.velocity = shot.velocity * (kind.maxSpeed / speed);
+    }
     const Vec3 from = shot.location;
     const Vec3 delta = shot.velocity * tick.dt;
     const Vec3 to = from + delta;
@@ -241,6 +252,7 @@ void fly(Tick& tick, std::size_t index) {
 }
 
 /// The damage and momentum owed, landed in the order they were owed.
+/// Damage is UT99's whole numbers: each step truncates, as its `int` does.
 void land(Tick& tick) {
     for (const Owed& owed : tick.owed) {
         Body& body = tick.game.bodies[static_cast<std::size_t>(owed.body)];
@@ -249,7 +261,9 @@ void land(Tick& tick) {
         Vec3 momentum = owed.momentum * (self ? SELF_MOMENTUM : 1.0);
         if (body.move.physics == uworld::Physics::Walking)
             momentum.z = std::max(momentum.z, WALKING_LIFT * uworld::length(momentum));
-        body.health -= owed.damage * (self ? tick.set.selfDamage : 1.0);
+        double damage = std::trunc(std::trunc(owed.damage) * tick.set.damageScale);
+        if (self) damage = std::trunc(damage * tick.set.selfDamage);
+        body.health -= damage;
         if (uworld::length(momentum) > 0) body.move = uworld::push(body.move, momentum * (1 / MASS));
     }
 }
@@ -340,6 +354,7 @@ std::uint64_t stateHash(const Game& game) {
         add(static_cast<std::uint64_t>(body.charging));
         addDouble(body.charged);
         addDouble(body.beamAmmo);
+        addDouble(body.beamHeld);
     }
     add(game.shots.size());
     for (const Shot& shot : game.shots) {
@@ -347,6 +362,8 @@ std::uint64_t stateHash(const Game& game) {
         add(static_cast<std::uint64_t>(shot.owner));
         addVec(shot.location);
         addVec(shot.velocity);
+        addVec(shot.acceleration);
+        addDouble(shot.lifetime);
         addDouble(shot.age);
         add(shot.bounces);
         add(shot.stuck ? 1 : 0);

@@ -39,8 +39,20 @@ struct Tick {
 /// arguments would come in an order each compiler picks (INV-5).
 [[nodiscard]] Vec3 spreadAim(Game& game, std::int32_t yaw, std::int32_t pitch, std::uint32_t spread);
 
+/// A decimal in [-range, range] from the game's generator; no draw for 0.
+[[nodiscard]] double rangeDraw(Game& game, double range);
+
 /// The eye of `body`.
 [[nodiscard]] Vec3 eyeOf(const Body& body);
+
+/// Where `mode`'s shot starts: the eye plus the mode's offset, turned by the aim.
+[[nodiscard]] Vec3 startOf(const Body& body, const FireMode& mode);
+
+/// A projectile of kind `kind` leaving `at` along `yaw` and `pitch`, after
+/// the kind's own launch rules: its turn, speed and lifetime draws, its
+/// lift, and its share of `firerVelocity`. It flies from the next tick.
+void launch(Tick& tick, std::uint32_t kind, int owner, const Vec3& at, std::int32_t yaw, std::int32_t pitch,
+            const Vec3& firerVelocity, double damageScale);
 
 /// What a segment meets first: the level, a body, or a shot with a combo.
 struct SegmentHit {

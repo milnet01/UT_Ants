@@ -207,7 +207,10 @@ MoveState tick(const BodyWorld& world, const BodySize& size, const MoveRules& ru
 
 MoveState push(const MoveState& state, const Vec3& velocity) {
     MoveState s = state;
-    s.velocity = s.velocity + velocity;
+    Vec3 added = velocity;
+    // Pawn.AddVelocity: a body already rising fast gains half the lift.
+    if (s.velocity.z > PUSH_FAST_RISE && added.z > 0) added.z *= 0.5;
+    s.velocity = s.velocity + added;
     if (s.physics == Physics::Walking) s.physics = Physics::Falling;
     return s;
 }

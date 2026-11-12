@@ -7,6 +7,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <array>
 #include <format>
 #include <string>
 #include <vector>
@@ -19,6 +20,7 @@ constexpr std::string_view SMALL = R"(ut-ants weapons 1
 name = "Small # set"
 self-damage = 0.5
 head-height = 0.62
+damage-scale = 1.5
 
 [weapon gun]
 class = Botpack.ShockRifle
@@ -32,11 +34,16 @@ archetype = instant-hit
 refire = 0.7
 ammo = 1
 spread = 100
+offset = 4.4 6.7 -9.6
 damage = 40
 momentum = 60000
 range = 10000
 pellets = 3
-headshot-scale = 2.5
+head-damage = 100
+head-momentum = 35000
+damage-random = 5
+push-chance = 0.2
+push-scale = 5
 
 [fire gun alt]
 archetype = projectile
@@ -76,11 +83,14 @@ ammo = 10
 damage = 72
 momentum = 8500
 range = 1100
+hit-every = 0.22
 
 [projectile ball]
 speed = 1000
 radius = 12
 lifetime = 10
+acceleration = 50
+max-speed = 1600
 damage = 55
 momentum = 70000
 splash-radius = 70
@@ -101,8 +111,11 @@ split-spread = 6000
 
 [projectile chunk]
 speed = 2500
+speed-random = 100
+turn-random = 1000
 radius = 0
 lifetime = 2.9
+lifetime-random = 0.5
 damage = 16
 momentum = 10000
 strike = bounce
@@ -114,6 +127,8 @@ speed = 840
 radius = 2
 gravity = 1
 lifetime = 12
+lift = 120
+inherit = 0.4
 expire = explode
 damage = 20
 momentum = 20000
@@ -151,7 +166,16 @@ TEST_CASE("INV-2: the small set parses and reads back from write", "[ugame][weap
     REQUIRE(set->weapons.size() == 2);
     CHECK(set->weapons[0].className == "botpack.shockrifle");
     CHECK(set->weapons[0].primary.pellets == 3);
-    CHECK(set->weapons[0].primary.headshotScale == 2.5);
+    CHECK(set->damageScale == 1.5);
+    CHECK(set->weapons[0].primary.offset == std::array<double, 3>{4.4, 6.7, -9.6});
+    CHECK(set->weapons[0].primary.headDamage == 100);
+    CHECK(set->weapons[0].primary.headMomentum == 35000);
+    CHECK(set->weapons[0].primary.damageRandom == 5);
+    CHECK(set->weapons[0].primary.pushChance == 0.2);
+    CHECK(set->weapons[1].alt->hitEvery == 0.22);
+    CHECK(set->projectile("ball")->acceleration == 50);
+    CHECK(set->projectile("chunk")->turnRandom == 1000);
+    CHECK(set->projectile("gel")->lift == 120);
     REQUIRE(set->weapons[0].alt);
     REQUIRE(set->weapons[0].alt->charge);
     CHECK(set->weapons[0].alt->charge->scales == uta::ugame::ChargeScales::Count);
@@ -200,7 +224,7 @@ TEST_CASE("INV-1: each refusal names its line", "[ugame][weapons]") {
         {"a count of zero", edited("count = 4", "count = 0"), "count = 0", "count is from 1 to 64"},
         {"start ammo above the most", edited("ammo-start = 20", "ammo-start = 51"), "ammo-start",
          "from 0 to 50"},
-        {"another archetype's key", edited("pellets = 3", "projectile = ball"), "projectile = ball\nheadshot",
+        {"another archetype's key", edited("pellets = 3", "projectile = ball"), "projectile = ball\nhead-damage",
          "an instant-hit fire has no key 'projectile'"},
         {"another strike's key", edited("fuse = 3", "fuse = 3\nbounces = 2"), "bounces = 2\n\n[combo",
          "a projectile that strikes to stick has no key 'bounces'"},
@@ -221,6 +245,14 @@ TEST_CASE("INV-1: each refusal names its line", "[ugame][weapons]") {
         {"a bad name", edited("[weapon hammer]", "[weapon Hammer]"), "[weapon Hammer]", "is not a [weapon] name"},
         {"a bad class", edited("class = Botpack.ShockRifle", "class = ShockRifle"), "class = ShockRifle",
          "is not a class"},
+        {"an offset of two numbers", edited("offset = 4.4 6.7 -9.6", "offset = 4.4 6.7"), "offset",
+         "offset is three numbers"},
+        {"a head damage with no head momentum", edited("head-momentum = 35000\n", ""), "[fire gun primary]",
+         "has no `head-momentum`"},
+        {"a speed draw past the speed", edited("speed-random = 100", "speed-random = 2501"), "[projectile chunk]",
+         "speed-random is more than speed"},
+        {"a lifetime draw to zero", edited("lifetime-random = 0.5", "lifetime-random = 2.9"), "[projectile chunk]",
+         "lifetime-random is not less than lifetime"},
         {"a second [set]", edited("[weapon gun]", "[set]\n[weapon gun]"), "[set]\n[weapon gun]", "a second [set]"},
     };
     for (const Refusal& refusal : refusals) {

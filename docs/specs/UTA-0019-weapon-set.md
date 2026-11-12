@@ -167,14 +167,16 @@ another archetype's key is refused.
 
 | Archetype | Does | Stock modes |
 |---|---|---|
-| `instant-hit` | a segment from the eye along the aim, plus spread; the first body or surface hit takes damage and momentum. `pellets`, `headshot-scale` | Enforcer, Shock primary, Minigun, Sniper |
+| `instant-hit` | a segment from the eye along the aim, plus spread; the first body or surface hit takes damage and momentum. `pellets`, `damage-random`, `push-chance`, `push-scale`, `head-damage`, `head-momentum` | Enforcer, Shock primary, Minigun, Sniper |
 | `projectile` | spawns `count` projectiles of a named kind, with spread | Bio, Shock alt, Pulse primary, Ripper, Flak, Rocket |
-| `beam` | a segment of `range` every tick while held, damage per second | Pulse alt |
+| `beam` | a segment of `range` every tick while held, damage per second; `hit-every` stores the hold and hurts once past it | Pulse alt |
 | `melee` | a short segment; on a surface, pushes the firer back | Hammer, Chainsaw |
 
 Two modifiers apply to any archetype: **`charge`**, held to build up and
 fired on release (the hammer, Bio alt, the rocket launcher's loading),
-and a refire held per mode.
+and a refire held per mode. Every mode has an **`offset`**: where its
+shot starts from the eye, forward, right and up, turned by the aim
+(§ 4.9).
 
 A projectile kind carries `speed`, `radius`, `gravity`, `lifetime`,
 `damage`, `momentum`, `splash-radius`, and at most one behaviour on
@@ -183,6 +185,12 @@ striking: **explode**, **bounce** (`bounces`, `bounce-keep`), **stick**
 (the flak shell). `combo` names what an instant hit on it sets off.
 `expire` says whether it explodes or vanishes when its `lifetime` ends
 (the grenade explodes).
+
+§ 3 item 6's launch keys: `acceleration` along the launch direction, up
+to `max-speed`; `lift`, added upward; `inherit`, a share of the firer's
+velocity along the aim. Each `-random` key draws a uniform value within
+± its value: `speed-random` and `lifetime-random` about their key, and
+`turn-random` for both the yaw and the pitch.
 
 A new archetype is a code change; a new weapon built from existing
 archetypes is not. That is the line § 3 item 3 draws.
@@ -204,9 +212,12 @@ fires, so no body's place in the order changes what a shot hits.
 
 - **Bodies are UT99's upright cylinders** (`BodySize`). A segment or a
   projectile hits one where it enters the cylinder. A hit in its upper
-  part counts as a head where the mode has `headshot-scale`; that
+  part counts as a head where the mode has `head-damage`; that
   height is `[set]`'s `head-height`, a share of the half-height above
   the centre, measured (§ 4.7).
+- **Damage lands as whole numbers**, as the original's integers do:
+  truncated, scaled by `[set]`'s `damage-scale` (hardcore's 1.5), and
+  truncated again (§ 4.9).
 - **Spread** draws from the game's generator, as angle units, turned
   into a direction through `core/Angles.h`. No platform maths: design
   rule 9 and UTA-0049's numeric contract hold for `ugame` as for
