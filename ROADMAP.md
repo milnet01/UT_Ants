@@ -18538,7 +18538,20 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   hover departure (UTA-0457), not the blast. Our body sits 4.67 lower
   than the original's, so the blast is nearer. Undecided: an allowance
   in the test, or accept the miss.
-  Still open: 54 runs launch one tick before the original.
+  The 54 runs launching "a tick early" were the recorder's order, not
+  ours: it writes a row before the weapon's own tick, so only a shot
+  the press fires is logged at its launch. A refire, a released charge
+  or a split is first logged a row later, having flown once. The test
+  now reads the launch tick that way; 8 runs stay off, each with
+  another fault.
+  Same day: a flak slug gains the second half of gravity after its
+  move (gravity-after; bBounce false), its chunks start 10 off what it
+  struck and fly along the slug's aim, and a hit on a body is moved
+  0.4 of its radius on (Pawn.AdjustHitLocation). Failures 276 -> 249.
+  Still open: a chunk's first bounce. The original keeps 0.8 along the
+  wall and a random 0 to 0.64 off it, falls at half gravity after, and
+  in that tick moves a whole extra tick (flak-alt-tap 30, UTChunk28,
+  rows 18 to 20).
   **Layman:** The guns. Built as a table of numbers rather than as code, so a different set -- your super weapons -- is a different table rather than a second codebase.
   Kind: implement.
   Source: design-2026-09-03.

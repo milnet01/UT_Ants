@@ -393,7 +393,8 @@ bounce-keep = 0.8          # script: UTChunk.HitWall, 0.8 along the wall, 0 to 0
 [projectile flak-shell]
 speed = 1200               # default: flakslug.speed
 radius = 0                 # default: flakslug.CollisionRadius
-gravity = 0.5              # recorded: flakslug falls (PHYS_Falling) at half the zone's gravity
+gravity = 0.5              # recorded: flakslug falls (PHYS_Falling); half the zone's gravity before its move
+gravity-after = 0.5        # recorded: and half after it, as it does not bounce (bBounce false)
 lifetime = 6               # default: flakslug.LifeSpan
 damage = 70                # default: flakslug.Damage
 momentum = 75000           # default: flakslug.MomentumTransfer; recorded 69000 near the edge
@@ -401,7 +402,7 @@ splash-radius = 150        # script: flakslug.Explode
 strike = split
 split-into = flak-chunk
 split-count = 5            # script: flakslug.Explode; recorded
-split-spread = 0           # script: each chunk keeps the slug's aim, turned by its turn-random (rule to build)
+split-spread = 0           # script: each chunk keeps the slug's aim, turned by its own turn-random
 lift = 200                 # SS 4.9: flakslug
 
 [projectile rocket]

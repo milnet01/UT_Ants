@@ -193,8 +193,9 @@ which scales the effect by the hit's distance over it. Every mode has an **`offs
 shot starts from the eye, forward, right and up, turned by the aim
 (§ 4.9).
 
-A projectile kind carries `speed`, `radius`, `gravity`, `lifetime`,
-`damage`, `momentum`, `splash-radius`, and at most one behaviour on
+A projectile kind carries `speed`, `radius`, `gravity`, `gravity-after`,
+`lifetime`, `damage`, `momentum`, `splash-radius`, and at most one
+behaviour on
 striking: **explode**, **bounce** (`bounces`, `bounce-keep`), **stick**
 (Bio's glob, exploding after `fuse`), or **split** into another kind
 (the flak shell). `combo` names what an instant hit on it sets off.
@@ -319,7 +320,15 @@ Botpack `DeathMatchPlus.ReduceDamage`):
 - A push lifts a walking body into falling. Where the body already rises
   faster than 380, a push's upward part is halved.
 - A falling projectile (gel, glob, flak slug, grenade) gains speed at half
-  the zone's gravity. Recorded 2026-11-12: 475 a second², not 950.
+  the zone's gravity before each tick's move. Recorded 2026-11-12: 475 a
+  second², not 950. One that does not bounce (the flak slug) gains the
+  other half after the move (`gravity-after`): recorded 950.
+- A shot's hit on a body is moved 0.4 of the body's radius on along the
+  shot (Engine `Pawn.AdjustHitLocation`). Recorded: the flak slug's push.
+- A flak slug's chunks start 10 off what it struck, from where its move
+  ended, and fly along the slug's own aim, each turned by its own draws
+  (Botpack `flakslug.Explode`). Off a body, the direction is from the
+  body's centre to the hit. Recorded.
 
 **Where a shot starts** (Engine `Weapon.ProjectileFire`,
 `Weapon.TraceFire`, `Inventory.CalcDrawOffset`):

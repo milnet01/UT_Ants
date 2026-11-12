@@ -17,7 +17,8 @@
 // result is row k's W and P lines: the recorder writes a row after the
 // tick's press has fired (UTARecPawn.PlayerInput calls Fire before LogTick)
 // and before the tick's actors move. A D line carries the row it lands
-// before, so a hit after row k's log reads k + 1: within INV-6's tick.
+// before, so a hit after row k's log reads k + 1: within INV-6's tick. So
+// does a shot or a spend the weapon's own tick makes, after the row.
 //
 // A ROW IS LOGGED AFTER ITS TICK'S HITS. A body a D line at tick k hit
 // starts tick k from that line's velocity and physics from before the hit,
@@ -409,8 +410,9 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& set,
         const auto launched = [&](const ugame::Shot& shot) {
             const ugame::Projectile& kind = set.projectiles[shot.kind];
             ugame::Shot was = shot;
-            was.location = shot.location - shot.velocity * row.dt;
-            was.velocity = shot.velocity - (Vec3{0, 0, rules.gravityZ * kind.gravity} + shot.acceleration) * row.dt;
+            const Vec3 moving = shot.velocity - Vec3{0, 0, rules.gravityZ * kind.gravityAfter} * row.dt;
+            was.location = shot.location - moving * row.dt;
+            was.velocity = moving - (Vec3{0, 0, rules.gravityZ * kind.gravity} + shot.acceleration) * row.dt;
             return was;
         };
         // Each new shot of ours to the first unclaimed recorded one of its
@@ -532,7 +534,20 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& set,
         if (s.recorded < 0) continue;
         const std::string& name = theirOrder[static_cast<std::size_t>(s.recorded)];
         const RecordedShot& t = theirs.at(name);
-        e.shotTick = std::max(e.shotTick, std::abs(s.first - t.first));
+        // Only a shot the press itself fires is logged at its launch. One the
+        // weapon's own tick fires -- a refire, a released charge, a split --
+        // comes after that frame's row, and is first logged a row later,
+        // having flown once: nearer our first flown row than our launch.
+        std::int64_t theirFirst = t.first;
+        const auto launchRow = s.rows.find(s.first);
+        const auto flownRow = s.rows.find(s.first + 1);
+        if (launchRow != s.rows.end() && flownRow != s.rows.end()) {
+            Vec3 logged = vec(t.rows.front().second.location);
+            logged.z -= firerHover;
+            if (uworld::length(logged - flownRow->second.location) < uworld::length(logged - launchRow->second.location))
+                --theirFirst;
+        }
+        e.shotTick = std::max(e.shotTick, std::abs(s.first - theirFirst));
         bool first = true;
         for (const auto& [tick, p] : t.rows) {
             const auto row = s.rows.find(tick);

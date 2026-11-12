@@ -17,6 +17,7 @@
 #include <cmath>
 #include <set>
 #include <tuple>
+#include <numbers>
 #include <utility>
 #include <vector>
 
@@ -67,9 +68,10 @@ Vec3 levelStart(const FireMode& mode) {
 /// fired, so its one move is backed out. For a shot that struck nothing.
 Shot launchedThisTick(const WeaponSet& set, const Shot& shot) {
     Shot was = shot;
-    const double fall = RULES.gravityZ * set.projectiles[shot.kind].gravity;
-    was.location = shot.location - shot.velocity * DT;
-    was.velocity = shot.velocity - (Vec3{0, 0, fall} + shot.acceleration) * DT;
+    const Projectile& kind = set.projectiles[shot.kind];
+    const Vec3 moving = shot.velocity - Vec3{0, 0, RULES.gravityZ * kind.gravityAfter} * DT;
+    was.location = shot.location - moving * DT;
+    was.velocity = moving - (Vec3{0, 0, RULES.gravityZ * kind.gravity} + shot.acceleration) * DT;
     return was;
 }
 
@@ -412,7 +414,9 @@ TEST_CASE("SS 4.9: a shock ball striking a body bursts where its move ends, not 
     WeaponSet met = stock();
     for (Projectile& p : met.projectiles)
         if (p.name == ball.name) p.splashFromMoved = false;
-    CHECK(std::abs(altBlastAt(world, met, "shock-rifle").x - contact) < 1e-6);
+    // Where it met it is moved 0.4 of the body's radius on (Pawn.AdjustHitLocation).
+    const double inset = 0.4 * uta::uworld::BodySize{}.radius;
+    CHECK(std::abs(altBlastAt(world, met, "shock-rifle").x - contact - inset) < 1e-6);
 }
 
 TEST_CASE("SS 4.9: the ripper's alt blade hurts the body it strikes alone; its blast is for the level", "[ugame][game]") {
@@ -506,6 +510,66 @@ namespace {
 std::uint32_t kindOf(const WeaponSet& set, std::string_view name) {
     return static_cast<std::uint32_t>(std::ranges::find(set.projectiles, name, &Projectile::name) -
                                       set.projectiles.begin());
+}
+
+TEST_CASE("SS 4.9: a shot that does not bounce gains its gravity-after once its move is made", "[ugame][game]") {
+    const BodyWorld world = arena();
+    const WeaponSet& set = stock();
+    const Projectile& shell = *set.projectile("flak-shell");
+    REQUIRE(shell.gravity > 0);
+    REQUIRE(shell.gravityAfter > 0);
+    Game game = duel(set, "flak-cannon", 1500);
+    game.bodies[1].move.location.y = 1500;
+    std::vector<MoveCommand> commands(2);
+    commands[0].altFire = true;
+    tick(world, set, RULES, game, commands, DT);
+    REQUIRE(game.shots.size() == 1);
+    const Shot first = game.shots[0];
+    commands[0].altFire = false;
+    tick(world, set, RULES, game, commands, DT);
+    const Shot& second = game.shots[0];
+    // The move is made at the speed the first part alone gives.
+    const double moving = first.velocity.z + RULES.gravityZ * shell.gravity * DT;
+    CHECK(std::abs(second.location.z - first.location.z - moving * DT) < 1e-9);
+    CHECK(std::abs(second.velocity.z - moving - RULES.gravityZ * shell.gravityAfter * DT) < 1e-9);
+}
+
+TEST_CASE("SS 4.9: a flak shell's pieces start 10 off the surface and fly on along the shell's own aim",
+          "[ugame][game]") {
+    // flakslug.Explode spawns each chunk at Location + 10 * HitNormal with
+    // the slug's Rotation, which is its launch aim; the chunk turns itself.
+    const BodyWorld world = arena();
+    const WeaponSet& set = stock();
+    const Projectile& chunk = *set.projectile("flak-chunk");
+    const std::uint32_t shell = kindOf(set, "flak-shell"), piece = kindOf(set, "flak-chunk");
+    Game game = duel(set, "flak-cannon", 1500);
+    game.bodies[1].move.location.y = -1500; // out of the shell's way
+    std::vector<MoveCommand> commands(2);
+    commands[0].altFire = true;
+    commands[0].yaw = 8192; // an eighth of a turn: the aim is not an axis
+    const Vec3 aim{std::numbers::sqrt2 / 2, std::numbers::sqrt2 / 2, 0};
+
+    Vec3 shellAt{};
+    for (int k = 0; k < 120 && std::ranges::count(game.shots, piece, &Shot::kind) == 0; ++k) {
+        if (!game.shots.empty()) shellAt = game.shots[0].location;
+        tick(world, set, RULES, game, commands, DT);
+        commands[0].altFire = false;
+    }
+    // The shell fell to the floor well short of the wall: its normal is up.
+    REQUIRE(shellAt.x < 1900);
+    REQUIRE(std::ranges::count(game.shots, shell, &Shot::kind) == 0);
+    REQUIRE(game.shots.size() == set.projectile("flak-shell")->splitCount);
+    const double mostTurn = std::numbers::sqrt2 * chunk.turnRandom * 2 * std::numbers::pi / 65536;
+    for (const Shot& shot : game.shots) {
+        const Shot was = launchedThisTick(set, shot);
+        CHECK(was.location.z > 10); // 10 off the floor, plus the strike's back-off
+        CHECK(was.location.z <= 10 + 0.5);
+        CHECK(std::abs(was.location.x - shellAt.x) < 60); // where the shell came down
+        const double speed = uta::uworld::length(was.velocity);
+        CHECK(std::abs(speed - chunk.speed) <= chunk.speedRandom);
+        CHECK(std::acos(uta::uworld::dot(was.velocity, aim) / speed) <= mostTurn + 1e-6);
+    }
+    CHECK(game.shots[0].velocity != game.shots[1].velocity);
 }
 
 /// The stock set with the rocket launcher's stand-in spread taken out, so a
@@ -772,5 +836,5 @@ TEST_CASE("INV-5: a scripted fight is the same at every frame rate and on every 
         CHECK(again == reference);
     }
     INFO("final hash " << reference.back());
-    CHECK(reference.back() == 17954599428131284997u);
+    CHECK(reference.back() == 1713095713248363726u);
 }

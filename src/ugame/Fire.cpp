@@ -104,7 +104,8 @@ void launch(Tick& tick, std::uint32_t kind, int owner, const Vec3& at, std::int3
     velocity.z += projectile.lift;
     velocity = velocity * speedScale;
     tick.spawned.push_back(Shot{.kind = kind, .owner = owner, .location = at, .velocity = velocity,
-                                .acceleration = direction * projectile.acceleration, .lifetime = lifetime,
+                                .acceleration = direction * projectile.acceleration, .yaw = yaw, .pitch = pitch,
+                                .lifetime = lifetime,
                                 .damageScale = damageScale});
 }
 

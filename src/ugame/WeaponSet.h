@@ -107,7 +107,8 @@ enum class Strike : std::uint8_t { Explode, Bounce, Stick, Split };
 struct Projectile {
     std::string name;
     double speed = 0, radius = 0;
-    double gravity = 0; ///< of the world's gravity: 0 flies straight, 1 falls
+    double gravity = 0; ///< of the world's gravity, gained before a tick's move: 0 flies straight
+    double gravityAfter = 0; ///< of the world's gravity, gained after a tick's move
     double acceleration = 0;   ///< along its launch direction, per second squared
     double maxSpeed = 0;       ///< what acceleration stops at; 0 for no limit
     double lift = 0;           ///< added upward at launch

@@ -171,8 +171,13 @@ void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
     if (!beamed) body.beamHeld = 0;
 }
 
+/// How far off the surface it struck a split shot's pieces start.
+constexpr double SPLIT_STAND_OFF = 10;
+
 /// A shot's strike: splash where it has one, else the body struck alone.
-void explode(Tick& tick, std::size_t index, int struck, const Vec3& away) {
+/// `away` points off what was struck: a split's pieces start along it from
+/// `splitFrom`, the script's Location.
+void explode(Tick& tick, std::size_t index, int struck, const Vec3& away, const Vec3& splitFrom) {
     Shot& shot = tick.game.shots[index];
     const Projectile& kind = tick.set.projectiles[shot.kind];
     tick.shotGone[index] = true;
@@ -187,21 +192,18 @@ void explode(Tick& tick, std::size_t index, int struck, const Vec3& away) {
     }
     tick.game.events.push_back(Event{Event::Kind::Explosion, shot.location, shot.location, kind.splashRadius});
     if (kind.strike != Strike::Split) return;
-    // The flak shell breaks into pieces flying out from where it burst.
+    // flakslug.Explode: each piece starts a little off the surface struck and
+    // flies on along the shell's own aim, turned by the piece's own draws.
     const std::uint32_t into = static_cast<std::uint32_t>(
         std::ranges::find(tick.set.projectiles, kind.splitInto, &Projectile::name) - tick.set.projectiles.begin());
     const double awayLength = uworld::length(away);
-    const Vec3 centre = awayLength > 0 ? away * (1 / awayLength) : Vec3{0, 0, 1};
-    // The centre as a yaw and pitch, to spread around: atan2 would be the
-    // platform's maths, so the pieces spread in a cone by integer angles
-    // about the straight-up or level direction nearest the centre.
-    const std::int32_t baseYaw = std::abs(centre.x) >= std::abs(centre.y) ? (centre.x >= 0 ? 0 : 32768)
-                                                                          : (centre.y >= 0 ? 16384 : 49152);
-    const std::int32_t basePitch = centre.z > 0.7 ? 16384 : centre.z < -0.7 ? -16384 : 0;
+    const Vec3 start = splitFrom + (awayLength > 0 ? away * (SPLIT_STAND_OFF / awayLength) : Vec3{});
+    const int owner = shot.owner;
+    const std::int32_t yaw = shot.yaw, pitch = shot.pitch;
     for (std::uint32_t i = 0; i < kind.splitCount; ++i) {
         const std::int32_t yawOff = detail::spreadDraw(tick.game, kind.splitSpread);
         const std::int32_t pitchOff = detail::spreadDraw(tick.game, kind.splitSpread);
-        detail::launch(tick, into, shot.owner, shot.location, baseYaw + yawOff, basePitch + pitchOff, Vec3{}, 1, 1);
+        detail::launch(tick, into, owner, start, yaw + yawOff, pitch + pitchOff, Vec3{}, 1, 1);
     }
 }
 
@@ -209,16 +211,20 @@ void explode(Tick& tick, std::size_t index, int struck, const Vec3& away) {
 /// next trace does not start in solid.
 constexpr double BACK_OFF = 0.5;
 
+/// How far into a body a shot's hit is moved along its path, of the body's
+/// radius (Pawn.AdjustHitLocation).
+constexpr double HIT_INSET = 0.4;
+
 void fly(Tick& tick, std::size_t index) {
     Shot& shot = tick.game.shots[index];
     const Projectile& kind = tick.set.projectiles[shot.kind];
     shot.age += tick.dt;
     if (shot.stuck) {
-        if (shot.age >= kind.fuse) explode(tick, index, -1, Vec3{0, 0, 1});
+        if (shot.age >= kind.fuse) explode(tick, index, -1, Vec3{0, 0, 1}, shot.location);
         return;
     }
     if (shot.age >= shot.lifetime) {
-        if (kind.expireExplodes) explode(tick, index, -1, shot.velocity * -1);
+        if (kind.expireExplodes) explode(tick, index, -1, shot.velocity * -1, shot.location);
         else tick.shotGone[index] = true;
         return;
     }
@@ -251,13 +257,24 @@ void fly(Tick& tick, std::size_t index) {
     if (struck >= 0) {
         // The script's Location is where the move ends, the level allowing;
         // its HitLocation is where the shot met the body.
+        // Pawn.AdjustHitLocation moves it on into the body, along the shot.
         const double moved = level.startsInside ? 0 : std::min(level.fraction, 1.0);
-        shot.location = from + delta * (kind.splashFromMoved ? moved : first);
-        explode(tick, index, struck, shot.velocity * -1);
+        const Body& body = bodies[static_cast<std::size_t>(struck)];
+        const double speed = uworld::length(shot.velocity);
+        const Vec3 inset = speed > 0 ? shot.velocity * (HIT_INSET * body.size.radius / speed) : Vec3{};
+        const Vec3 met = from + delta * first + inset;
+        const Vec3 end = from + delta * moved;
+        shot.location = kind.splashFromMoved ? end : met;
+        // flakslug.ProcessTouch: off the body from where the shot met it, the
+        // pieces starting from where its move ended.
+        explode(tick, index, struck, met - body.move.location, end);
         return;
     }
     if (first >= 1) {
         shot.location = to;
+        // The engine's falling physics gives an actor that does not bounce
+        // the second half of a tick's gravity after its move.
+        shot.velocity.z += tick.rules.gravityZ * kind.gravityAfter * tick.dt;
         return;
     }
     // The level: a shot starting in solid strikes where it is (SS 6).
@@ -284,7 +301,7 @@ void fly(Tick& tick, std::size_t index) {
     case Strike::Explode:
     case Strike::Split: break;
     }
-    explode(tick, index, -1, normal);
+    explode(tick, index, -1, normal, shot.location);
 }
 
 /// The damage and momentum owed, landed in the order they were owed.
@@ -408,6 +425,8 @@ std::uint64_t stateHash(const Game& game) {
         addVec(shot.location);
         addVec(shot.velocity);
         addVec(shot.acceleration);
+        add(static_cast<std::uint64_t>(shot.yaw));
+        add(static_cast<std::uint64_t>(shot.pitch));
         addDouble(shot.lifetime);
         addDouble(shot.age);
         add(shot.bounces);

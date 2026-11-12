@@ -106,6 +106,7 @@ combo = boom
 speed = 1200
 radius = 0
 gravity = 1
+gravity-after = 0.25
 lifetime = 6
 damage = 70
 momentum = 75000
@@ -191,6 +192,7 @@ TEST_CASE("INV-2: the small set parses and reads back from write", "[ugame][weap
     CHECK(set->projectile("gel")->expireExplodes);
     CHECK_FALSE(set->projectile("chunk")->expireExplodes);
     CHECK(set->projectile("shell")->splitInto == "chunk");
+    CHECK(set->projectile("shell")->gravityAfter == 0.25);
     CHECK(set->combo("boom")->splashRadius == 250);
     CHECK(set->projectile("ball")->splashFromMoved);
     CHECK(set->projectile("ball")->bodyDirect);

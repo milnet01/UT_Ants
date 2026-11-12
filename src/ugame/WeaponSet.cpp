@@ -288,6 +288,7 @@ Result<void> readProjectile(Projectile& projectile, Keys& keys, std::size_t head
     UTA_TRY(projectile.damage, need("damage", 0, AMOUNT_MAX));
     UTA_TRY(projectile.momentum, need("momentum", 0, AMOUNT_MAX));
     for (auto [key, field, max] : {std::tuple{"gravity", &projectile.gravity, 10.0},
+                                   std::tuple{"gravity-after", &projectile.gravityAfter, 10.0},
                                    std::tuple{"acceleration", &projectile.acceleration, DISTANCE_MAX},
                                    std::tuple{"max-speed", &projectile.maxSpeed, DISTANCE_MAX},
                                    std::tuple{"lift", &projectile.lift, DISTANCE_MAX},
@@ -556,10 +557,11 @@ std::string write(const WeaponSet& set) {
         if (weapon.alt) out += fireText(weapon.name, "alt", *weapon.alt);
     }
     for (const Projectile& projectile : set.projectiles) {
-        out += std::format("\n[projectile {}]\nspeed = {}\nradius = {}\ngravity = {}\nlifetime = {}\nexpire = {}\n"
+        out += std::format("\n[projectile {}]\nspeed = {}\nradius = {}\ngravity = {}\ngravity-after = {}\nlifetime = {}\n"
+                           "expire = {}\n"
                            "damage = {}\nmomentum = {}\nsplash-radius = {}\nstrike = {}\n",
                            projectile.name, decimal(projectile.speed), decimal(projectile.radius),
-                           decimal(projectile.gravity), decimal(projectile.lifetime),
+                           decimal(projectile.gravity), decimal(projectile.gravityAfter), decimal(projectile.lifetime),
                            EXPIRE_NAMES[projectile.expireExplodes ? 1 : 0], decimal(projectile.damage),
                            decimal(projectile.momentum), decimal(projectile.splashRadius),
                            STRIKE_NAMES[static_cast<std::size_t>(projectile.strike)]);
