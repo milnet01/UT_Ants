@@ -4,6 +4,7 @@
 #include <charconv>
 #include <cmath>
 #include <format>
+#include <initializer_list>
 #include <optional>
 #include <utility>
 
@@ -87,6 +88,81 @@ Result<RecordedTick> rowOf(const std::vector<std::string_view>& words, std::size
     return tick;
 }
 
+/// Reads `words[first..]` into `out`, each a number; false where one is not.
+bool numbersOf(const std::vector<std::string_view>& words, std::size_t first, std::initializer_list<double*> out) {
+    std::size_t i = first;
+    for (double* value : out) {
+        const auto number = numberOf(words[i++]);
+        if (!number) return false;
+        *value = *number;
+    }
+    return true;
+}
+
+/// A W, P, G or D line's tick: a whole number, and for every kind but D
+/// the tick of the T row still to come; a D line's, at most that.
+Result<std::int64_t> weaponTickOf(const std::vector<std::string_view>& words, std::size_t line,
+                                  std::size_t rows, bool damage) {
+    const auto tick = wholeOf(words[2]);
+    if (!tick) return refuse(line, std::format("tick '{}' is not a whole number", words[2]));
+    const auto next = static_cast<std::int64_t>(rows);
+    if (damage ? *tick > next : *tick != next)
+        return refuse(line, std::format("a {} line at tick {} where tick {} comes next", words[1], *tick, next));
+    return *tick;
+}
+
+/// A weapon run's line (UTA-0019 § 4.7) into `recording`; its column counts
+/// are UTARec's header's.
+Result<void> weaponLineOf(const std::vector<std::string_view>& words, std::size_t line,
+                          MovementRecording& recording) {
+    const std::string_view kind = words[1];
+    const std::size_t columns = kind == "W" ? 11 : kind == "P" ? 10 : kind == "G" ? 9 : 24;
+    if (words.size() != 2 + columns)
+        return refuse(line, std::format("a {} line has {} columns, not {}", kind, words.size() - 2, columns));
+    const auto tick = weaponTickOf(words, line, recording.ticks.size(), kind == "D");
+    if (!tick) return std::unexpected(tick.error());
+    const auto bad = [&] { return refuse(line, std::format("a {} line's field does not parse", kind)); };
+    if (kind == "W") {
+        RecordedWeapon w{.tick = *tick, .weapon = std::string(words[3]), .state = std::string(words[4]),
+                         .anim = std::string(words[5])};
+        double ammo = 0, pitch = 0, yaw = 0, fire = 0, alt = 0;
+        if (!numbersOf(words, 6, {&w.frame, &ammo, &pitch, &yaw, &w.eyeHeight, &fire, &alt})) return bad();
+        w.ammo = static_cast<std::int64_t>(ammo);
+        w.pitch = static_cast<std::int32_t>(pitch);
+        w.yaw = static_cast<std::int32_t>(yaw);
+        w.fire = fire != 0;
+        w.altFire = alt != 0;
+        recording.weapon.push_back(std::move(w));
+    } else if (kind == "P") {
+        RecordedProjectile p{.tick = *tick, .name = std::string(words[3]), .cls = std::string(words[4])};
+        if (!numbersOf(words, 5, {&p.location[0], &p.location[1], &p.location[2], &p.velocity[0], &p.velocity[1],
+                                  &p.velocity[2]}))
+            return bad();
+        p.physics = words[11];
+        recording.projectiles.push_back(std::move(p));
+    } else if (kind == "G") {
+        RecordedTarget g{.tick = *tick};
+        if (!numbersOf(words, 3, {&g.location[0], &g.location[1], &g.location[2], &g.velocity[0], &g.velocity[1],
+                                  &g.velocity[2]}) ||
+            !numbersOf(words, 10, {&g.health}))
+            return bad();
+        g.physics = words[9];
+        recording.target.push_back(std::move(g));
+    } else {
+        RecordedDamage d{.tick = *tick, .victim = std::string(words[4]), .instigator = std::string(words[5]),
+                         .type = std::string(words[7])};
+        if (!numbersOf(words, 3, {&d.time}) || !numbersOf(words, 6, {&d.damage}) ||
+            !numbersOf(words, 8, {&d.hit[0], &d.hit[1], &d.hit[2], &d.momentum[0], &d.momentum[1], &d.momentum[2],
+                                  &d.health0, &d.health1, &d.velocity0[0], &d.velocity0[1], &d.velocity0[2],
+                                  &d.velocity1[0], &d.velocity1[1], &d.velocity1[2]}) ||
+            !numbersOf(words, 23, {&d.location[0], &d.location[1], &d.location[2]}))
+            return bad();
+        d.physics0 = words[22];
+        recording.damage.push_back(std::move(d));
+    }
+    return {};
+}
+
 }  // namespace
 
 Result<MovementRecording> readMovementRecording(std::string_view text) {
@@ -115,6 +191,7 @@ Result<MovementRecording> readMovementRecording(std::string_view text) {
             if (!pairs) return std::unexpected(pairs.error());
             for (const char* key : {"run", "map", "rate", "pose"})
                 if (!pairs->contains(key)) return refuse(line, std::format("BEGIN has no {}=", key));
+            recording.begin = *pairs;
             recording.run = pairs->find("run")->second;
             recording.map = pairs->find("map")->second;
             const auto rate = numberOf(pairs->find("rate")->second);
@@ -159,6 +236,9 @@ Result<MovementRecording> readMovementRecording(std::string_view text) {
                 return refuse(line, std::format("time steps by {} over a tick of {} (INV-4)",
                                                 tick->time - recording.ticks.back().time, tick->dt));
             recording.ticks.push_back(std::move(*tick));
+        } else if (kind == "W" || kind == "P" || kind == "G" || kind == "D") {
+            const auto read = weaponLineOf(words, line, recording);
+            if (!read) return std::unexpected(read.error());
         } else if (kind == "END") {
             auto pairs = pairsOf(words, 2, line);
             if (!pairs) return std::unexpected(pairs.error());

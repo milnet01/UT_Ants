@@ -322,9 +322,9 @@ if(UTA_REAL_ASSET_TESTS)
                                         real/RealLightProbesTest.cpp real/RealFlamesTest.cpp
                                         real/RealLiquidsTest.cpp real/RealClothTest.cpp
                                         real/RealMeshTest.cpp real/RealBodyCollisionTest.cpp
-                                        real/RealMovementTest.cpp)
+                                        real/RealMovementTest.cpp real/RealWeaponTest.cpp)
     target_link_libraries(uta_real_asset_tests PRIVATE uta_upkg uta_umap uta_umap_build uta_unav_build
-                                                       uta_umat uta_ubake uta_uworld uta_test_support
+                                                       uta_umat uta_ubake uta_uworld uta_ugame uta_test_support
                                                        Catch2::Catch2WithMain)
     # tests/support/FCoordsPort.h, header-only -- UTA-0119 SS 7.
     target_include_directories(uta_real_asset_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
