@@ -5,6 +5,7 @@
 
 #include "BlockFixture.h"
 
+#include "ugame/Fire.h"
 #include "ugame/Game.h"
 #include "uworld/FixedTick.h"
 
@@ -16,6 +17,7 @@
 #include <cmath>
 #include <set>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 using namespace uta::ugame;
@@ -362,6 +364,88 @@ TEST_CASE("S2: a rocket at the firer's feet hurts and throws it", "[ugame][game]
         tick(world, stock(), RULES, game, commands, DT);
     CHECK(game.bodies[0].health < START_HEALTH);
     CHECK(game.bodies[0].move.velocity.z > 0);
+}
+
+/// The centre of the first explosion `weapon`'s alt fire makes at a dummy
+/// 600 ahead, on its line.
+Vec3 altBlastAt(const BodyWorld& world, const WeaponSet& set, std::string_view weapon) {
+    Game game = duel(set, weapon, 600);
+    const FireMode& alt = *set.weapons[static_cast<std::size_t>(weaponNamed(set, weapon))].alt;
+    game.bodies[1].move.location.y = levelStart(alt).y;
+    std::vector<MoveCommand> commands(2);
+    commands[0].altFire = true;
+    commands[1].yaw = 32768;
+    for (int k = 0; k < 120; ++k) {
+        tick(world, set, RULES, game, commands, DT);
+        commands[0].altFire = false;
+        for (const Event& event : game.events)
+            if (event.kind == Event::Kind::Explosion) return event.from;
+    }
+    FAIL("no explosion");
+    return {};
+}
+
+TEST_CASE("SS 4.9: a shock ball striking a body bursts where its move ends, not where it met it", "[ugame][game]") {
+    const BodyWorld world = arena();
+    const Projectile& ball = *stock().projectile("shock-ball");
+    REQUIRE(ball.splashFromMoved);
+    const double contact = 600 - uta::uworld::BodySize{}.radius - ball.radius;
+    const double step = ball.speed * DT;
+    const double start = levelStart(*stock().weapons[static_cast<std::size_t>(weaponNamed(stock(), "shock-rifle"))].alt).x;
+
+    const Vec3 moved = altBlastAt(world, stock(), "shock-rifle");
+    CHECK(moved.x > contact);
+    CHECK(moved.x <= contact + step);
+    const double steps = (moved.x - start) / step;
+    CHECK(std::abs(steps - std::round(steps)) < 1e-6);
+
+    WeaponSet met = stock();
+    for (Projectile& p : met.projectiles)
+        if (p.name == ball.name) p.splashFromMoved = false;
+    CHECK(std::abs(altBlastAt(world, met, "shock-rifle").x - contact) < 1e-6);
+}
+
+TEST_CASE("SS 4.9: the ripper's alt blade hurts the body it strikes alone; its blast is for the level", "[ugame][game]") {
+    const BodyWorld world = arena();
+    REQUIRE(stock().projectile("razor-alt")->bodyDirect);
+    const auto losses = [&world](const WeaponSet& set) {
+        Game game = duel(set, "ripper", 600);
+        const FireMode& alt = *set.weapons[static_cast<std::size_t>(weaponNamed(set, "ripper"))].alt;
+        game.bodies[1].move.location.y = levelStart(alt).y;
+        // A second dummy beside the first, well inside the blast's 180.
+        game.bodies.push_back(game.bodies[1]);
+        game.bodies[2].move.location.y += 60;
+        std::vector<MoveCommand> commands(3);
+        commands[0].altFire = true;
+        for (int k = 0; k < 60; ++k) {
+            tick(world, set, RULES, game, commands, DT);
+            commands[0].altFire = false;
+        }
+        return std::pair{1e9 - game.bodies[1].health, 1e9 - game.bodies[2].health};
+    };
+    // Struck straight on: the whole damage, as Razor2Alt.ProcessTouch's TakeDamage.
+    CHECK(losses(stock()) == std::pair{landed(stock(), stock().projectile("razor-alt")->damage), 0.0});
+    WeaponSet splashing = stock();
+    for (Projectile& p : splashing.projectiles)
+        if (p.name == "razor-alt") p.bodyDirect = false;
+    CHECK(losses(splashing).second > 0);
+}
+
+TEST_CASE("SS 4.9: a blast's push rises at most its splash-up-max, unnormalised", "[ugame][game]") {
+    const BodyWorld world = arena();
+    const WeaponSet& set = stock();
+    Game game;
+    game.bodies.push_back(bodyAt(set, {60, 0, 80}, 0));
+    detail::Tick t{world, set, RULES, game, DT, {}, {}, {}};
+    detail::splash(t, {0, 0, 0}, 100, 1000, 500, -1, 0.45);
+    REQUIRE(t.owed.size() == 1);
+    const Vec3 push = t.owed[0].momentum;
+    CHECK(push.y == 0);
+    CHECK(std::abs(push.z / push.x - 0.45 / 0.6) < 1e-12);
+    // Uncapped, the direction is the body's: 0.8 up for 0.6 along.
+    t.owed.clear();
+    detail::splash(t, {0, 0, 0}, 100, 1000, 500, -1);
+    CHECK(std::abs(t.owed[0].momentum.z / t.owed[0].momentum.x - 0.8 / 0.6) < 1e-12);
 }
 
 TEST_CASE("SS 4.9: damage lands whole, scaled by hardcore's damage-scale", "[ugame][game]") {

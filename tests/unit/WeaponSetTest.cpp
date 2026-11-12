@@ -96,6 +96,9 @@ max-speed = 1600
 damage = 55
 momentum = 70000
 splash-radius = 70
+splash-from = moved
+body-hit = direct
+splash-up-max = 0.45
 strike = explode
 combo = boom
 
@@ -189,6 +192,12 @@ TEST_CASE("INV-2: the small set parses and reads back from write", "[ugame][weap
     CHECK_FALSE(set->projectile("chunk")->expireExplodes);
     CHECK(set->projectile("shell")->splitInto == "chunk");
     CHECK(set->combo("boom")->splashRadius == 250);
+    CHECK(set->projectile("ball")->splashFromMoved);
+    CHECK(set->projectile("ball")->bodyDirect);
+    CHECK(set->projectile("ball")->splashUpMax == 0.45);
+    CHECK_FALSE(set->projectile("gel")->splashFromMoved);
+    CHECK_FALSE(set->projectile("gel")->bodyDirect);
+    CHECK(set->projectile("gel")->splashUpMax == 1);
 
     const std::string written = uta::ugame::write(*set);
     const auto again = uta::ugame::parse(written);
@@ -264,6 +273,12 @@ TEST_CASE("INV-1: each refusal names its line", "[ugame][weapons]") {
          "rule = rocket-fan\nhead", "'rocket-fan' is not a rule of an instant-hit fire"},
         {"a rule of none", edited("rule = rocket-fan", "rule = none"), "rule = none",
          "'none' is not a rule of a projectile fire"},
+        {"an unknown splash centre", edited("splash-from = moved", "splash-from = middle"), "splash-from",
+         "'middle' is not one of: contact, moved"},
+        {"an unknown body hit", edited("body-hit = direct", "body-hit = glancing"), "body-hit",
+         "'glancing' is not one of: splash, direct"},
+        {"an upward cap past 1", edited("splash-up-max = 0.45", "splash-up-max = 1.5"), "splash-up-max",
+         "is not a number from 0 to 1"},
         {"a second [set]", edited("[weapon gun]", "[set]\n[weapon gun]"), "[set]\n[weapon gun]", "a second [set]"},
     };
     for (const Refusal& refusal : refusals) {

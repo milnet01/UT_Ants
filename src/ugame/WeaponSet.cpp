@@ -140,6 +140,8 @@ constexpr std::string_view ARCHETYPE_NAMES[] = {"instant-hit", "projectile", "be
 constexpr std::string_view STRIKE_NAMES[] = {"explode", "bounce", "stick", "split"};
 constexpr std::string_view SCALES_NAMES[] = {"damage", "count"};
 constexpr std::string_view EXPIRE_NAMES[] = {"vanish", "explode"};
+constexpr std::string_view SPLASH_FROM_NAMES[] = {"contact", "moved"};
+constexpr std::string_view BODY_HIT_NAMES[] = {"splash", "direct"};
 /// FireRule's names, in its order; "none" is never written.
 constexpr std::string_view RULE_NAMES[] = {"none", "rocket-fan", "grenade-cluster", "hammer"};
 /// The archetype each FireRule belongs to, in its order.
@@ -303,6 +305,18 @@ Result<void> readProjectile(Projectile& projectile, Keys& keys, std::size_t head
     projectile.turnRandom = turn.value_or(0);
     UTA_TRY(const std::optional<double> splash, keys.decimal("splash-radius", false, 0, DISTANCE_MAX));
     projectile.splashRadius = splash.value_or(0);
+    UTA_TRY(const std::optional<Entry> from, keys.take("splash-from", false));
+    if (from) {
+        UTA_TRY(const std::size_t moved, choiceOf(SPLASH_FROM_NAMES, *from));
+        projectile.splashFromMoved = moved == 1;
+    }
+    UTA_TRY(const std::optional<Entry> bodyHit, keys.take("body-hit", false));
+    if (bodyHit) {
+        UTA_TRY(const std::size_t direct, choiceOf(BODY_HIT_NAMES, *bodyHit));
+        projectile.bodyDirect = direct == 1;
+    }
+    UTA_TRY(const std::optional<double> upMax, keys.decimal("splash-up-max", false, 0, 1));
+    projectile.splashUpMax = upMax.value_or(1);
     UTA_TRY(const std::optional<Entry> expire, keys.take("expire", false));
     if (expire) {
         UTA_TRY(const std::size_t explodes, choiceOf(EXPIRE_NAMES, *expire));
@@ -554,6 +568,9 @@ std::string write(const WeaponSet& set) {
                            decimal(projectile.acceleration), decimal(projectile.maxSpeed), decimal(projectile.lift),
                            decimal(projectile.inherit), decimal(projectile.speedRandom), projectile.turnRandom,
                            decimal(projectile.lifetimeRandom));
+        out += std::format("splash-from = {}\nbody-hit = {}\nsplash-up-max = {}\n",
+                           SPLASH_FROM_NAMES[projectile.splashFromMoved ? 1 : 0],
+                           BODY_HIT_NAMES[projectile.bodyDirect ? 1 : 0], decimal(projectile.splashUpMax));
         switch (projectile.strike) {
         case Strike::Explode: break;
         case Strike::Bounce:

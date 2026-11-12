@@ -136,7 +136,8 @@ SegmentHit traceSegment(const Tick& tick, const Vec3& from, const Vec3& to, int 
     return first;
 }
 
-void splash(Tick& tick, const Vec3& at, double damage, double momentum, double radius, int instigator) {
+void splash(Tick& tick, const Vec3& at, double damage, double momentum, double radius, int instigator,
+            double upMax) {
     if (radius <= 0) return;
     const std::vector<Body>& bodies = tick.game.bodies;
     for (std::size_t i = 0; i < bodies.size(); ++i) {
@@ -145,7 +146,8 @@ void splash(Tick& tick, const Vec3& at, double damage, double momentum, double r
         const double distance = uworld::length(away);
         if (distance >= radius) continue;
         const double scale = 1 - std::max(0.0, (distance - bodies[i].size.radius) / radius);
-        const Vec3 direction = distance > 0 ? away * (1 / distance) : Vec3{0, 0, 1};
+        Vec3 direction = distance > 0 ? away * (1 / distance) : Vec3{0, 0, 1};
+        direction.z = std::min(direction.z, upMax);
         tick.owed.push_back(Owed{static_cast<int>(i), damage * scale, direction * (momentum * scale), instigator});
     }
 }

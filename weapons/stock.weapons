@@ -320,6 +320,7 @@ lifetime = 12              # default: UT_BioGel.LifeSpan
 damage = 40                # script: UT_BioGel.Explode, Damage 20 x DrawScale 2; recorded 37 near the edge
 momentum = 40000           # script: UT_BioGel.Explode, 20000 x 2; recorded
 splash-radius = 150        # script: UT_BioGel.Explode, 75 x DrawScale
+splash-from = moved        # script: UT_BioGel.Timer, HurtRadius at Location
 strike = stick
 fuse = 3.8                 # script: UT_BioGel, 3.8 s once landed, 3 s in flight (rule to build)
 lift = 120                 # SS 4.9: UT_BioGel's Flying state
@@ -332,6 +333,7 @@ lifetime = 12              # default: BioGlob.LifeSpan
 damage = 75                # default: BioGlob.Damage, x the charge's scale
 momentum = 30000           # default: BioGlob.MomentumTransfer, x the scale
 splash-radius = 75         # script: UT_BioGel.Explode, 75 x the scale, at most 250
+splash-from = moved        # script: UT_BioGel.Timer, as the gel
 strike = stick
 fuse = 3.8                 # script: UT_BioGel, as the gel
 lift = 120                 # SS 4.9: BioGlob extends UT_BioGel
@@ -343,6 +345,7 @@ lifetime = 10              # default: ShockProj.LifeSpan
 damage = 55                # default: ShockProj.Damage
 momentum = 70000           # default: ShockProj.MomentumTransfer
 splash-radius = 70         # script: ShockProj.Explode
+splash-from = moved        # script: ShockProj.Explode, HurtRadius at Location
 strike = explode
 combo = shock-combo
 
@@ -371,6 +374,8 @@ lifetime = 6               # default: Razor2Alt.LifeSpan
 damage = 34                # default: Razor2Alt.Damage; recorded
 momentum = 87000           # default: Razor2Alt.MomentumTransfer; recorded
 splash-radius = 180        # script: Razor2Alt.BlowUp
+body-hit = direct          # script: Razor2Alt.ProcessTouch, TakeDamage along its flight
+splash-up-max = 0.45       # script: Razor2Alt.BlowUp, dir.Z at most 0.45
 strike = explode
 
 [projectile flak-chunk]

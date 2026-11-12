@@ -178,8 +178,8 @@ void explode(Tick& tick, std::size_t index, int struck, const Vec3& away) {
     tick.shotGone[index] = true;
     const double damage = kind.damage * shot.damageScale;
     const double momentum = kind.momentum * shot.damageScale;
-    if (kind.splashRadius > 0) {
-        detail::splash(tick, shot.location, damage, momentum, kind.splashRadius, shot.owner);
+    if (kind.splashRadius > 0 && (struck < 0 || !kind.bodyDirect)) {
+        detail::splash(tick, shot.location, damage, momentum, kind.splashRadius, shot.owner, kind.splashUpMax);
     } else if (struck >= 0) {
         const double speed = uworld::length(shot.velocity);
         const Vec3 along = speed > 0 ? shot.velocity * (1 / speed) : Vec3{};
@@ -249,7 +249,10 @@ void fly(Tick& tick, std::size_t index) {
         }
     }
     if (struck >= 0) {
-        shot.location = from + delta * first;
+        // The script's Location is where the move ends, the level allowing;
+        // its HitLocation is where the shot met the body.
+        const double moved = level.startsInside ? 0 : std::min(level.fraction, 1.0);
+        shot.location = from + delta * (kind.splashFromMoved ? moved : first);
         explode(tick, index, struck, shot.velocity * -1);
         return;
     }

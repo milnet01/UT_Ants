@@ -69,8 +69,11 @@ struct SegmentHit {
 [[nodiscard]] SegmentHit traceSegment(const Tick& tick, const Vec3& from, const Vec3& to, int ignore, bool combos);
 
 /// UT99's HurtRadius: every live body within `radius` of `at` takes
-/// `damage` and `momentum`, less with distance past its own radius.
-void splash(Tick& tick, const Vec3& at, double damage, double momentum, double radius, int instigator);
+/// `damage` and `momentum`, less with distance past its own radius. The
+/// push direction's upward part is at most `upMax`, left unnormalised, as
+/// Razor2Alt.BlowUp does.
+void splash(Tick& tick, const Vec3& at, double damage, double momentum, double radius, int instigator,
+            double upMax = 1);
 
 /// The combo shot `shot` sets off when an instant hit from `instigator` meets it.
 void setOffCombo(Tick& tick, int shot, int instigator);

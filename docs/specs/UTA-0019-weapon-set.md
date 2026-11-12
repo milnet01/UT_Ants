@@ -199,7 +199,13 @@ striking: **explode**, **bounce** (`bounces`, `bounce-keep`), **stick**
 (Bio's glob, exploding after `fuse`), or **split** into another kind
 (the flak shell). `combo` names what an instant hit on it sets off.
 `expire` says whether it explodes or vanishes when its `lifetime` ends
-(the grenade explodes).
+(the grenade explodes). Striking a body, `splash-from = moved` centres
+the blast where the shot's whole move that tick ends, the script's
+`Location` (the shock ball, Bio); the default `contact` is where it met
+the body. `body-hit = direct` hits the struck body alone, along the
+flight, keeping the blast for the level (the Ripper's alt).
+`splash-up-max` caps the upward part of each push's direction, left
+unnormalised (`Razor2Alt.BlowUp`'s 0.45).
 
 § 3 item 6's launch keys: `acceleration` along the launch direction, up
 to `max-speed`; `lift`, added upward; `inherit`, a share of the firer's

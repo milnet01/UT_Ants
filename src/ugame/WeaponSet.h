@@ -119,6 +119,13 @@ struct Projectile {
     bool expireExplodes = false; ///< at the end of its lifetime: explodes, else vanishes
     double damage = 0, momentum = 0;
     double splashRadius = 0; ///< 0 hits only what it strikes
+    /// Striking a body, the blast centres where its whole move this tick
+    /// ends (the script's `Location`), not where it met the body.
+    bool splashFromMoved = false;
+    /// Striking a body hits that body alone, along its flight; the blast
+    /// is for the level only (Razor2Alt).
+    bool bodyDirect = false;
+    double splashUpMax = 1; ///< the blast's push direction's upward part, at most this
     Strike strike = Strike::Explode;
     std::uint32_t bounces = 0; ///< bounce: before it explodes; then it explodes
     double bounceKeep = 0;     ///< bounce: of its speed kept per bounce
