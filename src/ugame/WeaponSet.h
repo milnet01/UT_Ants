@@ -67,6 +67,7 @@ struct FireMode {
     /// the original's class adds (SS 4.9).
     std::array<double, 3> offset{};
     double refire = 0;        ///< game seconds between shots while held
+    double refireLead = 0;    ///< added once, after a shot fired from idle: the firing animation's blend-in
     std::uint32_t ammo = 0;   ///< spent per shot; per second for a beam
     std::uint32_t spread = 0; ///< the cone's half-angle, in angle units
     std::optional<Charge> charge;

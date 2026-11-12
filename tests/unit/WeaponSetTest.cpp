@@ -81,6 +81,7 @@ self-momentum = 66000
 [fire hammer alt]
 archetype = beam
 refire = 0.1
+refire-lead = 0.05
 ammo = 10
 damage = 72
 momentum = 8500
@@ -179,6 +180,7 @@ TEST_CASE("INV-2: the small set parses and reads back from write", "[ugame][weap
     CHECK(set->weapons[0].primary.damageRandom == 5);
     CHECK(set->weapons[0].primary.pushChance == 0.2);
     CHECK(set->weapons[1].alt->hitEvery == 0.22);
+    CHECK(set->weapons[1].alt->refireLead == 0.05);
     CHECK(set->projectile("ball")->acceleration == 50);
     CHECK(set->projectile("chunk")->turnRandom == 1000);
     CHECK(set->projectile("gel")->lift == 120);

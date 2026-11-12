@@ -195,14 +195,15 @@ switch-time = 1.03         # recorded: from the Enforcer, key to first shot
 [fire ripper primary]
 archetype = projectile
 offset = 3 16.6 -15.4      # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
-refire = 0.38              # recorded at 30 fps only
+refire = 0.384             # recorded: the mean interval at 30, 85 and 120 fps
+refire-lead = 0.022        # recorded: a hold's first interval is 0.404 to 0.409 at those rates
 ammo = 1
 projectile = razor
 
 [fire ripper alt]
 archetype = projectile
 offset = 3 16.6 -15.4      # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
-refire = 0.72              # recorded at 30 fps only
+refire = 0.711             # recorded: the mean interval at 30, 85 and 120 fps; its first is no longer
 ammo = 1
 projectile = razor-alt
 
@@ -361,6 +362,7 @@ strike = explode
 speed = 1300               # default: Razor2.speed
 radius = 0                 # default: Razor2.CollisionRadius
 lifetime = 6               # default: Razor2.LifeSpan
+max-speed = 1200           # default: Razor2.MaxSpeed, under its speed; recorded from its first move
 damage = 30                # default: Razor2.Damage; recorded
 momentum = 15000           # default: Razor2.MomentumTransfer; recorded
 strike = bounce
@@ -371,6 +373,7 @@ bounce-keep = 1            # script: Razor2.HitWall, a plain reflection
 speed = 1300               # default: Razor2Alt.speed
 radius = 0                 # default: Razor2Alt.CollisionRadius
 lifetime = 6               # default: Razor2Alt.LifeSpan
+max-speed = 1200           # default: Razor2.MaxSpeed, inherited; recorded
 damage = 34                # default: Razor2Alt.Damage; recorded
 momentum = 87000           # default: Razor2Alt.MomentumTransfer; recorded
 splash-radius = 180        # script: Razor2Alt.BlowUp

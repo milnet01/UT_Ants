@@ -98,6 +98,8 @@ void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
         return which == 0 ? &weapon.primary : weapon.alt ? &*weapon.alt : nullptr;
     };
 
+    // An idle weapon's refire is at rest on 0; one still cooling is above it.
+    const bool idle = body.refireLeft <= 0;
     body.refireLeft -= tick.dt;
     bool fired = false, beamed = false;
     Carried& carried = body.weapons[static_cast<std::size_t>(body.weapon)];
@@ -161,7 +163,7 @@ void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
             body.loaded = 1;
         } else {
             detail::fire(tick, index, *mode, 1);
-            body.refireLeft += mode->refire;
+            body.refireLeft += mode->refire + (idle ? mode->refireLead : 0);
             fired = true;
         }
     }
@@ -229,12 +231,12 @@ void fly(Tick& tick, std::size_t index) {
         return;
     }
     shot.velocity.z += tick.rules.gravityZ * kind.gravity * tick.dt;
-    if (kind.acceleration > 0) {
-        // The engine's projectile physics: speed up, but no faster than its most.
-        shot.velocity = shot.velocity + shot.acceleration * tick.dt;
-        const double speed = uworld::length(shot.velocity);
-        if (kind.maxSpeed > 0 && speed > kind.maxSpeed) shot.velocity = shot.velocity * (kind.maxSpeed / speed);
-    }
+    // The engine's projectile physics: speed up, but no faster than its
+    // most. A kind launched faster than that (the ripper's blade) is held
+    // to it from its first move.
+    shot.velocity = shot.velocity + shot.acceleration * tick.dt;
+    const double speed = uworld::length(shot.velocity);
+    if (kind.maxSpeed > 0 && speed > kind.maxSpeed) shot.velocity = shot.velocity * (kind.maxSpeed / speed);
     const Vec3 from = shot.location;
     const Vec3 delta = shot.velocity * tick.dt;
     const Vec3 to = from + delta;

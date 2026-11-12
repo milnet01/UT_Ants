@@ -209,7 +209,8 @@ flight, keeping the blast for the level (the Ripper's alt).
 unnormalised (`Razor2Alt.BlowUp`'s 0.45).
 
 § 3 item 6's launch keys: `acceleration` along the launch direction, up
-to `max-speed`; `lift`, added upward; `inherit`, a share of the firer's
+to `max-speed`, which also holds a kind launched faster than it from its
+first move (the ripper's blade: 1300, then 1200, recorded); `lift`, added upward; `inherit`, a share of the firer's
 velocity along the aim. Each `-random` key draws a uniform value within
 ± its value: `speed-random` and `lifetime-random` about their key, and
 `turn-random` for both the yaw and the pitch.
@@ -348,6 +349,9 @@ Botpack `DeathMatchPlus.ReduceDamage`):
   measure refire. Recorded at 30 and 85 fps, 2026-11-12: each interval
   agrees within one tick, so refire does not move with frame rate. The
   exception is the Minigun's spun-up alt: 0.074 s at 30, 0.078 s at 85.
+  A hold's first interval can be longer, by `refire-lead`. Recorded
+  2026-11-12 at 30, 85 and 120 fps: the Ripper's primary, 0.404 to
+  0.409 s against 0.384 s. The script does not say why.
 - **Hammer:** charge grows 0.75 a second, capped at 1.5. On release it
   traces 120: a body within 90 takes 60 × charge and 66000 × charge;
   the level costs the firer 36 and pushes back 69000 × charge, with

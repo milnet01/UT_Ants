@@ -18,7 +18,9 @@
 // tick's press has fired (UTARecPawn.PlayerInput calls Fire before LogTick)
 // and before the tick's actors move. A D line carries the row it lands
 // before, so a hit after row k's log reads k + 1: within INV-6's tick. So
-// does a shot or a spend the weapon's own tick makes, after the row.
+// does a shot or a spend the weapon's own tick makes, after the row: a row
+// past the first is read as either frame (ticksFrom), and a shot's flight is
+// compared age for age with ours.
 //
 // A ROW IS LOGGED AFTER ITS TICK'S HITS. A body a D line at tick k hit
 // starts tick k from that line's velocity and physics from before the hit,
@@ -205,10 +207,19 @@ bool launchInRange(const ugame::Projectile& kind, const LaunchRange& range, Vec3
     return speed && turn;
 }
 
-/// The worst distance between two sorted tick lists of one length.
-std::int64_t worstTick(const std::vector<std::int64_t>& a, const std::vector<std::int64_t>& b) {
+/// How far our tick is from a recorded row. A row past the first shows what
+/// the press did in its own frame, or what the weapon's tick did in the
+/// frame before, after that frame's row: the recording cannot say which.
+std::int64_t ticksFrom(std::int64_t ours, std::int64_t row) {
+    const std::int64_t same = std::abs(ours - row);
+    return row > 0 ? std::min(same, std::abs(ours - (row - 1))) : same;
+}
+
+/// The worst distance between our sorted ticks and the recorded rows, of one length.
+std::int64_t worstTick(const std::vector<std::int64_t>& ours, const std::vector<std::int64_t>& rows) {
     std::int64_t worst = 0;
-    for (std::size_t i = 0; i < std::min(a.size(), b.size()); ++i) worst = std::max(worst, std::abs(a[i] - b[i]));
+    for (std::size_t i = 0; i < std::min(ours.size(), rows.size()); ++i)
+        worst = std::max(worst, ticksFrom(ours[i], rows[i]));
     return worst;
 }
 
@@ -431,7 +442,7 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& set,
                 int best = -1;
                 for (std::size_t r = 0; r < theirOrder.size(); ++r) {
                     const RecordedShot& t = theirs.at(theirOrder[r]);
-                    if (claimed[r] || t.kind != kind.name || std::abs(t.first - tick) > MAX_TICK_ERROR) continue;
+                    if (claimed[r] || t.kind != kind.name || ticksFrom(tick, t.first) > MAX_TICK_ERROR) continue;
                     best = static_cast<int>(r);
                     break;
                 }
@@ -506,7 +517,7 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& set,
         const double most = std::trunc(std::trunc(mode->damage + mode->damageRandom) * set.damageScale);
         for (const Hit& h : theirHits) {
             std::int64_t nearest = 1000000;
-            for (const std::int64_t spend : ourSpends) nearest = std::min(nearest, std::abs(spend - h.tick));
+            for (const std::int64_t spend : ourSpends) nearest = std::min(nearest, ticksFrom(spend, h.tick));
             e.hitTick = std::max(e.hitTick, nearest);
             if (h.damage < least || h.damage > most) outOfRange("damage at tick " + std::to_string(h.tick));
         }
@@ -523,7 +534,7 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& set,
         const Hit& a = ourHits[i];
         const Hit& b = theirHits[i];
         const std::string at = "tick " + std::to_string(b.tick);
-        e.hitTick = std::max(e.hitTick, std::abs(a.tick - b.tick));
+        e.hitTick = std::max(e.hitTick, ticksFrom(a.tick, b.tick));
         if (std::abs(a.damage - b.damage) > e.damage) e.damage = std::abs(a.damage - b.damage), e.damageAt = at;
         const double v = uworld::length(a.velocity - b.velocity);
         if (v > e.velocity) e.velocity = v, e.velocityAt = at;
@@ -548,9 +559,12 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& set,
                 --theirFirst;
         }
         e.shotTick = std::max(e.shotTick, std::abs(s.first - theirFirst));
+        // A launch within INV-6's tick of ours is judged above; its flight
+        // is then compared age for age, not row for row.
+        const std::int64_t late = theirFirst - s.first;
         bool first = true;
         for (const auto& [tick, p] : t.rows) {
-            const auto row = s.rows.find(tick);
+            const auto row = s.rows.find(tick - late);
             if (row == s.rows.end()) continue;
             Vec3 want = vec(p.location);
             want.z -= firerHover;

@@ -512,6 +512,45 @@ std::uint32_t kindOf(const WeaponSet& set, std::string_view name) {
                                       set.projectiles.begin());
 }
 
+TEST_CASE("SS 4.9: a mode's refire-lead delays only the shot after one fired from idle", "[ugame][game]") {
+    const BodyWorld world = arena();
+    WeaponSet set = stock();
+    const int ripper = weaponNamed(set, "ripper");
+    FireMode& mode = set.weapons[static_cast<std::size_t>(ripper)].primary;
+    mode.refireLead = 0.05; // several ticks, to be seen past a tick's slack
+    Game game = duel(set, "ripper", 1500);
+    game.bodies[1].move.location.y = 1500;
+    std::vector<int> fired; // the ticks a round was spent in
+    std::uint32_t ammo = game.bodies[0].weapons[static_cast<std::size_t>(ripper)].ammo;
+    for (int k = 0; fired.size() < 4; ++k) {
+        hold(world, set, game, 1);
+        const std::uint32_t now = game.bodies[0].weapons[static_cast<std::size_t>(ripper)].ammo;
+        if (now < ammo) fired.push_back(k);
+        ammo = now;
+    }
+    // Whole ticks: each interval is its time, within a tick.
+    const int later = fired[2] - fired[1];
+    CHECK(fired[0] == 0);
+    CHECK(std::abs(later - mode.refire / DT) <= 1);
+    CHECK(std::abs(fired[3] - fired[2] - later) <= 1);
+    CHECK(std::abs(fired[1] - later - mode.refireLead / DT) <= 1);
+}
+
+TEST_CASE("SS 4.9: a shot launched past its most speed is held to it from its first move", "[ugame][game]") {
+    // Razor2 leaves at its speed, 1300, and the engine's projectile physics
+    // caps it to MaxSpeed, 1200, whether or not it accelerates.
+    const BodyWorld world = arena();
+    const Projectile& razor = *stock().projectile("razor");
+    REQUIRE(razor.acceleration == 0);
+    REQUIRE(razor.maxSpeed > 0);
+    REQUIRE(razor.maxSpeed < razor.speed);
+    Game game = duel(stock(), "ripper", 1500);
+    hold(world, stock(), game, 1);
+    REQUIRE(game.shots.size() == 1);
+    CHECK(std::abs(uta::uworld::length(game.shots[0].velocity) - razor.maxSpeed) < 1e-9);
+    CHECK(std::abs(game.shots[0].location.x - levelStart(primaryOf(stock(), "ripper")).x - razor.maxSpeed * DT) < 1e-9);
+}
+
 TEST_CASE("SS 4.9: a shot that does not bounce gains its gravity-after once its move is made", "[ugame][game]") {
     const BodyWorld world = arena();
     const WeaponSet& set = stock();
@@ -836,5 +875,5 @@ TEST_CASE("INV-5: a scripted fight is the same at every frame rate and on every 
         CHECK(again == reference);
     }
     INFO("final hash " << reference.back());
-    CHECK(reference.back() == 1713095713248363726u);
+    CHECK(reference.back() == 7403521874434074121u);
 }

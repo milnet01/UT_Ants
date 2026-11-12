@@ -215,6 +215,8 @@ Result<void> readFire(FireMode& mode, Keys& keys) {
     mode.archetype = static_cast<Archetype>(which);
     UTA_TRY(const std::optional<double> refire, keys.decimal("refire", true, 0.001, TIME_MAX));
     mode.refire = *refire;
+    UTA_TRY(const std::optional<double> lead, keys.decimal("refire-lead", false, 0, TIME_MAX));
+    mode.refireLead = lead.value_or(0);
     UTA_TRY(const std::optional<std::uint32_t> ammo, keys.number("ammo", true, 0, AMMO_MAX));
     mode.ammo = *ammo;
     UTA_TRY(const std::optional<std::uint32_t> spread, keys.number("spread", false, 0, SPREAD_MAX));
@@ -511,9 +513,10 @@ namespace {
 std::string fireText(std::string_view weapon, std::string_view which, const FireMode& mode) {
     const auto decimal = ini::decimalText;
     const auto archetype = ARCHETYPE_NAMES[static_cast<std::size_t>(mode.archetype)];
-    std::string out = std::format("\n[fire {} {}]\narchetype = {}\nrefire = {}\nammo = {}\nspread = {}\n"
-                                  "offset = {} {} {}\n",
-                                  weapon, which, archetype, decimal(mode.refire), mode.ammo, mode.spread,
+    std::string out = std::format("\n[fire {} {}]\narchetype = {}\nrefire = {}\nrefire-lead = {}\nammo = {}\n"
+                                  "spread = {}\noffset = {} {} {}\n",
+                                  weapon, which, archetype, decimal(mode.refire), decimal(mode.refireLead), mode.ammo,
+                                  mode.spread,
                                   decimal(mode.offset[0]), decimal(mode.offset[1]), decimal(mode.offset[2]));
     if (mode.charge)
         out += std::format("charge-time = {}\ncharge-min = {}\ncharge-max = {}\ncharge-step = {}\ncharge-scales = {}\n",
