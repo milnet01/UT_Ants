@@ -285,7 +285,8 @@ there is trusted once a recording agrees.
   shapes in world space: spheres, lines and upright cylinders, each with
   a flat colour, depth-tested against the level. Projectiles are
   spheres, beams and instant hits short-lived lines, explosions a sphere
-  that grows and fades, dummies cylinders.
+  that grows and fades, dummies cylinders. Modern explosion effects
+  replace that sphere in UTA-0470 (user, 2026-11-12).
 - **A crosshair** at the screen's centre, and the overlay text gains the
   weapon's name, its ammo and the player's health.
 - **The walking mode carries the whole set** with full ammo. Placed
@@ -483,6 +484,7 @@ INV-9.
 
 The Redeemer and the Translocator (own items). Weapon models, hand
 animation, muzzle flashes and sounds (own item, after UTA-0056).
+Modern explosion effects (UTA-0470).
 Placed weapon and ammo pickups (UTA-0027). Rocket lock-on, double
 Enforcers and the hammer's alt-fire turning projectiles away (own item).
 Choosing a set per map (UTA-0029). The weapon wheel (UTA-0020).

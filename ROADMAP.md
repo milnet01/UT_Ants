@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=469 -->
+<!-- ants-roadmap-id-high-water: UTA=470 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -20975,6 +20975,23 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: implement.
   Source: user-request-2026-11-11.
   Lanes: ugame.
+
+- 📋 [UTA-0470] **Modern explosion effects in place of UTA-0019's stand-in sphere.**
+  The user, 2026-11-12: "For explosion effects, please use modern
+  more impressive looking explosion effects." Not the original's
+  sprites. Covers every exploding shot: rocket, grenade, flak slug,
+  shock ball and combo, bio, ripper alt. Under the standing fact, the
+  cheapest methods that still look modern: an animated noise-shaded
+  fireball, a short point-light flash that lights the level, lingering
+  smoke, sparks and debris, a shockwave. Each part is measured with
+  ut-bench frame against the 60 fps budget.
+  UTA-0019 keeps its growing sphere until this lands
+  (docs/specs/UTA-0019-weapon-set.md § 4.8); the explosion's point,
+  radius and timing come from UTA-0019's simulation, unchanged.
+  **Layman:** Explosions that look like a modern game's: a rolling fireball, a flash that lights the room, smoke, sparks and a shockwave.
+  Kind: implement.
+  Source: user-request-2026-11-12.
+  Lanes: urender, ugame.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
