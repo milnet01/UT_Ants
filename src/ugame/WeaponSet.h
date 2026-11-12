@@ -132,7 +132,12 @@ struct Projectile {
     double splashUpMax = 1; ///< the blast's push direction's upward part, at most this
     Strike strike = Strike::Explode;
     std::uint32_t bounces = 0; ///< bounce: before it explodes; then it explodes
-    double bounceKeep = 0;     ///< bounce: of its speed kept per bounce
+    double bounceKeep = 0;     ///< bounce: of its speed along the surface, kept per bounce
+    double bounceOff = 0;      ///< bounce: of its speed off the surface, kept per bounce: the middle of a draw
+    double bounceOffRandom = 0; ///< bounce: kept from `bounceOff` less this to `bounceOff` plus this
+    /// bounce: from its first bounce it falls at this of the world's gravity,
+    /// in place of `gravity`, and in that bounce's tick moves a whole tick more.
+    std::optional<double> bounceGravity;
     double fuse = 0;           ///< stick: seconds stuck before it explodes
     std::string splitInto;     ///< split: the kind it breaks into, after exploding
     std::uint32_t splitCount = 0;

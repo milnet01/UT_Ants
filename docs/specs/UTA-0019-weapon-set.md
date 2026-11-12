@@ -196,7 +196,10 @@ shot starts from the eye, forward, right and up, turned by the aim
 A projectile kind carries `speed`, `radius`, `gravity`, `gravity-after`,
 `lifetime`, `damage`, `momentum`, `splash-radius`, and at most one
 behaviour on
-striking: **explode**, **bounce** (`bounces`, `bounce-keep`), **stick**
+striking: **explode**, **bounce** (`bounces`; `bounce-keep` of its speed
+along the surface; `bounce-off` of its speed off it, give or take
+`bounce-off-random`; `bounce-gravity`, the gravity it falls at from its
+first bounce), **stick**
 (Bio's glob, exploding after `fuse`), or **split** into another kind
 (the flak shell). `combo` names what an instant hit on it sets off.
 `expire` says whether it explodes or vanishes when its `lifetime` ends
@@ -324,6 +327,11 @@ Botpack `DeathMatchPlus.ReduceDamage`):
   the zone's gravity before each tick's move. Recorded 2026-11-12: 475 a
   second², not 950. One that does not bounce (the flak slug) gains the
   other half after the move (`gravity-after`): recorded 950.
+- A shot stops 2.5 short of a surface it strikes, along its path.
+  Recorded 2026-11-12: flak chunks at 30, 85 and 120 frames a second,
+  and the blast of a rocket fired at the floor.
+- A bounce ends one move and starts another in the same tick: the shot
+  falls and moves for the time left. Recorded.
 - A shot's hit on a body is moved 0.4 of the body's radius on along the
   shot (Engine `Pawn.AdjustHitLocation`). Recorded: the flak slug's push.
 - A flak slug's chunks start 10 off what it struck, from where its move
@@ -382,7 +390,11 @@ Botpack `DeathMatchPlus.ReduceDamage`):
   its speed ±100 at random. Alt tosses a slug with lift 200. The slug's
   five chunks keep its aim, not the surface's normal. A chunk bounces
   without limit, keeping 0.8 of its speed along the surface and a random
-  0 to 0.64 off it.
+  0 to 0.64 off it. It flies straight until its first bounce and falls
+  at half the zone's gravity after (`bounce-gravity`). In that first
+  bounce's tick it falls for the time left and moves for that and a
+  whole tick more. Recorded at 30, 85 and 120 frames a second. At most
+  three bounces a tick: recorded, a chunk jammed in a corner.
 - **Rockets:** the press loads one and spends a round; each 0.88 s held
   loads one more and spends a round, up to six, and the sixth fires them.
   Recorded. Several leave from a circle (radius 4; grenades 7) shifted

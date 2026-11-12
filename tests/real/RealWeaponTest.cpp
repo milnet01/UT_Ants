@@ -28,7 +28,12 @@
 //
 // THE ORIGINAL HOVERS, OURS DOES NOT (UTA-0017 SS 3 item 4). Each body's
 // height above our floor at row 0 is taken off its recorded heights, and the
-// firer's off its shots'.
+// firer's off its shots', so a shot meets a body as the recorded one did.
+// THE LEVEL STANDS WHERE THE ORIGINAL'S DOES, so a shot that low meets a
+// floor early. A kind that bounces and has no blast is raised by the firer's
+// hover from the tick of its first bounce, and flown at the recorded height
+// from then on. One with a blast is judged against the bodies and stays low:
+// its bounces are taken from the recording and not compared.
 //
 // THE LEVEL ONLY, NO MOVERS: the runs stand on open floor.
 
@@ -69,6 +74,10 @@ constexpr double MAX_POSITION_ERROR = 1;
 constexpr double MAX_VELOCITY_ERROR = 1;
 
 constexpr int FIRER = 0, TARGET = 1;
+
+/// Below this speed a bounce is not compared: the shot is settling, several
+/// bounces to a tick, and does no damage (UTChunk.ProcessTouch).
+constexpr double SETTLING = 200;
 
 /// Below this speed a projectile alive at row 0 is the level's, not the run's.
 constexpr double STILL = 50;
@@ -147,6 +156,9 @@ struct OurShot {
     std::int64_t first = 0;
     std::map<std::int64_t, ugame::Shot> rows; ///< k + 1: after our tick k; its first, the launch
     int recorded = -1;                        ///< the recorded shot it was matched to
+    std::int64_t late = 0;                    ///< rows the recorded one's launch is after ours
+    std::uint32_t bounces = 0;                ///< as of our last tick
+    bool raised = false;                      ///< flown at the recorded height; its rows are kept lowered
 };
 
 /// A hit as both sides see it: damage summed over a tick, and the victim's
@@ -162,8 +174,8 @@ struct Hit {
 struct Errors {
     std::size_t ourShots = 0, theirShots = 0, ourHits = 0, theirHits = 0, ourSpends = 0, theirSpends = 0;
     std::int64_t shotTick = 0, hitTick = 0, spendTick = 0;
-    double damage = 0, velocity = 0, spawn = 0, flight = 0;
-    std::string damageAt, velocityAt, spawnAt, flightAt;
+    double damage = 0, velocity = 0, spawn = 0, flight = 0, bounce = 0;
+    std::string damageAt, velocityAt, spawnAt, flightAt, bounceAt;
     std::size_t unmatched = 0;
     bool randomHits = false;    ///< the mode draws its hits: counts are not compared
     std::size_t outOfRange = 0; ///< recorded draws outside our rule's range
@@ -370,7 +382,8 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& set,
 
         const std::vector<ugame::Carried> carriedBefore = game.bodies[FIRER].weapons;
         const std::array<double, 2> healthBefore{game.bodies[0].health, game.bodies[1].health};
-        const std::vector<ugame::Shot> shotsBefore = game.shots;
+        const ugame::Game gameBefore = game;
+        const std::vector<ugame::Shot>& shotsBefore = gameBefore.shots;
 
         ugame::tick(world, set, rules, game, commands, row.dt);
         const auto tick = static_cast<std::int64_t>(k);
@@ -392,27 +405,38 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& set,
 
         // Follow our shots: survivors keep their order, the new ones come
         // last, having flown this one tick.
+        // The survivors keep their order. Where some are gone, a survivor
+        // is, of the shots it could be, the one that would have carried on
+        // nearest to it: shots of one kind and launch are alike but for that.
         std::vector<int> next;
+        std::vector<std::size_t> was; // per game.shots, its index before; a new one's is unused
         std::size_t from = 0;
-        for (const ugame::Shot& shot : game.shots) {
+        std::size_t gone = shotsBefore.size();
+        for (const ugame::Shot& shot : game.shots)
+            if (shot.age != row.dt || shot.stuck) --gone;
+        for (ugame::Shot& shot : game.shots) {
             const bool fresh = shot.age == row.dt && !shot.stuck;
             int id = -1;
             if (!fresh) {
-                for (std::size_t j = from; j < shotsBefore.size(); ++j) {
+                std::size_t nearest = shotsBefore.size();
+                double least = 0;
+                for (std::size_t j = from; j < shotsBefore.size() && j <= from + gone; ++j) {
                     const ugame::Shot& was = shotsBefore[j];
-                    if (was.kind == shot.kind && was.lifetime == shot.lifetime &&
-                        was.damageScale == shot.damageScale) {
-                        id = live[j];
-                        from = j + 1;
-                        break;
-                    }
+                    if (was.kind != shot.kind || was.lifetime != shot.lifetime || was.damageScale != shot.damageScale)
+                        continue;
+                    const double off = uworld::length(was.location + was.velocity * row.dt - shot.location);
+                    if (nearest == shotsBefore.size() || off < least) nearest = j, least = off;
                 }
-                REQUIRE(id >= 0);
+                REQUIRE(nearest < shotsBefore.size());
+                gone -= nearest - from;
+                from = nearest + 1;
+                id = live[nearest];
             } else {
                 id = static_cast<int>(ours.size());
                 ours.push_back(OurShot{shot.kind, tick, {}, -1});
             }
             next.push_back(id);
+            was.push_back(fresh ? 0 : from - 1);
         }
         live = std::move(next);
 
@@ -474,8 +498,101 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& set,
                     }
                 }
                 s.rows[tick] = launch;
+                s.rows[tick + 1] = shot;
+                // Only a shot the press itself fires is logged at its launch.
+                // One the weapon's own tick fires -- a refire, a released
+                // charge, a split -- comes after that frame's row, and is
+                // first logged a row later, having flown once: nearer our
+                // first flown row than our launch.
+                if (best >= 0) {
+                    const RecordedShot& t = theirs.at(theirOrder[static_cast<std::size_t>(best)]);
+                    Vec3 logged = vec(t.rows.front().second.location);
+                    logged.z -= firerHover;
+                    const bool flown = uworld::length(logged - shot.location) < uworld::length(logged - launch.location);
+                    s.late = t.first - (flown ? 1 : 0) - tick;
+                }
+            } else if (s.recorded >= 0) {
+                const std::string& name = theirOrder[static_cast<std::size_t>(s.recorded)];
+                const RecordedShot& t = theirs.at(name);
+                const ugame::Projectile& kind = set.projectiles[shot.kind];
+                const auto rowAt = [&t](std::int64_t at) {
+                    return std::ranges::find(t.rows, at, [](const auto& r) { return r.first; });
+                };
+                const auto before = rowAt(tick + s.late), after = rowAt(tick + 1 + s.late);
+                ugame::Shot start = gameBefore.shots[was[i]];
+                // Its first bounce, ours or the recorded one's: a kind that
+                // flies straight till then turns at nothing else.
+                const bool turned = before != t.rows.end() && after != t.rows.end() && kind.gravity == 0 &&
+                                    uworld::length(vec(after->second.velocity) - vec(before->second.velocity)) > 0.01;
+                const bool raise = !s.raised && kind.strike == ugame::Strike::Bounce && kind.splashRadius == 0 &&
+                                   (shot.bounces > s.bounces || turned);
+                if (raise) {
+                    s.raised = true;
+                    start.location.z += firerHover;
+                }
+                // The tick again with this shot alone, keeping `off` of its
+                // speed off a surface.
+                const auto with = [&](double off) {
+                    ugame::WeaponSet probe = set;
+                    probe.projectiles[shot.kind].bounceOff = off;
+                    probe.projectiles[shot.kind].bounceOffRandom = 0;
+                    ugame::Game alone = gameBefore;
+                    alone.shots = {start};
+                    for (ugame::Body& body : alone.bodies) body.weapon = -1;
+                    ugame::tick(world, probe, rules, alone, std::array<uworld::MoveCommand, 2>{}, row.dt);
+                    return alone.shots;
+                };
+                const auto all = raise || shot.bounces > s.bounces ? with(1) : std::vector<ugame::Shot>{};
+                if (raise && all.size() == 1 && all[0].bounces == start.bounces) {
+                    // Raised, it has yet to bounce.
+                    shot = all[0];
+                } else if (after != t.rows.end() && (raise || shot.bounces > s.bounces)) {
+                    // A bounce draws how much speed it keeps off the surface
+                    // (SS 3 item 6), so ours is flown again with the recorded
+                    // draw. Keeping all its speed off the surface and then
+                    // half gives what the draw scales; the recorded velocity
+                    // then gives the draw. That draw is held to our rule's
+                    // range, the tick flown with it to the recorded row, and
+                    // the flight goes on from that row. Not compared: a
+                    // settling shot's bounce, a tick the recorded shot
+                    // bounced in more than once, each bounce with a draw of
+                    // its own, and a bounce of a shot not raised.
+                    Vec3 at = vec(after->second.location);
+                    if (!s.raised) at.z -= firerHover;
+                    const Vec3 velocity = vec(after->second.velocity);
+                    const std::string where = name + " bounce at tick " + std::to_string(tick);
+                    const auto half = with(0.5);
+                    const auto alongOf = [](const Vec3& v, const Vec3& off) {
+                        const double size = uworld::dot(off, off);
+                        return uworld::length(size > 0 ? v - off * (uworld::dot(v, off) / size) : v);
+                    };
+                    const bool both = all.size() == 1 && half.size() == 1;
+                    const Vec3 scaled = both ? (all[0].velocity - half[0].velocity) * 2 : Vec3{};
+                    const double size = uworld::dot(scaled, scaled);
+                    const bool once = both && size > 0 &&
+                                      alongOf(velocity, scaled) > alongOf(all[0].velocity, scaled) * (1 + kind.bounceKeep) / 2;
+                    if (s.raised && once && uworld::length(start.velocity) >= SETTLING) {
+                        const double draw = 1 - uworld::dot(all[0].velocity - velocity, scaled) / size;
+                        // A unit a second of the speed the draw scales.
+                        const double slack = MAX_VELOCITY_ERROR / std::sqrt(size);
+                        if (draw < kind.bounceOff - kind.bounceOffRandom - slack ||
+                            draw > kind.bounceOff + kind.bounceOffRandom + slack)
+                            outOfRange(where);
+                        const auto drawn = with(std::clamp(draw, 0.0, 1.0));
+                        const double off = drawn.size() == 1 ? uworld::length(drawn[0].location - at) : 0;
+                        if (off > e.bounce) e.bounce = off, e.bounceAt = where;
+                        if (detail && off > MAX_POSITION_ERROR)
+                            std::cout << "  " << where << ": draw " << draw << " of " << std::sqrt(size) << ", "
+                                      << (drawn.size() == 1 ? str(drawn[0].location) + " v " + str(drawn[0].velocity) : "gone")
+                                      << " | " << str(at) << " v " << str(velocity) << " off " << off << "\n";
+                    }
+                    shot.location = at;
+                    shot.velocity = velocity;
+                }
             }
+            s.bounces = shot.bounces;
             s.rows[tick + 1] = shot;
+            if (s.raised) s.rows[tick + 1].location.z -= firerHover;
         }
     }
 
@@ -546,23 +663,10 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& set,
         if (s.recorded < 0) continue;
         const std::string& name = theirOrder[static_cast<std::size_t>(s.recorded)];
         const RecordedShot& t = theirs.at(name);
-        // Only a shot the press itself fires is logged at its launch. One the
-        // weapon's own tick fires -- a refire, a released charge, a split --
-        // comes after that frame's row, and is first logged a row later,
-        // having flown once: nearer our first flown row than our launch.
-        std::int64_t theirFirst = t.first;
-        const auto launchRow = s.rows.find(s.first);
-        const auto flownRow = s.rows.find(s.first + 1);
-        if (launchRow != s.rows.end() && flownRow != s.rows.end()) {
-            Vec3 logged = vec(t.rows.front().second.location);
-            logged.z -= firerHover;
-            if (uworld::length(logged - flownRow->second.location) < uworld::length(logged - launchRow->second.location))
-                --theirFirst;
-        }
-        e.shotTick = std::max(e.shotTick, std::abs(s.first - theirFirst));
+        e.shotTick = std::max(e.shotTick, std::abs(s.late));
         // A launch within INV-6's tick of ours is judged above; its flight
         // is then compared age for age, not row for row.
-        const std::int64_t late = theirFirst - s.first;
+        const std::int64_t late = s.late;
         bool first = true;
         for (const auto& [tick, p] : t.rows) {
             const auto row = s.rows.find(tick - late);
@@ -610,7 +714,8 @@ TEST_CASE("UTA-0019 INV-6: the stock set matches the original's weapon runs on D
                   << e.theirShots << " off " << e.shotTick << " unmatched " << e.unmatched << ", hits " << e.ourHits
                   << "/" << e.theirHits << " off " << e.hitTick << ", damage " << e.damage << " (" << e.damageAt
                   << "), velocity " << e.velocity << " (" << e.velocityAt << "), spawn " << e.spawn << " ("
-                  << e.spawnAt << "), flight " << e.flight << " (" << e.flightAt << ")"
+                  << e.spawnAt << "), flight " << e.flight << " (" << e.flightAt << "), bounce " << e.bounce << " ("
+                  << e.bounceAt << ")"
                   << (e.randomHits ? ", hits drawn" : "") << ", out of range " << e.outOfRange << " ("
                   << e.outOfRangeAt << ")\n";
         CHECK(e.outOfRange == 0);
@@ -621,6 +726,7 @@ TEST_CASE("UTA-0019 INV-6: the stock set matches the original's weapon runs on D
         CHECK(e.velocity <= MAX_VELOCITY_ERROR);
         CHECK(e.spawn <= MAX_POSITION_ERROR);
         CHECK(e.flight <= MAX_POSITION_ERROR);
+        CHECK(e.bounce <= MAX_POSITION_ERROR);
         if (r.timed) {
             CHECK(e.ourSpends == e.theirSpends);
             CHECK(e.spendTick <= MAX_TICK_ERROR);

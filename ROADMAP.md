@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=470 -->
+<!-- ants-roadmap-id-high-water: UTA=471 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -18571,6 +18571,29 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   wall and a random 0 to 0.64 off it, falls at half gravity after, and
   in that tick moves a whole extra tick (flak-alt-tap 30, UTChunk28,
   rows 18 to 20).
+  2026-11-12, bounces (closes the chunk's first bounce above). Measured
+  from the recordings at 30, 85 and 120 fps, every case to 0.001:
+  a shot stops 2.5 short of a surface along its path (chunks; and the
+  blast of rocket-floor sits 2.5 above the floor); a bounce goes on in
+  the same tick, falling and moving for the time left; a chunk's first
+  bounce falls for the time left and moves for that and a whole tick
+  more; then half gravity. New keys: bounce-off, bounce-off-random,
+  bounce-gravity. At most three bounces a tick.
+  The test flies each bounce again with the recorded draw, follows
+  shots in order (nearest where some are gone), and raises a chunk by
+  the firer's hover from its first bounce: the level stands where the
+  original's does, our bodies 4.67 lower. Flight failures 47 -> 29
+  (shock-alt's 514 was the test following the wrong shot). Total
+  215 -> 225: the new bounce check fails in 13 runs and bounce draws
+  are out of range in 10 more.
+  Open, bounces: ticks where the recorded chunk bounces twice or more
+  are not compared; a few single bounces are 1 to 8 off; flak-alt 120
+  and switch-flak pair a chunk with the wrong recorded one. A chunk
+  slower than 200 does no damage in the original (UTChunk.ProcessTouch);
+  ours still does.
+  The 2.5 moves every blast: rocket-floor's self push is now 17.9 off
+  at 30 and 85 fps, 11.5 at 120, and its damage 1 off. Still the hover
+  departure: the original's centre is 43.8 above the floor, ours 39.
   **Layman:** The guns. Built as a table of numbers rather than as code, so a different set -- your super weapons -- is a different table rather than a second codebase.
   Kind: implement.
   Source: design-2026-09-03.
@@ -21613,6 +21636,27 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   Kind: investigate.
   Source: user-request-2026-09-17.
   Lanes: ugame, urender.
+
+- 📋 [UTA-0471] **A shot hits the enemy's model itself, not a box or cylinder around it.**
+  User, 2026-11-12: "ensure that collision detection is accurate to the
+  enemy model. I don't want it to have a square box around the model
+  that acts as you hit this box you do damage. It needs to hit the
+  actual model itself, not just passed it or near it, if I fire a
+  bullet and it hits any part of the model, it does damage."
+  Today every shot tests a body as an upright cylinder, as UT99 does
+  (entersCylinder in src/ugame/Fire.cpp; used by traceSegment and by
+  Game.cpp's fly). That cylinder stays for movement and for the first,
+  cheap test; a shot inside it must then meet the model in its current
+  pose to count.
+  Open when picked up: this departs from the original on purpose, so
+  INV-6's replay of recorded weapon runs needs the cylinder kept as a
+  setting. Splash damage is by distance and has no model to meet.
+  Placed at 0.3.0 because it needs the monsters' and bots' models and
+  poses in the game's tick, which arrive there.
+  **Layman:** A bullet or projectile does damage only when it touches the enemy you can see: any part of the model counts, and a shot that passes beside it, inside an invisible box, does not.
+  Kind: feature.
+  Source: user-request-2026-11-12.
+  Lanes: ugame.
 
 ## 0.4.0 — Monster Hunt
 

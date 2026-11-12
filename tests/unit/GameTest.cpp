@@ -620,6 +620,101 @@ TEST_CASE("SS 4.9: a shot that does not bounce gains its gravity-after once its 
     CHECK(std::abs(second.velocity.z - moving - RULES.gravityZ * shell.gravityAfter * DT) < 1e-9);
 }
 
+/// A set with one kind's bounce changed, and a game holding one shot of it.
+WeaponSet bouncing(std::string_view kind, double off, double offRandom) {
+    WeaponSet set = stock();
+    const auto at = std::ranges::find(set.projectiles, kind, &Projectile::name);
+    REQUIRE(at != set.projectiles.end());
+    at->bounceOff = off;
+    at->bounceOffRandom = offRandom;
+    return set;
+}
+
+Game oneShot(const WeaponSet& set, std::string_view kind, const Vec3& at, const Vec3& velocity) {
+    Game game = duel(set, "flak-cannon", 1500);
+    game.bodies[1].move.location.y = -2500; // out of the way
+    const auto found = std::ranges::find(set.projectiles, kind, &Projectile::name);
+    game.shots.push_back(Shot{.kind = static_cast<std::uint32_t>(found - set.projectiles.begin()),
+                              .owner = 0, .location = at, .velocity = velocity, .lifetime = found->lifetime});
+    return game;
+}
+
+TEST_CASE("SS 4.9: a bounce keeps bounce-keep of the speed along the surface and bounce-off of it off",
+          "[ugame][game]") {
+    const BodyWorld world = arena();
+    const WeaponSet set = bouncing("flak-chunk", 0.25, 0);
+    const double keep = set.projectile("flak-chunk")->bounceKeep;
+    // Down at the floor, a tenth of a tick's fall above where it stops.
+    const Vec3 velocity{600, 300, -400};
+    const double speed = uta::uworld::length(velocity);
+    Game game = oneShot(set, "flak-chunk", Vec3{0, 500, 0} - velocity * (0.1 * DT + 2.5 / speed), velocity);
+    tick(world, set, RULES, game, std::vector<MoveCommand>(2), DT);
+    REQUIRE(game.shots.size() == 1);
+    const Shot& shot = game.shots[0];
+    CHECK(shot.bounces == 1);
+    CHECK(std::abs(shot.velocity.x - velocity.x * keep) < 1e-9);
+    CHECK(std::abs(shot.velocity.y - velocity.y * keep) < 1e-9);
+    // Off the floor a quarter of what it came in at, less the fall since.
+    const double left = 0.9 * DT;
+    const double fall = RULES.gravityZ * *set.projectile("flak-chunk")->bounceGravity * left;
+    CHECK(std::abs(shot.velocity.z - (400 * 0.25 + fall)) < 1e-6);
+    // It stopped 2.5 short of the floor along its path, then flew on.
+    const double stopped = 2.5 * 400 / speed;
+    CHECK(std::abs(shot.location.z - (stopped + shot.velocity.z * (left + DT))) < 1e-6);
+}
+
+TEST_CASE("SS 4.9: a kind that falls from its first bounce moves a tick more in that tick, and falls from then on",
+          "[ugame][game]") {
+    const BodyWorld world = arena();
+    const WeaponSet set = bouncing("flak-chunk", 0.5, 0);
+    const Projectile& chunk = *set.projectile("flak-chunk");
+    REQUIRE(chunk.gravity == 0);
+    REQUIRE(chunk.bounceGravity);
+    const Vec3 velocity{1000, 0, -400};
+    const double speed = uta::uworld::length(velocity);
+    const Vec3 start = Vec3{0, 500, 0} - velocity * (0.25 * DT + 2.5 / speed);
+    Game game = oneShot(set, "flak-chunk", start, velocity);
+    const std::vector<MoveCommand> commands(2);
+    tick(world, set, RULES, game, commands, DT);
+    REQUIRE(game.shots.size() == 1);
+    // A quarter of the tick to the floor, then the rest of it and a whole
+    // tick more along the floor, at the speed the bounce left.
+    const double along = velocity.x * chunk.bounceKeep;
+    CHECK(std::abs(game.shots[0].location.x - (start.x + velocity.x * 0.25 * DT + along * 1.75 * DT)) < 1e-6);
+    // It falls for the rest of the tick alone.
+    const double rising = 400 * 0.5 + RULES.gravityZ * *chunk.bounceGravity * 0.75 * DT;
+    CHECK(std::abs(game.shots[0].velocity.z - rising) < 1e-6);
+    // From then on it falls each tick, and a later bounce adds no tick.
+    tick(world, set, RULES, game, commands, DT);
+    REQUIRE(game.shots.size() == 1);
+    CHECK(std::abs(game.shots[0].velocity.z - (rising + RULES.gravityZ * *chunk.bounceGravity * DT)) < 1e-6);
+    CHECK(std::abs(game.shots[0].location.x - (start.x + velocity.x * 0.25 * DT + along * 2.75 * DT)) < 1e-6);
+}
+
+TEST_CASE("SS 4.9: a bounce's draw keeps from bounce-off less bounce-off-random to bounce-off plus it",
+          "[ugame][game]") {
+    const BodyWorld world = arena();
+    const WeaponSet set = bouncing("flak-chunk", 0.4, 0.2);
+    double least = 1, most = 0;
+    for (std::uint64_t seed = 0; seed < 64; ++seed) {
+        const Vec3 velocity{0, 0, -1000};
+        // Straight down, to stop half way through the tick.
+        Game game = oneShot(set, "flak-chunk", Vec3{0, 500, 2.5} - velocity * (0.5 * DT), velocity);
+        game.random = seed;
+        tick(world, set, RULES, game, std::vector<MoveCommand>(2), DT);
+        REQUIRE(game.shots.size() == 1);
+        REQUIRE(game.shots[0].bounces == 1);
+        const double fall = RULES.gravityZ * *set.projectile("flak-chunk")->bounceGravity * 0.5 * DT;
+        const double kept = (game.shots[0].velocity.z - fall) / 1000;
+        least = std::min(least, kept);
+        most = std::max(most, kept);
+    }
+    CHECK(least >= 0.2 - 1e-9);
+    CHECK(most <= 0.6 + 1e-9);
+    CHECK(least < 0.25);
+    CHECK(most > 0.55);
+}
+
 TEST_CASE("SS 4.9: a flak shell's pieces start 10 off the surface and fly on along the shell's own aim",
           "[ugame][game]") {
     // flakslug.Explode spawns each chunk at Location + 10 * HitNormal with
@@ -922,5 +1017,5 @@ TEST_CASE("INV-5: a scripted fight is the same at every frame rate and on every 
         CHECK(again == reference);
     }
     INFO("final hash " << reference.back());
-    CHECK(reference.back() == 14848985937006132581u);
+    CHECK(reference.back() == 3279872724148564251u);
 }

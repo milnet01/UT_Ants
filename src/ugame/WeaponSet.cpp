@@ -341,6 +341,13 @@ Result<void> readProjectile(Projectile& projectile, Keys& keys, std::size_t head
         UTA_TRY(const std::optional<std::uint32_t> bounces, keys.number("bounces", true, 0, 100));
         projectile.bounces = *bounces;
         UTA_TRY(projectile.bounceKeep, need("bounce-keep", 0, 1));
+        UTA_TRY(const std::optional<double> off, keys.decimal("bounce-off", false, 0, 1));
+        projectile.bounceOff = off.value_or(projectile.bounceKeep);
+        UTA_TRY(const std::optional<double> offRandom, keys.decimal("bounce-off-random", false, 0, 1));
+        projectile.bounceOffRandom = offRandom.value_or(0);
+        if (projectile.bounceOffRandom > projectile.bounceOff)
+            return refuse(heading, "bounce-off-random is more than bounce-off");
+        UTA_TRY(projectile.bounceGravity, keys.decimal("bounce-gravity", false, 0, 10.0));
         break;
     }
     case Strike::Stick: {
@@ -583,7 +590,11 @@ std::string write(const WeaponSet& set) {
         switch (projectile.strike) {
         case Strike::Explode: break;
         case Strike::Bounce:
-            out += std::format("bounces = {}\nbounce-keep = {}\n", projectile.bounces, decimal(projectile.bounceKeep));
+            out += std::format("bounces = {}\nbounce-keep = {}\nbounce-off = {}\nbounce-off-random = {}\n",
+                               projectile.bounces, decimal(projectile.bounceKeep), decimal(projectile.bounceOff),
+                               decimal(projectile.bounceOffRandom));
+            if (projectile.bounceGravity)
+                out += std::format("bounce-gravity = {}\n", decimal(*projectile.bounceGravity));
             break;
         case Strike::Stick: out += std::format("fuse = {}\n", decimal(projectile.fuse)); break;
         case Strike::Split:

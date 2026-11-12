@@ -396,7 +396,10 @@ damage = 16                # default: UTChunk1.Damage; recorded
 momentum = 10000           # default: UTChunk1.MomentumTransfer; recorded
 strike = bounce
 bounces = 100              # script: UTChunk.HitWall, no limit; its lifetime ends it
-bounce-keep = 0.8          # script: UTChunk.HitWall, 0.8 along the wall, 0 to 0.64 off it (rule to build)
+bounce-keep = 0.8          # script: UTChunk.HitWall, 0.8 along the wall
+bounce-off = 0.32          # script: UTChunk.HitWall, 0 to 0.64 off it, at random
+bounce-off-random = 0.32
+bounce-gravity = 0.5       # recorded: PHYS_Falling from its first bounce, at half the zone's gravity (bBounce true)
 
 [projectile flak-shell]
 speed = 1200               # default: flakslug.speed

@@ -130,6 +130,9 @@ momentum = 10000
 strike = bounce
 bounces = 2
 bounce-keep = 0.6
+bounce-off = 0.3
+bounce-off-random = 0.2
+bounce-gravity = 0.5
 
 [projectile gel]
 speed = 840
@@ -187,6 +190,9 @@ TEST_CASE("INV-2: the small set parses and reads back from write", "[ugame][weap
     CHECK(set->weapons[1].alt->pressAmmo == 2);
     CHECK(set->projectile("ball")->acceleration == 50);
     CHECK(set->projectile("chunk")->turnRandom == 1000);
+    CHECK(set->projectile("chunk")->bounceOff == 0.3);
+    CHECK(set->projectile("chunk")->bounceOffRandom == 0.2);
+    CHECK(set->projectile("chunk")->bounceGravity == 0.5);
     CHECK(set->projectile("gel")->lift == 120);
     REQUIRE(set->weapons[0].alt);
     REQUIRE(set->weapons[0].alt->charge);
@@ -273,6 +279,8 @@ TEST_CASE("INV-1: each refusal names its line", "[ugame][weapons]") {
          "has no `head-momentum`"},
         {"a speed draw past the speed", edited("speed-random = 100", "speed-random = 2501"), "[projectile chunk]",
          "speed-random is more than speed"},
+        {"a bounce draw below nothing", edited("bounce-off-random = 0.2", "bounce-off-random = 0.4"),
+         "[projectile chunk]", "bounce-off-random is more than bounce-off"},
         {"a lifetime draw to zero", edited("lifetime-random = 0.5", "lifetime-random = 2.9"), "[projectile chunk]",
          "lifetime-random is not less than lifetime"},
         {"an unknown rule", edited("rule = rocket-fan", "rule = spiral"), "rule = spiral",
