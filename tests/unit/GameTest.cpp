@@ -455,8 +455,9 @@ TEST_CASE("SS 4.9: one Enforcer hit in five pushes five times as hard", "[ugame]
         if (hits.losses[k] == 0) continue;
         const double speed = across(hits.pushes[k]);
         CAPTURE(k, speed);
-        if (std::abs(speed - 30) < 1e-9) ++plain;
-        else if (std::abs(speed - 150) < 1e-9) ++hard;
+        // The primary's spread tilts a push off the line between the bodies.
+        if (std::abs(speed - 30) < 0.1) ++plain;
+        else if (std::abs(speed - 150) < 0.1) ++hard;
         else FAIL("a push of neither 3000 nor 15000");
     }
     CAPTURE(plain, hard);
@@ -560,5 +561,5 @@ TEST_CASE("INV-5: a scripted fight is the same at every frame rate and on every 
         CHECK(again == reference);
     }
     INFO("final hash " << reference.back());
-    CHECK(reference.back() == 17365060397975172570u);
+    CHECK(reference.back() == 2059631500992981561u);
 }

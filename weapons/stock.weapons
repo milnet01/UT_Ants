@@ -5,12 +5,17 @@ ut-ants weapons 1
 # Each number says where it came from:
 #   "default: Class.Property" -- the class's default properties, read from
 #     the 469 install's Botpack.u by upkg::effectiveDefaults (SS 4.7).
-#   "unmeasured" -- a stand-in until SS 4.7's weapon runs measure it from
-#     the original. Nothing marked so is trusted; INV-6 is what checks.
+#   "recorded" -- measured from SS 4.7's weapon runs, at 30 and 85 fps
+#     where both held their rate. A time is game seconds between shots.
+#   "script: Class.Function" -- read from the exported script (SS 4.7) and
+#     not yet confirmed by a run.
+#   "rule to build" -- the original does more than the key can say; the
+#     number is the nearest the key holds until SS 4.9's rule is built.
+#   "unmeasured" -- a stand-in. Nothing marked so is trusted; INV-6 checks.
 
 [set]
 name = "Stock"
-self-damage = 1            # unmeasured
+self-damage = 1            # recorded: the hammer and a rocket at the feet hurt the firer in full
 head-height = 0.62         # SS 4.9: SniperRifle.ProcessTraceHit
 damage-scale = 1.5         # SS 4.9: hardcore, DeathMatchPlus.ReduceDamage; recorded
 
@@ -19,54 +24,54 @@ class = botpack.impacthammer
 slot = 1                   # default: ImpactHammer.InventoryGroup
 ammo-max = 0               # the hammer needs no ammo
 ammo-start = 0
-switch-time = 0.5          # unmeasured
+switch-time = 0.84         # recorded: from the Enforcer, key to first shot
 
 [fire impact-hammer primary]
 archetype = melee
 offset = 3.8 1.6 -1.8      # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
-refire = 0.75              # unmeasured
+refire = 0.81              # recorded: release to idle
 ammo = 0
-charge-time = 1.5          # unmeasured
-charge-min = 0.2           # unmeasured
-charge-max = 1             # unmeasured
+charge-time = 2            # recorded: 0.75 a second, full at 2 s gave 90
+charge-min = 0             # script: ImpactHammer, no least charge; recorded 0.5 s gave 23
+charge-max = 1.5           # script: ImpactHammer caps the charge at 1.5; recorded
 charge-scales = damage
-damage = 60                # unmeasured
-momentum = 66000           # unmeasured
-range = 120                # unmeasured: the eye is 66 above the floor
-self-momentum = 66000      # unmeasured
+damage = 60                # recorded: 60 x charge
+momentum = 66000           # recorded: 66000 x charge
+range = 120                # script: ImpactHammer.TraceFire; a body only within 90 (rule to build)
+self-momentum = 69000      # script: ImpactHammer.TraceFire, x charge, charge at least 1 (rule to build)
 
 [fire impact-hammer alt]
 archetype = melee
 offset = 3.8 1.6 -1.8      # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
-refire = 0.5               # unmeasured
+refire = 0.81              # recorded
 ammo = 0
-damage = 20                # unmeasured
-momentum = 30000           # unmeasured
-range = 180                # unmeasured
+damage = 20                # script: ImpactHammer.TraceAltFire, x distance / 180 (rule to build); recorded 3 to 6
+momentum = 30000           # script: ImpactHammer.TraceAltFire, x distance / 180
+range = 180                # script: ImpactHammer.TraceAltFire
 
 [weapon chainsaw]
 class = botpack.chainsaw
 slot = 1                   # default: ChainSaw.InventoryGroup
 ammo-max = 0
 ammo-start = 0
-switch-time = 0.5          # unmeasured
+switch-time = 0.77         # recorded: from the Enforcer, key to first shot
 
 [fire chainsaw primary]
 archetype = melee
 offset = 2 3.6 4.1         # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
-refire = 0.1               # unmeasured
+refire = 0.3               # script: ChainSaw sleeps 0.15 twice a trace; recorded
 ammo = 0
-damage = 20                # unmeasured
-momentum = 15000           # unmeasured
+damage = 20                # recorded
+momentum = 15000           # recorded
 range = 90                 # default: ChainSaw.Range
 
 [fire chainsaw alt]
 archetype = melee
 offset = 12 3.6 4.1        # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
-refire = 0.9               # unmeasured
+refire = 1.6               # recorded; the slash lands 0.3 s after the press (rule to build)
 ammo = 0
-damage = 110               # unmeasured
-momentum = 15000           # unmeasured
+damage = 110               # recorded
+momentum = 10000           # recorded
 range = 90                 # default: ChainSaw.Range
 
 [weapon enforcer]
@@ -74,54 +79,55 @@ class = botpack.enforcer
 slot = 2                   # default: Enforcer.InventoryGroup
 ammo-max = 199             # default: Miniammo.MaxAmmo
 ammo-start = 30            # default: Enforcer.PickupAmmoCount
-switch-time = 0.5          # unmeasured
+switch-time = 1.02         # recorded: from the Shock Rifle, key to first shot
 
 [fire enforcer primary]
 archetype = instant-hit
 offset = 3.3 5.5 -4.4      # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
-refire = 0.27              # unmeasured
+refire = 0.4               # recorded at 30 fps only
 ammo = 1
+spread = 104               # script: Weapon.TraceFire, accuracy 0.2 over 10000
 damage = 17                # SS 4.9: Enforcer.HitDamage
 momentum = 3000            # SS 4.9
 push-chance = 0.2          # SS 4.9: one hit in five
 push-scale = 5             # SS 4.9
-range = 10000              # unmeasured
+range = 10000              # script: Weapon.TraceFire
 
 [fire enforcer alt]
 archetype = instant-hit
 offset = 3.3 5.5 -4.4      # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
-refire = 0.2               # unmeasured
+refire = 0.287             # recorded at 85 fps only
 ammo = 1
-spread = 700               # unmeasured
+spread = 208               # script: Enforcer, accuracy 0.4 growing 0.5 a shot to 3.4 (rule to build)
 damage = 17                # SS 4.9: Enforcer.HitDamage
 momentum = 3000            # SS 4.9
 push-chance = 0.2          # SS 4.9: one hit in five
 push-scale = 5             # SS 4.9
-range = 10000              # unmeasured
+range = 10000              # script: Weapon.TraceFire
 
 [weapon bio-rifle]
 class = botpack.ut_biorifle
 slot = 3                   # default: UT_BioRifle.InventoryGroup
 ammo-max = 100             # default: BioAmmo.MaxAmmo
 ammo-start = 25            # default: UT_BioRifle.PickupAmmoCount
-switch-time = 0.5          # unmeasured
+switch-time = 0.77         # recorded: from the Enforcer, key to first shot
 
 [fire bio-rifle primary]
 archetype = projectile
 offset = 13.7 11.85 -6.95  # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
-refire = 0.3               # unmeasured
+refire = 0.285             # recorded at 85 fps only
 ammo = 1
 projectile = bio-gel
 
 [fire bio-rifle alt]
 archetype = projectile
 offset = 13.7 11.85 -6.95  # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
-refire = 0.5               # unmeasured
+refire = 0.73              # recorded: release to idle
 ammo = 1
-charge-time = 4.1          # unmeasured
-charge-min = 1             # unmeasured
-charge-max = 5             # unmeasured
-charge-scales = count
+charge-time = 4.1          # script: UT_BioRifle, 0.5 a half second, one ammo each; recorded steps
+charge-min = 1             # script: UT_BioRifle, the glob's scale is 1 + 0.8 x charge
+charge-max = 4.28          # script: UT_BioRifle caps the charge at 4.1
+charge-scales = damage     # the glob's radius and momentum scale too (rule to build)
 projectile = bio-glob
 count = 1
 
@@ -130,21 +136,21 @@ class = botpack.shockrifle
 slot = 4                   # default: ShockRifle.InventoryGroup
 ammo-max = 50              # default: ShockCore.MaxAmmo
 ammo-start = 20            # default: ShockRifle.PickupAmmoCount
-switch-time = 0.5          # unmeasured
+switch-time = 0.77         # recorded: from the Enforcer, key to first shot
 
 [fire shock-rifle primary]
 archetype = instant-hit
 offset = 4.4 6.7 -9.6      # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
-refire = 0.73              # unmeasured
+refire = 0.79              # recorded at 30 fps only
 ammo = 1
-damage = 40                # unmeasured
-momentum = 60000           # unmeasured
-range = 10000              # unmeasured
+damage = 40                # recorded
+momentum = 60000           # recorded
+range = 10000              # script: ShockRifle.TraceFire
 
 [fire shock-rifle alt]
 archetype = projectile
 offset = 14.4 6.7 -9.6     # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
-refire = 0.6               # unmeasured
+refire = 0.52              # recorded
 ammo = 1
 projectile = shock-ball
 
@@ -153,23 +159,23 @@ class = botpack.pulsegun
 slot = 5                   # default: PulseGun.InventoryGroup
 ammo-max = 199             # default: PAmmo.MaxAmmo
 ammo-start = 60            # default: PulseGun.PickupAmmoCount
-switch-time = 0.5          # unmeasured
+switch-time = 0.73         # recorded: from the Enforcer, key to first shot
 
 [fire pulse-gun primary]
 archetype = projectile
 offset = 16.5 15 0         # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
-refire = 0.18              # unmeasured
+refire = 0.182             # recorded: PulseGun sleeps 0.18, and a tick more
 ammo = 1
 projectile = plasma
 
 [fire pulse-gun alt]
 archetype = beam
 offset = 16.5 15 0         # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
-refire = 0.1               # unmeasured
-ammo = 10                  # unmeasured: per second
+refire = 0.1               # unmeasured: a beam fires every tick held
+ammo = 4                   # recorded: one every 0.24 s, 4.17 a second (rule to build)
 damage = 72                # default: StarterBolt.Damage; SS 4.9: per second of hold
-momentum = 0               # SS 4.9: none with the 469 default NoLockdown=1
-range = 1100               # unmeasured
+momentum = 0               # SS 4.9: none with the 469 default NoLockdown=1; recorded
+range = 810                # script: PBolt, ten pieces of 81
 hit-every = 0.22           # SS 4.9: PBolt's stored hits
 
 [weapon ripper]
@@ -177,19 +183,19 @@ class = botpack.ripper
 slot = 6                   # default: Ripper.InventoryGroup
 ammo-max = 75              # default: BladeHopper.MaxAmmo
 ammo-start = 15            # default: Ripper.PickupAmmoCount
-switch-time = 0.5          # unmeasured
+switch-time = 1.03         # recorded: from the Enforcer, key to first shot
 
 [fire ripper primary]
 archetype = projectile
 offset = 3 16.6 -15.4      # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
-refire = 0.4               # unmeasured
+refire = 0.38              # recorded at 30 fps only
 ammo = 1
 projectile = razor
 
 [fire ripper alt]
 archetype = projectile
 offset = 3 16.6 -15.4      # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
-refire = 0.4               # unmeasured
+refire = 0.72              # recorded at 30 fps only
 ammo = 1
 projectile = razor-alt
 
@@ -198,50 +204,50 @@ class = botpack.minigun2
 slot = 7                   # default: Minigun2.InventoryGroup
 ammo-max = 199             # default: Miniammo.MaxAmmo
 ammo-start = 50            # default: Minigun2.PickupAmmoCount
-switch-time = 0.5          # unmeasured
+switch-time = 0.84         # recorded: from the Enforcer, key to first shot
 
 [fire minigun primary]
 archetype = instant-hit
 offset = 2.1 5.35 -5.7     # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
-refire = 0.13              # unmeasured
+refire = 0.14              # recorded at 30 fps only; Minigun2 sleeps 0.13
 ammo = 1
-spread = 200               # unmeasured
+spread = 104               # script: Minigun2.TraceFire, accuracy 0.2 over 10000
 damage = 9                 # SS 4.9: Minigun2.TraceFire, 9 + Rand(6); recorded
 damage-random = 5          # SS 4.9
 momentum = 0               # SS 4.9: none with the 469 default NoLockdown=1
-range = 10000              # unmeasured
+range = 10000              # script: Minigun2.TraceFire
 
 [fire minigun alt]
 archetype = instant-hit
 offset = 2.1 5.35 -5.7     # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
-refire = 0.08              # unmeasured
+refire = 0.078             # recorded at 85 fps once spun up, 0.074 at 30; 0.13 for three shots first (rule to build)
 ammo = 1
-spread = 700               # unmeasured
+spread = 495               # script: Minigun2.TraceFire, accuracy 0.95 over 10000
 damage = 9                 # SS 4.9: Minigun2.TraceFire, 9 + Rand(6); recorded
 damage-random = 5          # SS 4.9
 momentum = 0               # SS 4.9: none with the 469 default NoLockdown=1
-range = 10000              # unmeasured
+range = 10000              # script: Minigun2.TraceFire
 
 [weapon flak-cannon]
 class = botpack.ut_flakcannon
 slot = 8                   # default: UT_FlakCannon.InventoryGroup
 ammo-max = 50              # default: FlakAmmo.MaxAmmo
 ammo-start = 10            # default: UT_FlakCannon.PickupAmmoCount
-switch-time = 0.5          # unmeasured
+switch-time = 1.35         # recorded: from the Enforcer, key to first shot
 
 [fire flak-cannon primary]
 archetype = projectile
 offset = 11.5 12 -16.65    # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
-refire = 0.9               # unmeasured
+refire = 0.77              # recorded: a tap, fire to idle
 ammo = 1
-spread = 1000              # unmeasured
+spread = 0                 # script: every chunk takes the aim; flak-chunk's turn-random spreads them
 projectile = flak-chunk
-count = 9                  # unmeasured
+count = 8                  # recorded; each at a fixed offset (rule to build)
 
 [fire flak-cannon alt]
 archetype = projectile
 offset = 11.5 12 -16.65    # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
-refire = 1.1               # unmeasured
+refire = 1.06              # recorded
 ammo = 1
 projectile = flak-shell
 
@@ -250,51 +256,51 @@ class = botpack.ut_eightball
 slot = 9                   # default: UT_Eightball.InventoryGroup
 ammo-max = 48              # default: RocketPack.MaxAmmo
 ammo-start = 6             # default: UT_Eightball.PickupAmmoCount
-switch-time = 0.5          # unmeasured
+switch-time = 0.88         # recorded: from the Enforcer, key to first shot
 
 [fire rocket-launcher primary]
 archetype = projectile
 offset = 12.4 6 -11        # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
-refire = 0.9               # unmeasured
+refire = 0.9               # recorded: one rocket, fire to idle
 ammo = 1
-spread = 600               # unmeasured
-charge-time = 4.5          # unmeasured
-charge-min = 0.1667        # unmeasured: one rocket of six
-charge-max = 1             # unmeasured
+spread = 600               # script: UT_Eightball fans by 600 a rocket (rule to build)
+charge-time = 4.42         # recorded: one more rocket every 0.88 s; the sixth fires itself
+charge-min = 0.1667        # recorded: one rocket of six at the press
+charge-max = 1
 charge-scales = count
 projectile = rocket
-count = 6                  # unmeasured
+count = 6                  # script: UT_Eightball loads at most six; recorded
 
 [fire rocket-launcher alt]
 archetype = projectile
 offset = 12.4 6 -11        # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
-refire = 0.9               # unmeasured
+refire = 0.9               # recorded: one grenade, fire to idle
 ammo = 1
-spread = 600               # unmeasured
-charge-time = 4.5          # unmeasured
-charge-min = 0.1667        # unmeasured
-charge-max = 1             # unmeasured
+spread = 750               # script: UT_Eightball turns grenades +-750 when more than one
+charge-time = 4.42         # recorded: as the primary
+charge-min = 0.1667        # recorded
+charge-max = 1
 charge-scales = count
 projectile = grenade
-count = 6                  # unmeasured
+count = 6                  # script: UT_Eightball; recorded
 
 [weapon sniper-rifle]
 class = botpack.sniperrifle
 slot = 0                   # default: SniperRifle.InventoryGroup is 10, the 0 key
 ammo-max = 50              # default: BulletBox.MaxAmmo
 ammo-start = 8             # default: SniperRifle.PickupAmmoCount
-switch-time = 0.5          # unmeasured
+switch-time = 0.88         # recorded: from the Enforcer, key to first shot
 
 [fire sniper-rifle primary]
 archetype = instant-hit
 offset = 0 0 0             # SS 4.9: the sniper starts at the eye
-refire = 0.67              # unmeasured
+refire = 0.66              # recorded
 ammo = 1
-damage = 45                # SS 4.9: SniperRifle.ProcessTraceHit, a body
-momentum = 30000           # SS 4.9
-range = 10000              # unmeasured
-head-damage = 100          # SS 4.9
-head-momentum = 35000      # SS 4.9
+damage = 45                # SS 4.9: SniperRifle.ProcessTraceHit, a body; recorded
+momentum = 30000           # SS 4.9; recorded
+range = 10000              # script: SniperRifle.TraceFire
+head-damage = 100          # SS 4.9; recorded
+head-momentum = 35000      # SS 4.9; recorded
 # No alt fire: the sniper's alt zooms, the client's (SS 3 item 7).
 
 [projectile bio-gel]
@@ -302,11 +308,11 @@ speed = 840                # default: UT_BioGel.speed
 radius = 2                 # default: UT_BioGel.CollisionRadius
 gravity = 1                # default: UT_BioGel.Physics is PHYS_Falling
 lifetime = 12              # default: UT_BioGel.LifeSpan
-damage = 20                # default: UT_BioGel.Damage
-momentum = 20000           # default: UT_BioGel.MomentumTransfer
-splash-radius = 75         # unmeasured
+damage = 40                # script: UT_BioGel.Explode, Damage 20 x DrawScale 2; recorded 37 near the edge
+momentum = 40000           # script: UT_BioGel.Explode, 20000 x 2; recorded
+splash-radius = 150        # script: UT_BioGel.Explode, 75 x DrawScale
 strike = stick
-fuse = 3                   # unmeasured
+fuse = 3.8                 # script: UT_BioGel, 3.8 s once landed, 3 s in flight (rule to build)
 lift = 120                 # SS 4.9: UT_BioGel's Flying state
 
 [projectile bio-glob]
@@ -314,11 +320,11 @@ speed = 700                # default: BioGlob.speed
 radius = 2                 # default: BioGlob.CollisionRadius
 gravity = 1                # default: BioGlob.Physics is PHYS_Falling
 lifetime = 12              # default: BioGlob.LifeSpan
-damage = 75                # default: BioGlob.Damage
-momentum = 30000           # default: BioGlob.MomentumTransfer
-splash-radius = 120        # unmeasured
+damage = 75                # default: BioGlob.Damage, x the charge's scale
+momentum = 30000           # default: BioGlob.MomentumTransfer, x the scale
+splash-radius = 75         # script: UT_BioGel.Explode, 75 x the scale, at most 250
 strike = stick
-fuse = 3                   # unmeasured
+fuse = 3.8                 # script: UT_BioGel, as the gel
 lift = 120                 # SS 4.9: BioGlob extends UT_BioGel
 
 [projectile shock-ball]
@@ -327,35 +333,35 @@ radius = 12                # default: ShockProj.CollisionRadius
 lifetime = 10              # default: ShockProj.LifeSpan
 damage = 55                # default: ShockProj.Damage
 momentum = 70000           # default: ShockProj.MomentumTransfer
-splash-radius = 70         # unmeasured
+splash-radius = 70         # script: ShockProj.Explode
 strike = explode
 combo = shock-combo
 
 [projectile plasma]
 speed = 1450               # default: PlasmaSphere.speed
 radius = 0                 # default: PlasmaSphere.CollisionRadius
-lifetime = 2               # unmeasured: PlasmaSphere.LifeSpan reads 0.5
-damage = 20                # default: PlasmaSphere.Damage
-momentum = 10000           # default: PlasmaSphere.MomentumTransfer
+lifetime = 2               # script: PlasmaSphere sets 2 on spawn; its default reads 0.5
+damage = 20                # default: PlasmaSphere.Damage; recorded
+momentum = 10000           # default: PlasmaSphere.MomentumTransfer; recorded
 strike = explode
 
 [projectile razor]
 speed = 1300               # default: Razor2.speed
 radius = 0                 # default: Razor2.CollisionRadius
 lifetime = 6               # default: Razor2.LifeSpan
-damage = 30                # default: Razor2.Damage
-momentum = 15000           # default: Razor2.MomentumTransfer
+damage = 30                # default: Razor2.Damage; recorded
+momentum = 15000           # default: Razor2.MomentumTransfer; recorded
 strike = bounce
-bounces = 6                # unmeasured
-bounce-keep = 1            # unmeasured
+bounces = 6                # script: Razor2.HitWall, gone on the seventh wall
+bounce-keep = 1            # script: Razor2.HitWall, a plain reflection
 
 [projectile razor-alt]
 speed = 1300               # default: Razor2Alt.speed
 radius = 0                 # default: Razor2Alt.CollisionRadius
 lifetime = 6               # default: Razor2Alt.LifeSpan
-damage = 34                # default: Razor2Alt.Damage
-momentum = 87000           # default: Razor2Alt.MomentumTransfer
-splash-radius = 180        # unmeasured
+damage = 34                # default: Razor2Alt.Damage; recorded
+momentum = 87000           # default: Razor2Alt.MomentumTransfer; recorded
+splash-radius = 180        # script: Razor2Alt.BlowUp
 strike = explode
 
 [projectile flak-chunk]
@@ -364,11 +370,11 @@ radius = 0                 # default: UTChunk1.CollisionRadius
 lifetime = 2.9             # default: UTChunk1.LifeSpan
 speed-random = 100         # SS 4.9: UTChunk, speed +-100
 turn-random = 1000         # SS 4.9: UTChunk, yaw and pitch +-1000
-damage = 16                # default: UTChunk1.Damage
-momentum = 10000           # default: UTChunk1.MomentumTransfer
+damage = 16                # default: UTChunk1.Damage; recorded
+momentum = 10000           # default: UTChunk1.MomentumTransfer; recorded
 strike = bounce
-bounces = 2                # unmeasured
-bounce-keep = 0.6          # unmeasured
+bounces = 100              # script: UTChunk.HitWall, no limit; its lifetime ends it
+bounce-keep = 0.8          # script: UTChunk.HitWall, 0.8 along the wall, 0 to 0.64 off it (rule to build)
 
 [projectile flak-shell]
 speed = 1200               # default: flakslug.speed
@@ -376,21 +382,21 @@ radius = 0                 # default: flakslug.CollisionRadius
 gravity = 1                # default: flakslug.Physics is PHYS_Falling
 lifetime = 6               # default: flakslug.LifeSpan
 damage = 70                # default: flakslug.Damage
-momentum = 75000           # default: flakslug.MomentumTransfer
-splash-radius = 150        # unmeasured
+momentum = 75000           # default: flakslug.MomentumTransfer; recorded 69000 near the edge
+splash-radius = 150        # script: flakslug.Explode
 strike = split
 split-into = flak-chunk
-split-count = 5            # unmeasured
-split-spread = 6000        # unmeasured
+split-count = 5            # script: flakslug.Explode; recorded
+split-spread = 0           # script: each chunk keeps the slug's aim, turned by its turn-random (rule to build)
 lift = 200                 # SS 4.9: flakslug
 
 [projectile rocket]
 speed = 900                # default: RocketMk2.speed
 radius = 0                 # default: RocketMk2.CollisionRadius
 lifetime = 6               # default: RocketMk2.LifeSpan
-damage = 75                # default: RocketMk2.Damage
-momentum = 80000           # default: RocketMk2.MomentumTransfer
-splash-radius = 220        # unmeasured
+damage = 75                # default: RocketMk2.Damage; recorded
+momentum = 80000           # default: RocketMk2.MomentumTransfer; recorded
+splash-radius = 220        # script: RocketMk2.Explode
 strike = explode
 acceleration = 50          # SS 4.9: RocketMk2
 max-speed = 1600           # default: RocketMk2.MaxSpeed
@@ -405,14 +411,14 @@ gravity = 1                # default: UT_Grenade.Physics is PHYS_Falling
 lifetime = 2.75            # SS 4.9: UT_Grenade's fuse, 2.5 + FRand() * 0.5
 lifetime-random = 0.25     # SS 4.9
 expire = explode
-damage = 80                # default: UT_Grenade.Damage
-momentum = 50000           # default: UT_Grenade.MomentumTransfer
-splash-radius = 200        # unmeasured
+damage = 80                # default: UT_Grenade.Damage; recorded
+momentum = 50000           # default: UT_Grenade.MomentumTransfer; recorded
+splash-radius = 200        # script: UT_Grenade.Explosion
 strike = bounce
-bounces = 100              # unmeasured: a grenade bounces until its fuse
+bounces = 100              # script: UT_Grenade.HitWall, bounces until its fuse
 bounce-keep = 0.75         # SS 4.9: UT_Grenade.HitWall
 
 [combo shock-combo]
-damage = 165               # unmeasured
-momentum = 120000          # unmeasured
-splash-radius = 250        # unmeasured
+damage = 165               # script: ShockProj.SuperExplosion, Damage x 3
+momentum = 140000          # script: ShockProj.SuperExplosion, MomentumTransfer x 2
+splash-radius = 250        # script: ShockProj.SuperExplosion

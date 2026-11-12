@@ -312,7 +312,9 @@ Botpack `DeathMatchPlus.ReduceDamage`):
 
 - **Refire** ends with the firing animation, at the rate each class
   passes. The script does not hold animation lengths, so the runs
-  measure refire.
+  measure refire. Recorded at 30 and 85 fps, 2026-11-12: each interval
+  agrees within one tick, so refire does not move with frame rate. The
+  exception is the Minigun's spun-up alt: 0.074 s at 30, 0.078 s at 85.
 - **Hammer:** charge grows 0.75 a second, capped at 1.5. On release it
   traces 120: a body within 90 takes 60 × charge and 66000 × charge;
   the level costs the firer 36 and pushes back 69000 × charge, with
@@ -320,24 +322,32 @@ Botpack `DeathMatchPlus.ReduceDamage`):
   30000 to a body, 24 and 40000 to the firer off the level. Recorded:
   1.01 s of charge gave 45.
 - **Chainsaw:** one trace every 0.30 s while held, 20 damage, momentum
-  15000 towards the firer. Alt is one slash, 110 damage.
+  15000 towards the firer. Alt is one slash, 110 damage and 10000,
+  landing 0.3 s after the press. Recorded.
 - **Enforcer:** 17 damage, momentum 3000; one hit in five, momentum
-  15000. Alt fires repeatedly, its spread growing each shot.
+  15000. Alt fires repeatedly; its accuracy is 0.4 on the first shot
+  and grows 0.5 a shot to 3.4.
 - **Shock:** 40 damage, 60000. A hit on a ball spends 2 ammo and sets off
   the combo: 165 damage, radius 250, momentum 140000. Recorded: 40.
 - **Pulse:** primary every 0.18 s, its start circling the muzzle. Alt
   spends 1 ammo every 0.24 s; the beam reaches 810 in 81-unit pieces.
 - **Minigun:** damage 9 to 14 at random; momentum zero, or one hit in
-  five a push. Recorded: 9 to 14.
+  five a push. Recorded: 9 to 14. Alt fires every 0.13 s for its first
+  three shots, then faster. Recorded.
 - **Flak:** eight chunks at fixed offsets, each turned up to ±1000 and
-  its speed ±100 at random. Alt tosses a slug with lift 200.
+  its speed ±100 at random. Alt tosses a slug with lift 200. The slug's
+  five chunks keep its aim, not the surface's normal. A chunk bounces
+  without limit, keeping 0.8 of its speed along the surface and a random
+  0 to 0.64 off it.
 - **Rockets:** up to six loaded while held. Fired together, they leave
   around a circle and fan out in yaw by fixed steps. A rocket gains
   speed by 50 a second²; a grenade's speed, fuse and bounce are part
   random.
 - **Bio:** a gel is tossed with lift 120 and bursts after its fuse or on
-  a body. The alt charge adds a share per half second, up to 4.1, and
-  scales the glob.
+  a body. Its fuse is 3 s in flight and 3.8 s once landed. The alt
+  charge adds 0.5 per half second, up to 4.1. The glob's scale is
+  1 + 0.8 × charge, and a gel's is 2. The scale multiplies damage,
+  momentum and splash radius (75 × scale, at most 250).
 - **Sniper:** a hit above 0.62 of the body's half-height is a head: 100
   and 35000; elsewhere 45 and 30000. Alt zooms (§ 3 item 7).
 
@@ -487,6 +497,5 @@ tick. Unmeasured until built; `GameTest` prints a busy tick's time.
 
 ## 14. Open questions
 
-- Whether any refire time in the original moves with frame rate, as
-  its walking friction does (UTA-0017 § 14). § 4.7 records at more than
-  one rate to find out.
+None. Whether refire moves with frame rate is answered in § 4.9,
+**Refire**.
