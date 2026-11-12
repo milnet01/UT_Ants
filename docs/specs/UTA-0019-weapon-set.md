@@ -174,7 +174,22 @@ another archetype's key is refused.
 
 Two modifiers apply to any archetype: **`charge`**, held to build up and
 fired on release (the hammer, Bio alt, the rocket launcher's loading),
-and a refire held per mode. Every mode has an **`offset`**: where its
+and a refire held per mode. The press spends the mode's `ammo`. A
+**`charge-step`** charge grows in steps: each time the hold since the
+last step passes it, one more `ammo` is spent and the charge grows by one
+projectile (`charge-scales = count`) or by that hold (`damage`). A count
+charge fires itself once its count is loaded or its ammo is out; a damage
+charge waits for release.
+
+A fire mode's **`rule`** names behaviour no key can say (§ 3 item 6). Each
+rule belongs to one archetype, and `Fire.cpp` holds what it does; another
+archetype's rule, or an unknown one, is refused. Projectile rules:
+`rocket-fan` and `grenade-cluster` (§ 4.9, Rockets). Melee rule:
+`hammer` (§ 4.9, Hammer).
+
+A melee mode may carry `self-damage`, what a surface hit costs its firer;
+`reach`, past which from the firer no body is hurt; and `distance-scale`,
+which scales the effect by the hit's distance over it. Every mode has an **`offset`**: where its
 shot starts from the eye, forward, right and up, turned by the aim
 (§ 4.9).
 
@@ -296,6 +311,8 @@ Botpack `DeathMatchPlus.ReduceDamage`):
 - A push the body gave itself is scaled by 0.6.
 - A push lifts a walking body into falling. Where the body already rises
   faster than 380, a push's upward part is halved.
+- A falling projectile (gel, glob, flak slug, grenade) gains speed at half
+  the zone's gravity. Recorded 2026-11-12: 475 a second², not 950.
 
 **Where a shot starts** (Engine `Weapon.ProjectileFire`,
 `Weapon.TraceFire`, `Inventory.CalcDrawOffset`):
@@ -318,7 +335,8 @@ Botpack `DeathMatchPlus.ReduceDamage`):
 - **Hammer:** charge grows 0.75 a second, capped at 1.5. On release it
   traces 120: a body within 90 takes 60 × charge and 66000 × charge;
   the level costs the firer 36 and pushes back 69000 × charge, with
-  charge at least 1. Alt traces 180, scaled by distance ÷ 180: 20 and
+  charge at least 1. Held past a charge of 1, a body 25 ahead fires it;
+  the level never does. Recorded. Alt traces 180, scaled by distance ÷ 180: 20 and
   30000 to a body, 24 and 40000 to the firer off the level. Recorded:
   1.01 s of charge gave 45.
 - **Chainsaw:** one trace every 0.30 s while held, 20 damage, momentum
@@ -339,13 +357,20 @@ Botpack `DeathMatchPlus.ReduceDamage`):
   five chunks keep its aim, not the surface's normal. A chunk bounces
   without limit, keeping 0.8 of its speed along the surface and a random
   0 to 0.64 off it.
-- **Rockets:** up to six loaded while held. Fired together, they leave
-  around a circle and fan out in yaw by fixed steps. A rocket gains
-  speed by 50 a second²; a grenade's speed, fuse and bounce are part
-  random.
+- **Rockets:** the press loads one and spends a round; each 0.88 s held
+  loads one more and spends a round, up to six, and the sixth fires them.
+  Recorded. Several leave from a circle (radius 4; grenades 7) shifted
+  7.5 right and 7 down, at angles 1.0484 rad apart, each up to 4 back at
+  random. Rockets fan in yaw: the second and third 600 a radian of their
+  angle to the left, the fifth and sixth `(angle − 3) × 600` to the right,
+  the fourth along the aim; each after the first × 0.9 to 1.1 in speed.
+  Several grenades are each turned up to ±750 in pitch, yaw and roll. A
+  rocket gains speed by 50 a second²; a grenade's speed, fuse and bounce
+  are part random.
 - **Bio:** a gel is tossed with lift 120 and bursts after its fuse or on
   a body. Its fuse is 3 s in flight and 3.8 s once landed. The alt
-  charge adds 0.5 per half second, up to 4.1. The glob's scale is
+  charge steps once its hold passes 0.5 s, spending a round and adding
+  that hold, until it reaches 4.1. Recorded. The glob's scale is
   1 + 0.8 × charge, and a gel's is 2. The scale multiplies damage,
   momentum and splash radius (75 × scale, at most 250).
 - **Sniper:** a hit above 0.62 of the body's half-height is a head: 100

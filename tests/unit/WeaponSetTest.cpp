@@ -52,7 +52,9 @@ ammo = 2
 charge-time = 4
 charge-min = 0.25
 charge-max = 1
+charge-step = 0.5
 charge-scales = count
+rule = rocket-fan
 projectile = ball
 count = 4
 
@@ -179,6 +181,9 @@ TEST_CASE("INV-2: the small set parses and reads back from write", "[ugame][weap
     REQUIRE(set->weapons[0].alt);
     REQUIRE(set->weapons[0].alt->charge);
     CHECK(set->weapons[0].alt->charge->scales == uta::ugame::ChargeScales::Count);
+    CHECK(set->weapons[0].alt->charge->step == 0.5);
+    CHECK(set->weapons[0].alt->rule == uta::ugame::FireRule::RocketFan);
+    CHECK(set->weapons[0].primary.rule == uta::ugame::FireRule::None);
     CHECK(set->weapons[1].alt->archetype == uta::ugame::Archetype::Beam);
     CHECK(set->projectile("gel")->expireExplodes);
     CHECK_FALSE(set->projectile("chunk")->expireExplodes);
@@ -253,6 +258,12 @@ TEST_CASE("INV-1: each refusal names its line", "[ugame][weapons]") {
          "speed-random is more than speed"},
         {"a lifetime draw to zero", edited("lifetime-random = 0.5", "lifetime-random = 2.9"), "[projectile chunk]",
          "lifetime-random is not less than lifetime"},
+        {"an unknown rule", edited("rule = rocket-fan", "rule = spiral"), "rule = spiral",
+         "'spiral' is not one of: none, rocket-fan, grenade-cluster"},
+        {"another archetype's rule", edited("pellets = 3", "pellets = 3\nrule = rocket-fan"),
+         "rule = rocket-fan\nhead", "'rocket-fan' is not a rule of an instant-hit fire"},
+        {"a rule of none", edited("rule = rocket-fan", "rule = none"), "rule = none",
+         "'none' is not a rule of a projectile fire"},
         {"a second [set]", edited("[weapon gun]", "[set]\n[weapon gun]"), "[set]\n[weapon gun]", "a second [set]"},
     };
     for (const Refusal& refusal : refusals) {

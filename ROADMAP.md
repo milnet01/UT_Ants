@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=468 -->
+<!-- ants-roadmap-id-high-water: UTA=469 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -23674,3 +23674,12 @@ Work the user wants once 1.0.0 has replaced the live server, not before it.
   **Layman:** Someone who does not own the old game gets help fetching and installing it, so they can play without hunting for it themselves.
   Kind: feature.
   Source: user-request-2026-09-14.
+
+- 📋 [UTA-0469] **Offer the game in more than one language.**
+  The user, relayed by the Ants Terminal session 2026-11-12: "I want our
+  game to be offered in multiple languages." No languages or scope were
+  named. Filed after 1.0.0 for want of a stated time; ask the user which
+  languages, and whether it should come sooner, before speccing it.
+  **Layman:** Menus, messages and the game's other text can be shown in the player's own language.
+  Kind: feature.
+  Source: user-request-2026-11-12.

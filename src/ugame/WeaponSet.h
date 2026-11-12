@@ -30,13 +30,31 @@ enum class Archetype : std::uint8_t { InstantHit, Projectile, Beam, Melee };
 /// or how many projectiles a projectile mode spawns.
 enum class ChargeScales : std::uint8_t { Damage, Count };
 
-/// SS 4.4's charge modifier: held to build up, fired on release or once full.
-/// The effect is `min + (max - min) * min(held / time, 1)` times the mode's.
+/// SS 4.4's charge modifier: held to build up, fired on release. A count
+/// charge also fires once its count is loaded or its ammo is spent. The
+/// press spends the mode's `ammo`.
+///
+/// Continuous (`step` 0): the effect is `min + (max - min) * min(held /
+/// time, 1)` times the mode's, and a count charge spends the rest of its
+/// rounds when it fires. Stepped: each time the hold since the last step
+/// passes `step`, one more `ammo` is spent and the charge grows -- a count
+/// charge by one projectile, a damage charge by that hold, as UT_BioRifle and
+/// UT_Eightball load (SS 4.9).
 struct Charge {
     double time = 1;      ///< seconds from empty to full
     double min = 1, max = 1;
+    double step = 0;      ///< seconds a step takes; 0 for a continuous charge
     ChargeScales scales = ChargeScales::Damage;
     bool operator==(const Charge&) const = default;
+};
+
+/// SS 3 item 6: behaviour of the original's no key can say, by name. Each
+/// belongs to one archetype; Fire.cpp holds what each does.
+enum class FireRule : std::uint8_t {
+    None,
+    RocketFan,      ///< projectile: UT_Eightball's rockets, around a circle and fanned in yaw
+    GrenadeCluster, ///< projectile: UT_Eightball's grenades, around a wider circle, each turned at random
+    Hammer,         ///< melee: ImpactHammer's charge -- touch fires past a charge of 1, a surface counts it as 1
 };
 
 /// One fire mode: a `[fire WEAPON primary|alt]` section. Which of the
@@ -65,6 +83,10 @@ struct FireMode {
     std::string projectile;               ///< projectile: the kind it spawns
     std::uint32_t count = 1;              ///< projectile
     double selfMomentum = 0;              ///< melee: pushes the firer back off a surface
+    double selfDamage = 0;                ///< melee: what a surface hit costs the firer
+    double reach = 0;                     ///< melee: no body farther than this from the firer is hurt; 0 any
+    double distanceScale = 0;             ///< melee: the effect x the hit's distance / this; 0 none
+    FireRule rule = FireRule::None;       ///< `rule`: a named behaviour of the archetype
     bool operator==(const FireMode&) const = default;
 };
 

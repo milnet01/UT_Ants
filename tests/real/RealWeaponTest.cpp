@@ -48,6 +48,7 @@
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <numbers>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -161,7 +162,47 @@ struct Errors {
     double damage = 0, velocity = 0, spawn = 0, flight = 0;
     std::string damageAt, velocityAt, spawnAt, flightAt;
     std::size_t unmatched = 0;
+    bool randomHits = false;    ///< the mode draws its hits: counts are not compared
+    std::size_t outOfRange = 0; ///< recorded draws outside our rule's range
+    std::string outOfRangeAt;
 };
+
+/// The angle between two directions, in UT99's units (65536 a turn).
+double angleUnits(const Vec3& a, const Vec3& b) {
+    const double c = uworld::dot(a, b) / (uworld::length(a) * uworld::length(b));
+    return std::acos(std::clamp(c, -1.0, 1.0)) * 65536 / (2 * 3.14159265358979323846);
+}
+
+/// What a launch may draw at random (SS 3 item 6): the kind's own speed and
+/// turn, and, for several shots from one press under a rule, Fire.cpp's
+/// UT_Eightball draws -- a rocket after the first x 0.9 to 1.1, a grenade
+/// turned up to 750 in pitch, yaw and roll, each started up to 4 back.
+struct LaunchRange {
+    double speed = 0, turn = 0, back = 0;
+    [[nodiscard]] bool random() const { return speed > 0 || turn > 0 || back > 0; }
+};
+
+LaunchRange rangeOf(const ugame::FireMode& mode, const ugame::Projectile& kind, bool several) {
+    LaunchRange range{kind.speedRandom, 2 * std::numbers::sqrt2 * kind.turnRandom, 0};
+    if (several && mode.rule != ugame::FireRule::None) {
+        range.back = 4;
+        if (mode.rule == ugame::FireRule::RocketFan) range.speed += 0.1 * kind.speed;
+        if (mode.rule == ugame::FireRule::GrenadeCluster) range.turn += 2 * std::sqrt(3.0) * 750;
+    }
+    return range;
+}
+
+/// Whether a recorded launch velocity lies in `range`, against `ours`, our
+/// own launch of it: its speed less its lift about the kind's, and its
+/// direction within both launches' turns.
+bool launchInRange(const ugame::Projectile& kind, const LaunchRange& range, Vec3 recorded, Vec3 ours) {
+    recorded.z -= kind.lift;
+    ours.z -= kind.lift;
+    constexpr double SPEED_SLACK = 1, TURN_SLACK = 20;
+    const bool speed = std::abs(uworld::length(recorded) - kind.speed) <= range.speed + SPEED_SLACK;
+    const bool turn = angleUnits(recorded, ours) <= range.turn + TURN_SLACK;
+    return speed && turn;
+}
 
 /// The worst distance between two sorted tick lists of one length.
 std::int64_t worstTick(const std::vector<std::int64_t>& a, const std::vector<std::int64_t>& b) {
@@ -170,8 +211,21 @@ std::int64_t worstTick(const std::vector<std::int64_t>& a, const std::vector<std
     return worst;
 }
 
+/// UTA_WEAPON_RUN names a run whose every hit, shot and spend is printed.
+bool detailed(const uta::test::MovementRecording& recording) {
+    const char* run = std::getenv("UTA_WEAPON_RUN");
+    return run != nullptr && recording.run == run;
+}
+
+std::string str(const Vec3& v) {
+    std::ostringstream out;
+    out << "(" << v.x << " " << v.y << " " << v.z << ")";
+    return out.str();
+}
+
 Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& set,
               const uta::test::MovementRecording& recording) {
+    const bool detail = detailed(recording);
     const auto& rows = recording.ticks;
     REQUIRE(recording.weapon.size() == rows.size());
     // A run with no target logs no G lines; its target is dead and away.
@@ -186,6 +240,11 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& set,
     const int other = switchTo == recording.begin.end() || switchTo->second.empty()
                           ? -1
                           : weaponOf(set, switchTo->second);
+
+    // The mode under test: alt where the run ever holds alt fire.
+    const ugame::Weapon& weapon = set.weapons[static_cast<std::size_t>(inHand)];
+    const bool alt = std::ranges::any_of(rows, [](const auto& row) { return row.keys.find('A') != std::string::npos; });
+    const ugame::FireMode* mode = alt && weapon.alt ? &*weapon.alt : &weapon.primary;
 
     // The bodies, each carrying only the run's weapons.
     ugame::Game game;
@@ -244,6 +303,12 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& set,
         if (was.weapon == now.weapon && now.ammo < was.ammo) theirSpends.push_back(static_cast<std::int64_t>(k));
     }
 
+    Errors e;
+    const auto outOfRange = [&e](const std::string& at) {
+        if (e.outOfRange++ == 0) e.outOfRangeAt = at;
+    };
+    std::vector<bool> claimed(theirOrder.size(), false);
+
     // Our replay.
     std::vector<OurShot> ours;
     std::vector<int> live; // per game.shots, an index into `ours`
@@ -299,6 +364,10 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& set,
 
         ugame::tick(world, set, rules, game, commands, row.dt);
         const auto tick = static_cast<std::int64_t>(k);
+        if (detail)
+            for (const ugame::Event& event : game.events)
+                if (event.kind == ugame::Event::Kind::Explosion || event.kind == ugame::Event::Kind::Combo)
+                    std::cout << "  explosion " << tick << " at " << str(event.from) << " radius " << event.radius << "\n";
 
         if (heldBefore >= 0 && game.bodies[FIRER].weapon == heldBefore &&
             game.bodies[FIRER].weapons[static_cast<std::size_t>(heldBefore)].ammo < ammoBefore)
@@ -329,13 +398,77 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& set,
                 id = static_cast<int>(ours.size());
                 ours.push_back(OurShot{shot.kind, tick, {}, -1});
             }
-            ours[static_cast<std::size_t>(id)].rows[tick] = shot;
             next.push_back(id);
         }
         live = std::move(next);
+
+        // Each new shot of ours to the nearest unclaimed recorded one of its
+        // kind starting within a tick. A random launch (SS 3 item 6) in its
+        // range takes the recorded velocity, so its flight can be compared.
+        std::map<std::uint32_t, int> freshOfKind;
+        for (std::size_t i = 0; i < game.shots.size(); ++i)
+            if (ours[static_cast<std::size_t>(live[i])].first == tick) ++freshOfKind[game.shots[i].kind];
+        for (std::size_t i = 0; i < game.shots.size(); ++i) {
+            OurShot& s = ours[static_cast<std::size_t>(live[i])];
+            ugame::Shot& shot = game.shots[i];
+            if (s.first == tick && s.recorded < 0) {
+                const ugame::Projectile& kind = set.projectiles[shot.kind];
+                int best = -1;
+                double bestDistance = 1e300;
+                for (std::size_t r = 0; r < theirOrder.size(); ++r) {
+                    const RecordedShot& t = theirs.at(theirOrder[r]);
+                    if (claimed[r] || t.kind != kind.name || std::abs(t.first - tick) > MAX_TICK_ERROR) continue;
+                    Vec3 want = vec(t.rows.front().second.location);
+                    want.z -= firerHover;
+                    const double d = uworld::length(shot.location - want);
+                    if (d < bestDistance) best = static_cast<int>(r), bestDistance = d;
+                }
+                if (best >= 0) {
+                    claimed[static_cast<std::size_t>(best)] = true;
+                    s.recorded = best;
+                    const RecordedShot& t = theirs.at(theirOrder[static_cast<std::size_t>(best)]);
+                    const auto& first = t.rows.front().second;
+                    const LaunchRange range = rangeOf(*mode, kind, freshOfKind[shot.kind] > 1);
+                    if (range.random()) {
+                        const std::string at = theirOrder[static_cast<std::size_t>(best)] + " launch";
+                        if (!launchInRange(kind, range, vec(first.velocity), shot.velocity)) outOfRange(at);
+                        shot.velocity = vec(first.velocity);
+                        // A start drawn behind ours takes the recorded one,
+                        // where the recording has it unmoved.
+                        if (range.back > 0 && t.first == tick) {
+                            if (bestDistance > range.back + MAX_POSITION_ERROR) outOfRange(at);
+                            Vec3 want = vec(first.location);
+                            want.z -= firerHover;
+                            shot.location = want;
+                        }
+                    }
+                }
+            }
+            s.rows[tick] = shot;
+        }
     }
 
-    Errors e;
+    if (detail) {
+        for (const auto t : ourSpends) std::cout << "  our spend " << t << "\n";
+        for (const auto t : theirSpends) std::cout << "  their spend " << t << "\n";
+        for (const Hit& h : ourHits)
+            std::cout << "  our hit " << h.tick << " on " << h.victim << ": " << h.damage << " v " << str(h.velocity) << "\n";
+        for (const Hit& h : theirHits)
+            std::cout << "  their hit " << h.tick << " on " << h.victim << ": " << h.damage << " v " << str(h.velocity) << "\n";
+        for (const OurShot& s : ours) {
+            std::cout << "  our shot " << set.projectiles[s.kind].name << " from " << s.first << " matched "
+                      << (s.recorded >= 0 ? theirOrder[static_cast<std::size_t>(s.recorded)] : "-") << "\n";
+            for (const auto& [tick, shot] : s.rows) {
+                std::cout << "    " << tick << " " << str(shot.location) << " v " << str(shot.velocity);
+                if (s.recorded >= 0)
+                    for (const auto& [t, p] : theirs.at(theirOrder[static_cast<std::size_t>(s.recorded)]).rows)
+                        if (t == tick)
+                            std::cout << " | " << str(vec(p.location) - Vec3{0, 0, firerHover}) << " v "
+                                      << str(vec(p.velocity));
+                std::cout << "\n";
+            }
+        }
+    }
     e.ourSpends = ourSpends.size();
     e.theirSpends = theirSpends.size();
     if (ourSpends.size() == theirSpends.size()) e.spendTick = worstTick(ourSpends, theirSpends);
@@ -343,6 +476,28 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& set,
     e.theirShots = theirOrder.size();
     e.ourHits = ourHits.size();
     e.theirHits = theirHits.size();
+
+    // A mode drawing its spread, damage or push (SS 3 item 6) hits at
+    // random: each recorded hit lands within a tick of one of our shots,
+    // with damage and momentum our rule could draw.
+    e.randomHits = mode->archetype == ugame::Archetype::InstantHit &&
+                   (mode->spread > 0 || mode->damageRandom > 0 || mode->pushChance > 0);
+    if (e.randomHits) {
+        const double least = std::trunc(std::trunc(mode->damage) * set.damageScale);
+        const double most = std::trunc(std::trunc(mode->damage + mode->damageRandom) * set.damageScale);
+        for (const Hit& h : theirHits) {
+            std::int64_t nearest = 1000000;
+            for (const std::int64_t spend : ourSpends) nearest = std::min(nearest, std::abs(spend - h.tick));
+            e.hitTick = std::max(e.hitTick, nearest);
+            if (h.damage < least || h.damage > most) outOfRange("damage at tick " + std::to_string(h.tick));
+        }
+        for (const auto& d : recording.damage) {
+            const double m = uworld::length(vec(d.momentum));
+            const double off = std::min(std::abs(m - mode->momentum), std::abs(m - mode->momentum * mode->pushScale));
+            if (off > 1) outOfRange("momentum at tick " + std::to_string(d.tick));
+        }
+        return e;
+    }
 
     // Hits, in order: tick, damage, the victim's velocity after.
     for (std::size_t i = 0; i < std::min(ourHits.size(), theirHits.size()); ++i) {
@@ -355,42 +510,26 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& set,
         if (v > e.velocity) e.velocity = v, e.velocityAt = at;
     }
 
-    // Shots: each recorded one to the nearest unmatched one of ours of its
-    // kind, starting within a tick of it.
-    for (std::size_t r = 0; r < theirOrder.size(); ++r) {
-        const RecordedShot& t = theirs.at(theirOrder[r]);
-        const auto& [tTick, tRow] = t.rows.front();
-        int best = -1;
-        double bestDistance = 1e300;
-        for (std::size_t o = 0; o < ours.size(); ++o) {
-            OurShot& s = ours[o];
-            if (s.recorded >= 0 || set.projectiles[s.kind].name != t.kind) continue;
-            if (std::abs(s.first - t.first) > MAX_TICK_ERROR) continue;
-            const auto row = s.rows.find(tTick);
-            if (row == s.rows.end()) continue;
-            Vec3 want = vec(tRow.location);
-            want.z -= firerHover;
-            const double d = uworld::length(row->second.location - want);
-            if (d < bestDistance) best = static_cast<int>(o), bestDistance = d;
-        }
-        if (best < 0) {
-            ++e.unmatched;
-            continue;
-        }
-        OurShot& s = ours[static_cast<std::size_t>(best)];
-        s.recorded = static_cast<int>(r);
-        const std::string at = theirOrder[r] + " tick " + std::to_string(tTick);
+    // Shots: each matched pair's start and flight.
+    for (const OurShot& s : ours) {
+        if (s.recorded < 0) continue;
+        const std::string& name = theirOrder[static_cast<std::size_t>(s.recorded)];
+        const RecordedShot& t = theirs.at(name);
         e.shotTick = std::max(e.shotTick, std::abs(s.first - t.first));
-        if (bestDistance > e.spawn) e.spawn = bestDistance, e.spawnAt = at;
+        bool first = true;
         for (const auto& [tick, p] : t.rows) {
             const auto row = s.rows.find(tick);
-            if (row == s.rows.end()) break;
+            if (row == s.rows.end()) continue;
             Vec3 want = vec(p.location);
             want.z -= firerHover;
             const double d = uworld::length(row->second.location - want);
-            if (d > e.flight) e.flight = d, e.flightAt = theirOrder[r] + " tick " + std::to_string(tick);
+            const std::string at = name + " tick " + std::to_string(tick);
+            if (first && d > e.spawn) e.spawn = d, e.spawnAt = at;
+            if (d > e.flight) e.flight = d, e.flightAt = at;
+            first = false;
         }
     }
+    e.unmatched = static_cast<std::size_t>(std::ranges::count(claimed, false));
     return e;
 }
 
@@ -424,8 +563,11 @@ TEST_CASE("UTA-0019 INV-6: the stock set matches the original's weapon runs on D
                   << e.theirShots << " off " << e.shotTick << " unmatched " << e.unmatched << ", hits " << e.ourHits
                   << "/" << e.theirHits << " off " << e.hitTick << ", damage " << e.damage << " (" << e.damageAt
                   << "), velocity " << e.velocity << " (" << e.velocityAt << "), spawn " << e.spawn << " ("
-                  << e.spawnAt << "), flight " << e.flight << " (" << e.flightAt << ")\n";
-        CHECK(e.ourHits == e.theirHits);
+                  << e.spawnAt << "), flight " << e.flight << " (" << e.flightAt << ")"
+                  << (e.randomHits ? ", hits drawn" : "") << ", out of range " << e.outOfRange << " ("
+                  << e.outOfRangeAt << ")\n";
+        CHECK(e.outOfRange == 0);
+        if (!e.randomHits) CHECK(e.ourHits == e.theirHits);
         CHECK(e.ourShots == e.theirShots);
         CHECK(e.unmatched == 0);
         CHECK(e.damage == 0);

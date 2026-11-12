@@ -178,6 +178,120 @@ TEST_CASE("INV-7: a charged count is cut to the ammo there is", "[ugame][game]")
     CHECK(game.bodies[0].weapons[static_cast<std::size_t>(game.bodies[0].weapon)].ammo == 0);
 }
 
+TEST_CASE("SS 4.9: the launcher spends a round a loading step and fires itself at six", "[ugame][game]") {
+    const BodyWorld world = arena();
+    Game game = duel(stock(), "rocket-launcher", 1900);
+    const auto ammo = [&game] { return game.bodies[0].weapons[static_cast<std::size_t>(game.bodies[0].weapon)].ammo; };
+    const std::uint32_t full = ammo();
+    // A step is 0.88 s, 68 ticks to the hair; the counts bracket it.
+    hold(world, stock(), game, 1);
+    CHECK(ammo() == full - 1); // the press loads the first
+    hold(world, stock(), game, 66);
+    CHECK(ammo() == full - 1);
+    hold(world, stock(), game, 5);
+    CHECK(ammo() == full - 2);
+    CHECK(game.shots.empty());
+    for (int k = 0; k < 400 && game.shots.empty(); ++k) hold(world, stock(), game, 1);
+    CHECK(game.shots.size() == 6);
+    CHECK(ammo() == full - 6);
+}
+
+TEST_CASE("SS 4.9: a charged hammer holds at full until released", "[ugame][game]") {
+    const BodyWorld world = arena();
+    Game game = duel(stock(), "impact-hammer", 1900);
+    std::vector<MoveCommand> commands(2);
+    commands[0].fire = true;
+    commands[0].yaw = 32768; // level, away from the dummy and the wall: nothing in reach
+    commands[1].yaw = 32768;
+    const double full = primaryOf(stock(), "impact-hammer").charge->time;
+    int swings = 0;
+    for (int k = 0; k < static_cast<int>(2 * full / DT); ++k) {
+        tick(world, stock(), RULES, game, commands, DT);
+        swings += static_cast<int>(std::ranges::count(game.events, Event::Kind::Melee, &Event::kind));
+    }
+    CHECK(swings == 0);
+    commands[0].fire = false;
+    tick(world, stock(), RULES, game, commands, DT);
+    CHECK(std::ranges::count(game.events, Event::Kind::Melee, &Event::kind) == 1);
+}
+
+TEST_CASE("SS 4.9: the hammer hurts no body past its reach of the firer", "[ugame][game]") {
+    const BodyWorld world = arena();
+    const FireMode& mode = primaryOf(stock(), "impact-hammer");
+    REQUIRE(mode.reach < mode.range);
+    // Each dummy's near side is inside the trace's range; one is within
+    // reach of the firer's centre, the other past it.
+    for (const auto& [distance, hurt] : {std::pair{mode.reach - 10 + 17, true}, std::pair{mode.reach + 10 + 17, false}}) {
+        CAPTURE(distance);
+        Game game = duel(stock(), "impact-hammer", distance);
+        hold(world, stock(), game, 10);
+        std::vector<MoveCommand> release(2);
+        release[1].yaw = 32768;
+        tick(world, stock(), RULES, game, release, DT);
+        CHECK((game.bodies[1].health < 1e9) == hurt);
+    }
+}
+
+TEST_CASE("SS 4.9: the hammer on a surface costs its firer the same whatever the charge", "[ugame][game]") {
+    const BodyWorld world = arena();
+    std::vector<double> lost;
+    for (const int held : {2, 120}) {
+        Game game = duel(stock(), "impact-hammer", 1900);
+        game.bodies[0].health = START_HEALTH;
+        std::vector<MoveCommand> commands(2);
+        commands[0].fire = true;
+        commands[0].yaw = 32768; // away from everything: no touch while held
+        commands[1].yaw = 32768;
+        for (int k = 0; k < held; ++k) tick(world, stock(), RULES, game, commands, DT);
+        commands[0].fire = false;
+        commands[0].pitch = -16384; // the floor
+        tick(world, stock(), RULES, game, commands, DT);
+        lost.push_back(START_HEALTH - game.bodies[0].health);
+    }
+    CHECK(lost[0] == landed(stock(), primaryOf(stock(), "impact-hammer").selfDamage));
+    CHECK(lost[1] == lost[0]);
+}
+
+TEST_CASE("SS 4.9: three rockets leave around the launcher's circle and fan by its fixed steps",
+          "[ugame][game]") {
+    const BodyWorld world = arena();
+    Game game = duel(stock(), "rocket-launcher", 1900);
+    const FireMode& mode = primaryOf(stock(), "rocket-launcher");
+    const auto ammo = [&game] { return game.bodies[0].weapons[static_cast<std::size_t>(game.bodies[0].weapon)].ammo; };
+    const std::uint32_t full = ammo();
+    for (int k = 0; k < 400 && ammo() > full - 3; ++k) hold(world, stock(), game, 1);
+    std::vector<MoveCommand> release(2);
+    release[1].yaw = 32768;
+    tick(world, stock(), RULES, game, release, DT);
+    REQUIRE(game.shots.size() == 3);
+
+    // UT_Eightball.FireRockets: rocket i leaves at angle 1.0484 i around a
+    // circle of 4, shifted 7.5 right and 7 down, up to 4 back; the first
+    // along the aim, the next turned left by 629 and 1258 (600 a radian,
+    // truncated), each after the first x 0.9 to 1.1 in speed.
+    Vec3 start = levelStart(mode);
+    start.z += game.bodies[0].move.location.z - STANDING; // where the body settled
+    const std::array<double, 3> sines{0.0, 0.8666260241298891, 0.8648204071720624};
+    const std::array<double, 3> cosines{1.0, 0.4989582490557911, -0.5020813313983583};
+    const std::array<std::int32_t, 3> yaws{0, -629, -1258};
+    const double speed = stock().projectile("rocket")->speed;
+    for (std::size_t i = 0; i < 3; ++i) {
+        CAPTURE(i);
+        const Shot& shot = game.shots[i];
+        CHECK(std::abs(shot.location.y - (start.y - (sines[i] * 4 - 7.5))) < 1e-9);
+        CHECK(std::abs(shot.location.z - (start.z + (cosines[i] * 4 - 7))) < 1e-9);
+        CHECK(shot.location.x <= start.x + 1e-9);
+        CHECK(shot.location.x >= start.x - 4 - 1e-9);
+        const double v = uta::uworld::length(shot.velocity);
+        const Vec3 along = shot.velocity * (1 / v);
+        const Vec3 want = aimOf(yaws[i], 0);
+        CHECK(uta::uworld::length(along - want) < 1e-9);
+        if (i == 0) CHECK(std::abs(v - speed) < 1e-9);
+        CHECK(v >= 0.9 * speed - 1e-9);
+        CHECK(v <= 1.1 * speed + 1e-9);
+    }
+}
+
 TEST_CASE("INV-4: one mode's damage, refire or speed changes only that", "[ugame][game]") {
     const BodyWorld world = arena();
 
@@ -227,9 +341,10 @@ TEST_CASE("S2: the hammer at the floor throws its firer up", "[ugame][game]") {
     std::vector<MoveCommand> commands(2);
     commands[0].fire = true;
     commands[0].pitch = -16384; // straight down
-    // The first tick starts the charge; the next finds the floor in reach
-    // and goes off.
+    // The first tick starts the charge; the release goes off. The floor in
+    // reach never fires it: only a body does (ImpactHammer.Firing).
     tick(world, stock(), RULES, game, commands, DT);
+    commands[0].fire = false;
     tick(world, stock(), RULES, game, commands, DT);
     CHECK(game.bodies[0].move.physics == uta::uworld::Physics::Falling);
     CHECK(game.bodies[0].move.velocity.z > 0);
@@ -561,5 +676,5 @@ TEST_CASE("INV-5: a scripted fight is the same at every frame rate and on every 
         CHECK(again == reference);
     }
     INFO("final hash " << reference.back());
-    CHECK(reference.back() == 2059631500992981561u);
+    CHECK(reference.back() == 3716189806358076463u);
 }

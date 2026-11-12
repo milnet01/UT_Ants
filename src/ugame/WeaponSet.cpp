@@ -140,6 +140,11 @@ constexpr std::string_view ARCHETYPE_NAMES[] = {"instant-hit", "projectile", "be
 constexpr std::string_view STRIKE_NAMES[] = {"explode", "bounce", "stick", "split"};
 constexpr std::string_view SCALES_NAMES[] = {"damage", "count"};
 constexpr std::string_view EXPIRE_NAMES[] = {"vanish", "explode"};
+/// FireRule's names, in its order; "none" is never written.
+constexpr std::string_view RULE_NAMES[] = {"none", "rocket-fan", "grenade-cluster", "hammer"};
+/// The archetype each FireRule belongs to, in its order.
+constexpr Archetype RULE_ARCHETYPES[] = {Archetype::InstantHit, Archetype::Projectile, Archetype::Projectile,
+                                         Archetype::Melee};
 
 /// The index of `value` in `names`, or a refusal listing them.
 template <std::size_t N>
@@ -180,7 +185,8 @@ Result<void> readWeapon(Weapon& weapon, Keys& keys) {
 }
 
 Result<void> readCharge(FireMode& mode, Keys& keys) {
-    if (!keys.has("charge-time") && !keys.has("charge-min") && !keys.has("charge-max") && !keys.has("charge-scales"))
+    if (!keys.has("charge-time") && !keys.has("charge-min") && !keys.has("charge-max") && !keys.has("charge-scales") &&
+        !keys.has("charge-step"))
         return {};
     if (mode.archetype == Archetype::Beam) return {}; // left untaken: finish refuses them
     Charge charge;
@@ -190,6 +196,8 @@ Result<void> readCharge(FireMode& mode, Keys& keys) {
     charge.min = *min;
     UTA_TRY(const std::optional<double> max, keys.decimal("charge-max", true, 0, 100));
     charge.max = *max;
+    UTA_TRY(const std::optional<double> step, keys.decimal("charge-step", false, 0, TIME_MAX));
+    charge.step = step.value_or(0);
     UTA_TRY(const std::optional<Entry> scales, keys.take("charge-scales", true));
     UTA_TRY(const std::size_t which, choiceOf(SCALES_NAMES, *scales));
     charge.scales = static_cast<ChargeScales>(which);
@@ -212,6 +220,15 @@ Result<void> readFire(FireMode& mode, Keys& keys) {
     UTA_TRY(const std::optional<Triple> offset, keys.triple("offset", OFFSET_MAX));
     mode.offset = offset.value_or(Triple{});
     UTA_CHECK(readCharge(mode, keys));
+    UTA_TRY(const std::optional<Entry> rule, keys.take("rule", false));
+    if (rule) {
+        UTA_TRY(const std::size_t named, choiceOf(RULE_NAMES, *rule));
+        if (named == 0 || RULE_ARCHETYPES[named] != mode.archetype)
+            return refuse(rule->line, std::format("'{}' is not a rule of {} {} fire", rule->value,
+                                                  ARCHETYPE_NAMES[which].front() == 'i' ? "an" : "a",
+                                                  ARCHETYPE_NAMES[which]));
+        mode.rule = static_cast<FireRule>(named);
+    }
 
     if (mode.archetype == Archetype::Projectile) {
         UTA_TRY(const std::optional<std::string> projectile, keys.name("projectile", true));
@@ -247,6 +264,12 @@ Result<void> readFire(FireMode& mode, Keys& keys) {
     if (mode.archetype == Archetype::Melee) {
         UTA_TRY(const std::optional<double> self, keys.decimal("self-momentum", false, 0, AMOUNT_MAX));
         mode.selfMomentum = self.value_or(0);
+        UTA_TRY(const std::optional<double> selfDamage, keys.decimal("self-damage", false, 0, AMOUNT_MAX));
+        mode.selfDamage = selfDamage.value_or(0);
+        UTA_TRY(const std::optional<double> reach, keys.decimal("reach", false, 0, DISTANCE_MAX));
+        mode.reach = reach.value_or(0);
+        UTA_TRY(const std::optional<double> scale, keys.decimal("distance-scale", false, 0, DISTANCE_MAX));
+        mode.distanceScale = scale.value_or(0);
     }
     const std::string_view name = ARCHETYPE_NAMES[which];
     return keys.finish(std::format("{} {} fire", name.front() == 'i' ? "an" : "a", name));
@@ -478,9 +501,11 @@ std::string fireText(std::string_view weapon, std::string_view which, const Fire
                                   weapon, which, archetype, decimal(mode.refire), mode.ammo, mode.spread,
                                   decimal(mode.offset[0]), decimal(mode.offset[1]), decimal(mode.offset[2]));
     if (mode.charge)
-        out += std::format("charge-time = {}\ncharge-min = {}\ncharge-max = {}\ncharge-scales = {}\n",
+        out += std::format("charge-time = {}\ncharge-min = {}\ncharge-max = {}\ncharge-step = {}\ncharge-scales = {}\n",
                            decimal(mode.charge->time), decimal(mode.charge->min), decimal(mode.charge->max),
-                           SCALES_NAMES[static_cast<std::size_t>(mode.charge->scales)]);
+                           decimal(mode.charge->step), SCALES_NAMES[static_cast<std::size_t>(mode.charge->scales)]);
+    if (mode.rule != FireRule::None)
+        out += std::format("rule = {}\n", RULE_NAMES[static_cast<std::size_t>(mode.rule)]);
     if (mode.archetype == Archetype::Projectile) {
         out += std::format("projectile = {}\ncount = {}\n", mode.projectile, mode.count);
         return out;
@@ -495,7 +520,10 @@ std::string fireText(std::string_view weapon, std::string_view which, const Fire
                                decimal(mode.headMomentum));
     }
     if (mode.archetype == Archetype::Beam) out += std::format("hit-every = {}\n", decimal(mode.hitEvery));
-    if (mode.archetype == Archetype::Melee) out += std::format("self-momentum = {}\n", decimal(mode.selfMomentum));
+    if (mode.archetype == Archetype::Melee)
+        out += std::format("self-momentum = {}\nself-damage = {}\nreach = {}\ndistance-scale = {}\n",
+                           decimal(mode.selfMomentum), decimal(mode.selfDamage), decimal(mode.reach),
+                           decimal(mode.distanceScale));
     return out;
 }
 

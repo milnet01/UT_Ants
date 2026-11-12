@@ -65,6 +65,8 @@ void switchWeapon(const WeaponSet& set, Body& body, const uworld::MoveCommand& c
         body.switchLeft = set.weapons[static_cast<std::size_t>(asked)].switchTime;
         body.charging = -1;
         body.charged = 0;
+        body.stepHeld = 0;
+        body.loaded = 0;
     }
     if (body.pending >= 0) {
         body.switchLeft -= dt;
@@ -98,24 +100,51 @@ void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
 
     body.refireLeft -= tick.dt;
     bool fired = false, beamed = false;
+    Carried& carried = body.weapons[static_cast<std::size_t>(body.weapon)];
     if (body.charging >= 0) {
         const FireMode& mode = *modeOf(body.charging);
+        const Charge& charge = *mode.charge;
+        const bool count = charge.scales == ChargeScales::Count;
         const bool held = body.charging == 0 ? command.fire : command.altFire;
-        body.charged += tick.dt;
-        const bool full = body.charged >= mode.charge->time;
-        // The hammer goes off when it touches something, charged or not.
-        const bool touches = mode.archetype == Archetype::Melee && detail::meleeTouches(tick, index, mode);
+        bool full = false;
+        if (charge.step > 0) {
+            // UT_BioRifle and UT_Eightball: a step passes once the hold
+            // since the last one exceeds it, and spends a round.
+            body.stepHeld += tick.dt;
+            const bool room = count ? body.loaded < mode.count : body.charged < charge.time;
+            if (room && body.stepHeld > charge.step && carried.ammo >= mode.ammo) {
+                carried.ammo -= mode.ammo;
+                if (count) ++body.loaded;
+                else body.charged += body.stepHeld;
+                body.stepHeld = 0;
+                // The launcher fires once its last rocket is in or its ammo is out.
+                full = count && (body.loaded >= mode.count || carried.ammo < mode.ammo);
+            }
+        } else {
+            body.charged += tick.dt;
+            full = count && body.charged >= charge.time;
+        }
+        // A melee goes off when it touches something; the hammer only once
+        // its charge passes 1 (ImpactHammer.Firing).
+        const bool ready = mode.rule != FireRule::Hammer || chargeScale(charge, body.charged) > 1;
+        const bool touches = mode.archetype == Archetype::Melee && ready && detail::meleeTouches(tick, index, mode);
         if (!held || full || touches) {
-            detail::fire(tick, index, mode, chargeScale(*mode.charge, body.charged));
+            // A stepped count charge fires what it loaded: Fire.cpp floors
+            // count x scale, exact for these small whole numbers.
+            const double scale = count && charge.step > 0
+                                     ? static_cast<double>(body.loaded) / mode.count
+                                     : chargeScale(charge, body.charged);
+            detail::fire(tick, index, mode, scale);
             body.refireLeft = mode.refire;
             body.charging = -1;
             body.charged = 0;
+            body.stepHeld = 0;
+            body.loaded = 0;
             fired = true;
         }
     } else if (body.refireLeft <= 0) {
         const int which = command.fire ? 0 : command.altFire ? 1 : -1;
         const FireMode* mode = which >= 0 ? modeOf(which) : nullptr;
-        const Carried& carried = body.weapons[static_cast<std::size_t>(body.weapon)];
         if (mode == nullptr) {
         } else if (mode->archetype == Archetype::Beam) {
             detail::beam(tick, index, *mode);
@@ -124,8 +153,12 @@ void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
         } else if (carried.ammo < mode->ammo) {
             // INV-7: too little ammo fires nothing and changes nothing.
         } else if (mode->charge) {
+            // The press spends the first round (UT_BioRifle.AltFire, UT_Eightball.Fire).
+            carried.ammo -= mode->ammo;
             body.charging = which;
             body.charged = 0;
+            body.stepHeld = 0;
+            body.loaded = 1;
         } else {
             detail::fire(tick, index, *mode, 1);
             body.refireLeft += mode->refire;
@@ -168,7 +201,7 @@ void explode(Tick& tick, std::size_t index, int struck, const Vec3& away) {
     for (std::uint32_t i = 0; i < kind.splitCount; ++i) {
         const std::int32_t yawOff = detail::spreadDraw(tick.game, kind.splitSpread);
         const std::int32_t pitchOff = detail::spreadDraw(tick.game, kind.splitSpread);
-        detail::launch(tick, into, shot.owner, shot.location, baseYaw + yawOff, basePitch + pitchOff, Vec3{}, 1);
+        detail::launch(tick, into, shot.owner, shot.location, baseYaw + yawOff, basePitch + pitchOff, Vec3{}, 1, 1);
     }
 }
 
@@ -353,6 +386,8 @@ std::uint64_t stateHash(const Game& game) {
         addDouble(body.refireLeft);
         add(static_cast<std::uint64_t>(body.charging));
         addDouble(body.charged);
+        addDouble(body.stepHeld);
+        add(body.loaded);
         addDouble(body.beamAmmo);
         addDouble(body.beamHeld);
     }

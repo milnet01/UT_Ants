@@ -40,7 +40,9 @@ struct Body {
     double switchLeft = 0;        ///< seconds until `pending` is in hand
     double refireLeft = 0;        ///< seconds until the weapon in hand may fire again
     int charging = -1;            ///< 0 primary, 1 alt, while a charge is held; else -1
-    double charged = 0;           ///< seconds a charge has been held
+    double charged = 0;           ///< seconds a charge has been held; a stepped damage charge's steps
+    double stepHeld = 0;          ///< seconds a stepped charge has been held since its last step
+    std::uint32_t loaded = 0;     ///< a count charge's projectiles loaded
     double beamAmmo = 0;          ///< a beam's ammo owed, below one round
     double beamHeld = 0;          ///< seconds a beam has stored toward its next hit (`hit-every`)
     std::int32_t yaw = 0, pitch = 0; ///< the last command's aim

@@ -50,9 +50,10 @@ struct Tick {
 
 /// A projectile of kind `kind` leaving `at` along `yaw` and `pitch`, after
 /// the kind's own launch rules: its turn, speed and lifetime draws, its
-/// lift, and its share of `firerVelocity`. It flies from the next tick.
+/// lift, and its share of `firerVelocity`; its velocity then x `speedScale`.
+/// It flies from the next tick.
 void launch(Tick& tick, std::uint32_t kind, int owner, const Vec3& at, std::int32_t yaw, std::int32_t pitch,
-            const Vec3& firerVelocity, double damageScale);
+            const Vec3& firerVelocity, double damageScale, double speedScale);
 
 /// What a segment meets first: the level, a body, or a shot with a combo.
 struct SegmentHit {
