@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=471 -->
+<!-- ants-roadmap-id-high-water: UTA=472 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -18781,6 +18781,13 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Next, worst first: grenade-load-5 hits; switch-pulse and
   switch-minigun counts; pulse and ripper primary spawn at 120;
   flak bounces left (7.9 at most); Minigun's unwind; then step 5.
+  2026-11-13, grenades, looked at only. In grenade-load-5 ours
+  blasts three grenades in the tick they first bounce off the floor
+  (30 fps, tick 146, 87 below the thrown target's centre), where
+  the recorded ones bounce on until their fuses (hits at 198 and
+  199). The same in grenade-load-1.2. Not a miss read as a hit:
+  entersCylinder returns 2 for one. Unexplained; next to look at.
+  The user asked for a way to try the guns: UTA-0472.
   **Layman:** The guns. Built as a table of numbers rather than as code, so a different set -- your super weapons -- is a different table rather than a second codebase.
   Kind: implement.
   Source: design-2026-09-03.
@@ -21245,6 +21252,20 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: implement.
   Source: user-request-2026-11-12.
   Lanes: urender, ugame.
+
+- 📋 [UTA-0472] **A way for the user to try the guns: fire every stock weapon in the viewer at a target.**
+  User, 2026-11-13, during UTA-0019 step 4: "Please also create a way
+  for me to test these guns out please." Not yet scoped. To settle
+  when picked up: what UTA-0019's step 5 already wires into
+  apps/ut-ants (UTA-0470 speaks of its stand-in sphere), and what is
+  missing of: fire and alt-fire keys, a weapon key per slot, shots
+  and beams drawn, a target body that shows damage and is thrown,
+  ammo and health on screen. No weapon models or sounds: those are
+  UTA-0467.
+  **Layman:** Walk around a map in the viewer, pick any gun, and shoot it at a dummy, so you can feel how each one behaves.
+  Kind: implement.
+  Source: user-request-2026-11-13.
+  Lanes: ugame, apps.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
