@@ -18666,6 +18666,21 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Next, worst first: chainsaw cadence, then the bounce leftovers,
   slow chunks' damage, the Minigun's unwind; bio-primary's flight
   (103 off at 30 fps) is not yet looked at.
+  2026-11-13, chainsaw. Its cut PULLS: ChainSaw.TraceFire passes
+  -15000 along the aim, and the recorded victim moves toward the
+  firer; ours pushed it away. A melee's momentum may now be below
+  zero. The slash pushes along the firer's left (-10000 along the
+  right-hand axis; new key momentum-side) and lands past 0.3 and by
+  0.312 s after its press (wind-up 0.305; ours hit at the press),
+  then every 1.6 s held. The press cuts, the next cut is one 0.15
+  sleep and a tick on, the rest two sleeps apart: refire-lead may
+  now be below zero (-0.137), refused where it takes all of refire.
+  The replay names its sleepers (both Minigun modes, the Enforcer's
+  alt, the Pulse Gun's primary, the Chainsaw's) in place of every
+  wound-up mode: the slash is timed by its animation, not a Sleep.
+  Failures 161 -> 154. Left on the chainsaw: the cut after the
+  press's finds the victim still in the air (velocity 35 off at 30
+  fps), and at 85 and 120 fps our second slash does not land.
   **Layman:** The guns. Built as a table of numbers rather than as code, so a different set -- your super weapons -- is a different table rather than a second codebase.
   Kind: implement.
   Source: design-2026-09-03.

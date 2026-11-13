@@ -252,19 +252,20 @@ std::string str(const Vec3& v) {
 }
 
 /// THE ORIGINAL'S SLEEP ENDS AT THE TICK NEAREST ITS TIME, and carries
-/// nothing over: a mode that sleeps between shots (Minigun2, the Enforcer's
-/// alt, the Pulse Gun's primary) keeps a cadence of whole ticks, which moves
-/// with the frame rate. Ours keeps its times at any rate (INV-5). So a run
-/// is replayed with each such mode's times rounded to that run's ticks, at
-/// least one: every wound-up mode, and the Pulse Gun's primary. A hair
-/// under, so a row a hair longer or shorter than `dt` does not move a shot
-/// by a tick.
+/// nothing over: a mode that sleeps between shots keeps a cadence of whole
+/// ticks, which moves with the frame rate. Ours keeps its times at any rate
+/// (INV-5). So a run is replayed with each such mode's times rounded to that
+/// run's ticks, at least one, and a hair under, so a row a hair longer or
+/// shorter than `dt` does not move a shot by a tick. The sleepers: both
+/// Minigun modes, the Enforcer's alt, the Pulse Gun's primary and the
+/// Chainsaw's, which sleeps 0.15 twice a cut and once, and a tick, after
+/// the press's.
 ugame::WeaponSet slept(ugame::WeaponSet set, double dt) {
-    const auto whole = [dt](double& time) {
-        if (time > 0) time = (std::max(1.0, std::round(time / dt)) - 0.002) * dt;
+    const auto ticks = [dt](double time) { return std::max(1.0, std::round(time / dt)); };
+    const auto whole = [&](double& time) {
+        if (time > 0) time = (ticks(time) - 0.002) * dt;
     };
-    const auto mode = [&whole](ugame::FireMode& fire, bool sleeps) {
-        if (fire.windUp <= 0 && !sleeps) return;
+    const auto sleeper = [&whole](ugame::FireMode& fire) {
         whole(fire.windUp);
         whole(fire.refire);
         whole(fire.refireLead);
@@ -276,9 +277,15 @@ ugame::WeaponSet slept(ugame::WeaponSet set, double dt) {
         if (fire.extend > 0) fire.extend = 81 / dt;
     };
     for (ugame::Weapon& weapon : set.weapons) {
-        mode(weapon.primary, weapon.name == "pulse-gun");
         grown(weapon.primary);
-        if (weapon.alt) mode(*weapon.alt, false), grown(*weapon.alt);
+        if (weapon.alt) grown(*weapon.alt);
+        if (weapon.name == "minigun" || weapon.name == "pulse-gun") sleeper(weapon.primary);
+        if (weapon.alt && (weapon.name == "minigun" || weapon.name == "enforcer")) sleeper(*weapon.alt);
+        if (weapon.name == "chainsaw") {
+            const double sleep = ticks(0.15);
+            weapon.primary.refire = (2 * sleep - 0.002) * dt;
+            weapon.primary.refireLead = (1 - sleep) * dt;
+        }
     }
     return set;
 }

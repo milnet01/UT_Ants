@@ -80,6 +80,7 @@ damage = 60
 momentum = 66000
 range = 60
 self-momentum = 66000
+momentum-side = -10000
 
 [fire hammer alt]
 archetype = beam
@@ -195,6 +196,7 @@ TEST_CASE("INV-2: the small set parses and reads back from write", "[ugame][weap
     CHECK(set->weapons[0].primary.damageRandom == 5);
     CHECK(set->weapons[0].primary.pushChance == 0.2);
     CHECK(set->weapons[1].alt->hitEvery == 0.22);
+    CHECK(set->weapons[1].primary.momentumSide == -10000);
     CHECK(set->weapons[1].alt->refireLead == 0.05);
     CHECK(set->weapons[1].alt->windUp == 0.25);
     CHECK(set->weapons[1].alt->pressAmmo == 2);
@@ -310,6 +312,8 @@ TEST_CASE("INV-1: each refusal names its line", "[ugame][weapons]") {
          "rule = rocket-fan\nhead", "'rocket-fan' is not a rule of an instant-hit fire"},
         {"a rule of none", edited("rule = rocket-fan", "rule = none"), "rule = none",
          "'none' is not a rule of a projectile fire"},
+        {"a refire-lead that leaves no interval", edited("refire-lead = 0.05", "refire-lead = -0.1"), "refire-lead",
+         "refire-lead takes all of refire"},
         {"an unknown splash centre", edited("splash-from = moved", "splash-from = middle"), "splash-from",
          "'middle' is not one of: contact, moved"},
         {"an unknown body hit", edited("body-hit = direct", "body-hit = glancing"), "body-hit",

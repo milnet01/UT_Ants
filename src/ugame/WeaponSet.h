@@ -71,7 +71,9 @@ struct FireMode {
     /// the original's class adds (SS 4.9).
     std::array<double, 3> offset{};
     double refire = 0;        ///< game seconds between shots while held
-    double refireLead = 0;    ///< added once, after a shot fired from idle: the firing animation's blend-in
+    /// Added once, after a shot fired from idle: the firing animation's
+    /// blend-in, or below 0 a first interval shorter than the rest (ChainSaw).
+    double refireLead = 0;
     double windUp = 0;        ///< game seconds from a press at idle to its shot, which a release does not stop
     std::uint32_t ammo = 0;   ///< spent per shot; per `ammoEvery` for a beam
     std::uint32_t pressAmmo = 0; ///< spent by the press that starts a wind-up or a beam, with no shot
@@ -85,7 +87,7 @@ struct FireMode {
     std::uint32_t spread = 0; ///< the cone's half-angle, in angle units
     std::optional<Charge> charge;
     double damage = 0;   ///< instant-hit, melee; per second for a beam
-    double momentum = 0; ///< instant-hit, melee; per second for a beam
+    double momentum = 0; ///< instant-hit, melee (below 0 pulls); per second for a beam
     double range = 0;    ///< instant-hit, beam, melee
     double hitEvery = 0; ///< beam: seconds of hold it stores on a body before it hurts; 0 every tick
     double ammoEvery = 1; ///< beam: seconds of hold that spend `ammo`
@@ -101,6 +103,7 @@ struct FireMode {
     std::uint32_t count = 1;              ///< projectile
     double spiralRadius = 0;              ///< projectile: its start circles the offset at this radius
     std::uint32_t spiralTurn = 0;         ///< projectile: angle units round that circle a shot of one hold
+    double momentumSide = 0;              ///< melee: momentum along the firer's right; below 0, its left
     double selfMomentum = 0;              ///< melee: pushes the firer back off a surface
     double selfDamage = 0;                ///< melee: what a surface hit costs the firer
     double reach = 0;                     ///< melee: no body farther than this from the firer is hurt; 0 any

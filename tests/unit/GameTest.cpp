@@ -1108,6 +1108,39 @@ TEST_CASE("SS 4.9: the sniper's head hit and body hit, and no alt fire", "[ugame
     }
 }
 
+TEST_CASE("SS 4.9: the chainsaw's cut pulls, and its slash lands after its wind-up and pushes left", "[ugame][game]") {
+    const BodyWorld world = arena();
+    const WeaponSet& set = stock();
+    const Weapon& saw = set.weapons[static_cast<std::size_t>(weaponNamed(set, "chainsaw"))];
+    REQUIRE(saw.primary.momentum < 0);
+    REQUIRE(saw.alt->momentumSide < 0);
+    // Facing +X with the dummy in reach: the cut pulls it back along -X.
+    Game cut = duel(set, "chainsaw", 60);
+    const Hits cuts = hitsWhileHeld(world, set, cut, 40);
+    CHECK(cuts.losses[0] == landed(set, saw.primary.damage));
+    CHECK(cuts.pushes[0].x < 0);
+    CHECK(cuts.pushes[0].y == 0);
+    // The cut after the press's comes refire-lead early; the rest a refire apart.
+    std::vector<int> at;
+    for (int k = 0; k < 40; ++k)
+        if (cuts.losses[static_cast<std::size_t>(k)] > 0) at.push_back(k);
+    REQUIRE(at.size() >= 3);
+    CHECK(std::abs(at[1] - (saw.primary.refire + saw.primary.refireLead) / DT) <= 1);
+    CHECK(std::abs(at[2] - at[1] - saw.primary.refire / DT) <= 1);
+
+    // The slash lands a wind-up after its press, and pushes along the
+    // firer's left: +Y is its right.
+    Game slash = duel(set, "chainsaw", 60);
+    const Hits slashes = hitsWhileHeld(world, set, slash, 40, true);
+    int first = 0;
+    while (first < 40 && slashes.losses[static_cast<std::size_t>(first)] == 0) ++first;
+    REQUIRE(first < 40);
+    CHECK(std::abs(first + 1 - saw.alt->windUp / DT) <= 1);
+    CHECK(slashes.losses[static_cast<std::size_t>(first)] == landed(set, saw.alt->damage));
+    CHECK(slashes.pushes[static_cast<std::size_t>(first)].y < 0);
+    CHECK(std::abs(slashes.pushes[static_cast<std::size_t>(first)].x) < 1e-9);
+}
+
 TEST_CASE("SS 4.9: the pulse beam grows to a body, hurts it at a touch and then by its store", "[ugame][game]") {
     const BodyWorld world = arena();
     const WeaponSet& set = stock();

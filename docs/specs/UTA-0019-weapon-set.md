@@ -191,7 +191,10 @@ archetype's rule, or an unknown one, is refused. Projectile rules:
 `rocket-fan` and `grenade-cluster` (§ 4.9, Rockets). Melee rule:
 `hammer` (§ 4.9, Hammer).
 
-A melee mode may carry `self-damage`, what a surface hit costs its firer;
+A melee mode's `momentum` may be below zero, which pulls (the Chainsaw),
+and `momentum-side` pushes along the firer's right-hand axis, or its left
+below zero. `refire-lead` is added once to the interval after a shot
+fired from idle, and may be below zero. A melee mode may carry `self-damage`, what a surface hit costs its firer;
 `reach`, past which from the firer no body is hurt; and `distance-scale`,
 which scales the effect by the hit's distance over it. Every mode has an **`offset`**: where its
 shot starts from the eye, forward, right and up, turned by the aim

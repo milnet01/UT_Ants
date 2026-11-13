@@ -217,8 +217,11 @@ Result<void> readFire(FireMode& mode, Keys& keys) {
     mode.archetype = static_cast<Archetype>(which);
     UTA_TRY(const std::optional<double> refire, keys.decimal("refire", true, 0.001, TIME_MAX));
     mode.refire = *refire;
-    UTA_TRY(const std::optional<double> lead, keys.decimal("refire-lead", false, 0, TIME_MAX));
-    mode.refireLead = lead.value_or(0);
+    UTA_TRY(const std::optional<Entry> leadAt, keys.take("refire-lead", false));
+    if (leadAt) {
+        UTA_TRY(mode.refireLead, ini::decimalOf(FORMAT, leadAt->value, -TIME_MAX, TIME_MAX, leadAt->line));
+        if (mode.refire + mode.refireLead <= 0) return refuse(leadAt->line, "refire-lead takes all of refire");
+    }
     UTA_TRY(const std::optional<double> windUp, keys.decimal("wind-up", false, 0, TIME_MAX));
     mode.windUp = windUp.value_or(0);
     UTA_TRY(const std::optional<std::uint32_t> ammo, keys.number("ammo", true, 0, AMMO_MAX));
@@ -261,7 +264,8 @@ Result<void> readFire(FireMode& mode, Keys& keys) {
     } else {
         UTA_TRY(const std::optional<double> damage, keys.decimal("damage", true, 0, AMOUNT_MAX));
         mode.damage = *damage;
-        UTA_TRY(const std::optional<double> momentum, keys.decimal("momentum", true, 0, AMOUNT_MAX));
+        const double pull = mode.archetype == Archetype::Melee ? -AMOUNT_MAX : 0;
+        UTA_TRY(const std::optional<double> momentum, keys.decimal("momentum", true, pull, AMOUNT_MAX));
         mode.momentum = *momentum;
         UTA_TRY(const std::optional<double> range, keys.decimal("range", true, 1, DISTANCE_MAX));
         mode.range = *range;
@@ -291,6 +295,8 @@ Result<void> readFire(FireMode& mode, Keys& keys) {
         mode.firstHit = firstHit.value_or(0);
     }
     if (mode.archetype == Archetype::Melee) {
+        UTA_TRY(const std::optional<double> side, keys.decimal("momentum-side", false, -AMOUNT_MAX, AMOUNT_MAX));
+        mode.momentumSide = side.value_or(0);
         UTA_TRY(const std::optional<double> self, keys.decimal("self-momentum", false, 0, AMOUNT_MAX));
         mode.selfMomentum = self.value_or(0);
         UTA_TRY(const std::optional<double> selfDamage, keys.decimal("self-damage", false, 0, AMOUNT_MAX));
@@ -581,9 +587,10 @@ std::string fireText(std::string_view weapon, std::string_view which, const Fire
         out += std::format("hit-every = {}\nammo-every = {}\nextend = {}\nfirst-hit = {}\n", decimal(mode.hitEvery),
                            decimal(mode.ammoEvery), decimal(mode.extend), decimal(mode.firstHit));
     if (mode.archetype == Archetype::Melee)
-        out += std::format("self-momentum = {}\nself-damage = {}\nreach = {}\ndistance-scale = {}\n",
-                           decimal(mode.selfMomentum), decimal(mode.selfDamage), decimal(mode.reach),
-                           decimal(mode.distanceScale));
+        out += std::format("momentum-side = {}\nself-momentum = {}\nself-damage = {}\nreach = {}\n"
+                           "distance-scale = {}\n",
+                           decimal(mode.momentumSide), decimal(mode.selfMomentum), decimal(mode.selfDamage),
+                           decimal(mode.reach), decimal(mode.distanceScale));
     return out;
 }
 

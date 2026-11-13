@@ -328,7 +328,11 @@ void fire(Tick& tick, int index, const FireMode& mode, double scale) {
         const double effect = damageScale * distance;
         if (hit.body >= 0) {
             const bool inReach = mode.reach == 0 || uworld::length(stop - body.move.location) <= mode.reach;
-            if (inReach) hitBody(tick, hit.body, index, start, end, mode.damage * effect, mode.momentum * effect);
+            // ChainSaw: its cut pulls along the aim (a momentum below 0), its
+            // slash pushes along the firer's right-hand axis.
+            const double sy = core::sineOf(body.yaw), cy = core::cosineOf(body.yaw);
+            const Vec3 push = aim * mode.momentum + Vec3{-sy, cy, 0} * mode.momentumSide;
+            if (inReach) tick.owed.push_back(Owed{hit.body, mode.damage * effect, push * effect, index});
         } else if (hit.surface && (mode.selfMomentum > 0 || mode.selfDamage > 0)) {
             // The hammer against a wall or floor hurts its firer by distance
             // and throws it back by charge too (S2), the charge counted as at

@@ -66,18 +66,21 @@ switch-time = 0.77         # recorded: from the Enforcer, key to first shot
 archetype = melee
 offset = 2 3.6 4.1         # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
 refire = 0.3               # script: ChainSaw sleeps 0.15 twice a trace; recorded
+refire-lead = -0.137       # script: the press cuts, and the next cut is one sleep and a tick on; recorded
 ammo = 0
 damage = 20                # recorded
-momentum = 15000           # recorded
+momentum = -15000          # script: ChainSaw.TraceFire, -15000 along the aim: it pulls; recorded
 range = 90                 # default: ChainSaw.Range
 
 [fire chainsaw alt]
 archetype = melee
 offset = 12 3.6 4.1        # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
-refire = 1.6               # recorded; the slash lands 0.3 s after the press (rule to build)
+refire = 1.6               # recorded: slash to slash while held, at 30, 85 and 120 fps
+wind-up = 0.305            # recorded: the slash lands past 0.3 and by 0.312 s after the press, a tap too
 ammo = 0
 damage = 110               # recorded
-momentum = 10000           # recorded
+momentum = 0
+momentum-side = -10000     # script: ChainSaw.Slash, -10000 along the right-hand axis; recorded
 range = 90                 # default: ChainSaw.Range
 
 [weapon enforcer]
