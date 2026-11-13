@@ -25,6 +25,9 @@
 // A ROW IS LOGGED AFTER ITS TICK'S HITS. A body a D line at tick k hit
 // starts tick k from that line's velocity and physics from before the hit,
 // not from row k's, which already carry the push.
+// THE WEAPON'S OWN TRACE HURTS THE TARGET BEFORE THAT FRAME MOVES IT, ours
+// after: a target hit so while falling is judged without the gravity our
+// tick gave it. Shots, and hits on the firer, come after the move in both.
 //
 // THE ORIGINAL HOVERS, OURS DOES NOT (UTA-0017 SS 3 item 4). Each body's
 // height above our floor at row 0 is taken off its recorded heights, and the
@@ -33,7 +36,9 @@
 // floor early. A kind that bounces and has no blast is raised by the firer's
 // hover from the tick of its first bounce, and flown at the recorded height
 // from then on. One with a blast is judged against the bodies and stays low:
-// its bounces are taken from the recording and not compared.
+// its bounces are taken from the recording and not compared. A kind that
+// sticks is raised the same way from the tick ours first sticks, so it lands
+// where the recorded one did; stuck to a floor it is as near the bodies.
 //
 // THE EYE IS THE RECORDING'S. The original's view shakes with each shot
 // (PlayerPawn.ShakeView), which moves where the next one starts; a server's
@@ -446,6 +451,8 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
             for (const ugame::Event& event : game.events)
                 if (event.kind == ugame::Event::Kind::Explosion || event.kind == ugame::Event::Kind::Combo)
                     std::cout << "  explosion " << tick << " at " << str(event.from) << " radius " << event.radius << "\n";
+                else if (event.kind == ugame::Event::Kind::Melee)
+                    std::cout << "  melee " << tick << " from " << str(event.from) << " to " << str(event.to) << "\n";
 
         // A weapon may fire in the tick it comes up: any weapon's ammo counts.
         for (std::size_t i = 0; i < carriedBefore.size(); ++i)
@@ -455,7 +462,21 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
             }
         for (int b = 0; b < 2; ++b) {
             const double lost = healthBefore[static_cast<std::size_t>(b)] - game.bodies[static_cast<std::size_t>(b)].health;
-            if (lost > 0) ourHits.push_back({tick, b, lost, game.bodies[static_cast<std::size_t>(b)].move.velocity});
+            if (lost <= 0) continue;
+            // The weapon's own trace hurts the target before that frame
+            // moves it (the weapon ticks first), ours after: a target falling
+            // through the tick has gained its gravity. A shot ticks after
+            // both bodies, and a firer before its weapon, as ours do.
+            const auto at = static_cast<std::size_t>(b);
+            Vec3 velocity = game.bodies[at].move.velocity;
+            const bool traced = std::ranges::any_of(game.events, [](const ugame::Event& event) {
+                return event.kind == ugame::Event::Kind::Melee || event.kind == ugame::Event::Kind::InstantHit ||
+                       event.kind == ugame::Event::Kind::Beam;
+            });
+            if (b == TARGET && traced && gameBefore.bodies[at].move.physics == uworld::Physics::Falling &&
+                game.bodies[at].move.physics == uworld::Physics::Falling)
+                velocity.z -= rules.gravityZ * row.dt;
+            ourHits.push_back({tick, b, lost, velocity});
         }
 
         // Follow our shots: survivors keep their order, the new ones come
@@ -592,8 +613,9 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
                 // flies straight till then turns at nothing else.
                 const bool turned = before != t.rows.end() && after != t.rows.end() && kind.gravity == 0 &&
                                     uworld::length(vec(after->second.velocity) - vec(before->second.velocity)) > 0.01;
-                const bool raise = !s.raised && kind.strike == ugame::Strike::Bounce && kind.splashRadius == 0 &&
-                                   (shot.bounces > s.bounces || turned);
+                const bool lands = kind.strike == ugame::Strike::Stick && shot.stuck && !start.stuck;
+                const bool raise = !s.raised && (lands || (kind.strike == ugame::Strike::Bounce &&
+                                                           kind.splashRadius == 0 && (shot.bounces > s.bounces || turned)));
                 if (raise) {
                     s.raised = true;
                     start.location.z += firerHover;
@@ -612,7 +634,8 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
                 };
                 const auto all = raise || shot.bounces > s.bounces ? with(1) : std::vector<ugame::Shot>{};
                 if (raise && all.size() == 1 && all[0].bounces == start.bounces) {
-                    // Raised, it has yet to bounce.
+                    // Raised, it has yet to bounce; or it sticks from the
+                    // recorded height, this tick or a later one.
                     shot = all[0];
                 } else if (after != t.rows.end() && (raise || shot.bounces > s.bounces)) {
                     // A bounce draws how much speed it keeps off the surface

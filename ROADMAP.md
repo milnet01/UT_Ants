@@ -18681,6 +18681,27 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Failures 161 -> 154. Left on the chainsaw: the cut after the
   press's finds the victim still in the air (velocity 35 off at 30
   fps), and at 85 and 120 fps our second slash does not land.
+  2026-11-13, bio primary and the chainsaw's reach. The Bio Rifle's
+  primary refires every 0.286 s, and a hold's first interval is 0.307
+  to 0.331 at 30, 85 and 120 fps (refire-lead 0.022): spends now match
+  to the tick in all three runs.
+  ChainSaw.TraceFire and Slash end their trace Range from the owner's
+  centre, not from where it starts (new key range-from = body; the
+  cut's range is 10 + Range, 100). Ours ran 90 on from the saw's side
+  and passed 0.13 outside a body the original hit: the second slash
+  now lands at 85 and 120 fps.
+  Replay: a kind that sticks is raised by the firer's hover from the
+  tick ours sticks, as bouncing kinds are (a gel's landing was 16 to
+  27 off, now under 2.5 on clean shots). The weapon's own trace hurts
+  the target before that frame moves it, ours after, so a target hit
+  while falling is judged without our tick's gravity (the cut's 34.9
+  at 30 fps was 950 x dt). Failures 154 -> 147.
+  Left: a stuck gel rests up to 2.5 along its path from ours, either
+  way, at no rate in particular (ours always at one height; recorded
+  heights differ by 0.9 on one flat floor). The cut's tenth hit at 85
+  and 120 fps: recorded cuts are 22 to 24 ticks apart at 85, ours 24,
+  which is the open Sleep-cadence question. bio-primary 30's shot
+  after the recording's 0.377 hitch starts 4.26 low.
   **Layman:** The guns. Built as a table of numbers rather than as code, so a different set -- your super weapons -- is a different table rather than a second codebase.
   Kind: implement.
   Source: design-2026-09-03.

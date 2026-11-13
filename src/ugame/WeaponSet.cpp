@@ -141,6 +141,7 @@ constexpr std::string_view STRIKE_NAMES[] = {"explode", "bounce", "stick", "spli
 constexpr std::string_view SCALES_NAMES[] = {"damage", "count"};
 constexpr std::string_view EXPIRE_NAMES[] = {"vanish", "explode"};
 constexpr std::string_view SPLASH_FROM_NAMES[] = {"contact", "moved"};
+constexpr std::string_view RANGE_FROM_NAMES[] = {"start", "body"};
 constexpr std::string_view BODY_HIT_NAMES[] = {"splash", "direct"};
 /// FireRule's names, in its order; "none" is never written.
 constexpr std::string_view RULE_NAMES[] = {"none", "rocket-fan", "grenade-cluster", "hammer"};
@@ -297,6 +298,11 @@ Result<void> readFire(FireMode& mode, Keys& keys) {
     if (mode.archetype == Archetype::Melee) {
         UTA_TRY(const std::optional<double> side, keys.decimal("momentum-side", false, -AMOUNT_MAX, AMOUNT_MAX));
         mode.momentumSide = side.value_or(0);
+        UTA_TRY(const std::optional<Entry> rangeFrom, keys.take("range-from", false));
+        if (rangeFrom) {
+            UTA_TRY(const std::size_t from, choiceOf(RANGE_FROM_NAMES, *rangeFrom));
+            mode.rangeFromBody = from == 1;
+        }
         UTA_TRY(const std::optional<double> self, keys.decimal("self-momentum", false, 0, AMOUNT_MAX));
         mode.selfMomentum = self.value_or(0);
         UTA_TRY(const std::optional<double> selfDamage, keys.decimal("self-damage", false, 0, AMOUNT_MAX));
@@ -587,10 +593,11 @@ std::string fireText(std::string_view weapon, std::string_view which, const Fire
         out += std::format("hit-every = {}\nammo-every = {}\nextend = {}\nfirst-hit = {}\n", decimal(mode.hitEvery),
                            decimal(mode.ammoEvery), decimal(mode.extend), decimal(mode.firstHit));
     if (mode.archetype == Archetype::Melee)
-        out += std::format("momentum-side = {}\nself-momentum = {}\nself-damage = {}\nreach = {}\n"
+        out += std::format("momentum-side = {}\nrange-from = {}\nself-momentum = {}\nself-damage = {}\nreach = {}\n"
                            "distance-scale = {}\n",
-                           decimal(mode.momentumSide), decimal(mode.selfMomentum), decimal(mode.selfDamage),
-                           decimal(mode.reach), decimal(mode.distanceScale));
+                           decimal(mode.momentumSide), RANGE_FROM_NAMES[mode.rangeFromBody ? 1 : 0],
+                           decimal(mode.selfMomentum), decimal(mode.selfDamage), decimal(mode.reach),
+                           decimal(mode.distanceScale));
     return out;
 }
 

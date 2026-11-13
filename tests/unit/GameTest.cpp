@@ -1139,6 +1139,19 @@ TEST_CASE("SS 4.9: the chainsaw's cut pulls, and its slash lands after its wind-
     CHECK(slashes.losses[static_cast<std::size_t>(first)] == landed(set, saw.alt->damage));
     CHECK(slashes.pushes[static_cast<std::size_t>(first)].y < 0);
     CHECK(std::abs(slashes.pushes[static_cast<std::size_t>(first)].x) < 1e-9);
+
+    // ChainSaw.TraceFire: the cut's trace ends its range from the firer's
+    // centre, not from where it starts, so it slants in from the saw.
+    REQUIRE(saw.primary.rangeFromBody);
+    Game far = duel(set, "chainsaw", 600);
+    const Vec3 centre = far.bodies[0].move.location;
+    hold(world, set, far, 1);
+    const auto melee = std::ranges::find(far.events, Event::Kind::Melee, &Event::kind);
+    REQUIRE(melee != far.events.end());
+    CHECK(std::abs(melee->to.x - (centre.x + saw.primary.range)) < 1e-9);
+    CHECK(std::abs(melee->to.y - centre.y) < 1e-9);
+    CHECK(std::abs(melee->to.z - centre.z) < 1e-3); // the firer settles a hair in its first tick
+    CHECK(melee->from.y != centre.y);
 }
 
 TEST_CASE("SS 4.9: the pulse beam grows to a body, hurts it at a touch and then by its store", "[ugame][game]") {

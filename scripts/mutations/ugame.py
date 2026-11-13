@@ -46,6 +46,8 @@ SUBJECT = {
          "Vec3{0, 0, body.eyeHeight}", "Vec3{0, 0, EYE_HEIGHT}"),
         ("", "a melee's side push dropped", "src/ugame/Fire.cpp",
          "aim * mode.momentum + Vec3{-sy, cy, 0} * mode.momentumSide;", "aim * mode.momentum;"),
+        ("", "a melee's range always from its start", "src/ugame/Fire.cpp",
+         "(mode.rangeFromBody ? body.move.location : start)", "start"),
         ("", "a melee's side push along the aim", "src/ugame/Fire.cpp",
          "aim * mode.momentum + Vec3{-sy, cy, 0} * mode.momentumSide;", "aim * (mode.momentum + mode.momentumSide);"),
         ("", "damage not whole", "src/ugame/Game.cpp",

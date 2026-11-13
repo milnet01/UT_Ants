@@ -193,7 +193,10 @@ archetype's rule, or an unknown one, is refused. Projectile rules:
 
 A melee mode's `momentum` may be below zero, which pulls (the Chainsaw),
 and `momentum-side` pushes along the firer's right-hand axis, or its left
-below zero. `refire-lead` is added once to the interval after a shot
+below zero. `range-from = body` ends a melee's trace its `range` from the
+firer's centre, not from where the trace starts (the Chainsaw, both
+modes; recorded 2026-11-13: a slash from the saw's side missed a body the
+original hit). `refire-lead` is added once to the interval after a shot
 fired from idle, and may be below zero. A melee mode may carry `self-damage`, what a surface hit costs its firer;
 `reach`, past which from the firer no body is hurt; and `distance-scale`,
 which scales the effect by the hit's distance over it. Every mode has an **`offset`**: where its
@@ -370,7 +373,8 @@ Botpack `DeathMatchPlus.ReduceDamage`):
   exception is the Minigun's spun-up alt: 0.074 s at 30, 0.078 s at 85.
   A hold's first interval can be longer, by `refire-lead`. Recorded
   2026-11-12 at 30, 85 and 120 fps: the Ripper's primary, 0.404 to
-  0.409 s against 0.384 s. The script does not say why.
+  0.409 s against 0.384 s. The script does not say why. Recorded
+  2026-11-13: the Bio Rifle's primary, 0.307 to 0.331 s against 0.286 s.
 - **Wind-up:** a press at idle on a mode with `wind-up` fires that long
   after, held or not, and spends `press-ammo` at once with no shot. The
   Enforcer's alt turns the gun first (`Enforcer.AltFiring`; recorded

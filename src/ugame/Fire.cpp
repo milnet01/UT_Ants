@@ -278,6 +278,12 @@ void instantHit(Tick& tick, int body, int instigator, const Vec3& from, const Ve
     hitBody(tick, body, instigator, from, to, damage * scale, momentum * scale);
 }
 
+/// Where a melee's trace ends: its range along the aim from where it starts,
+/// or from the firer's centre (ChainSaw: `Owner.Location + Range * aim`).
+Vec3 meleeEnd(const Body& body, const FireMode& mode, const Vec3& start) {
+    return (mode.rangeFromBody ? body.move.location : start) + aimOf(body.yaw, body.pitch) * mode.range;
+}
+
 } // namespace
 
 bool meleeTouches(const Tick& tick, int index, const FireMode& mode) {
@@ -288,7 +294,7 @@ bool meleeTouches(const Tick& tick, int index, const FireMode& mode) {
         const SegmentHit hit = traceSegment(tick, start, start + aimOf(body.yaw, body.pitch) * HAMMER_TOUCH, index, false);
         return hit.body >= 0;
     }
-    const SegmentHit hit = traceSegment(tick, start, start + aimOf(body.yaw, body.pitch) * mode.range, index, false);
+    const SegmentHit hit = traceSegment(tick, start, meleeEnd(body, mode, start), index, false);
     return hit.fraction < 1; // a trace meeting nothing reports 1
 }
 
@@ -319,7 +325,7 @@ void fire(Tick& tick, int index, const FireMode& mode, double scale) {
     case Archetype::Melee: {
         carried.ammo -= spend;
         const Vec3 aim = aimOf(body.yaw, body.pitch);
-        const Vec3 end = start + aim * mode.range;
+        const Vec3 end = meleeEnd(body, mode, start);
         const SegmentHit hit = traceSegment(tick, start, end, index, false);
         const Vec3 stop = start + (end - start) * std::min(hit.fraction, 1.0);
         tick.game.events.push_back(Event{Event::Kind::Melee, start, stop, 0});

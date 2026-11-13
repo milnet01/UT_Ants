@@ -81,6 +81,7 @@ momentum = 66000
 range = 60
 self-momentum = 66000
 momentum-side = -10000
+range-from = body
 
 [fire hammer alt]
 archetype = beam
@@ -197,6 +198,8 @@ TEST_CASE("INV-2: the small set parses and reads back from write", "[ugame][weap
     CHECK(set->weapons[0].primary.pushChance == 0.2);
     CHECK(set->weapons[1].alt->hitEvery == 0.22);
     CHECK(set->weapons[1].primary.momentumSide == -10000);
+    CHECK(set->weapons[1].primary.rangeFromBody);
+    CHECK_FALSE(set->weapons[0].primary.rangeFromBody);
     CHECK(set->weapons[1].alt->refireLead == 0.05);
     CHECK(set->weapons[1].alt->windUp == 0.25);
     CHECK(set->weapons[1].alt->pressAmmo == 2);
