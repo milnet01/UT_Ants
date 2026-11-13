@@ -52,6 +52,8 @@ namespace detail {
 namespace {
 /// ImpactHammer.Firing: how far ahead a held, charged hammer feels for a body.
 constexpr double HAMMER_TOUCH = 25;
+/// Seconds since its last touch, for a beam that has touched no body yet.
+constexpr double BEAM_NEVER_HIT = 1e9;
 } // namespace
 
 std::uint64_t draw(Game& game) {
@@ -358,28 +360,51 @@ void fire(Tick& tick, int index, const FireMode& mode, double scale) {
 void beam(Tick& tick, int index, const FireMode& mode) {
     Body& body = tick.game.bodies[static_cast<std::size_t>(index)];
     Carried& carried = body.weapons[static_cast<std::size_t>(body.weapon)];
-    if (mode.ammo > 0) {
-        if (carried.ammo == 0) return; // INV-7
-        body.beamAmmo += mode.ammo * tick.dt;
-        const auto rounds = static_cast<std::uint32_t>(body.beamAmmo);
-        body.beamAmmo -= rounds;
-        carried.ammo -= std::min(rounds, carried.ammo);
+    const bool begins = body.beamFor == 0;
+    // INV-7: a press it cannot pay for starts nothing; a beam out of ammo stops.
+    if (begins ? carried.ammo < mode.pressAmmo + mode.ammo : mode.ammo > 0 && carried.ammo == 0) return;
+    if (begins) {
+        carried.ammo -= mode.pressAmmo;
+        body.beamSince = BEAM_NEVER_HIT;
     }
+    // PulseGun.AltFiring: `ammo` each time the hold passes `ammo-every`,
+    // what is past it kept toward the next.
+    body.beamAmmo += tick.dt;
+    if (mode.ammo > 0 && body.beamAmmo > mode.ammoEvery) {
+        body.beamAmmo -= mode.ammoEvery;
+        carried.ammo -= std::min(mode.ammo, carried.ammo);
+    }
+    // PBolt grows a piece a tick: `extend` a second, up to its range.
+    body.beamFor += tick.dt;
+    const double reach = mode.extend > 0 ? std::min(mode.range, mode.extend * body.beamFor) : mode.range;
     const Vec3 start = startOf(body, mode);
     const Vec3 aim = aimOf(body.yaw, body.pitch);
-    const Vec3 end = start + aim * mode.range;
+    const Vec3 end = start + aim * reach;
     const SegmentHit hit = traceSegment(tick, start, end, index, false);
     tick.game.events.push_back(Event{Event::Kind::Beam, start, start + (end - start) * std::min(hit.fraction, 1.0), 0});
-    // The original's beam stores its hold and hurts once the store passes
-    // `hit-every`, so its whole-number damage is not cut to nothing a tick.
-    double held = tick.dt;
-    if (mode.hitEvery > 0) {
-        body.beamHeld += tick.dt;
-        if (body.beamHeld <= mode.hitEvery) return;
-        held = body.beamHeld;
+
+    // PBolt.CheckBeam. The beam stores its hold on a body and hurts it once
+    // the store passes `hit-every`, so its whole-number damage is not cut to
+    // nothing a tick. A body it leaves takes what was stored; one it first
+    // touches takes `first-hit` of hold at once, less if it touched one
+    // within twice that.
+    const auto hurt = [&](int victim, double held) {
+        if (held > 0) tick.owed.push_back(Owed{victim, mode.damage * held, aim * (mode.momentum * held), index});
+    };
+    body.beamSince += tick.dt;
+    if (hit.body != body.beamVictim) {
+        if (body.beamVictim >= 0) hurt(body.beamVictim, body.beamHeld);
+        else hurt(hit.body, std::min(0.5 * body.beamSince, mode.firstHit));
+        body.beamHeld = 0;
+        body.beamVictim = hit.body;
+    }
+    if (hit.body < 0) return;
+    body.beamSince = 0;
+    body.beamHeld += tick.dt;
+    if (body.beamHeld > mode.hitEvery) {
+        hurt(hit.body, body.beamHeld);
         body.beamHeld = 0;
     }
-    if (hit.body >= 0) tick.owed.push_back(Owed{hit.body, mode.damage * held, aim * (mode.momentum * held), index});
 }
 
 } // namespace detail

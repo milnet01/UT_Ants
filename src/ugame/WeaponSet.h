@@ -73,8 +73,8 @@ struct FireMode {
     double refire = 0;        ///< game seconds between shots while held
     double refireLead = 0;    ///< added once, after a shot fired from idle: the firing animation's blend-in
     double windUp = 0;        ///< game seconds from a press at idle to its shot, which a release does not stop
-    std::uint32_t ammo = 0;   ///< spent per shot; per second for a beam
-    std::uint32_t pressAmmo = 0; ///< spent by the press that starts a wind-up, with no shot
+    std::uint32_t ammo = 0;   ///< spent per shot; per `ammoEvery` for a beam
+    std::uint32_t pressAmmo = 0; ///< spent by the press that starts a wind-up or a beam, with no shot
     /// A hold on a wound-up mode presses again this often, counted from its
     /// press: it pays `pressAmmo` and winds up again. 0 for never.
     double repress = 0;
@@ -87,7 +87,10 @@ struct FireMode {
     double damage = 0;   ///< instant-hit, melee; per second for a beam
     double momentum = 0; ///< instant-hit, melee; per second for a beam
     double range = 0;    ///< instant-hit, beam, melee
-    double hitEvery = 0; ///< beam: seconds of hold it stores before it hurts; 0 every tick
+    double hitEvery = 0; ///< beam: seconds of hold it stores on a body before it hurts; 0 every tick
+    double ammoEvery = 1; ///< beam: seconds of hold that spend `ammo`
+    double extend = 0;    ///< beam: units a second it grows from nothing to `range`; 0 for at once
+    double firstHit = 0;  ///< beam: seconds of hold a body takes as the beam first touches it
     std::uint32_t pellets = 1;            ///< instant-hit
     std::uint32_t damageRandom = 0;       ///< instant-hit: a whole number from 0 to this, added
     double pushChance = 0;                ///< instant-hit: of hits whose momentum is scaled by `pushScale`

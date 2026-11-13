@@ -18645,6 +18645,17 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Failures 197 -> 180; pulse-primary at 30 fps matches in full.
   Left: at 85 fps one recorded interval is a tick short (13 for
   14), which no rule of ours gives; the 120 fps run missed its rate.
+  2026-11-13, pulse alt. The beam is PBolt's as scripted and as
+  recorded at 30, 85 and 120 fps. It grows a piece of 81 a tick
+  (new key extend, units a second: 6259 at our 85 ticks; the
+  replay sets 81 over each run's tick, since the original's growth
+  moves with frame rate). A body it first touches takes 0.1 s of
+  hold at once (first-hit; recorded 10), then the store pays past
+  hit-every; a body it leaves takes what was stored; a re-touch
+  takes half the time since. The press spends a round (press-ammo)
+  and the hold one each 0.24 s, carried (ammo-every): ammo was 4 a
+  second with no press round. All six pulse-alt runs match in
+  full. Failures 180 -> 170.
   **Layman:** The guns. Built as a table of numbers rather than as code, so a different set -- your super weapons -- is a different table rather than a second codebase.
   Kind: implement.
   Source: design-2026-09-03.
@@ -23685,6 +23696,9 @@ docs/standards/versioning-overrides.md. Closes S8.
   must be a real UTC date and time, YYYY-MM-DDTHH:MM:SS, optional
   fraction digits, Z; second 60 is refused. Build it from the UTC
   system clock, never local time fields.
+  frameledger, 2026-11-13 (its section 4.2, at c774dae): a
+  started_utc fraction has at most 20 digits. std::chrono can emit
+  more than a writer needs; print whole seconds or a fixed few.
   **Layman:** Save every frame's timings in the format shared with Vestige and DOOM Ants, so one analyser can find stutters and compare builds for all three games.
   Kind: feature.
   Source: user-request-2026-10-24.

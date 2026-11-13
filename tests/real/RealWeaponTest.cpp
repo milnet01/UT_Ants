@@ -270,9 +270,15 @@ ugame::WeaponSet slept(ugame::WeaponSet set, double dt) {
         whole(fire.refireLead);
         whole(fire.spinRefire);
     };
+    // PBolt grows a piece a tick, whatever the tick: here `extend` is its
+    // 81 over this run's.
+    const auto grown = [dt](ugame::FireMode& fire) {
+        if (fire.extend > 0) fire.extend = 81 / dt;
+    };
     for (ugame::Weapon& weapon : set.weapons) {
         mode(weapon.primary, weapon.name == "pulse-gun");
-        if (weapon.alt) mode(*weapon.alt, false);
+        grown(weapon.primary);
+        if (weapon.alt) mode(*weapon.alt, false), grown(*weapon.alt);
     }
     return set;
 }

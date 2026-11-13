@@ -183,11 +183,15 @@ spiral-turn = 18775        # script: 1.8 radians a shot, the first straight up; 
 archetype = beam
 offset = 16.5 15 0         # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
 refire = 0.1               # unmeasured: a beam fires every tick held
-ammo = 4                   # recorded: one every 0.24 s, 4.17 a second (rule to build)
+ammo = 1                   # script: PulseGun.AltFiring, a round each time the hold passes ammo-every; recorded
+press-ammo = 1             # script: PulseGun.AltFire, the press spends one; recorded
+ammo-every = 0.24          # script: PulseGun.AltFiring; recorded
 damage = 72                # default: StarterBolt.Damage; SS 4.9: per second of hold
 momentum = 0               # SS 4.9: none with the 469 default NoLockdown=1; recorded
 range = 810                # script: PBolt, ten pieces of 81
 hit-every = 0.22           # SS 4.9: PBolt's stored hits
+extend = 6259              # script: PBolt adds a piece of 81 a tick; here a tick is 1.1 / 85 s
+first-hit = 0.1            # script: PBolt.CheckBeam, a first touch hurts as 0.1 s of hold; recorded
 
 [weapon ripper]
 class = botpack.ripper

@@ -169,7 +169,7 @@ another archetype's key is refused.
 |---|---|---|
 | `instant-hit` | a segment from the eye along the aim, plus spread; the first body or surface hit takes damage and momentum. `pellets`, `damage-random`, `push-chance`, `push-scale`, `head-damage`, `head-momentum` | Enforcer, Shock primary, Minigun, Sniper |
 | `projectile` | spawns `count` projectiles of a named kind, with spread | Bio, Shock alt, Pulse primary, Ripper, Flak, Rocket |
-| `beam` | a segment of `range` every tick while held, damage per second; `hit-every` stores the hold and hurts once past it | Pulse alt |
+| `beam` | a segment every tick while held, growing `extend` a second to `range`; damage per second; `hit-every` stores the hold on a body and hurts once past it; a body first touched takes `first-hit` of hold at once, and one the beam leaves takes what was stored; the press spends `press-ammo`, the hold `ammo` every `ammo-every` | Pulse alt |
 | `melee` | a short segment; on a surface, pushes the firer back | Hammer, Chainsaw |
 
 Two modifiers apply to any archetype: **`charge`**, held to build up and

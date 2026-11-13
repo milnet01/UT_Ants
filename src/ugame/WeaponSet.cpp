@@ -283,6 +283,12 @@ Result<void> readFire(FireMode& mode, Keys& keys) {
     if (mode.archetype == Archetype::Beam) {
         UTA_TRY(const std::optional<double> every, keys.decimal("hit-every", false, 0, TIME_MAX));
         mode.hitEvery = every.value_or(0);
+        UTA_TRY(const std::optional<double> ammoEvery, keys.decimal("ammo-every", false, 0.001, TIME_MAX));
+        mode.ammoEvery = ammoEvery.value_or(1);
+        UTA_TRY(const std::optional<double> extend, keys.decimal("extend", false, 0, AMOUNT_MAX));
+        mode.extend = extend.value_or(0);
+        UTA_TRY(const std::optional<double> firstHit, keys.decimal("first-hit", false, 0, TIME_MAX));
+        mode.firstHit = firstHit.value_or(0);
     }
     if (mode.archetype == Archetype::Melee) {
         UTA_TRY(const std::optional<double> self, keys.decimal("self-momentum", false, 0, AMOUNT_MAX));
@@ -571,7 +577,9 @@ std::string fireText(std::string_view weapon, std::string_view which, const Fire
             out += std::format("head-damage = {}\nhead-momentum = {}\n", decimal(*mode.headDamage),
                                decimal(mode.headMomentum));
     }
-    if (mode.archetype == Archetype::Beam) out += std::format("hit-every = {}\n", decimal(mode.hitEvery));
+    if (mode.archetype == Archetype::Beam)
+        out += std::format("hit-every = {}\nammo-every = {}\nextend = {}\nfirst-hit = {}\n", decimal(mode.hitEvery),
+                           decimal(mode.ammoEvery), decimal(mode.extend), decimal(mode.firstHit));
     if (mode.archetype == Archetype::Melee)
         out += std::format("self-momentum = {}\nself-damage = {}\nreach = {}\ndistance-scale = {}\n",
                            decimal(mode.selfMomentum), decimal(mode.selfDamage), decimal(mode.reach),

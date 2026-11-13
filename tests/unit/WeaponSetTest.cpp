@@ -95,6 +95,9 @@ damage = 72
 momentum = 8500
 range = 1100
 hit-every = 0.22
+ammo-every = 0.24
+extend = 6259
+first-hit = 0.1
 
 [projectile ball]
 speed = 1000

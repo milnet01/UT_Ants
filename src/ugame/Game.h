@@ -48,8 +48,11 @@ struct Body {
     double charged = 0;           ///< seconds a charge has been held; a stepped damage charge's steps
     double stepHeld = 0;          ///< seconds a stepped charge has been held since its last step
     std::uint32_t loaded = 0;     ///< a count charge's projectiles loaded
-    double beamAmmo = 0;          ///< a beam's ammo owed, below one round
-    double beamHeld = 0;          ///< seconds a beam has stored toward its next hit (`hit-every`)
+    double beamAmmo = 0;          ///< seconds a beam has been held since it last spent (`ammo-every`)
+    double beamHeld = 0;          ///< seconds a beam has stored on `beamVictim` toward its next hit (`hit-every`)
+    double beamFor = 0;           ///< seconds the beam has been held; 0 with no beam
+    int beamVictim = -1;          ///< the body the beam is on; -1 for none
+    double beamSince = 0;         ///< seconds since the beam was last on a body
     std::uint32_t burst = 0;      ///< shots fired since both triggers were last up
     double eyeHeight = EYE_HEIGHT; ///< its eye above its centre
     std::int32_t yaw = 0, pitch = 0; ///< the last command's aim

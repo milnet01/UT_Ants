@@ -96,7 +96,8 @@ void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
     body.altHeld = command.altFire;
     if (!command.fire && !command.altFire) body.burst = 0;
     if (body.weapon < 0 || body.pending >= 0) {
-        body.beamHeld = 0;
+        body.beamHeld = body.beamFor = 0;
+        body.beamVictim = -1;
         return;
     }
     const Weapon& weapon = tick.set.weapons[static_cast<std::size_t>(body.weapon)];
@@ -232,7 +233,10 @@ void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
     // A held trigger keeps its cadence; an idle one owes nothing.
     if (!fired && body.refireLeft < 0) body.refireLeft = 0;
     // A released beam is gone, and its store with it.
-    if (!beamed) body.beamHeld = 0;
+    if (!beamed) {
+        body.beamHeld = body.beamFor = 0;
+        body.beamVictim = -1;
+    }
 }
 
 /// How far off the surface it struck a split shot's pieces start.
@@ -502,6 +506,9 @@ std::uint64_t stateHash(const Game& game) {
         add(body.loaded);
         addDouble(body.beamAmmo);
         addDouble(body.beamHeld);
+        addDouble(body.beamFor);
+        add(static_cast<std::uint64_t>(body.beamVictim));
+        addDouble(body.beamSince);
         add(body.burst);
         addDouble(body.eyeHeight);
     }

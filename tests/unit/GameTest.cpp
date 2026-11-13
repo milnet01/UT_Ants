@@ -1107,22 +1107,60 @@ TEST_CASE("SS 4.9: the sniper's head hit and body hit, and no alt fire", "[ugame
     }
 }
 
-TEST_CASE("SS 4.9: the pulse beam stores its hold and hurts once past hit-every", "[ugame][game]") {
+TEST_CASE("SS 4.9: the pulse beam grows to a body, hurts it at a touch and then by its store", "[ugame][game]") {
     const BodyWorld world = arena();
     const WeaponSet& set = stock();
     const FireMode& beam = *set.weapons[static_cast<std::size_t>(weaponNamed(set, "pulse-gun"))].alt;
+    REQUIRE(beam.extend == 6259);
+    REQUIRE(beam.firstHit == 0.1);
+    REQUIRE(beam.hitEvery == 0.22);
     Game game = duel(set, "pulse-gun", 400);
     game.bodies[1].move.location.y = levelStart(beam).y;
     const Hits hits = hitsWhileHeld(world, set, game, 40, true);
+    // The dummy's near side is 383 off, 366.5 along a beam that starts 16.5
+    // out: 81 a tick reaches it on the fifth. The touch hurts as 0.1 s.
+    const int touch = 4;
+    // The store starts with the touch's own tick and pays once past 0.22 s:
+    // 17 ticks are 0.22 to a hair, so the store is summed as the tick sums it.
+    int stored = 0;
     double held = 0;
-    std::size_t first = 0;
-    for (; first < hits.losses.size(); ++first) {
-        held += DT;
-        if (held > beam.hitEvery) break;
-        CHECK(hits.losses[first] == 0);
+    do held += DT, ++stored;
+    while (held <= beam.hitEvery);
+    for (int k = 0; k < 40; ++k) {
+        CAPTURE(k);
+        const double loss = k == touch                ? landed(set, beam.damage * beam.firstHit)
+                            : k == touch + stored - 1 ? landed(set, beam.damage * held)
+                                                      : 0;
+        if (k < touch + stored) CHECK(hits.losses[static_cast<std::size_t>(k)] == loss);
     }
-    REQUIRE(first < hits.losses.size());
-    CHECK(hits.losses[first] == landed(set, beam.damage * held));
+
+    // A body the beam leaves takes what was stored on it.
+    Game left = duel(set, "pulse-gun", 400);
+    left.bodies[1].move.location.y = levelStart(beam).y;
+    hitsWhileHeld(world, set, left, touch + 6, true);
+    left.bodies[1].move.location.y += 500;
+    const double before = left.bodies[1].health;
+    hold(world, set, left, 1, true);
+    CHECK(before - left.bodies[1].health == landed(set, beam.damage * 6 * DT));
+    // And touched again at once, takes half the time since, not the whole first hit.
+    left.bodies[1].move.location.y -= 500;
+    const double again = left.bodies[1].health;
+    hold(world, set, left, 1, true);
+    CHECK(again - left.bodies[1].health == landed(set, beam.damage * 0.5 * 2 * DT));
+}
+
+TEST_CASE("SS 4.9: the pulse beam spends a round at its press and one each 0.24 s held", "[ugame][game]") {
+    const BodyWorld world = arena();
+    Game game = duel(stock(), "pulse-gun", 1900);
+    // 0.24 s is 18.5 ticks and what is past it is kept: 19, 38 (0.48 s), 56 (0.72 s).
+    CHECK(spendTicks(world, game, 60, true) == std::vector{1, 19, 38, 56});
+    // INV-7: with one round the press cannot be paid for beside the hold's.
+    Game low = duel(stock(), "pulse-gun", 400);
+    low.bodies[1].move.location.y = levelStart(*stock().weapons[static_cast<std::size_t>(low.bodies[0].weapon)].alt).y;
+    low.bodies[0].weapons[static_cast<std::size_t>(low.bodies[0].weapon)].ammo = 1;
+    const Hits none = hitsWhileHeld(world, stock(), low, 40, true);
+    CHECK(std::ranges::all_of(none.losses, [](double loss) { return loss == 0; }));
+    CHECK(low.bodies[0].weapons[static_cast<std::size_t>(low.bodies[0].weapon)].ammo == 1);
 }
 
 namespace {
@@ -1188,5 +1226,5 @@ TEST_CASE("INV-5: a scripted fight is the same at every frame rate and on every 
         CHECK(again == reference);
     }
     INFO("final hash " << reference.back());
-    CHECK(reference.back() == 12239779405718537928u);
+    CHECK(reference.back() == 3089084345998358696u);
 }
