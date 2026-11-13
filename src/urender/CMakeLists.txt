@@ -117,7 +117,9 @@ uta_embed_shaders(uta_urender
     shaders/fsr_easu.frag
     shaders/fsr_rcas.frag
     shaders/shadow.vert
-    shaders/shadow.frag)
+    shaders/shadow.frag
+    shaders/shape.vert
+    shaders/shape.frag)
 # UTA-0273 SS 4.4: the scene shader again, for refracting water. Only the
 # refracting pipelines declare the scene copy and the depth they read.
 uta_embed_shader(uta_urender shaders/scene.frag scene_refract.frag UTA_REFRACT)

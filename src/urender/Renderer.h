@@ -21,6 +21,7 @@
 
 #include "core/Error.h"
 #include "ubundle/Bundle.h"
+#include "urender/Shapes.h"
 
 #include <array>
 #include <cstddef>
@@ -28,6 +29,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -126,8 +128,8 @@ struct Camera {
 /// UTA-0351: the steps of a frame the GPU's clock times, in the order drawn.
 /// Fires is UTA-0286's upload of the replayed fire pictures; Shadows holds
 /// UTA-0333's copy of the tiles into the haze's atlas; Depth is UTA-0260's
-/// pre-pass; Grass UTA-0293's blades; Flames UTA-0263's flames and UTA-0215's
-/// water specks; Post the output stage, upscaling included. Only the blit out
+/// pre-pass; Grass UTA-0293's blades; Flames UTA-0263's flames, UTA-0215's
+/// water specks and UTA-0019's stand-in shapes; Post the output stage, upscaling included. Only the blit out
 /// is in none. UTA-0352 split the old "scene" step into Depth, Opaque,
 /// Translucent and Flames.
 enum class GpuPass : std::uint8_t {
@@ -220,10 +222,22 @@ public:
     void setLinearOutput(bool enabled) noexcept;
 
     /// UTA-0452: draw `text` in the top-left corner of every later PRESENTED
-    /// frame, over a black box; empty draws nothing. Only the characters
-    /// "0123456789. FPSM" have glyphs. It goes on the swapchain image after
+    /// frame, over a black box; empty draws nothing. '\n' starts a new line.
+    /// Only OVERLAY_CHARACTERS (Overlay.h) have glyphs -- upper-case letters,
+    /// digits, space and ". : - / %"; a lower-case letter draws as its upper
+    /// case, anything else as a space. It goes on the swapchain image after
     /// the blit, so readback, a capture and the surfaceless path never see it.
     void setOverlayText(std::string text);
+
+    /// UTA-0019 SS 4.8: a crosshair at the centre of every later PRESENTED
+    /// frame, white with a black edge, drawn as the overlay text is and so
+    /// never seen by readback.
+    void setCrosshair(bool shown);
+
+    /// UTA-0019 SS 4.8: draw `shapes` in every later frame, until set again.
+    /// Empty draws nothing. Flat and unlit, depth-tested against the level,
+    /// on both paths, so readback sees them.
+    void setShapes(std::span<const Shape> shapes);
 
     /// The light time the last frame was drawn at, in seconds -- SS 4.9's
     /// clock, which a flickering light's phase is measured from. Zero before

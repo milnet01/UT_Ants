@@ -8,6 +8,7 @@
 #include "urender/Swapchain.h"
 
 #include <cstdint>
+#include <span>
 #include <vector>
 
 namespace uta::urender {
@@ -23,27 +24,34 @@ VkBufferImageCopy overlayCopy(const OverlayRect& rect, VkDeviceSize bufferOffset
     return copy;
 }
 
-/// UTA-0452: the black box, then the text over it. Two copies with a barrier
-/// between, since the text's rectangles overlap the box's and one copy's
-/// regions may not overlap each other. Every write is a transfer write, so
-/// the blit before is ordered by the same barrier shape.
+/// UTA-0452: the black rectangles -- the text's box and UTA-0019's crosshair
+/// edge -- then the white ones over them. Two copies with a barrier between,
+/// since a white rectangle overlaps a black one and one copy's regions may
+/// not overlap each other (OverlayLayout keeps each colour's apart). Every
+/// write is a transfer write, so the blit before is ordered by the same
+/// barrier shape. Every rectangle reads from the start of its colour's run,
+/// which pixelCount sizes to the largest.
 void recordOverlay(VkCommandBuffer commands, VkImage target, const OverlayLayout& overlay, VkBuffer pixels) {
     const auto afterLastWrite = [&] {
         transitionImage(commands, target, VK_IMAGE_ASPECT_COLOR_BIT, 1, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     };
-    afterLastWrite(); // the blit
-    const VkBufferImageCopy box = overlayCopy(overlay.backing, 0);
-    vkCmdCopyBufferToImage(commands, pixels, target, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &box);
-    if (overlay.lit.empty()) return;
-
-    afterLastWrite(); // the box
-    const VkDeviceSize white = overlay.pixelCount() * 4;
-    std::vector<VkBufferImageCopy> text;
-    text.reserve(overlay.lit.size());
-    for (const OverlayRect& rect : overlay.lit) text.push_back(overlayCopy(rect, white));
-    vkCmdCopyBufferToImage(commands, pixels, target, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                           static_cast<std::uint32_t>(text.size()), text.data());
+    const auto copyAll = [&](std::span<const OverlayRect> rects, VkDeviceSize offset) {
+        std::vector<VkBufferImageCopy> copies;
+        copies.reserve(rects.size());
+        for (const OverlayRect& rect : rects)
+            if (rect.width != 0 && rect.height != 0) copies.push_back(overlayCopy(rect, offset));
+        if (copies.empty()) return;
+        afterLastWrite();
+        vkCmdCopyBufferToImage(commands, pixels, target, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                               static_cast<std::uint32_t>(copies.size()), copies.data());
+    };
+    std::vector<OverlayRect> black;
+    black.reserve(overlay.edges.size() + 1);
+    black.push_back(overlay.backing);
+    black.insert(black.end(), overlay.edges.begin(), overlay.edges.end());
+    copyAll(black, 0);
+    copyAll(overlay.lit, overlay.pixelCount() * 4);
 }
 
 } // namespace

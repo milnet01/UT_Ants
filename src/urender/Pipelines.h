@@ -78,6 +78,11 @@ public:
     /// UTA-0293 SS 4.4: the blades of grass, instanced over GRASS. Made only
     /// at a tier that draws grass; VK_NULL_HANDLE below it.
     [[nodiscard]] VkPipeline grass() const noexcept { return grass_; }
+    /// UTA-0019 SS 4.8's stand-in shapes, over shapeLayout: instance-rate
+    /// ShapeInstance records, ShapeConstants pushed, colour and depth only.
+    /// `blended` tests depth without writing it, for a shape with alpha below 1.
+    [[nodiscard]] VkPipeline shape(bool blended) const noexcept { return blended ? shapeBlended_ : shapeOpaque_; }
+    [[nodiscard]] VkPipelineLayout shapeLayout() const noexcept { return shapeLayout_; }
     [[nodiscard]] VkPipeline post() const noexcept { return post_; }
     /// UTA-0154's FSR 1 stages, over the post layout: post.frag into the
     /// HDR-format upscale input, EASU into another, and RCAS into the output.
@@ -126,6 +131,7 @@ private:
     [[nodiscard]] Result<void> createClusters();
     [[nodiscard]] Result<void> createFog();
     [[nodiscard]] Result<void> createShadow(const TargetFormats& formats);
+    [[nodiscard]] Result<void> createShapes(const TargetFormats& formats);
 
     /// Every pipeline, under a name a reader can find it by.
     [[nodiscard]] std::vector<std::pair<std::string, VkPipeline>> named() const;
@@ -151,6 +157,8 @@ private:
     VkPipeline flame_ = VK_NULL_HANDLE;
     VkPipeline mote_ = VK_NULL_HANDLE;
     VkPipeline grass_ = VK_NULL_HANDLE;
+    VkPipelineLayout shapeLayout_ = VK_NULL_HANDLE;
+    VkPipeline shapeOpaque_ = VK_NULL_HANDLE, shapeBlended_ = VK_NULL_HANDLE;
     VkPipeline post_ = VK_NULL_HANDLE;
     VkPipeline upscaleInput_ = VK_NULL_HANDLE, easu_ = VK_NULL_HANDLE, rcas_ = VK_NULL_HANDLE;
     VkDescriptorSetLayout bloomSetLayout_ = VK_NULL_HANDLE;

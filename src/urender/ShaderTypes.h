@@ -577,6 +577,43 @@ static_assert(offsetof(FogConstants, historyWeight) == 84);
 static_assert(offsetof(FogConstants, reserved) == 88);
 static_assert(offsetof(FogConstants, jitter) == 96);
 
+/// UTA-0019 SS 4.8: one stand-in shape as shape.vert reads it, an instance-rate
+/// vertex record (Pipelines.cpp's shapePipeline names each attribute's offset).
+struct ShapeInstance {
+    std::array<float, 3> a; ///< a sphere's or cylinder's centre, a line's start
+    std::uint32_t kind;     ///< SHAPE_SPHERE, SHAPE_LINE or SHAPE_CYLINDER
+    std::array<float, 3> b; ///< a line's end
+    float radius;
+    std::array<float, 4> colour; ///< linear RGB already scaled for the output stage, and alpha
+    float halfHeight;
+    std::array<float, 3> reserved;
+};
+static_assert(sizeof(ShapeInstance) == 64);
+static_assert(offsetof(ShapeInstance, a) == 0);
+static_assert(offsetof(ShapeInstance, kind) == 12);
+static_assert(offsetof(ShapeInstance, b) == 16);
+static_assert(offsetof(ShapeInstance, radius) == 28);
+static_assert(offsetof(ShapeInstance, colour) == 32);
+static_assert(offsetof(ShapeInstance, halfHeight) == 48);
+
+/// shape.vert's `kind` values and how many vertices it makes of each.
+inline constexpr std::uint32_t SHAPE_SPHERE = 0, SHAPE_LINE = 1, SHAPE_CYLINDER = 2;
+inline constexpr std::array<std::uint32_t, 3> SHAPE_VERTICES{16 * 8 * 6, 6 * 6, 16 * 12};
+
+/// UTA-0019 SS 4.8: shape.vert's push constants.
+struct ShapeConstants {
+    Mat4 viewProj;             ///< as FrameData's, jittered with the scene
+    std::array<float, 3> eye;
+    float pixelAngle;          ///< a pixel's world size one unit from the eye
+    float minimumHalfPixels;   ///< a line's least half-thickness, in pixels
+    std::array<float, 3> reserved;
+};
+static_assert(sizeof(ShapeConstants) == 96);
+static_assert(offsetof(ShapeConstants, viewProj) == 0);
+static_assert(offsetof(ShapeConstants, eye) == 64);
+static_assert(offsetof(ShapeConstants, pixelAngle) == 76);
+static_assert(offsetof(ShapeConstants, minimumHalfPixels) == 80);
+
 /// UTA-0333: shadow_reduce.comp's push constants, the atlas tile just drawn.
 /// Pushed through the fog layout, whose range FogConstants sizes.
 struct ReduceConstants {

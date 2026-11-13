@@ -59,6 +59,8 @@
 #include <numbers>
 #include <optional>
 #include <span>
+#include <utility>
+#include <vector>
 
 namespace uta::urender {
 
@@ -164,6 +166,9 @@ constexpr float BLOOM_STRENGTH = 0.04f;
 /// UTA-0263 SS 4.4: the flame clock's period in seconds. At 4096 a float still
 /// resolves half a millisecond; a flame jumps once at each wrap, every 68 min.
 constexpr double FLAME_CLOCK_WRAP = 4096.0;
+/// UTA-0019 SS 4.8: a stand-in line is never drawn thinner than two of the
+/// region's pixels, so a far beam stays seen.
+constexpr float LINE_MINIMUM_HALF_PIXELS = 1.0f;
 // UTA-0337: how fast a painted sky's clouds drift, in their plane's units a
 // second -- the plane at height 2/3, so 0.0075 is clouds 2 km up moving
 // 10 m/s: a cloud crosses its own width in about two minutes. Not wrapped:
@@ -518,6 +523,74 @@ struct FrameTimes {
     double milliseconds = 0; ///< submit to finished
 };
 
+/// UTA-0019 SS 4.8: consecutive shapes one draw takes -- one kind, one pipeline.
+struct ShapeRun {
+    std::uint32_t kind = 0;
+    bool blended = false;
+    std::uint32_t first = 0, count = 0;
+};
+
+static_assert(std::to_underlying(Shape::Kind::Sphere) == gpu::SHAPE_SPHERE);
+static_assert(std::to_underlying(Shape::Kind::Line) == gpu::SHAPE_LINE);
+static_assert(std::to_underlying(Shape::Kind::Cylinder) == gpu::SHAPE_CYLINDER);
+
+/// UTA-0019 SS 4.8: `shapes` as shape.vert reads them, into `out` in draw
+/// order, and the runs that draw them. Opaque shapes first, by kind; then the
+/// blended ones, farthest from `eye` first, so each blends over what lies
+/// behind it. A shape with a value that is not finite, an unknown kind or no
+/// alpha is left out. `colourScale` undoes the exposure the output stage
+/// applies, so a shape shows the colour it was given.
+std::vector<ShapeRun> packShapes(std::span<const Shape> shapes, std::array<float, 3> eye, float colourScale,
+                                 std::vector<gpu::ShapeInstance>& out) {
+    struct Placed {
+        gpu::ShapeInstance instance;
+        bool blended;
+        float distance; ///< squared, from the eye
+    };
+    const auto finite = [](std::span<const float> values) {
+        return std::ranges::all_of(values, [](float v) { return std::isfinite(v); });
+    };
+    std::vector<Placed> placed;
+    placed.reserve(shapes.size());
+    for (const Shape& shape : shapes) {
+        const std::uint32_t kind = std::to_underlying(shape.kind);
+        if (kind >= gpu::SHAPE_VERTICES.size() || !finite(shape.a) || !finite(shape.b) || !finite(shape.colour)
+            || !std::isfinite(shape.radius) || !std::isfinite(shape.halfHeight))
+            continue;
+        const float alpha = std::min(shape.colour[3], 1.0f);
+        if (alpha <= 0) continue;
+        gpu::ShapeInstance instance{};
+        instance.a = shape.a;
+        instance.kind = kind;
+        instance.b = shape.b;
+        instance.radius = shape.radius;
+        instance.halfHeight = shape.halfHeight;
+        for (std::size_t c = 0; c < 3; ++c) instance.colour[c] = std::max(shape.colour[c], 0.0f) * colourScale;
+        instance.colour[3] = alpha;
+        float distance = 0;
+        for (std::size_t c = 0; c < 3; ++c) {
+            const float centre = kind == gpu::SHAPE_LINE ? 0.5f * (shape.a[c] + shape.b[c]) : shape.a[c];
+            distance += (centre - eye[c]) * (centre - eye[c]);
+        }
+        placed.push_back({instance, alpha < 1, distance});
+    }
+    std::ranges::stable_sort(placed, [](const Placed& x, const Placed& y) {
+        if (x.blended != y.blended) return !x.blended;
+        return x.blended ? x.distance > y.distance : x.instance.kind < y.instance.kind;
+    });
+    out.clear();
+    std::vector<ShapeRun> runs;
+    for (const Placed& p : placed) {
+        const auto index = static_cast<std::uint32_t>(out.size());
+        out.push_back(p.instance);
+        if (!runs.empty() && runs.back().kind == p.instance.kind && runs.back().blended == p.blended)
+            ++runs.back().count;
+        else
+            runs.push_back({p.instance.kind, p.blended, index, 1});
+    }
+    return runs;
+}
+
 } // namespace
 
 struct Renderer::Impl {
@@ -649,6 +722,14 @@ struct Renderer::Impl {
     /// white texels its copies read (Swapchain::recordBlit). Grown, never shrunk.
     std::string overlayText;
     Buffer overlayPixels;
+    bool crosshair = false; ///< UTA-0019 SS 4.8, drawn with the overlay
+    /// UTA-0019 SS 4.8: the stand-in shapes setShapes holds; this frame's
+    /// records of them, host-written and grown, never shrunk; the draws that
+    /// take them, empty when the frame draws none; and what shape.vert is pushed.
+    std::vector<Shape> shapes;
+    Buffer shapeInstances;
+    std::vector<ShapeRun> shapeRuns;
+    gpu::ShapeConstants shapeConstants{};
     /// The light time the last frame was drawn at, which UTA-0191's capture
     /// records. Kept rather than recomputed: reading the clock again would
     /// return a later time than the frame actually used.
@@ -740,6 +821,7 @@ struct Renderer::Impl {
                                       std::span<const gpu::Light> frameLights, std::uint8_t cameraZone,
                                       std::uint32_t flashlight, bool skyFace);
     Result<void> uploadFrame(gpu::FrameData& frame, std::span<const gpu::Light> frameLights, const ShadowPlan& plan);
+    Result<void> placeShapes(const gpu::FrameData& frame, const Camera& camera, VkExtent2D region, bool skyFace);
     void recordSkyFaceCopy(VkCommandBuffer commands, VkExtent2D region, std::uint32_t skyFace);
     void readStats(const ShadowPlan& plan, std::uint32_t droppedVolumeLights, double scale, const FrameTimes& times,
                    bool skyFace);
@@ -760,6 +842,7 @@ struct Renderer::Impl {
     [[nodiscard]] bool refracts(const DrawItem& item) const;
     void recordRefraction(VkCommandBuffer commands, SceneTargets& targets, VkExtent2D region);
     void recordFlames(VkCommandBuffer commands, SceneTargets& targets, VkExtent2D region);
+    void recordShapes(VkCommandBuffer commands, SceneTargets& targets, VkExtent2D region);
     [[nodiscard]] bool skyCaptureLeavesOut(const DrawItem& item, ScenePass pass) const;
     void recordBatches(VkCommandBuffer commands, ScenePass pass, VkExtent2D region);
     void recordBloom(VkCommandBuffer commands, VkExtent2D region);
@@ -1409,6 +1492,7 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
     stampPassEnd(commands, GpuPass::Translucent);
 
     recordFlames(commands, targets, region); // 2.5.
+    recordShapes(commands, targets, region); // 2.75, timed with the flames.
     stampPassEnd(commands, GpuPass::Flames);
 
     recordBloom(commands, region); // 3.
@@ -1743,6 +1827,45 @@ void Renderer::Impl::recordFlames(VkCommandBuffer commands, SceneTargets& target
     if (motes) {
         vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->mote());
         vkCmdDraw(commands, 6, MOTE_COUNT, 0, 0); // mote.vert's six corners, one instance a speck
+    }
+    vkCmdEndRendering(commands);
+}
+
+/// 2.75. UTA-0019 SS 4.8's stand-in shapes, over everything the level draws
+/// and before the bloom, in the Flames step's time. A frame with none begins
+/// no pass. Into colour alone, depth-tested against the level's: the velocity
+/// target keeps what lies behind a shape, which tracks no motion of its own,
+/// and the emission target gets nothing, so a shape does not glow. They are
+/// unlit and unfogged; placeShapes undid the exposure, so the output stage
+/// shows each as its colour, through the same tone map and upscale as the level.
+void Renderer::Impl::recordShapes(VkCommandBuffer commands, SceneTargets& targets, VkExtent2D region) {
+    if (shapeRuns.empty() || skyCapturing) return;
+    memoryBarrier(commands,
+                  VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT
+                      | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+                  VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+                  VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT
+                      | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+                  VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
+                      | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT
+                      | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
+    targets.colours[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    targets.depth.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    const VkRenderingInfo rendering = targets.rendering(1);
+    vkCmdBeginRendering(commands, &rendering);
+    setViewportTo(commands, region);
+    vkCmdPushConstants(commands, pipelines->shapeLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(shapeConstants),
+                       &shapeConstants);
+    const VkBuffer instances = shapeInstances.handle();
+    const VkDeviceSize start = 0;
+    vkCmdBindVertexBuffers(commands, 0, 1, &instances, &start);
+    std::optional<bool> bound;
+    for (const ShapeRun& run : shapeRuns) {
+        if (bound != run.blended) {
+            vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->shape(run.blended));
+            bound = run.blended;
+        }
+        vkCmdDraw(commands, gpu::SHAPE_VERTICES[run.kind], run.count, 0, run.first);
     }
     vkCmdEndRendering(commands);
 }
@@ -2110,13 +2233,14 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     placeSkyLayers(frame, bundle, camera, region, skyFace.has_value());
     const FogSetup fog = fogSetupOf(bundle, camera, region, frameLights, cameraZone, flashlight, skyFace.has_value());
     UTA_CHECK(uploadFrame(frame, frameLights, plan));
+    UTA_CHECK(placeShapes(frame, camera, region, skyFace.has_value()));
     // UTA-0293 SS 4.4: the cells this view sees. A face of the sky draws none.
     grassDraws = skyFace ? std::vector<GrassDraw>{} : visibleGrass(grassRuns, matrices.viewProj, camera.location, tier);
 
     // UTA-0452: the overlay goes on the presented image only.
     OverlayLayout overlay;
     if (image) {
-        overlay = layOutOverlay(overlayText, swapchain->extent().width, swapchain->extent().height);
+        overlay = layOutOverlay(overlayText, swapchain->extent().width, swapchain->extent().height, crosshair);
         if (!overlay.empty()) UTA_CHECK(holdOverlayPixels(overlay.pixelCount()));
     }
 
@@ -2523,6 +2647,36 @@ void Renderer::cut() noexcept {
 void Renderer::setLinearOutput(bool enabled) noexcept { impl_->config.linearOutput = enabled; }
 
 void Renderer::setOverlayText(std::string text) { impl_->overlayText = std::move(text); }
+
+void Renderer::setCrosshair(bool shown) { impl_->crosshair = shown; }
+
+void Renderer::setShapes(std::span<const Shape> shapes) { impl_->shapes.assign(shapes.begin(), shapes.end()); }
+
+/// UTA-0019 SS 4.8: this frame's shapes into shapeInstances, and the runs and
+/// constants recordShapes draws them with. None in a face of the sky.
+Result<void> Renderer::Impl::placeShapes(const gpu::FrameData& frame, const Camera& camera, VkExtent2D region,
+                                         bool skyFace) {
+    shapeRuns.clear();
+    if (shapes.empty() || skyFace) return {};
+    std::vector<gpu::ShapeInstance> instances;
+    shapeRuns = packShapes(shapes, camera.location, config.linearOutput ? 1.0f : 1.0f / EXPOSURE, instances);
+    if (instances.empty()) return {};
+    const VkDeviceSize bytes = instances.size() * sizeof(gpu::ShapeInstance);
+    if (shapeInstances.handle() == VK_NULL_HANDLE || shapeInstances.size() < bytes) {
+        // Every earlier frame was waited for, so the old buffer is free to go.
+        // Grown with room to spare, so a count that creeps up does not remake it each frame.
+        shapeInstances.reset();
+        UTA_TRY(shapeInstances, Buffer::create(*gpu, std::max<VkDeviceSize>(2 * bytes, 64 * sizeof(gpu::ShapeInstance)),
+                                               VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, BufferMemory::HostWrite));
+    }
+    std::memcpy(shapeInstances.mapped(), instances.data(), bytes);
+    shapeConstants.viewProj = frame.viewProj;
+    shapeConstants.eye = camera.location;
+    shapeConstants.pixelAngle = static_cast<float>(
+        2.0 * std::tan(camera.verticalFovDegrees * std::numbers::pi / 360.0) / static_cast<double>(region.height));
+    shapeConstants.minimumHalfPixels = LINE_MINIMUM_HALF_PIXELS;
+    return {};
+}
 
 Result<void> Renderer::Impl::holdOverlayPixels(std::uint64_t pixels) {
     const VkDeviceSize bytes = 2 * pixels * 4;

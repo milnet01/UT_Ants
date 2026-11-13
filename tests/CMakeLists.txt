@@ -256,6 +256,7 @@ add_executable(uta_device_tests
     device/RenderProbeTest.cpp
     device/RenderRefractionTest.cpp
     device/RenderShadowTest.cpp
+    device/RenderShapesTest.cpp
     device/RenderSurfaceFlagsTest.cpp
     device/RenderTiersTest.cpp
     device/RenderWaterTest.cpp

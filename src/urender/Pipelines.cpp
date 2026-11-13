@@ -27,6 +27,8 @@
 #include "shadow.frag.spv.h"
 #include "shadow_reduce.comp.spv.h"
 #include "shadow.vert.spv.h"
+#include "shape.frag.spv.h"
+#include "shape.vert.spv.h"
 
 #include <algorithm>
 #include <cmath>
@@ -419,6 +421,55 @@ Result<VkPipeline> grassPipeline(const Making& making, VkPipelineLayout layout, 
     return graphicsPipeline(making, layout, stages, states, "grass");
 }
 
+/// UTA-0019 SS 4.8's stand-in shapes: ShapeInstance records at instance rate
+/// and no per-vertex input -- shape.vert makes each kind's mesh -- into the
+/// colour target alone, depth-tested against the level. The back faces are
+/// culled, so a shape that blends covers each pixel once. `blended` writes no
+/// depth and mixes by alpha; otherwise depth is written, so one opaque shape
+/// hides another behind it whatever their order. The target's alpha is kept,
+/// as the translucent pass keeps it.
+Result<VkPipeline> shapePipeline(const Making& making, VkPipelineLayout layout, const TargetFormats& formats,
+                                 VkShaderModule vertex, VkShaderModule fragment, bool blended) {
+    const std::array stages = {stage(VK_SHADER_STAGE_VERTEX_BIT, vertex), stage(VK_SHADER_STAGE_FRAGMENT_BIT, fragment)};
+    const VkVertexInputBindingDescription binding{0, sizeof(gpu::ShapeInstance), VK_VERTEX_INPUT_RATE_INSTANCE};
+    const std::array attributes = {
+        VkVertexInputAttributeDescription{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(gpu::ShapeInstance, a)},
+        VkVertexInputAttributeDescription{1, 0, VK_FORMAT_R32_UINT, offsetof(gpu::ShapeInstance, kind)},
+        VkVertexInputAttributeDescription{2, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(gpu::ShapeInstance, b)},
+        VkVertexInputAttributeDescription{3, 0, VK_FORMAT_R32_SFLOAT, offsetof(gpu::ShapeInstance, radius)},
+        VkVertexInputAttributeDescription{4, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(gpu::ShapeInstance, colour)},
+        VkVertexInputAttributeDescription{5, 0, VK_FORMAT_R32_SFLOAT, offsetof(gpu::ShapeInstance, halfHeight)},
+    };
+    GraphicsStates states = sharedStates();
+    states.vertexInput.vertexBindingDescriptionCount = 1;
+    states.vertexInput.pVertexBindingDescriptions = &binding;
+    states.vertexInput.vertexAttributeDescriptionCount = static_cast<std::uint32_t>(attributes.size());
+    states.vertexInput.pVertexAttributeDescriptions = attributes.data();
+    states.raster.cullMode = VK_CULL_MODE_BACK_BIT;
+    // shape.vert winds every triangle one way about its outward normal; seen
+    // through this renderer's view and projection, that is clockwise.
+    states.raster.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    states.depth.depthWriteEnable = blended ? VK_FALSE : VK_TRUE;
+
+    VkPipelineColorBlendAttachmentState over{};
+    over.colorWriteMask =
+        VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    over.blendEnable = VK_TRUE;
+    over.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    over.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    over.colorBlendOp = VK_BLEND_OP_ADD;
+    over.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    over.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    over.alphaBlendOp = VK_BLEND_OP_ADD;
+    states.blend.attachmentCount = 1;
+    states.blend.pAttachments = &over;
+
+    states.rendering.colorAttachmentCount = 1;
+    states.rendering.pColorAttachmentFormats = &formats.hdr;
+    states.rendering.depthAttachmentFormat = formats.depth;
+    return graphicsPipeline(making, layout, stages, states, blended ? "shape blended" : "shape");
+}
+
 /// SS 4.8's tile pass. Both faces cast -- a shadow must not leak through a
 /// wall seen edge-on from its back -- and a slope-scaled rasterisation depth
 /// bias is what keeps a lit surface from shadowing itself. shadows.glsl applies
@@ -504,6 +555,7 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     UTA_CHECK(p->createClusters());
     UTA_CHECK(p->createFog());
     UTA_CHECK(p->createShadow(formats));
+    UTA_CHECK(p->createShapes(formats));
     return p;
 }
 
@@ -722,6 +774,22 @@ Result<void> Pipelines::createShadow(const TargetFormats& formats) {
     return {};
 }
 
+/// UTA-0019 SS 4.8's stand-in shapes: a layout of their own, no set and
+/// ShapeConstants pushed, and the two pipelines over it.
+Result<void> Pipelines::createShapes(const TargetFormats& formats) {
+    UTA_CHECK(createLayout(device_, {}, {VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(gpu::ShapeConstants)}, shapeLayout_,
+                           "vkCreatePipelineLayout (shape)"));
+    const Making making{device_, createFlags()};
+    Module shapeVertex{device_}, shapeFragment{device_};
+    UTA_TRY(shapeVertex.handle, shaderModule(device_, shape_vert_spv));
+    UTA_TRY(shapeFragment.handle, shaderModule(device_, shape_frag_spv));
+    UTA_TRY(shapeOpaque_,
+            shapePipeline(making, shapeLayout_, formats, shapeVertex.handle, shapeFragment.handle, false));
+    UTA_TRY(shapeBlended_,
+            shapePipeline(making, shapeLayout_, formats, shapeVertex.handle, shapeFragment.handle, true));
+    return {};
+}
+
 Pipelines::~Pipelines() {
     for (const auto& rows : {scene_, glossy_})
         for (const auto& row : rows)
@@ -737,6 +805,9 @@ Pipelines::~Pipelines() {
     if (fogLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, fogLayout_, nullptr);
     if (fogSetLayout_ != VK_NULL_HANDLE) vkDestroyDescriptorSetLayout(device_, fogSetLayout_, nullptr);
     if (shadow_ != VK_NULL_HANDLE) vkDestroyPipeline(device_, shadow_, nullptr);
+    for (VkPipeline pipeline : {shapeOpaque_, shapeBlended_})
+        if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(device_, pipeline, nullptr);
+    if (shapeLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, shapeLayout_, nullptr);
     if (shadowLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, shadowLayout_, nullptr);
     if (sceneLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, sceneLayout_, nullptr);
     if (postLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, postLayout_, nullptr);
@@ -790,7 +861,8 @@ std::vector<std::pair<std::string, VkPipeline>> Pipelines::named() const {
              {"flame", flame_}, {"mote", mote_}, {"post", post_}, {"upscale input", upscaleInput_}, {"easu", easu_},
              {"rcas", rcas_}, {"bloom downsample", bloomDownsample_}, {"bloom upsample", bloomUpsample_},
              {"clusters", clusters_}, {"fog scatter", fogScatter_}, {"fog integrate", fogIntegrate_},
-             {"haze shadow", hazeShadow_}, {"shadow", shadow_}})
+             {"haze shadow", hazeShadow_}, {"shadow", shadow_}, {"shape", shapeOpaque_},
+             {"shape blended", shapeBlended_}})
         out.emplace_back(std::string(name), pipeline);
     return out;
 }
