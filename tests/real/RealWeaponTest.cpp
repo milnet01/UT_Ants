@@ -350,8 +350,22 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
     const double targetHover = targeted ? hoverAt(world, size, vec(recording.target[0].location)) : 0;
     if (!targeted) game.bodies[TARGET].health = 0;
 
+    // The kinds this run's weapons launch, and what those split into.
+    std::set<std::string> launched;
+    for (const int carried : {inHand, other}) {
+        if (carried < 0) continue;
+        const ugame::Weapon& gun = set.weapons[static_cast<std::size_t>(carried)];
+        for (const ugame::FireMode* fire : {&gun.primary, gun.alt ? &*gun.alt : nullptr}) {
+            if (fire == nullptr || fire->projectile.empty()) continue;
+            launched.insert(fire->projectile);
+            const ugame::Projectile* kind = set.projectile(fire->projectile);
+            if (kind != nullptr && !kind->splitInto.empty()) launched.insert(kind->splitInto);
+        }
+    }
+
     // The recorded shots. One alive at row 0 and all but still is the level's
-// own, left by an earlier run.
+    // own, left by an earlier run; so is one of a kind this run's weapons
+    // do not launch (an earlier run's grenade, still in the air).
     std::map<std::string, RecordedShot> theirs;
     std::vector<std::string> theirOrder;
     std::vector<std::string> before;
@@ -359,7 +373,7 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
         if (p.tick == 0 && uworld::length(vec(p.velocity)) < STILL) before.push_back(p.name);
         if (std::ranges::find(before, p.name) != before.end()) continue;
         const std::string kind = kindOf(p.cls);
-        if (kind.empty()) continue;
+        if (kind.empty() || !launched.contains(kind)) continue;
         auto [at, fresh] = theirs.try_emplace(p.name, RecordedShot{kind, p.tick, {}});
         if (fresh) theirOrder.push_back(p.name);
         at->second.rows.emplace_back(p.tick, p);

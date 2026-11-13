@@ -18763,6 +18763,24 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
     it with two of its five chunks; three flew on. Ours lands all
     five in the slug's own tick. One sample.
   - flak-primary 120's seventh hit is its volley fired a tick late.
+  2026-11-13, leftovers and switching. Replay: a recorded shot of
+  a kind the run's weapons do not launch is an earlier run's, still
+  in the air (three grenades in sniper-primary at 85 and 120 fps,
+  blades in switch-minigun, chunks in switch-rocket). Failures
+  104 -> 95.
+  A switch is two waits, each ended at a frame: the Enforcer is
+  down past 0.30 and by 0.311 s (0.367 at 30 fps, the next frame),
+  then the new weapon is up 0.561 to 0.574 later for the rocket
+  launcher and sniper rifle (0.551 at 30 fps, fifteen frames) and
+  0.457 for the Bio Rifle. Ours is one carried switch-time, so at
+  30 fps its first shot is two ticks early (23 for 25): the
+  spendTick failures of switch-bio, -minigun, -rocket, -sniper and
+  -enforcer at 30 fps. Splitting switch-time into the old weapon's
+  down and the new one's up is a table change, and only the
+  Enforcer's down is recorded: for the user.
+  Next, worst first: grenade-load-5 hits; switch-pulse and
+  switch-minigun counts; pulse and ripper primary spawn at 120;
+  flak bounces left (7.9 at most); Minigun's unwind; then step 5.
   **Layman:** The guns. Built as a table of numbers rather than as code, so a different set -- your super weapons -- is a different table rather than a second codebase.
   Kind: implement.
   Source: design-2026-09-03.
