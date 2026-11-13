@@ -221,11 +221,12 @@ TEST_CASE("SS 4.9: the launcher spends a round a loading step and fires itself a
     Game game = duel(stock(), "rocket-launcher", 1900);
     const Charge& charge = *primaryOf(stock(), "rocket-launcher").charge;
     REQUIRE(charge.step == 0.9);
-    REQUIRE(charge.stepLast == 0.84);
+    REQUIRE(charge.stepLast == 0.833);
     // The press loads the first, and its tick counts. The rest load once
-    // the hold passes 0.9, 1.8, 2.7, 3.6 and 4.44 s: a step's overshoot
-    // counts toward the next (209, not 210), and the sixth takes 0.84.
-    CHECK(spendTicks(world, game, 343, false) == std::vector{1, 70, 140, 209, 279});
+    // the hold passes 0.9, 1.8, 2.7, 3.6 and 4.433 s: a step's overshoot
+    // counts toward the next (209, not 210), and the sixth takes 0.833
+    // (tick 343; 0.9 would be 348).
+    CHECK(spendTicks(world, game, 342, false) == std::vector{1, 70, 140, 209, 279});
     CHECK(game.shots.empty());
     CHECK(spendTicks(world, game, 1, false) == std::vector{1});
     CHECK(game.shots.size() == 6);

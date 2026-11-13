@@ -527,14 +527,27 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
                     const LaunchRange range = rangeOf(*mode, kind, freshOfKind[shot.kind] > 1);
                     if (range.random()) {
                         const std::string at = theirOrder[static_cast<std::size_t>(best)] + " launch";
-                        if (!launchInRange(kind, range, vec(first.velocity), launch.velocity)) outOfRange(at);
-                        // A start drawn behind ours takes the recorded one.
-                        if (range.back > 0 && t.first == tick) {
-                            Vec3 want = vec(first.location);
-                            want.z -= firerHover;
-                            if (uworld::length(launch.location - want) > range.back + MAX_POSITION_ERROR)
+                        // A shot first logged a row late has flown once (below):
+                        // its velocity is judged against ours of that age.
+                        Vec3 logged = vec(first.location);
+                        logged.z -= firerHover;
+                        const bool flown =
+                            uworld::length(logged - shot.location) < uworld::length(logged - launch.location);
+                        if (!launchInRange(kind, range, vec(first.velocity), (flown ? shot : launch).velocity))
+                            outOfRange(at);
+                        // A start drawn behind ours takes the recorded one. One
+                        // that has flown may also be off by what its launch drew,
+                        // flown a tick.
+                        if (range.back > 0 && t.first == tick + (flown ? 1 : 0)) {
+                            Vec3& start = flown ? shot.location : launch.location;
+                            const double turn = range.turn * 2 * std::numbers::pi / 65536;
+                            const double drawn = flown ? (range.speed + kind.speed * turn) * row.dt : 0;
+                            if (uworld::length(start - logged) > range.back + drawn + MAX_POSITION_ERROR) {
                                 outOfRange(at);
-                            launch.location = want;
+                                if (detail)
+                                    std::cout << "  " << at << ": starts " << str(start) << " | " << str(logged) << "\n";
+                            }
+                            start = logged;
                         }
                         const auto moved = std::ranges::find(t.rows, tick + 1, [](const auto& r) { return r.first; });
                         if (moved != t.rows.end()) {

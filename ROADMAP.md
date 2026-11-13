@@ -18656,6 +18656,16 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   and the hold one each 0.24 s, carried (ammo-every): ammo was 4 a
   second with no press round. All six pulse-alt runs match in
   full. Failures 180 -> 170.
+  2026-11-13, volleys. A shot first logged a row late has flown
+  once, so the replay now judges its recorded velocity, and a
+  volley's start, against ours of that age: a lone grenade's fall
+  in its first tick had read as a turn out of range. The sixth
+  load takes 0.833, not 0.84: the hold's total is past 4.431 and
+  by 4.435 s in the 85 and 120 fps runs, and ours fired a tick
+  late, hidden by the tick's allowance. Failures 170 -> 161.
+  Next, worst first: chainsaw cadence, then the bounce leftovers,
+  slow chunks' damage, the Minigun's unwind; bio-primary's flight
+  (103 off at 30 fps) is not yet looked at.
   **Layman:** The guns. Built as a table of numbers rather than as code, so a different set -- your super weapons -- is a different table rather than a second codebase.
   Kind: implement.
   Source: design-2026-09-03.
@@ -23699,6 +23709,11 @@ docs/standards/versioning-overrides.md. Closes S8.
   frameledger, 2026-11-13 (its section 4.2, at c774dae): a
   started_utc fraction has at most 20 digits. std::chrono can emit
   more than a writer needs; print whole seconds or a fixed few.
+  frameledger 0.5.0 is out (2026-11-13):
+  https://github.com/milnet01/frameledger/releases/tag/v0.5.0,
+  archive frameledger-v0.5.0.zip, SHA256
+  0dbe624c4b26bb5d986461973a6df040b3d539412ffcdbb8ec02efa864b09ae3.
+  Pin this one when the writer is built, in place of 0.2.0.
   **Layman:** Save every frame's timings in the format shared with Vestige and DOOM Ants, so one analyser can find stutters and compare builds for all three games.
   Kind: feature.
   Source: user-request-2026-10-24.
