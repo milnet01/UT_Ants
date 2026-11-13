@@ -21,7 +21,7 @@
 
 namespace uta::uinput {
 
-/// What a binding can ask for. The first seven are held, read every frame;
+/// What a binding can ask for. Those before Dodge are held, read every frame;
 /// the rest happen once a press.
 enum class Action : std::uint8_t {
     Forward,
@@ -31,6 +31,8 @@ enum class Action : std::uint8_t {
     Up,   ///< jumps when walking, rises when flying
     Down, ///< ducks when walking, sinks when flying
     Walk, ///< walks when walking, flies fast when flying
+    Fire,
+    AltFire,
     Dodge,
     Quit,
     Flashlight,
@@ -40,6 +42,19 @@ enum class Action : std::uint8_t {
     FovWider,
     SaveCamera,
     Capture,
+    NextWeapon,
+    PrevWeapon,
+    Weapon1, ///< the number keys, in the keyboard's order: 1 to 9, then 0
+    Weapon2,
+    Weapon3,
+    Weapon4,
+    Weapon5,
+    Weapon6,
+    Weapon7,
+    Weapon8,
+    Weapon9,
+    Weapon0,
+    DropDummy, ///< UTA-0019 SS 4.8: stands a target dummy ahead
     Count
 };
 inline constexpr std::size_t ACTION_COUNT = static_cast<std::size_t>(Action::Count);
@@ -60,7 +75,18 @@ enum class Key : std::uint16_t {
     H = 11,
     P = 19,
     S = 22,
+    T = 23,
     W = 26,
+    N1 = 30, ///< the number row: 1 to 9, then 0
+    N2 = 31,
+    N3 = 32,
+    N4 = 33,
+    N5 = 34,
+    N6 = 35,
+    N7 = 36,
+    N8 = 37,
+    N9 = 38,
+    N0 = 39,
     Escape = 41,
     Space = 44,
     LeftBracket = 47,
@@ -71,6 +97,9 @@ enum class Key : std::uint16_t {
     RightCtrl = 228,
     RightShift = 229,
 };
+
+/// A mouse button, by SDL's number.
+enum class MouseButton : std::uint8_t { Left = 1, Middle = 2, Right = 3 };
 
 /// A gamepad button, in SDL's order: positions, not labels, so South is Cross
 /// on a PlayStation pad and A on an Xbox one.
@@ -96,7 +125,8 @@ inline constexpr std::size_t PAD_BUTTON_COUNT = static_cast<std::size_t>(PadButt
 
 /// One gamepad's state. The sticks run from -1 to 1 with +Y down, as SDL
 /// reports them; the triggers from 0 to 1. The left stick moves, the right
-/// one looks, the right trigger is Up and the left one Down.
+/// one looks, the right trigger is Up and the left one Down -- or Fire and
+/// AltFire, with Settings::triggersFire.
 struct PadState {
     float leftX = 0, leftY = 0;
     float rightX = 0, rightY = 0;
@@ -127,19 +157,26 @@ struct Settings {
     int lookCurve = 2;
     double mouseSensitivity = 1;      ///< times MOUSE_UNITS_PER_PIXEL
     double stickLookSensitivity = 1;  ///< times STICK_LOOK_RATE
+    /// The right trigger fires and the left one alt-fires, in place of Up and
+    /// Down: the viewer sets it while walking (UTA-0019 SS 4.8).
+    bool triggersFire = false;
 };
 
-/// Which key and which pad button asks for which action. One key may serve
-/// one action; an action may have any number of keys and buttons.
+/// Which key, mouse button and pad button asks for which action. One key may
+/// serve one action; an action may have any number of keys and buttons.
 struct Bindings {
     std::vector<std::pair<Key, Action>> keys;
+    std::vector<std::pair<MouseButton, Action>> mouseButtons;
     std::vector<std::pair<PadButton, Action>> padButtons;
 };
 
 /// The built-in bindings: W, A, S and D or the left stick move; Space, Cross
 /// or the right trigger or shoulder are Up; Ctrl or the left trigger or
 /// shoulder are Down; Shift or pressing the left stick walks; Circle dodges;
-/// and the viewer's keys as apps/ut-ants/Cli.cpp's help lists them.
+/// the left and right mouse buttons fire and alt-fire; the number row picks a
+/// weapon and the wheel or the D-pad's left and right steps through them; T
+/// or the D-pad's up drops a dummy; and the viewer's keys as
+/// apps/ut-ants/Cli.cpp's help lists them.
 [[nodiscard]] Bindings defaultBindings();
 
 /// One frame's actions, from every device at once.
@@ -150,6 +187,7 @@ struct Frame {
     double lookRight = 0; ///< UT angle units to turn the view right
     double lookUp = 0;    ///< UT angle units to tip the view up
     bool walk = false;
+    bool fire = false, altFire = false;
     std::bitset<ACTION_COUNT> pressed; ///< the once-a-press actions this frame
 
     [[nodiscard]] bool wasPressed(Action action) const noexcept {
@@ -172,6 +210,12 @@ public:
     void padButtonDown(PadButton button) noexcept;
     /// Mouse motion in pixels, +Y down as SDL reports it.
     void mouseMoved(float right, float down) noexcept;
+    /// A mouse button went down or came up. Its held state is kept here: SDL
+    /// has no table of it to hand `frame`, as it has of the keys.
+    void mouseButton(MouseButton button, bool down) noexcept;
+    /// The wheel turned: away from the player is NextWeapon, towards is
+    /// PrevWeapon, as UT99 binds it.
+    void mouseWheel(float away) noexcept;
 
     /// This frame: the events since the last one, then `keys` held (indexed
     /// by Key's number; shorter than a key's number means not held) and every
@@ -182,6 +226,7 @@ private:
     Bindings bindings_;
     Settings settings_;
     Frame pending_; ///< what the events since the last frame added
+    std::bitset<4> mouseHeld_; ///< by MouseButton's number
 };
 
 } // namespace uta::uinput

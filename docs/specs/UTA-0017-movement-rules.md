@@ -252,9 +252,10 @@ same `uinput` frame `FlyCamera` reads (UTA-0018), building a
 `MoveCommand` a tick and `DoubleTap` for dodges. A pad's Dodge press
 dodges the way the left stick points most. Its rules allow one air jump
 (§ 3 item 7). G, or pressing a pad's right stick, toggles it; Space, the
-bottom face button or the right trigger jumps, Ctrl or the left trigger
+bottom face button or the right shoulder jumps, Ctrl or the left shoulder
 ducks, and Shift or pressing the left stick walks
-(`apps/ut-ants/Cli.cpp`'s help).
+(`apps/ut-ants/Cli.cpp`'s help). Walking, the triggers fire
+(UTA-0019 § 4.8).
 
 **The eye** rests at `BaseEyeHeight` (27, `PAWN`) above the body's
 centre. It copies UT99's `PlayerPawn.UpdateEyeHeight`, read from the

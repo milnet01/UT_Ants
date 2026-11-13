@@ -14,6 +14,7 @@
 #include "FrameRate.h"
 #include "Launcher.h"
 #include "MapList.h"
+#include "StandIns.h"
 #include "Walker.h"
 
 #include "core/Ascii.h"
@@ -21,6 +22,7 @@
 #include "core/Log.h"
 #include "ubundle/Bundle.h"
 #include "ubundle/TileAnswers.h"
+#include "ugame/WeaponSet.h"
 #include "uinput/Input.h"
 #include "urender/Renderer.h"
 #include "uworld/BodyCollision.h"
@@ -88,9 +90,17 @@ struct Start {
     std::string from = "the origin"; ///< for a --frames run's report
 };
 
-/// The first PlayerStart's place and facing, or the origin when the map has none.
-Start startingCamera(const uta::ubundle::Bundle& bundle) {
-    if (!bundle.placements.has_value()) return {};
+/// A PlayerStart: where the map puts it, the way it faces, and its name.
+struct PlayerStart {
+    std::array<float, 3> location{};
+    std::array<std::int32_t, 3> rotation{};
+    std::string path;
+};
+
+/// Every PlayerStart of the map, in its order.
+std::vector<PlayerStart> playerStarts(const uta::ubundle::Bundle& bundle) {
+    std::vector<PlayerStart> starts;
+    if (!bundle.placements.has_value()) return starts;
     const uta::ubundle::Placements& placements = *bundle.placements;
     for (const uta::ubundle::ActorPlacement& actor : placements.actors) {
         if (actor.classIndex >= placements.classes.size()) continue;
@@ -108,9 +118,16 @@ Start startingCamera(const uta::ubundle::Bundle& bundle) {
                 rotator && name == "rotation")
                 rotation = *rotator;
         }
-        return {FlyCamera(location, rotation[0], rotation[1]), actor.path};
+        starts.push_back({location, rotation, actor.path});
     }
-    return {};
+    return starts;
+}
+
+/// The first PlayerStart's place and facing, or the origin when the map has none.
+Start startingCamera(const uta::ubundle::Bundle& bundle) {
+    const std::vector<PlayerStart> starts = playerStarts(bundle);
+    if (starts.empty()) return {};
+    return {FlyCamera(starts[0].location, starts[0].rotation[0], starts[0].rotation[1]), starts[0].path};
 }
 
 // UTA-0018: uinput names keys and buttons by SDL's numbers without including
@@ -119,6 +136,12 @@ static_assert(int(uta::uinput::Key::A) == SDL_SCANCODE_A && int(uta::uinput::Key
               int(uta::uinput::Key::F) == SDL_SCANCODE_F && int(uta::uinput::Key::G) == SDL_SCANCODE_G &&
               int(uta::uinput::Key::H) == SDL_SCANCODE_H && int(uta::uinput::Key::P) == SDL_SCANCODE_P &&
               int(uta::uinput::Key::S) == SDL_SCANCODE_S && int(uta::uinput::Key::W) == SDL_SCANCODE_W &&
+              int(uta::uinput::Key::T) == SDL_SCANCODE_T && int(uta::uinput::Key::N1) == SDL_SCANCODE_1 &&
+              int(uta::uinput::Key::N2) == SDL_SCANCODE_2 && int(uta::uinput::Key::N3) == SDL_SCANCODE_3 &&
+              int(uta::uinput::Key::N4) == SDL_SCANCODE_4 && int(uta::uinput::Key::N5) == SDL_SCANCODE_5 &&
+              int(uta::uinput::Key::N6) == SDL_SCANCODE_6 && int(uta::uinput::Key::N7) == SDL_SCANCODE_7 &&
+              int(uta::uinput::Key::N8) == SDL_SCANCODE_8 && int(uta::uinput::Key::N9) == SDL_SCANCODE_9 &&
+              int(uta::uinput::Key::N0) == SDL_SCANCODE_0 &&
               int(uta::uinput::Key::Escape) == SDL_SCANCODE_ESCAPE &&
               int(uta::uinput::Key::Space) == SDL_SCANCODE_SPACE &&
               int(uta::uinput::Key::LeftBracket) == SDL_SCANCODE_LEFTBRACKET &&
@@ -128,6 +151,9 @@ static_assert(int(uta::uinput::Key::A) == SDL_SCANCODE_A && int(uta::uinput::Key
               int(uta::uinput::Key::LeftShift) == SDL_SCANCODE_LSHIFT &&
               int(uta::uinput::Key::RightCtrl) == SDL_SCANCODE_RCTRL &&
               int(uta::uinput::Key::RightShift) == SDL_SCANCODE_RSHIFT);
+static_assert(int(uta::uinput::MouseButton::Left) == SDL_BUTTON_LEFT &&
+              int(uta::uinput::MouseButton::Middle) == SDL_BUTTON_MIDDLE &&
+              int(uta::uinput::MouseButton::Right) == SDL_BUTTON_RIGHT);
 static_assert(int(uta::uinput::PadButton::South) == SDL_GAMEPAD_BUTTON_SOUTH &&
               int(uta::uinput::PadButton::East) == SDL_GAMEPAD_BUTTON_EAST &&
               int(uta::uinput::PadButton::West) == SDL_GAMEPAD_BUTTON_WEST &&
@@ -236,6 +262,15 @@ struct Viewer {
     // first walk.
     std::optional<uta::uworld::BodyWorld> bodies;
     std::optional<Walker> walker;
+    // UTA-0019 SS 4.8: the walker carries the stock weapons, read on the first
+    // walk; its shots, explosions and dummies are drawn as stand-in shapes.
+    std::optional<uta::ugame::WeaponSet> weapons;
+    StandIns standIns;
+    std::string overlayShown; ///< the overlay's text as last set
+
+    /// The frame-rate counter, and under it while walking the weapon in hand,
+    /// its ammo and the player's health; set only when it changes.
+    void showOverlay();
 
     /// UTA-0191: the shown frame, and the same view redrawn linear, written
     /// to a capture folder.
@@ -326,6 +361,17 @@ void Viewer::writeCaptureFolder() {
     std::cerr << "ut-ants: capture written to " << uta::sanitised(folder->string()) << "\n";
 }
 
+void Viewer::showOverlay() {
+    std::string text = showFrameRate ? frameRate.text() : std::string();
+    if (walker) {
+        if (!text.empty()) text += '\n';
+        text += hudText(walker->body(), walker->set(), walker->lastHit());
+    }
+    if (text == overlayShown) return;
+    renderer.setOverlayText(text);
+    overlayShown = std::move(text);
+}
+
 void Viewer::toggleWalking() {
     if (walker) {
         const uta::urender::Camera eye = walker->eye(start.camera.fov()).camera(config.width, config.height);
@@ -333,6 +379,12 @@ void Viewer::toggleWalking() {
         start.camera = FlyCamera(eye.location, eye.rotation[0], eye.rotation[1]);
         start.camera.setFov(fov);
         walker.reset();
+        standIns = {};
+        renderer.setShapes({});
+        renderer.setCrosshair(false);
+        uta::uinput::Settings settings = input.settings();
+        settings.triggersFire = false;
+        input.setSettings(settings);
         std::cerr << "ut-ants: flying\n";
         return;
     }
@@ -351,10 +403,30 @@ void Viewer::toggleWalking() {
         bodies = std::move(*built);
     }
     const uta::urender::Camera view = start.camera.camera(config.width, config.height);
-    walker.emplace(std::array<double, 3>{view.location[0], view.location[1], view.location[2] - Walker::EYE_HEIGHT},
+    if (!weapons) {
+        const std::filesystem::path file = uta::ugame::shippedDirectory() / "stock.weapons";
+        auto loaded = uta::ugame::load(file);
+        if (!loaded)
+            std::cerr << "ut-ants: walking unarmed: " << uta::sanitised(file.string()) << ": "
+                      << loaded.error().message() << "\n";
+        weapons = loaded ? std::move(*loaded) : uta::ugame::WeaponSet{};
+    }
+    std::vector<Walker::Spawn> spawns;
+    for (const PlayerStart& at : playerStarts(bundle))
+        spawns.push_back({{at.location[0], at.location[1], at.location[2]}, static_cast<double>(at.rotation[1])});
+    // The body hangs an eye's height under the camera, lifted clear where
+    // that is in the floor, as it is at a PlayerStart.
+    walker.emplace(clearOf(*bodies, {view.location[0], view.location[1], view.location[2] - Walker::EYE_HEIGHT}),
                    view.rotation[0], view.rotation[1],
                    bundle.placements ? uta::uworld::Teleporters::fromPlacements(*bundle.placements)
-                                     : uta::uworld::Teleporters{});
+                                     : uta::uworld::Teleporters{},
+                   *weapons, std::move(spawns));
+    renderer.setCrosshair(true);
+    // Walking, the triggers fire; the bottom face button and the shoulders
+    // still jump and duck.
+    uta::uinput::Settings settings = input.settings();
+    settings.triggersFire = true;
+    input.setSettings(settings);
     std::cerr << "ut-ants: walking\n";
 }
 
@@ -371,6 +443,10 @@ Viewer::After Viewer::handle(const SDL_Event& event) {
         gamepads.close(event.gdevice.which);
     } else if (event.type == SDL_EVENT_MOUSE_MOTION) {
         input.mouseMoved(event.motion.xrel, event.motion.yrel);
+    } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN || event.type == SDL_EVENT_MOUSE_BUTTON_UP) {
+        input.mouseButton(static_cast<uta::uinput::MouseButton>(event.button.button), event.button.down);
+    } else if (event.type == SDL_EVENT_MOUSE_WHEEL) {
+        input.mouseWheel(event.wheel.y); // away from the player is positive
     } else if (event.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED && event.window.data1 > 0 &&
                event.window.data2 > 0) {
         config.width = static_cast<std::uint32_t>(event.window.data1);
@@ -392,10 +468,7 @@ void Viewer::act(const uta::uinput::Frame& frame) {
     using uta::uinput::Action;
     if (frame.wasPressed(Action::Flashlight)) flashlight = !flashlight;
     if (frame.wasPressed(Action::ToggleWalking)) toggleWalking(); // UTA-0017
-    if (frame.wasPressed(Action::FrameRate)) {
-        showFrameRate = !showFrameRate; // UTA-0452
-        renderer.setOverlayText(showFrameRate ? frameRate.text() : std::string());
-    }
+    if (frame.wasPressed(Action::FrameRate)) showFrameRate = !showFrameRate; // UTA-0452; showOverlay draws it
     // UTA-0357: until the settings menu's slider (UTA-0297), the brackets
     // narrow and widen the view, held down to sweep it.
     if (frame.wasPressed(Action::FovNarrower) != frame.wasPressed(Action::FovWider)) {
@@ -487,17 +560,23 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
         }
 
         // UTA-0452: start to start, so the count includes waiting for the display.
-        if (viewer.frameRate.add(seconds) && viewer.showFrameRate)
-            viewer.renderer.setOverlayText(viewer.frameRate.text());
+        viewer.frameRate.add(seconds);
         uta::urender::Camera view;
         if (viewer.walker) {
+            const std::size_t dummies = viewer.walker->dummies();
             viewer.walker->update(input, seconds, *viewer.bodies);
-            view = viewer.walker->eye(camera.fov()).camera(viewer.config.width, viewer.config.height);
+            if (input.wasPressed(uta::uinput::Action::DropDummy))
+                std::cerr << (viewer.walker->dummies() > dummies ? "ut-ants: a dummy stands ahead\n"
+                                                                 : "ut-ants: no room for a dummy here\n");
+            view = viewer.walker->view(camera.fov(), viewer.config.width, viewer.config.height);
+            viewer.standIns.advance(seconds, viewer.walker->events());
+            viewer.renderer.setShapes(viewer.standIns.shapes(viewer.walker->game(), viewer.walker->set()));
         } else {
             camera.update(input, seconds, level);
             view = camera.camera(viewer.config.width, viewer.config.height);
         }
         view.flashlight = viewer.flashlight;
+        viewer.showOverlay();
         if (const auto result = viewer.renderer.draw(bundle, view); !result) {
             std::cerr << "ut-ants: a frame did not draw: " << result.error().message() << "\n";
             return EXIT_FAILED;

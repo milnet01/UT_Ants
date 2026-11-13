@@ -86,6 +86,7 @@ add_executable(uta_unit_tests
     unit/ClientCliTest.cpp
     unit/ClientFlyCameraTest.cpp
     unit/ClientWalkerTest.cpp
+    unit/ClientWeaponsTest.cpp
     unit/TeleportersTest.cpp
     unit/InputTest.cpp
     unit/ClientFrameRateTest.cpp
@@ -189,6 +190,7 @@ target_sources(uta_unit_tests PRIVATE
     "${PROJECT_SOURCE_DIR}/apps/ut-ants/MapList.cpp"
     "${PROJECT_SOURCE_DIR}/apps/ut-ants/Capture.cpp"
     "${PROJECT_SOURCE_DIR}/apps/ut-ants/Png.cpp"
+    "${PROJECT_SOURCE_DIR}/apps/ut-ants/StandIns.cpp"
     "${PROJECT_SOURCE_DIR}/apps/ut-ants/Walker.cpp")
 target_include_directories(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/apps")
 # UTA-0191: Png.cpp instantiates the vendored encoder, so the tests need the

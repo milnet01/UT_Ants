@@ -153,3 +153,62 @@ TEST_CASE("UTA-0167: the triggers and shoulders are Up and Down and the stick pr
     CHECK(keys.up == -1);
     CHECK(keys.walk);
 }
+
+TEST_CASE("UTA-0019 SS 4.8: the mouse buttons fire while held and the wheel steps the weapon", "[uinput]") {
+    Input input;
+    CHECK_FALSE(input.frame({}, {}, 1).fire);
+    input.mouseButton(uta::uinput::MouseButton::Left, true);
+    Frame held = input.frame({}, {}, 1);
+    CHECK(held.fire);
+    CHECK_FALSE(held.altFire);
+    CHECK(input.frame({}, {}, 1).fire); // still down: no event, still held
+    input.mouseButton(uta::uinput::MouseButton::Right, true);
+    input.mouseButton(uta::uinput::MouseButton::Left, false);
+    held = input.frame({}, {}, 1);
+    CHECK_FALSE(held.fire);
+    CHECK(held.altFire);
+
+    input.mouseWheel(1);
+    Frame wheel = input.frame({}, {}, 1);
+    CHECK(wheel.wasPressed(Action::NextWeapon));
+    CHECK_FALSE(wheel.wasPressed(Action::PrevWeapon));
+    input.mouseWheel(-1);
+    wheel = input.frame({}, {}, 1);
+    CHECK(wheel.wasPressed(Action::PrevWeapon));
+    CHECK_FALSE(wheel.wasPressed(Action::NextWeapon));
+    CHECK_FALSE(input.frame({}, {}, 1).wasPressed(Action::PrevWeapon));
+}
+
+TEST_CASE("UTA-0019 SS 4.8: a number key picks its weapon once a press and T drops a dummy", "[uinput]") {
+    Input input;
+    input.keyDown(Key::N1, false);
+    input.keyDown(Key::N0, false);
+    input.keyDown(Key::N5, true); // auto-repeat: not a press
+    input.keyDown(Key::T, false);
+    const Frame frame = input.frame({}, {}, 1);
+    CHECK(frame.wasPressed(Action::Weapon1));
+    CHECK(frame.wasPressed(Action::Weapon0));
+    CHECK_FALSE(frame.wasPressed(Action::Weapon5));
+    CHECK(frame.wasPressed(Action::DropDummy));
+    CHECK_FALSE(input.frame({}, {}, 1).wasPressed(Action::Weapon1));
+}
+
+TEST_CASE("UTA-0019 SS 4.8: the triggers rise and sink or fire by the setting", "[uinput]") {
+    PadState pad;
+    pad.rightTrigger = 1;
+    const Frame flying = padFrame(pad);
+    CHECK(flying.up == 1);
+    CHECK_FALSE(flying.fire);
+
+    uta::uinput::Settings settings;
+    settings.triggersFire = true;
+    const Frame walking = padFrame(pad, 1, settings);
+    CHECK(walking.up == 0);
+    CHECK(walking.fire);
+    CHECK_FALSE(walking.altFire);
+    pad.rightTrigger = DEAD_ZONE / 2; // resting inside the dead zone
+    pad.leftTrigger = 1;
+    const Frame alt = padFrame(pad, 1, settings);
+    CHECK_FALSE(alt.fire);
+    CHECK(alt.altFire);
+}

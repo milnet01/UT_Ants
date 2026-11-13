@@ -19746,6 +19746,10 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   flicker 36-44 % at no frame cost and no ghosting on a fast turn. Narrow
   a jitter-distance kernel when lowering the peak. Score sharpness by edge
   agreement against a full-res reference, not gradient energy.
+  DOOM Ants, 2026-11-13: a temporal upscaler given a zero motion vector
+  for sky keeps stale wall over the sky after a turn. Know-how entry
+  temporal-upscaler-sky-zero-motion-ghost; read it before a pass
+  consumes the velocity target.
   **Layman:** Groundwork that lets the game render at a lower resolution and scale it up cleanly later. Cheap to build in now, expensive to retrofit.
   Kind: implement.
   Source: user-request-2026-09-08.
@@ -21253,7 +21257,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-11-12.
   Lanes: urender, ugame.
 
-- 📋 [UTA-0472] **A way for the user to try the guns: fire every stock weapon in the viewer at a target.**
+- 🚧 [UTA-0472] **A way for the user to try the guns: fire every stock weapon in the viewer at a target.**
   User, 2026-11-13, during UTA-0019 step 4: "Please also create a way
   for me to test these guns out please." Not yet scoped. To settle
   when picked up: what UTA-0019's step 5 already wires into
@@ -21262,6 +21266,14 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   and beams drawn, a target body that shows damage and is thrown,
   ammo and health on screen. No weapon models or sounds: those are
   UTA-0467.
+  2026-11-13: built as UTA-0019's SS 4.8. Walking carries the stock set;
+  left and right mouse fire and alt-fire, 1-9 and 0 and the wheel pick,
+  T stands a dummy, a no-alt weapon zooms; shapes, crosshair and
+  lettered overlay in urender. Run in the real viewer under Xvfb: a
+  dummy stood, a rocket volley killed it. Found and fixed on the way: a
+  walker made at a PlayerStart sat in the floor and could not move; the
+  overlay's white went black when its text shrank. Flip on GitHub's
+  matrix.
   **Layman:** Walk around a map in the viewer, pick any gun, and shoot it at a dummy, so you can feel how each one behaves.
   Kind: implement.
   Source: user-request-2026-11-13.

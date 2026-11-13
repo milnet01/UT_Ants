@@ -14,6 +14,18 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **Try the guns in the viewer** (UTA-0472, UTA-0019)
+  Walking in a map, you now carry every stock weapon with full ammo. The
+  left mouse button fires and the right one alt-fires; the number keys and
+  the mouse wheel pick a weapon; the sniper rifle's alt fire zooms. T
+  stands a target dummy a few metres ahead, which turns from green to red
+  as it is hurt, is thrown by blasts, and goes when it is killed. A
+  crosshair marks the aim, and the weapon, its ammo, your health and the
+  last hit's damage show under the frame-rate counter. Shots, beams and
+  explosions are plain coloured shapes for now, with no weapon models and
+  no sound. On a controller, walking moves fire and alt-fire onto the
+  triggers; the shoulder buttons still jump and duck.
+
 - **Keyboard, mouse and gamepad drive one set of game actions** (UTA-0018)
   Every key and controller button now asks for a named action, such as
   jump or dodge, so all three devices control the game the same way. On a

@@ -722,6 +722,7 @@ struct Renderer::Impl {
     /// white texels its copies read (Swapchain::recordBlit). Grown, never shrunk.
     std::string overlayText;
     Buffer overlayPixels;
+    std::uint64_t overlayPixelsHeld = 0; ///< texels of each colour in overlayPixels
     bool crosshair = false; ///< UTA-0019 SS 4.8, drawn with the overlay
     /// UTA-0019 SS 4.8: the stand-in shapes setShapes holds; this frame's
     /// records of them, host-written and grown, never shrunk; the draws that
@@ -798,7 +799,7 @@ struct Renderer::Impl {
                               occlusion.view() != VK_NULL_HANDLE, shadowMask.view() != VK_NULL_HANDLE,
                               skyLayerLights.size());
     }
-    /// UTA-0452: overlayPixels holds at least `pixels` black and `pixels` white texels.
+    /// UTA-0452: overlayPixels holds exactly `pixels` black texels, then `pixels` white.
     [[nodiscard]] Result<void> holdOverlayPixels(std::uint64_t pixels);
     /// One view of `bundle` from `camera`, presented to `image` when there is
     /// one. With `skyFace`, UTA-0163's capture: drawn at scale 1 with no sky, and
@@ -2680,7 +2681,10 @@ Result<void> Renderer::Impl::placeShapes(const gpu::FrameData& frame, const Came
 
 Result<void> Renderer::Impl::holdOverlayPixels(std::uint64_t pixels) {
     const VkDeviceSize bytes = 2 * pixels * 4;
-    if (overlayPixels.handle() != VK_NULL_HANDLE && overlayPixels.size() >= bytes) return {};
+    // Exactly, not at least: the copies find the white texels `pixels` in, so
+    // a buffer kept from a larger layout would hand a smaller one black for
+    // white (UTA-0472: the text went black when a shorter weapon name came up).
+    if (overlayPixels.handle() != VK_NULL_HANDLE && overlayPixelsHeld == pixels) return {};
     // Every earlier frame was waited for, so the old buffer is free to go.
     UTA_TRY(overlayPixels, Buffer::create(*gpu, bytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, BufferMemory::HostWrite));
     std::byte* const texels = overlayPixels.mapped();
@@ -2688,6 +2692,7 @@ Result<void> Renderer::Impl::holdOverlayPixels(std::uint64_t pixels) {
         std::memcpy(texels + i * 4, "\x00\x00\x00\xff", 4);
         std::memcpy(texels + (pixels + i) * 4, "\xff\xff\xff\xff", 4);
     }
+    overlayPixelsHeld = pixels;
     return {};
 }
 
