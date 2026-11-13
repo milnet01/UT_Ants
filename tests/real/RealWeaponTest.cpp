@@ -67,6 +67,7 @@
 #include <iostream>
 #include <map>
 #include <numbers>
+#include <set>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -432,23 +433,17 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
                     ourHits, [last](const Hit& h) { return h.victim == TARGET && h.tick >= last - 1; });
                 if (late != recording.damage.end() && !landed) hit = &*late;
             }
-            // A shot's hit is logged a row after the tick ours lands in. One
-            // ours landed last tick is this row's D line, already spent: the
-            // target is as the next line found it, or as its own row has it.
-            const auto onTargetAt = [&recording](std::int64_t at) {
-                return std::ranges::find_if(recording.damage, [at](const auto& d) {
-                    return d.tick == at && d.victim.starts_with("UTARecTarget");
-                });
-            };
+            // A shot's hit is logged a row after the tick ours lands in. Once
+            // ours has landed as many ticks of shots' hits as are logged by
+            // this row, its D line is spent: the target is as its own row
+            // has it, hit and yet to move.
             const auto now = static_cast<std::int64_t>(k);
-            const bool spent = hit != nullptr && hit->tick == now && onTargetAt(now - 1) == recording.damage.end() &&
-                               std::ranges::any_of(ourHits, [now](const Hit& h) {
-                                   return h.victim == TARGET && h.tick == now - 1 && !h.traced;
-                               });
-            if (spent) {
-                const auto next = onTargetAt(now + 1);
-                hit = next != recording.damage.end() ? &*next : nullptr;
-            }
+            std::set<std::int64_t> logged, landed;
+            for (const auto& d : recording.damage)
+                if (d.tick <= now && d.victim.starts_with("UTARecTarget")) logged.insert(d.tick);
+            for (const Hit& h : ourHits)
+                if (h.victim == TARGET && !h.traced) landed.insert(h.tick);
+            if (hit != nullptr && hit->tick == now && landed.size() >= logged.size()) hit = nullptr;
             afterPhysics = hit != nullptr;
             place(game.bodies[TARGET], vec(hit ? hit->location : g.location), hit ? hit->velocity0 : g.velocity,
                   hit ? hit->physics0 : g.physics, targetHover);

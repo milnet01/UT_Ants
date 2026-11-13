@@ -18745,6 +18745,24 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   0.7648 and 0.7542 at 120: neither a carried 0.77 nor a time
   rounded up to a frame fits all; ours is a tick late on three of
   six, inside the allowance.
+  2026-11-13, hits in a row. A D line at tick k is a hit in frame
+  k-1, and the G row k already holds it. Replay: once ours has
+  landed as many ticks of shots' hits as are logged by a row, the
+  target stands as its G row has it, not as the D line found it:
+  a second and third rocket of a volley now find the thrown target
+  where the original's did. Failures 106 -> 104.
+  Looked at, not changed:
+  - rocket-floor and rocket-jump are the hover alone: the recorded
+    push is 3.30 up for 1 across, ours 2.92, which is a blast 4.7
+    further below the centre. Waits on the user's allowance.
+  - A rocket's every hit is its blast (RocketMk2.ProcessTouch calls
+    Explode; no direct damage). A target thrown onto a rocket takes
+    the blast from where the rocket started its move
+    (rocket-load-5 at 120 fps, D line 366): ours blasts further on.
+  - flak-alt-tap 85: a slug that strikes a body near its edge hurt
+    it with two of its five chunks; three flew on. Ours lands all
+    five in the slug's own tick. One sample.
+  - flak-primary 120's seventh hit is its volley fired a tick late.
   **Layman:** The guns. Built as a table of numbers rather than as code, so a different set -- your super weapons -- is a different table rather than a second codebase.
   Kind: implement.
   Source: design-2026-09-03.
