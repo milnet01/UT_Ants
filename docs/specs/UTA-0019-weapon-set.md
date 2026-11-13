@@ -493,7 +493,14 @@ linearly from the victim's edge, not its centre, as `Fire.cpp`'s
   the hammer and rocket jumps included, is within 1 unit/s. Where the
   original draws at random (§ 3 item 6), the recorded value lies within
   the range our rule draws from, and the rest of the shot matches as
-  above.
+  above. Four differences are allowed (user, 2026-11-13):
+  a blast at the firer's own feet may differ by 3 damage and 25 unit/s,
+  because the original's player hovers 4.8 units over the floor and ours
+  does not; the first shot after a switch may be two ticks out, because
+  a switch stays one time for each weapon where the original has two
+  waits; the chainsaw may land one cut fewer in a run, because our
+  cadence does not move with the frame rate as the original's does; and
+  a stuck shot may rest within 3 units.
   *Test:* `RealWeaponTest.cpp`, label `real`, which prints each run's
   worst error.
   *Breaks when:* a measured number or an archetype's rule is wrong.

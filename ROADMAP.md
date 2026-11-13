@@ -18798,6 +18798,17 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   match in every run. Left: grenade-load-5 at 30 fps (damage 34 at tick
   198, a hit 9 ticks off, one launch draw out of range). Step 5 is built
   and pushed as UTA-0472.
+  2026-11-13, the user's four answers, now INV-6's allowed differences:
+  a blast at the firer's feet may differ by 3 damage and 25 unit/s (the
+  hover; rocket-floor, rocket-jump); a switch stays one time, its first
+  shot up to two ticks out (switch- runs); our cadence stays steady, so
+  the chainsaw may land one cut fewer; a stuck shot rests within 3.
+  Replay failures 88 -> 69. Left, worst first: flak bounces and the
+  alt's flight; rocket-load and rocket-primary velocities (a target
+  thrown onto a rocket); switch-pulse and switch-minigun counts; pulse
+  and ripper primary spawn at 120; bio-primary 30's shot after the
+  hitch; chainsaw-primary 85's velocity; grenade-load-5 at 30;
+  minigun-alt 85. Still open for the user: UTA-0469's extra languages.
   **Layman:** The guns. Built as a table of numbers rather than as code, so a different set -- your super weapons -- is a different table rather than a second codebase.
   Kind: implement.
   Source: design-2026-09-03.
@@ -21267,7 +21278,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-11-12.
   Lanes: urender, ugame.
 
-- 🚧 [UTA-0472] **A way for the user to try the guns: fire every stock weapon in the viewer at a target.**
+- ✅ [UTA-0472] **A way for the user to try the guns: fire every stock weapon in the viewer at a target.**
   User, 2026-11-13, during UTA-0019 step 4: "Please also create a way
   for me to test these guns out please." Not yet scoped. To settle
   when picked up: what UTA-0019's step 5 already wires into
@@ -21284,6 +21295,8 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   walker made at a PlayerStart sat in the floor and could not move; the
   overlay's white went black when its text shrank. Flip on GitHub's
   matrix.
+  Shipped in deba324 and c50e0ed; GitHub's matrix green on deba324,
+  2026-11-13.
   **Layman:** Walk around a map in the viewer, pick any gun, and shoot it at a dummy, so you can feel how each one behaves.
   Kind: implement.
   Source: user-request-2026-11-13.

@@ -85,6 +85,25 @@ constexpr std::int64_t MAX_TICK_ERROR = 1;
 constexpr double MAX_POSITION_ERROR = 1;
 constexpr double MAX_VELOCITY_ERROR = 1;
 
+// INV-6's four allowed differences (user, 2026-11-13).
+/// A blast at the firer's own feet. The original's player hovers 4.8 over
+/// the floor and ours stands on it, so the blast is that much nearer our
+/// centre: the recorded push is 3.30 up for 1 across, ours 2.92.
+constexpr std::array<std::string_view, 2> HOVER_RUNS{"rocket-floor", "rocket-jump"};
+constexpr double HOVER_DAMAGE_ERROR = 3;
+constexpr double HOVER_VELOCITY_ERROR = 25;
+/// A switch is one carried time here and two waits in the original, each
+/// ended at a frame: at 30 frames a second our first shot is two ticks early.
+constexpr std::string_view SWITCH_RUNS = "switch-";
+constexpr std::int64_t SWITCH_TICK_ERROR = 2;
+/// Our cadence does not move with the frame rate. The original's chainsaw
+/// cuts 22 to 24 ticks apart at 85 frames a second where ours cuts every 24,
+/// so the last recorded cut of a run may fall after ours ends.
+constexpr std::string_view STEADY_RUN = "chainsaw-primary";
+/// Where a stuck shot rests: recorded ones lie up to 2.5 along their path
+/// from ours, either way, and 0.9 apart on one flat floor.
+constexpr double MAX_REST_ERROR = 3;
+
 constexpr int FIRER = 0, TARGET = 1;
 
 /// Below this speed a bounce is not compared: the shot is settling, several
@@ -188,7 +207,8 @@ struct Errors {
     std::size_t ourShots = 0, theirShots = 0, ourHits = 0, theirHits = 0, ourSpends = 0, theirSpends = 0;
     std::int64_t shotTick = 0, hitTick = 0, spendTick = 0;
     double damage = 0, velocity = 0, spawn = 0, flight = 0, bounce = 0;
-    std::string damageAt, velocityAt, spawnAt, flightAt, bounceAt;
+    double rest = 0; ///< a stuck shot's, apart from its flight
+    std::string damageAt, velocityAt, spawnAt, flightAt, bounceAt, restAt;
     std::size_t unmatched = 0;
     bool randomHits = false;    ///< the mode draws its hits: counts are not compared
     std::size_t outOfRange = 0; ///< recorded draws outside our rule's range
@@ -841,7 +861,11 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
             const double d = uworld::length(row->second.location - want);
             const std::string at = name + " tick " + std::to_string(tick);
             if (first && d > e.spawn) e.spawn = d, e.spawnAt = at;
-            if (d > e.flight) e.flight = d, e.flightAt = at;
+            if (row->second.stuck) {
+                if (d > e.rest) e.rest = d, e.restAt = at;
+            } else if (d > e.flight) {
+                e.flight = d, e.flightAt = at;
+            }
             first = false;
         }
     }
@@ -882,19 +906,25 @@ TEST_CASE("UTA-0019 INV-6: the stock set matches the original's weapon runs on D
                   << e.spawnAt << "), flight " << e.flight << " (" << e.flightAt << "), bounce " << e.bounce << " ("
                   << e.bounceAt << ")"
                   << (e.randomHits ? ", hits drawn" : "") << ", out of range " << e.outOfRange << " ("
-                  << e.outOfRangeAt << ")\n";
+                  << e.outOfRangeAt << "), rest " << e.rest << " (" << e.restAt << ")\n";
+        const bool hover = std::ranges::find(HOVER_RUNS, r.name) != HOVER_RUNS.end();
+        const double damageError = hover ? HOVER_DAMAGE_ERROR : 0;
+        const double velocityError = hover ? HOVER_VELOCITY_ERROR : MAX_VELOCITY_ERROR;
+        const std::int64_t spendError = r.name.starts_with(SWITCH_RUNS) ? SWITCH_TICK_ERROR : MAX_TICK_ERROR;
         CHECK(e.outOfRange == 0);
-        if (!e.randomHits) CHECK(e.ourHits == e.theirHits);
+        if (r.name == STEADY_RUN) CHECK((e.ourHits == e.theirHits || e.ourHits + 1 == e.theirHits));
+        else if (!e.randomHits) CHECK(e.ourHits == e.theirHits);
         CHECK(e.ourShots == e.theirShots);
         CHECK(e.unmatched == 0);
-        CHECK(e.damage == 0);
-        CHECK(e.velocity <= MAX_VELOCITY_ERROR);
+        CHECK(e.damage <= damageError);
+        CHECK(e.velocity <= velocityError);
         CHECK(e.spawn <= MAX_POSITION_ERROR);
         CHECK(e.flight <= MAX_POSITION_ERROR);
+        CHECK(e.rest <= MAX_REST_ERROR);
         CHECK(e.bounce <= MAX_POSITION_ERROR);
         if (r.timed) {
             CHECK(e.ourSpends == e.theirSpends);
-            CHECK(e.spendTick <= MAX_TICK_ERROR);
+            CHECK(e.spendTick <= spendError);
             CHECK(e.shotTick <= MAX_TICK_ERROR);
             CHECK(e.hitTick <= MAX_TICK_ERROR);
         }
