@@ -282,6 +282,11 @@ void explode(Tick& tick, std::size_t index, int struck, const Vec3& away, const 
 /// Recorded: a flak chunk's bounces, at 30, 85 and 120 frames a second.
 constexpr double BACK_OFF = 2.5;
 
+/// How far past its move's end a shot looks for a surface, along its path.
+/// Recorded: a flak chunk turned off a floor its move ended 1.4 above, and
+/// the replay fails fewer checks at 2 than at 2.5.
+constexpr double LOOK_ON = 2.0;
+
 /// How far into a body a shot's hit is moved along its path, of the body's
 /// radius (Pawn.AdjustHitLocation).
 constexpr double HIT_INSET = 0.4;
@@ -319,10 +324,17 @@ void fly(Tick& tick, std::size_t index) {
         const Vec3 delta = shot.velocity * (time + more);
         const Vec3 to = from + delta;
 
+        // The level is looked for a little past the move's end; `first` and
+        // `met` are fractions of the move itself, so may pass 1.
+        const double reach = uworld::length(delta);
+        const double looked = reach > 0 ? (reach + LOOK_ON) / reach : 1;
+        const Vec3 past = from + delta * looked;
         const uworld::BodyHit level = kind.radius > 0
-                                          ? tick.world.sweep(uworld::BodySize{kind.radius, kind.radius}, from, to)
-                                          : tick.world.trace(from, to);
-        double first = level.startsInside ? 0 : level.fraction;
+                                          ? tick.world.sweep(uworld::BodySize{kind.radius, kind.radius}, from, past)
+                                          : tick.world.trace(from, past);
+        const bool surface = level.startsInside || level.fraction < 1;
+        const double met = level.startsInside ? 0 : level.fraction * looked;
+        double first = met;
         int struck = -1;
         const std::vector<Body>& bodies = tick.game.bodies;
         for (std::size_t i = 0; i < bodies.size(); ++i) {
@@ -338,7 +350,7 @@ void fly(Tick& tick, std::size_t index) {
             // The script's Location is where the move ends, the level allowing;
             // its HitLocation is where the shot met the body.
             // Pawn.AdjustHitLocation moves it on into the body, along the shot.
-            const double moved = level.startsInside ? 0 : std::min(level.fraction, 1.0);
+            const double moved = std::min(met, 1.0);
             const Body& body = bodies[static_cast<std::size_t>(struck)];
             const double moving = uworld::length(shot.velocity);
             const Vec3 inset = moving > 0 ? shot.velocity * (HIT_INSET * body.size.radius / moving) : Vec3{};
@@ -350,7 +362,7 @@ void fly(Tick& tick, std::size_t index) {
             explode(tick, index, struck, met - body.move.location, end);
             return;
         }
-        if (first >= 1) {
+        if (!surface) {
             shot.location = to;
             // The engine's falling physics gives an actor that does not bounce
             // the second half of a tick's gravity after its move.
@@ -360,7 +372,6 @@ void fly(Tick& tick, std::size_t index) {
         // The level: a shot starting in solid strikes where it is (SS 6).
         // It stops short of the surface, and the time it would have taken
         // to close that gap is left to it.
-        const double reach = uworld::length(delta);
         if (reach > 0) first = std::max(0.0, first - BACK_OFF / reach);
         shot.location = from + delta * first;
         const Vec3 normal = level.normal;

@@ -346,6 +346,9 @@ Botpack `DeathMatchPlus.ReduceDamage`):
   the zone's gravity before each tick's move. Recorded 2026-11-12: 475 a
   second², not 950. One that does not bounce (the flak slug) gains the
   other half after the move (`gravity-after`): recorded 950.
+- A shot strikes a surface up to 2 past the end of its move, along its
+  path. Recorded 2026-11-13: a flak chunk turned off a floor its move
+  ended 1.4 above; INV-6's replay fails fewer checks at 2 than at 2.5.
 - A shot stops 2.5 short of a surface it strikes, along its path.
   Recorded 2026-11-12: flak chunks at 30, 85 and 120 frames a second,
   and the blast of a rocket fired at the floor.

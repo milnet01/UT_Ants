@@ -856,6 +856,29 @@ TEST_CASE("SS 4.9: a bounce keeps bounce-keep of the speed along the surface and
     CHECK(std::abs(shot.location.z - (stopped + shot.velocity.z * (left + DT))) < 1e-6);
 }
 
+TEST_CASE("SS 4.9: a shot strikes a surface up to 2 past its move's end, and no further", "[ugame][game]") {
+    const BodyWorld world = arena();
+    const WeaponSet set = bouncing("flak-chunk", 0.25, 0);
+    const Vec3 velocity{600, 300, -400};
+    const double speed = uta::uworld::length(velocity);
+    // Its move ends `gap` short of the floor, along its path.
+    const auto bouncesFrom = [&](double gap) {
+        Game game = oneShot(set, "flak-chunk", Vec3{0, 500, 0} - velocity * (DT + gap / speed), velocity);
+        tick(world, set, RULES, game, std::vector<MoveCommand>(2), DT);
+        REQUIRE(game.shots.size() == 1);
+        return game.shots[0];
+    };
+    const Shot near = bouncesFrom(1.9);
+    CHECK(near.bounces == 1);
+    // It stopped 2.5 short of the floor, 0.6 before its move's end, and
+    // flew the time that left it and a tick more at what the bounce kept.
+    const double left = 0.6 / speed;
+    const double fall = RULES.gravityZ * *set.projectile("flak-chunk")->bounceGravity * left;
+    CHECK(std::abs(near.velocity.z - (400 * 0.25 + fall)) < 1e-6);
+    CHECK(std::abs(near.location.z - (2.5 * 400 / speed + near.velocity.z * (left + DT))) < 1e-6);
+    CHECK(bouncesFrom(2.1).bounces == 0);
+}
+
 TEST_CASE("SS 4.9: a kind that falls from its first bounce moves a tick more in that tick, and falls from then on",
           "[ugame][game]") {
     const BodyWorld world = arena();
@@ -936,8 +959,8 @@ TEST_CASE("SS 4.9: a flak shell's pieces start 10 off the surface and fly on alo
     const double mostTurn = std::numbers::sqrt2 * chunk.turnRandom * 2 * std::numbers::pi / 65536;
     for (const Shot& shot : game.shots) {
         const Shot was = launchedThisTick(set, shot);
-        CHECK(was.location.z > 10); // 10 off the floor, plus the strike's back-off
-        CHECK(was.location.z <= 10 + 0.5);
+        CHECK(was.location.z > 10); // 10 off the floor, plus the strike's back-off:
+        CHECK(was.location.z <= 10 + 2.5); // 2.5 along a path that is never straight down
         CHECK(std::abs(was.location.x - shellAt.x) < 60); // where the shell came down
         const double speed = uta::uworld::length(was.velocity);
         CHECK(std::abs(speed - chunk.speed) <= chunk.speedRandom);
@@ -1314,5 +1337,5 @@ TEST_CASE("INV-5: a scripted fight is the same at every frame rate and on every 
         CHECK(again == reference);
     }
     INFO("final hash " << reference.back());
-    CHECK(reference.back() == 3089084345998358696u);
+    CHECK(reference.back() == 8509411630250113570u);
 }

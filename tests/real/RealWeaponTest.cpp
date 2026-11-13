@@ -649,6 +649,26 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
                 };
                 const auto before = rowAt(tick + s.late), after = rowAt(tick + 1 + s.late);
                 ugame::Shot start = gameBefore.shots[was[i]];
+                // The tick again with this shot alone, keeping `off` of its
+                // speed off a surface, over the recorded shot's tick of this
+                // age: a launch a tick from ours flew each move over another
+                // row's time.
+                const auto aged = std::clamp<std::int64_t>(tick + s.late, 0, static_cast<std::int64_t>(rows.size()) - 1);
+                const double flownFor = rows[static_cast<std::size_t>(aged)].dt;
+                const auto with = [&](double off) {
+                    ugame::WeaponSet probe = set;
+                    probe.projectiles[shot.kind].bounceOff = off;
+                    probe.projectiles[shot.kind].bounceOffRandom = 0;
+                    ugame::Game alone = gameBefore;
+                    alone.shots = {start};
+                    for (ugame::Body& body : alone.bodies) body.weapon = -1;
+                    ugame::tick(world, probe, rules, alone, std::array<uworld::MoveCommand, 2>{}, flownFor);
+                    return alone.shots;
+                };
+                if (s.late != 0 && !start.stuck) {
+                    const auto own = with(kind.bounceOff);
+                    if (own.size() == 1) shot = own[0];
+                }
                 // Its first bounce, ours or the recorded one's: a kind that
                 // flies straight till then turns at nothing else.
                 const bool turned = before != t.rows.end() && after != t.rows.end() && kind.gravity == 0 &&
@@ -660,18 +680,6 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
                     s.raised = true;
                     start.location.z += firerHover;
                 }
-                // The tick again with this shot alone, keeping `off` of its
-                // speed off a surface.
-                const auto with = [&](double off) {
-                    ugame::WeaponSet probe = set;
-                    probe.projectiles[shot.kind].bounceOff = off;
-                    probe.projectiles[shot.kind].bounceOffRandom = 0;
-                    ugame::Game alone = gameBefore;
-                    alone.shots = {start};
-                    for (ugame::Body& body : alone.bodies) body.weapon = -1;
-                    ugame::tick(world, probe, rules, alone, std::array<uworld::MoveCommand, 2>{}, row.dt);
-                    return alone.shots;
-                };
                 const auto all = raise || shot.bounces > s.bounces ? with(1) : std::vector<ugame::Shot>{};
                 if (raise && all.size() == 1 && all[0].bounces == start.bounces) {
                     // Raised, it has yet to bounce; or it sticks from the

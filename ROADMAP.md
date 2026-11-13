@@ -18730,6 +18730,21 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   hit as for a trace's. Failures 136 -> 120.
   Left on flak: bounces, slow chunks' damage, flak-primary 120's
   seventh hit, the alt's flight.
+  2026-11-13, a shot looks past its move. A recorded chunk turned
+  off a floor its move ended 1.4 above: a shot strikes a surface up
+  to 2 past its move's end, along its path, and still stops 2.5
+  short of it (LOOK_ON in Game.cpp; the replay fails 106 at 2 and
+  111 at 2.5). Recorded bounces otherwise fit ours: a first bounce
+  moves a tick more, a later one the tick's own time, the turn 2.5
+  short along the path.
+  Replay: a shot ours launches a tick from the original's is flown
+  each tick over the recorded shot's own row time (rows differ by
+  up to a third at 120 fps): ripper, shock alt and bio flights at 85
+  and 120 fps were this. Failures 120 -> 106. INV-5's hash moved.
+  Held flak refires are 0.7714 at 30 fps, 0.7777 and 0.7598 at 85,
+  0.7648 and 0.7542 at 120: neither a carried 0.77 nor a time
+  rounded up to a frame fits all; ours is a tick late on three of
+  six, inside the allowance.
   **Layman:** The guns. Built as a table of numbers rather than as code, so a different set -- your super weapons -- is a different table rather than a second codebase.
   Kind: implement.
   Source: design-2026-09-03.
