@@ -193,6 +193,11 @@ constexpr double FAN_BACK = 4;        ///< each starts up to this far behind, at
 constexpr double FAN_SPEED = 0.1;     ///< a rocket after the first: speed x 1 +- this, at random
 constexpr std::uint32_t CLUSTER_TURN = 750; ///< a grenade of several: pitch, yaw and roll each turned up to this
 
+/// UT_FlakCannon.Fire: where each chunk starts from the start, to the right
+/// and up. Chunks past the eighth go round again.
+constexpr std::array<std::array<double, 2>, 8> FLAK_PLACES{{{0, 0}, {0, -1}, {2, 1}, {-1, 0},
+                                                            {2, -1}, {0, 0}, {1, -1}, {2, 1}}};
+
 /// UT99's `V >> R`: `v` turned from the frame of `pitch`, `yaw` and `roll`
 /// into the world's, as GetAxes builds it.
 Vec3 turned(const Vec3& v, std::int32_t pitch, std::int32_t yaw, std::int32_t roll) {
@@ -225,6 +230,14 @@ void launchAll(Tick& tick, int index, const FireMode& mode, std::uint32_t kind, 
     const Vec3 forward{cp * cy, cp * sy, sp};
     const Vec3 right{-sy, cy, 0};
     const Vec3 up{-sp * cy, -sp * sy, cp};
+    if (mode.rule == FireRule::FlakSpread) {
+        for (std::uint32_t i = 0; i < count; ++i) {
+            const auto& place = FLAK_PLACES[i % FLAK_PLACES.size()];
+            launch(tick, kind, index, start + right * place[0] + up * place[1], body.yaw, body.pitch,
+                   body.move.velocity, damageScale, 1);
+        }
+        return;
+    }
     const bool several = count > 1;
     const double radius = mode.rule == FireRule::RocketFan ? FAN_RADIUS : CLUSTER_RADIUS;
     for (std::uint32_t i = 0; i < count; ++i) {

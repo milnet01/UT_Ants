@@ -188,7 +188,8 @@ charge waits for release.
 A fire mode's **`rule`** names behaviour no key can say (§ 3 item 6). Each
 rule belongs to one archetype, and `Fire.cpp` holds what it does; another
 archetype's rule, or an unknown one, is refused. Projectile rules:
-`rocket-fan` and `grenade-cluster` (§ 4.9, Rockets). Melee rule:
+`rocket-fan` and `grenade-cluster` (§ 4.9, Rockets), and `flak-spread`
+(§ 4.9, Flak). Melee rule:
 `hammer` (§ 4.9, Hammer).
 
 A melee mode's `momentum` may be below zero, which pulls (the Chainsaw),
@@ -413,7 +414,9 @@ Botpack `DeathMatchPlus.ReduceDamage`):
   its cadence moves with the frame rate: 0.147 and 0.073 s at 30. Ours
   does not (INV-5); INV-6's replay rounds these times to each run's
   ticks.
-- **Flak:** eight chunks at fixed offsets, each turned up to ±1000 and
+- **Flak:** eight chunks, each from its own place beside the start, right
+  and up: (0, 0), (0, -1), (2, 1), (-1, 0), (2, -1), (0, 0), (1, -1),
+  (2, 1) (Botpack `UT_FlakCannon.Fire`; rule `flak-spread`). Each is turned up to ±1000 and
   its speed ±100 at random. Alt tosses a slug with lift 200. The slug's
   five chunks keep its aim, not the surface's normal. A chunk bounces
   without limit, keeping 0.8 of its speed along the surface and a random

@@ -59,6 +59,7 @@ enum class FireRule : std::uint8_t {
     RocketFan,      ///< projectile: UT_Eightball's rockets, around a circle and fanned in yaw
     GrenadeCluster, ///< projectile: UT_Eightball's grenades, around a wider circle, each turned at random
     Hammer,         ///< melee: ImpactHammer's charge -- touch fires past a charge of 1, a surface counts it as 1
+    FlakSpread,     ///< projectile: UT_FlakCannon's chunks, each from its own fixed place beside the start
 };
 
 /// One fire mode: a `[fire WEAPON primary|alt]` section. Which of the

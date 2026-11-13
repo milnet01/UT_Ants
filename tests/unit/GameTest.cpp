@@ -337,6 +337,27 @@ TEST_CASE("SS 4.9: three rockets leave around the launcher's circle and fan by i
     }
 }
 
+TEST_CASE("SS 4.9: eight flak chunks each leave from their own place beside the start", "[ugame][game]") {
+    const BodyWorld world = arena();
+    Game game = duel(stock(), "flak-cannon", 1900);
+    const FireMode& mode = primaryOf(stock(), "flak-cannon");
+    REQUIRE(mode.rule == uta::ugame::FireRule::FlakSpread);
+    hold(world, stock(), game, 1);
+    REQUIRE(game.shots.size() == 8);
+
+    // UT_FlakCannon.Fire: Start, -Z, +2Y+Z, -Y, +2Y-Z, Start, +Y-Z, +2Y+Z.
+    Vec3 start = levelStart(mode);
+    start.z += game.bodies[0].move.location.z - STANDING; // where the body settled
+    const std::array<std::array<double, 2>, 8> places{{{0, 0}, {0, -1}, {2, 1}, {-1, 0}, {2, -1}, {0, 0}, {1, -1}, {2, 1}}};
+    for (std::size_t i = 0; i < places.size(); ++i) {
+        CAPTURE(i);
+        const Shot shot = launchedThisTick(stock(), game.shots[i]);
+        CHECK(std::abs(shot.location.x - start.x) < 1e-9);
+        CHECK(std::abs(shot.location.y - (start.y + places[i][0])) < 1e-9);
+        CHECK(std::abs(shot.location.z - (start.z + places[i][1])) < 1e-9);
+    }
+}
+
 TEST_CASE("INV-4: one mode's damage, refire or speed changes only that", "[ugame][game]") {
     const BodyWorld world = arena();
 

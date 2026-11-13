@@ -272,8 +272,9 @@ offset = 11.5 12 -16.65    # SS 4.9: PlayerViewOffset plus the class's FireOffse
 refire = 0.77              # recorded: a tap, fire to idle
 ammo = 1
 spread = 0                 # script: every chunk takes the aim; flak-chunk's turn-random spreads them
+rule = flak-spread         # script: UT_FlakCannon.Fire, each chunk from its own place up to 2 right and 1 up or down
 projectile = flak-chunk
-count = 8                  # recorded; each at a fixed offset (rule to build)
+count = 8                  # script: UT_FlakCannon.Fire; recorded
 
 [fire flak-cannon alt]
 archetype = projectile

@@ -144,10 +144,10 @@ constexpr std::string_view SPLASH_FROM_NAMES[] = {"contact", "moved"};
 constexpr std::string_view RANGE_FROM_NAMES[] = {"start", "body"};
 constexpr std::string_view BODY_HIT_NAMES[] = {"splash", "direct"};
 /// FireRule's names, in its order; "none" is never written.
-constexpr std::string_view RULE_NAMES[] = {"none", "rocket-fan", "grenade-cluster", "hammer"};
+constexpr std::string_view RULE_NAMES[] = {"none", "rocket-fan", "grenade-cluster", "hammer", "flak-spread"};
 /// The archetype each FireRule belongs to, in its order.
 constexpr Archetype RULE_ARCHETYPES[] = {Archetype::InstantHit, Archetype::Projectile, Archetype::Projectile,
-                                         Archetype::Melee};
+                                         Archetype::Melee, Archetype::Projectile};
 
 /// The index of `value` in `names`, or a refusal listing them.
 template <std::size_t N>

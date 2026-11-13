@@ -18715,6 +18715,21 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   hit one tick more: shock-primary's 600 and sniper-primary's 300
   were a second push on a body already pushed. Failures 147 -> 136.
   All three hammer-alt runs match in full.
+  2026-11-13, flak starts. UT_FlakCannon.Fire starts its eight
+  chunks at eight places beside the start, right and up: (0, 0),
+  (0, -1), (2, 1), (-1, 0), (2, -1), (0, 0), (1, -1), (2, 1). Ours
+  started all at one (spawn 2.236 off, now 0.00005). New projectile
+  rule flak-spread.
+  Replay: a random launch ours fires a tick late takes the recorded
+  row of its own age, not the next (a refired volley read 34 off at
+  85 and 120 fps). A shot's hit is logged a row after the tick ours
+  lands in, so a D line ours landed last tick is spent: the target
+  is then as the next D line found it, or as its row has it (two
+  chunks on back-to-back ticks lost the first's push). A target
+  placed from a D line has fallen that tick already, for a shot's
+  hit as for a trace's. Failures 136 -> 120.
+  Left on flak: bounces, slow chunks' damage, flak-primary 120's
+  seventh hit, the alt's flight.
   **Layman:** The guns. Built as a table of numbers rather than as code, so a different set -- your super weapons -- is a different table rather than a second codebase.
   Kind: implement.
   Source: design-2026-09-03.

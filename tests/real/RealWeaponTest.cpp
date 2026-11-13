@@ -178,6 +178,7 @@ struct Hit {
     int victim = 0;
     double damage = 0;
     Vec3 velocity{};
+    bool traced = false; ///< ours: by the weapon's own trace, not a shot
 };
 
 /// The worst of each comparison over a run.
@@ -209,10 +210,13 @@ struct LaunchRange {
 
 LaunchRange rangeOf(const ugame::FireMode& mode, const ugame::Projectile& kind, bool several) {
     LaunchRange range{kind.speedRandom, 2 * std::numbers::sqrt2 * kind.turnRandom, 0};
-    if (several && mode.rule != ugame::FireRule::None) {
+    if (several && mode.rule == ugame::FireRule::RocketFan) {
         range.back = 4;
-        if (mode.rule == ugame::FireRule::RocketFan) range.speed += 0.1 * kind.speed;
-        if (mode.rule == ugame::FireRule::GrenadeCluster) range.turn += 2 * std::sqrt(3.0) * 750;
+        range.speed += 0.1 * kind.speed;
+    }
+    if (several && mode.rule == ugame::FireRule::GrenadeCluster) {
+        range.back = 4;
+        range.turn += 2 * std::sqrt(3.0) * 750;
     }
     return range;
 }
@@ -410,6 +414,7 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
                 if (slot == nullptr) slot = &d;
             }
         const auto* firerHit = firstHit[FIRER];
+        bool afterPhysics = false; // the target is placed as a D line found it: a shot's is after that frame's physics
         place(game.bodies[FIRER], vec(firerHit ? firerHit->location : row.location),
               firerHit ? firerHit->velocity0 : row.velocity,
               firerHit ? firerHit->physics0 : row.physics, firerHover);
@@ -427,6 +432,24 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
                     ourHits, [last](const Hit& h) { return h.victim == TARGET && h.tick >= last - 1; });
                 if (late != recording.damage.end() && !landed) hit = &*late;
             }
+            // A shot's hit is logged a row after the tick ours lands in. One
+            // ours landed last tick is this row's D line, already spent: the
+            // target is as the next line found it, or as its own row has it.
+            const auto onTargetAt = [&recording](std::int64_t at) {
+                return std::ranges::find_if(recording.damage, [at](const auto& d) {
+                    return d.tick == at && d.victim.starts_with("UTARecTarget");
+                });
+            };
+            const auto now = static_cast<std::int64_t>(k);
+            const bool spent = hit != nullptr && hit->tick == now && onTargetAt(now - 1) == recording.damage.end() &&
+                               std::ranges::any_of(ourHits, [now](const Hit& h) {
+                                   return h.victim == TARGET && h.tick == now - 1 && !h.traced;
+                               });
+            if (spent) {
+                const auto next = onTargetAt(now + 1);
+                hit = next != recording.damage.end() ? &*next : nullptr;
+            }
+            afterPhysics = hit != nullptr;
             place(game.bodies[TARGET], vec(hit ? hit->location : g.location), hit ? hit->velocity0 : g.velocity,
                   hit ? hit->physics0 : g.physics, targetHover);
         }
@@ -479,17 +502,18 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
             // The weapon's own trace hurts the target before that frame
             // moves it (the weapon ticks first), ours after: a target falling
             // through the tick has gained its gravity. A shot ticks after
-            // both bodies, and a firer before its weapon, as ours do.
+            // both bodies, and a firer before its weapon, as ours do; but a
+            // target placed as a shot found it has fallen that tick already.
             const auto at = static_cast<std::size_t>(b);
             Vec3 velocity = game.bodies[at].move.velocity;
             const bool traced = std::ranges::any_of(game.events, [](const ugame::Event& event) {
                 return event.kind == ugame::Event::Kind::Melee || event.kind == ugame::Event::Kind::InstantHit ||
                        event.kind == ugame::Event::Kind::Beam;
             });
-            if (b == TARGET && traced && gameBefore.bodies[at].move.physics == uworld::Physics::Falling &&
+            if (b == TARGET && (traced || afterPhysics) && gameBefore.bodies[at].move.physics == uworld::Physics::Falling &&
                 game.bodies[at].move.physics == uworld::Physics::Falling)
                 velocity.z -= rules.gravityZ * row.dt;
-            ourHits.push_back({tick, b, lost, velocity});
+            ourHits.push_back({tick, b, lost, velocity, traced});
         }
 
         // Follow our shots: survivors keep their order, the new ones come
@@ -590,7 +614,10 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
                             }
                             start = logged;
                         }
-                        const auto moved = std::ranges::find(t.rows, tick + 1, [](const auto& r) { return r.first; });
+                        // Its row of our shot's age: the next, or the one
+                        // as many rows on as its launch is after ours.
+                        const std::int64_t aged = t.first + (flown ? 0 : 1);
+                        const auto moved = std::ranges::find(t.rows, aged, [](const auto& r) { return r.first; });
                         if (moved != t.rows.end()) {
                             Vec3 want = vec(moved->second.location);
                             want.z -= firerHover;
