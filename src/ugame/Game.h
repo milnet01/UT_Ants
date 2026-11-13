@@ -50,6 +50,8 @@ struct Body {
     std::uint32_t loaded = 0;     ///< a count charge's projectiles loaded
     double beamAmmo = 0;          ///< a beam's ammo owed, below one round
     double beamHeld = 0;          ///< seconds a beam has stored toward its next hit (`hit-every`)
+    std::uint32_t burst = 0;      ///< shots fired since both triggers were last up
+    double eyeHeight = EYE_HEIGHT; ///< its eye above its centre
     std::int32_t yaw = 0, pitch = 0; ///< the last command's aim
     bool fireHeld = false, altHeld = false;
 

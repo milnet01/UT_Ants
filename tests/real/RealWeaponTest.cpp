@@ -35,6 +35,10 @@
 // from then on. One with a blast is judged against the bodies and stays low:
 // its bounces are taken from the recording and not compared.
 //
+// THE EYE IS THE RECORDING'S. The original's view shakes with each shot
+// (PlayerPawn.ShakeView), which moves where the next one starts; a server's
+// eye, and ours, stays put. Each tick's firer takes the recorded eye height.
+//
 // THE LEVEL ONLY, NO MOVERS: the runs stand on open floor.
 
 #include "ugame/Game.h"
@@ -249,22 +253,26 @@ std::string str(const Vec3& v) {
 
 /// THE ORIGINAL'S SLEEP ENDS AT THE TICK NEAREST ITS TIME, and carries
 /// nothing over: a mode that sleeps between shots (Minigun2, the Enforcer's
-/// alt) keeps a cadence of whole ticks, which moves with the frame rate.
-/// Ours keeps its times at any rate (INV-5). So a run is replayed with each
-/// wound-up mode's times rounded to that run's ticks, at least one.
+/// alt, the Pulse Gun's primary) keeps a cadence of whole ticks, which moves
+/// with the frame rate. Ours keeps its times at any rate (INV-5). So a run
+/// is replayed with each such mode's times rounded to that run's ticks, at
+/// least one: every wound-up mode, and the Pulse Gun's primary. A hair
+/// under, so a row a hair longer or shorter than `dt` does not move a shot
+/// by a tick.
 ugame::WeaponSet slept(ugame::WeaponSet set, double dt) {
     const auto whole = [dt](double& time) {
-        if (time > 0) time = std::max(1.0, std::round(time / dt)) * dt;
+        if (time > 0) time = (std::max(1.0, std::round(time / dt)) - 0.002) * dt;
     };
-    const auto mode = [&whole](ugame::FireMode& fire) {
-        if (fire.windUp <= 0) return;
+    const auto mode = [&whole](ugame::FireMode& fire, bool sleeps) {
+        if (fire.windUp <= 0 && !sleeps) return;
         whole(fire.windUp);
         whole(fire.refire);
+        whole(fire.refireLead);
         whole(fire.spinRefire);
     };
     for (ugame::Weapon& weapon : set.weapons) {
-        mode(weapon.primary);
-        if (weapon.alt) mode(*weapon.alt);
+        mode(weapon.primary, weapon.name == "pulse-gun");
+        if (weapon.alt) mode(*weapon.alt, false);
     }
     return set;
 }
@@ -391,6 +399,14 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
             place(game.bodies[TARGET], vec(g.location), hit ? hit->velocity0 : g.velocity,
                   hit ? hit->physics0 : g.physics, targetHover);
         }
+
+        // The original's view shakes as it fires, and a shot starts from
+        // the shaken eye; ours holds still, as a server's does. A press
+        // fires before its frame moves the eye, at this row's height; the
+        // weapon's own tick fires after, at the next row's.
+        const ugame::Body& hand = game.bodies[FIRER];
+        const bool atRest = hand.refireLeft <= 0 && hand.winding < 0 && hand.charging < 0;
+        game.bodies[FIRER].eyeHeight = recording.weapon[atRest ? k : k + 1].eyeHeight;
 
         std::array<uworld::MoveCommand, 2> commands{};
         auto& c = commands[FIRER];

@@ -727,6 +727,33 @@ TEST_CASE("SS 4.9: a mode's refire-lead delays only the shot after one fired fro
     CHECK(std::abs(fired[1] - later - mode.refireLead / DT) <= 1);
 }
 
+TEST_CASE("SS 4.9: the pulse gun's shots start round a circle, a turn further each shot of a hold", "[ugame][game]") {
+    const WeaponSet& set = stock();
+    const FireMode& mode = primaryOf(set, "pulse-gun");
+    REQUIRE(mode.spiralRadius == 4);
+    REQUIRE(mode.spiralTurn == 18775);
+    Body body = bodyAt(set, {0, 0, STANDING}, 0);
+    const Vec3 centre = body.move.location + Vec3{mode.offset[0], mode.offset[1], EYE_HEIGHT + mode.offset[2]};
+    // Facing +X the right-hand axis is +Y: the first is straight above the
+    // offset, the second 1.8 radians round toward the left.
+    CHECK(uta::uworld::length(detail::startOf(body, mode) - (centre + Vec3{0, 0, 4})) < 1e-9);
+    body.burst = 1;
+    const Vec3 second = centre + Vec3{0, -4 * std::sin(1.8), 4 * std::cos(1.8)};
+    CHECK(uta::uworld::length(detail::startOf(body, mode) - second) < 1e-3);
+    // The start follows the eye.
+    body.eyeHeight = EYE_HEIGHT - 3;
+    CHECK(uta::uworld::length(detail::startOf(body, mode) - (second - Vec3{0, 0, 3})) < 1e-3);
+
+    // A hold counts its shots; letting go starts the circle again.
+    const BodyWorld world = arena();
+    Game game = duel(set, "pulse-gun", 1900);
+    hold(world, set, game, 40);
+    CHECK(game.bodies[0].burst == 3);
+    const std::vector<MoveCommand> none(2);
+    tick(world, set, RULES, game, none, DT);
+    CHECK(game.bodies[0].burst == 0);
+}
+
 TEST_CASE("SS 4.9: a shot launched past its most speed is held to it from its first move", "[ugame][game]") {
     // Razor2 leaves at its speed, 1300, and the engine's projectile physics
     // caps it to MaxSpeed, 1200, whether or not it accelerates.
@@ -1161,5 +1188,5 @@ TEST_CASE("INV-5: a scripted fight is the same at every frame rate and on every 
         CHECK(again == reference);
     }
     INFO("final hash " << reference.back());
-    CHECK(reference.back() == 12313652342103652296u);
+    CHECK(reference.back() == 12239779405718537928u);
 }

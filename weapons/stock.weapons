@@ -171,10 +171,13 @@ switch-time = 0.73         # recorded: from the Enforcer, key to first shot
 
 [fire pulse-gun primary]
 archetype = projectile
-offset = 16.5 15 0         # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
-refire = 0.182             # recorded: PulseGun sleeps 0.18, and a tick more
+offset = 16.5 15 -10.78    # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed; script: 10.78 down
+refire = 0.182             # recorded: PulseGun sleeps 0.18, to the tick
+refire-lead = 0.013        # recorded: a hold's second shot is a tick later, at 30, 85 and 120 fps
 ammo = 1
 projectile = plasma
+spiral-radius = 4          # script: PulseGun.ProjectileFire, 4 round the offset
+spiral-turn = 18775        # script: 1.8 radians a shot, the first straight up; recorded
 
 [fire pulse-gun alt]
 archetype = beam

@@ -58,6 +58,8 @@ charge-scales = count
 rule = rocket-fan
 projectile = ball
 count = 4
+spiral-radius = 4
+spiral-turn = 18775
 
 [weapon hammer]
 class = botpack.impacthammer
@@ -207,6 +209,9 @@ TEST_CASE("INV-2: the small set parses and reads back from write", "[ugame][weap
     CHECK(set->weapons[0].alt->charge->scales == uta::ugame::ChargeScales::Count);
     CHECK(set->weapons[0].alt->charge->step == 0.5);
     CHECK(set->weapons[0].alt->charge->stepLast == 0.4);
+    CHECK(set->weapons[0].alt->spiralRadius == 4);
+    CHECK(set->weapons[0].alt->spiralTurn == 18775);
+    CHECK(set->weapons[0].primary.spiralRadius == 0);
     CHECK(set->weapons[0].alt->rule == uta::ugame::FireRule::RocketFan);
     CHECK(set->weapons[0].primary.rule == uta::ugame::FireRule::None);
     CHECK(set->weapons[1].alt->archetype == uta::ugame::Archetype::Beam);

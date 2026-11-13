@@ -18627,6 +18627,24 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   its bodies in no recorded order. Failures 223 -> 197.
   Mutations: five stale ones re-pointed, and the sloped-shot slab
   and the continuous count's ammo cut given the checks they lacked.
+  2026-11-13, pulse primary. PulseGun.ProjectileFire starts each
+  shot of a hold 1.8 radians further round a circle of radius 4
+  about a point 10.78 below the fire offset, the first straight up:
+  checked against all 42 recorded starts to 0.01 (new keys
+  spiral-radius, spiral-turn; a body counts its shots since both
+  triggers were up). A hold's second shot is one tick later than
+  the rest at 30, 85 and 120 fps (refire-lead 0.013).
+  THE ORIGINAL'S EYE SHAKES AS IT FIRES (ShakeView), by up to 5
+  units, and a shot starts from the shaken eye: this was the spawn
+  error of every refired shot. Ours holds still, as a dedicated
+  server's does. A body now has an eye height, and the replay sets
+  it from the recording each tick: this row's for a press, the next
+  row's for the weapon's own tick. The replay also rounds the pulse
+  primary's times to each run's ticks, as the wound-up modes', and
+  a hair under, so a row a hair off the run's dt moves no shot.
+  Failures 197 -> 180; pulse-primary at 30 fps matches in full.
+  Left: at 85 fps one recorded interval is a tick short (13 for
+  14), which no rule of ours gives; the 120 fps run missed its rate.
   **Layman:** The guns. Built as a table of numbers rather than as code, so a different set -- your super weapons -- is a different table rather than a second codebase.
   Kind: implement.
   Source: design-2026-09-03.

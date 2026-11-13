@@ -254,6 +254,10 @@ Result<void> readFire(FireMode& mode, Keys& keys) {
         mode.projectile = *projectile;
         UTA_TRY(const std::optional<std::uint32_t> count, keys.number("count", false, 1, COUNT_MAX));
         mode.count = count.value_or(1);
+        UTA_TRY(const std::optional<double> spiral, keys.decimal("spiral-radius", false, 0, OFFSET_MAX));
+        mode.spiralRadius = spiral.value_or(0);
+        UTA_TRY(const std::optional<std::uint32_t> turn, keys.number("spiral-turn", false, 0, 65535));
+        mode.spiralTurn = turn.value_or(0);
     } else {
         UTA_TRY(const std::optional<double> damage, keys.decimal("damage", true, 0, AMOUNT_MAX));
         mode.damage = *damage;
@@ -554,7 +558,8 @@ std::string fireText(std::string_view weapon, std::string_view which, const Fire
     if (mode.rule != FireRule::None)
         out += std::format("rule = {}\n", RULE_NAMES[static_cast<std::size_t>(mode.rule)]);
     if (mode.archetype == Archetype::Projectile) {
-        out += std::format("projectile = {}\ncount = {}\n", mode.projectile, mode.count);
+        out += std::format("projectile = {}\ncount = {}\nspiral-radius = {}\nspiral-turn = {}\n", mode.projectile,
+                           mode.count, decimal(mode.spiralRadius), mode.spiralTurn);
         return out;
     }
     out += std::format("damage = {}\nmomentum = {}\nrange = {}\n", decimal(mode.damage), decimal(mode.momentum),

@@ -195,7 +195,9 @@ A melee mode may carry `self-damage`, what a surface hit costs its firer;
 `reach`, past which from the firer no body is hurt; and `distance-scale`,
 which scales the effect by the hit's distance over it. Every mode has an **`offset`**: where its
 shot starts from the eye, forward, right and up, turned by the aim
-(§ 4.9).
+(§ 4.9). A projectile mode's `spiral-radius` and `spiral-turn` start each
+shot of one hold that many angle units further round a circle about the
+offset, the first straight above it (the Pulse Gun).
 
 A projectile kind carries `speed`, `radius`, `gravity`, `gravity-after`,
 `lifetime`, `damage`, `momentum`, `splash-radius`, and at most one

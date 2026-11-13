@@ -96,6 +96,8 @@ struct FireMode {
     double headMomentum = 0;              ///< instant-hit: a head hit's momentum, with `headDamage`
     std::string projectile;               ///< projectile: the kind it spawns
     std::uint32_t count = 1;              ///< projectile
+    double spiralRadius = 0;              ///< projectile: its start circles the offset at this radius
+    std::uint32_t spiralTurn = 0;         ///< projectile: angle units round that circle a shot of one hold
     double selfMomentum = 0;              ///< melee: pushes the firer back off a surface
     double selfDamage = 0;                ///< melee: what a surface hit costs the firer
     double reach = 0;                     ///< melee: no body farther than this from the firer is hurt; 0 any

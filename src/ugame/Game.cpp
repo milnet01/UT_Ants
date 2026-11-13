@@ -94,6 +94,7 @@ void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
     Body& body = tick.game.bodies[static_cast<std::size_t>(index)];
     body.fireHeld = command.fire;
     body.altHeld = command.altFire;
+    if (!command.fire && !command.altFire) body.burst = 0;
     if (body.weapon < 0 || body.pending >= 0) {
         body.beamHeld = 0;
         return;
@@ -223,6 +224,7 @@ void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
             body.loaded = 1;
         } else {
             detail::fire(tick, index, *mode, 1);
+            ++body.burst;
             body.refireLeft += refireOf(*mode, which) + (idle ? mode->refireLead : 0);
             fired = true;
         }
@@ -500,6 +502,8 @@ std::uint64_t stateHash(const Game& game) {
         add(body.loaded);
         addDouble(body.beamAmmo);
         addDouble(body.beamHeld);
+        add(body.burst);
+        addDouble(body.eyeHeight);
     }
     add(game.shots.size());
     for (const Shot& shot : game.shots) {

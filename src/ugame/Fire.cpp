@@ -80,7 +80,7 @@ double rangeDraw(Game& game, double range) {
     return range * (2 * unit - 1);
 }
 
-Vec3 eyeOf(const Body& body) { return body.move.location + Vec3{0, 0, EYE_HEIGHT}; }
+Vec3 eyeOf(const Body& body) { return body.move.location + Vec3{0, 0, body.eyeHeight}; }
 
 Vec3 startOf(const Body& body, const FireMode& mode) {
     // UT99's GetAxes of the view rotation: forward, right and up.
@@ -89,7 +89,12 @@ Vec3 startOf(const Body& body, const FireMode& mode) {
     const Vec3 forward{cp * cy, cp * sy, sp};
     const Vec3 right{-sy, cy, 0};
     const Vec3 up{-sp * cy, -sp * sy, cp};
-    return eyeOf(body) + forward * mode.offset[0] + right * mode.offset[1] + up * mode.offset[2];
+    // PulseGun.ProjectileFire: each shot of a hold starts a turn further
+    // round a circle about the offset, the first straight above it.
+    const auto turned = static_cast<std::int32_t>(mode.spiralTurn * body.burst);
+    const double across = mode.offset[1] - core::sineOf(turned) * mode.spiralRadius;
+    const double above = mode.offset[2] + core::cosineOf(turned) * mode.spiralRadius;
+    return eyeOf(body) + forward * mode.offset[0] + right * across + up * above;
 }
 
 void launch(Tick& tick, std::uint32_t kind, int owner, const Vec3& at, std::int32_t yaw, std::int32_t pitch,
