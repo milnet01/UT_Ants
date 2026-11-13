@@ -199,7 +199,11 @@ modes; recorded 2026-11-13: a slash from the saw's side missed a body the
 original hit). `refire-lead` is added once to the interval after a shot
 fired from idle, and may be below zero. A melee mode may carry `self-damage`, what a surface hit costs its firer;
 `reach`, past which from the firer no body is hurt; and `distance-scale`,
-which scales the effect by the hit's distance over it. Every mode has an **`offset`**: where its
+which scales the effect by the hit's distance over it. That distance on a
+body runs 0.4 of the body's radius past where the trace meets it
+(`Pawn.AdjustHitLocation`), less a thousandth of the trace's length
+(recorded 2026-11-13: every hammer alt hit lies 10.30 short of its
+body's centre). Every mode has an **`offset`**: where its
 shot starts from the eye, forward, right and up, turned by the aim
 (§ 4.9). A projectile mode's `spiral-radius` and `spiral-turn` start each
 shot of one hold that many angle units further round a circle about the

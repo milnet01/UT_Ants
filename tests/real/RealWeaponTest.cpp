@@ -23,8 +23,9 @@
 // compared age for age with ours.
 //
 // A ROW IS LOGGED AFTER ITS TICK'S HITS. A body a D line at tick k hit
-// starts tick k from that line's velocity and physics from before the hit,
-// not from row k's, which already carry the push.
+// starts tick k from that line's place, velocity and physics from before
+// the hit, not from row k's, which already carry the push. A target ours
+// has yet to hit, a tick late, starts the next tick from them too.
 // THE WEAPON'S OWN TRACE HURTS THE TARGET BEFORE THAT FRAME MOVES IT, ours
 // after: a target hit so while falling is judged without the gravity our
 // tick gave it. Shots, and hits on the firer, come after the move in both.
@@ -409,12 +410,24 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
                 if (slot == nullptr) slot = &d;
             }
         const auto* firerHit = firstHit[FIRER];
-        place(game.bodies[FIRER], vec(row.location), firerHit ? firerHit->velocity0 : row.velocity,
+        place(game.bodies[FIRER], vec(firerHit ? firerHit->location : row.location),
+              firerHit ? firerHit->velocity0 : row.velocity,
               firerHit ? firerHit->physics0 : row.physics, firerHover);
         if (targeted) {
             const auto& g = recording.target[k];
+            // A recorded hit ours has yet to land (a refire a tick late)
+            // holds the target as it was before the hit one tick more.
             const auto* hit = firstHit[TARGET];
-            place(game.bodies[TARGET], vec(g.location), hit ? hit->velocity0 : g.velocity,
+            if (hit == nullptr && k > 0) {
+                const auto last = static_cast<std::int64_t>(k) - 1;
+                const auto late = std::ranges::find_if(recording.damage, [last](const auto& d) {
+                    return d.tick == last && d.victim.starts_with("UTARecTarget");
+                });
+                const bool landed = std::ranges::any_of(
+                    ourHits, [last](const Hit& h) { return h.victim == TARGET && h.tick >= last - 1; });
+                if (late != recording.damage.end() && !landed) hit = &*late;
+            }
+            place(game.bodies[TARGET], vec(hit ? hit->location : g.location), hit ? hit->velocity0 : g.velocity,
                   hit ? hit->physics0 : g.physics, targetHover);
         }
 

@@ -1108,6 +1108,26 @@ TEST_CASE("SS 4.9: the sniper's head hit and body hit, and no alt fire", "[ugame
     }
 }
 
+TEST_CASE("SS 4.9: the hammer's alt pushes by its hit's distance, counted into the body", "[ugame][game]") {
+    const BodyWorld world = arena();
+    const WeaponSet& set = stock();
+    const FireMode& alt = *set.weapons[static_cast<std::size_t>(weaponNamed(set, "impact-hammer"))].alt;
+    REQUIRE(alt.distanceScale > 0);
+    // Pawn.AdjustHitLocation: the hit is 0.4 of the body's radius past
+    // where the trace meets it, less a thousandth of the trace
+    // (UPrimitive::LineCheck), and the push is by that distance.
+    std::array<double, 2> push{}, distance{};
+    for (std::size_t i = 0; i < 2; ++i) {
+        const double away = i == 0 ? 60 : 100;
+        Game game = duel(set, "impact-hammer", away);
+        const double radius = game.bodies[1].size.radius;
+        distance[i] = away - std::sqrt(radius * radius - alt.offset[1] * alt.offset[1]) - alt.offset[0] + 0.4 * radius - 0.001 * alt.range;
+        push[i] = hitsWhileHeld(world, set, game, 1, true).pushes[0].x;
+        CHECK(push[i] > 0);
+    }
+    CHECK(std::abs(push[0] / push[1] - distance[0] / distance[1]) < 1e-9);
+}
+
 TEST_CASE("SS 4.9: the chainsaw's cut pulls, and its slash lands after its wind-up and pushes left", "[ugame][game]") {
     const BodyWorld world = arena();
     const WeaponSet& set = stock();

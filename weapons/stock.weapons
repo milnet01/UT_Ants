@@ -49,6 +49,8 @@ offset = 3.8 1.6 -1.8      # SS 4.9: PlayerViewOffset plus the class's FireOffse
 refire = 0.81              # recorded
 ammo = 0
 damage = 20                # script: ImpactHammer.ProcessAltTraceHit, x distance / 180; recorded 3 to 6
+                           # the distance runs 0.4 of a body's radius into it (Pawn.AdjustHitLocation),
+                           # less a thousandth of the trace (UPrimitive.LineCheck); recorded
 momentum = 30000           # script: ImpactHammer.ProcessAltTraceHit, x distance / 180
 range = 180                # script: ImpactHammer.TraceAltFire
 distance-scale = 180       # script: ImpactHammer.ProcessAltTraceHit

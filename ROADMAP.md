@@ -18702,6 +18702,19 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   and 120 fps: recorded cuts are 22 to 24 ticks apart at 85, ours 24,
   which is the open Sleep-cadence question. bio-primary 30's shot
   after the recording's 0.377 hitch starts 4.26 low.
+  2026-11-13, the hammer alt's distance. Every recorded alt hit lies
+  10.30 short of its body's centre: Pawn.AdjustHitLocation moves a
+  trace's hit 0.4 of the body's radius on (6.8), and the trace meets
+  the body a thousandth of its own length early (0.18 of 180). Ours
+  measured to the surface, so the push was 7 to 18% weak. Built in
+  Fire.cpp for a melee's distance-scale only; other traces' hit
+  places (the sniper's head line) do not use it yet.
+  Replay: a hit body starts its tick from the D line's place as well
+  as its velocity (row k's place had already moved with the push),
+  and a target ours hits a tick late keeps its state from before the
+  hit one tick more: shock-primary's 600 and sniper-primary's 300
+  were a second push on a body already pushed. Failures 147 -> 136.
+  All three hammer-alt runs match in full.
   **Layman:** The guns. Built as a table of numbers rather than as code, so a different set -- your super weapons -- is a different table rather than a second codebase.
   Kind: implement.
   Source: design-2026-09-03.

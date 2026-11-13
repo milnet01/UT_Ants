@@ -52,6 +52,12 @@ namespace detail {
 namespace {
 /// ImpactHammer.Firing: how far ahead a held, charged hammer feels for a body.
 constexpr double HAMMER_TOUCH = 25;
+/// Pawn.AdjustHitLocation: a trace's hit on a body is counted this much of
+/// the body's radius further along the trace.
+constexpr double HIT_INSET = 0.4;
+/// UPrimitive::LineCheck: a trace meets a body this much of the trace's own
+/// length early (recorded: 0.18 on the hammer's 180).
+constexpr double HIT_EARLY = 0.001;
 /// Seconds since its last touch, for a beam that has touched no body yet.
 constexpr double BEAM_NEVER_HIT = 1e9;
 } // namespace
@@ -330,7 +336,11 @@ void fire(Tick& tick, int index, const FireMode& mode, double scale) {
         const Vec3 stop = start + (end - start) * std::min(hit.fraction, 1.0);
         tick.game.events.push_back(Event{Event::Kind::Melee, start, stop, 0});
         // ImpactHammer's alt: the farther the hit, the harder.
-        const double distance = mode.distanceScale > 0 ? uworld::length(stop - start) / mode.distanceScale : 1;
+        const double inset = hit.body < 0 ? 0
+                                          : HIT_INSET * tick.game.bodies[static_cast<std::size_t>(hit.body)].size.radius -
+                                                HIT_EARLY * uworld::length(end - start);
+        const double distance =
+            mode.distanceScale > 0 ? (uworld::length(stop - start) + inset) / mode.distanceScale : 1;
         const double effect = damageScale * distance;
         if (hit.body >= 0) {
             const bool inReach = mode.reach == 0 || uworld::length(stop - body.move.location) <= mode.reach;
