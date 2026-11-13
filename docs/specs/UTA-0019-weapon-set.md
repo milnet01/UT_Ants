@@ -177,7 +177,11 @@ fired on release (the hammer, Bio alt, the rocket launcher's loading),
 and a refire held per mode. The press spends the mode's `ammo`. A
 **`charge-step`** charge grows in steps: each time the hold since the
 last step passes it, one more `ammo` is spent and the charge grows by one
-projectile (`charge-scales = count`) or by that hold (`damage`). A count
+projectile (`charge-scales = count`) or by that hold (`damage`). The
+press's own tick counts toward the first step. A count charge's hold past
+a step counts toward the next, and `charge-step-last` is the step that
+fills its count where that differs (the rocket launcher's sixth); a damage
+charge's hold starts again from nothing. A count
 charge fires itself once its count is loaded or its ammo is out; a damage
 charge waits for release.
 
@@ -209,7 +213,9 @@ the blast where the shot's whole move that tick ends, the script's
 the body. `body-hit = direct` hits the struck body alone, along the
 flight, keeping the blast for the level (the Ripper's alt).
 `splash-up-max` caps the upward part of each push's direction, left
-unnormalised (`Razor2Alt.BlowUp`'s 0.45).
+unnormalised (`Razor2Alt.BlowUp`'s 0.45). `splash-radius-max` makes a
+charged shot's blast as much wider as its charge makes it stronger, up to
+that radius (Bio's glob, 250); without it a charge leaves the radius alone.
 
 § 3 item 6's launch keys: `acceleration` along the launch direction, up
 to `max-speed`, which also holds a kind launched faster than it from its

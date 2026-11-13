@@ -53,6 +53,7 @@ charge-time = 4
 charge-min = 0.25
 charge-max = 1
 charge-step = 0.5
+charge-step-last = 0.4
 charge-scales = count
 rule = rocket-fan
 projectile = ball
@@ -105,6 +106,7 @@ splash-radius = 70
 splash-from = moved
 body-hit = direct
 splash-up-max = 0.45
+splash-radius-max = 140
 strike = explode
 combo = boom
 
@@ -204,6 +206,7 @@ TEST_CASE("INV-2: the small set parses and reads back from write", "[ugame][weap
     REQUIRE(set->weapons[0].alt->charge);
     CHECK(set->weapons[0].alt->charge->scales == uta::ugame::ChargeScales::Count);
     CHECK(set->weapons[0].alt->charge->step == 0.5);
+    CHECK(set->weapons[0].alt->charge->stepLast == 0.4);
     CHECK(set->weapons[0].alt->rule == uta::ugame::FireRule::RocketFan);
     CHECK(set->weapons[0].primary.rule == uta::ugame::FireRule::None);
     CHECK(set->weapons[1].alt->archetype == uta::ugame::Archetype::Beam);
@@ -218,6 +221,8 @@ TEST_CASE("INV-2: the small set parses and reads back from write", "[ugame][weap
     CHECK_FALSE(set->projectile("gel")->splashFromMoved);
     CHECK_FALSE(set->projectile("gel")->bodyDirect);
     CHECK(set->projectile("gel")->splashUpMax == 1);
+    CHECK(set->projectile("ball")->splashRadiusMax == 140);
+    CHECK(set->projectile("gel")->splashRadiusMax == 0);
 
     const std::string written = uta::ugame::write(*set);
     const auto again = uta::ugame::parse(written);

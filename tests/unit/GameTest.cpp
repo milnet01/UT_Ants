@@ -127,6 +127,8 @@ TEST_CASE("INV-9: a segment hits an upright cylinder where it is, not a sphere o
     // A sphere of the radius would miss here: the cylinder's corner is hit.
     CHECK(entersCylinder({100 + radius - 0.5, 0, half + 10}, {100 + radius - 0.5, 0, half - 10}, centre, radius,
                          half) <= 1);
+    // Sloping down over the head, above the axis: the top is a miss.
+    CHECK(entersCylinder({0, 0, half + 50}, {200, 0, half + 10}, centre, radius, half) > 1);
     // A box of the radius would hit here, at its corner: the cylinder is missed.
     CHECK(entersCylinder({0, radius - 1, 0}, {200, radius - 1, 0}, {100, 0, 0}, radius - 2, half) > 1);
     // Entry is where it enters, and a start inside enters at once.
@@ -190,24 +192,52 @@ TEST_CASE("INV-7: a charged count is cut to the ammo there is", "[ugame][game]")
     game.bodies[0].weapons[static_cast<std::size_t>(game.bodies[0].weapon)].ammo = 2;
     hold(world, stock(), game, 600); // a full charge would be six
     CHECK(game.bodies[0].weapons[static_cast<std::size_t>(game.bodies[0].weapon)].ammo == 0);
+
+    // A continuous count charge pays for the rest of its rounds as it fires.
+    WeaponSet continuous = stock();
+    continuous.weapons[static_cast<std::size_t>(weaponNamed(continuous, "rocket-launcher"))].primary.charge->step = 0;
+    Game held = duel(continuous, "rocket-launcher", 1900);
+    held.bodies[0].weapons[static_cast<std::size_t>(held.bodies[0].weapon)].ammo = 2;
+    for (int k = 0; k < 600 && held.shots.empty(); ++k) hold(world, continuous, held, 1);
+    CHECK(held.shots.size() == 2);
+    CHECK(held.bodies[0].weapons[static_cast<std::size_t>(held.bodies[0].weapon)].ammo == 0);
+}
+
+/// The ticks, counted from 1, at which the shooter's ammo fell while holding
+/// fire (or alt) for `ticks`.
+std::vector<int> spendTicks(const BodyWorld& world, Game& game, int ticks, bool alt) {
+    const auto ammo = [&game] { return game.bodies[0].weapons[static_cast<std::size_t>(game.bodies[0].weapon)].ammo; };
+    std::vector<int> spends;
+    for (int k = 1; k <= ticks; ++k) {
+        const std::uint32_t before = ammo();
+        hold(world, stock(), game, 1, alt);
+        if (ammo() < before) spends.push_back(k);
+    }
+    return spends;
 }
 
 TEST_CASE("SS 4.9: the launcher spends a round a loading step and fires itself at six", "[ugame][game]") {
     const BodyWorld world = arena();
     Game game = duel(stock(), "rocket-launcher", 1900);
-    const auto ammo = [&game] { return game.bodies[0].weapons[static_cast<std::size_t>(game.bodies[0].weapon)].ammo; };
-    const std::uint32_t full = ammo();
-    // A step is 0.88 s, 68 ticks to the hair; the counts bracket it.
-    hold(world, stock(), game, 1);
-    CHECK(ammo() == full - 1); // the press loads the first
-    hold(world, stock(), game, 66);
-    CHECK(ammo() == full - 1);
-    hold(world, stock(), game, 5);
-    CHECK(ammo() == full - 2);
+    const Charge& charge = *primaryOf(stock(), "rocket-launcher").charge;
+    REQUIRE(charge.step == 0.9);
+    REQUIRE(charge.stepLast == 0.84);
+    // The press loads the first, and its tick counts. The rest load once
+    // the hold passes 0.9, 1.8, 2.7, 3.6 and 4.44 s: a step's overshoot
+    // counts toward the next (209, not 210), and the sixth takes 0.84.
+    CHECK(spendTicks(world, game, 343, false) == std::vector{1, 70, 140, 209, 279});
     CHECK(game.shots.empty());
-    for (int k = 0; k < 400 && game.shots.empty(); ++k) hold(world, stock(), game, 1);
+    CHECK(spendTicks(world, game, 1, false) == std::vector{1});
     CHECK(game.shots.size() == 6);
-    CHECK(ammo() == full - 6);
+}
+
+TEST_CASE("SS 4.9: the bio rifle's charge steps from nothing each time, the press's tick counted", "[ugame][game]") {
+    const BodyWorld world = arena();
+    Game game = duel(stock(), "bio-rifle", 1900);
+    REQUIRE(stock().weapons[static_cast<std::size_t>(weaponNamed(stock(), "bio-rifle"))].alt->charge->step == 0.5);
+    // 0.5 s is 38.6 ticks: 39 with the press's own, then 39 more each time.
+    // A hold carried over a step would make the fourth 116.
+    CHECK(spendTicks(world, game, 120, true) == std::vector{1, 39, 78, 117});
 }
 
 TEST_CASE("SS 4.9: a charged hammer holds at full until released", "[ugame][game]") {
@@ -461,6 +491,39 @@ TEST_CASE("SS 4.9: a blast's push rises at most its splash-up-max, unnormalised"
     t.owed.clear();
     detail::splash(t, {0, 0, 0}, 100, 1000, 500, -1);
     CHECK(std::abs(t.owed[0].momentum.z / t.owed[0].momentum.x - 0.8 / 0.6) < 1e-12);
+}
+
+TEST_CASE("SS 4.9: a charged glob's blast widens by its charge, up to splash-radius-max", "[ugame][game]") {
+    const BodyWorld world = arena();
+    const WeaponSet& set = stock();
+    const Projectile& glob = *set.projectile("bio-glob");
+    REQUIRE(glob.splashRadiusMax == 250);
+    const auto kind = static_cast<std::uint32_t>(&glob - set.projectiles.data());
+    // A glob of `scale` flown into the dummy, a bystander 150 beside it:
+    // the blast's radius, and what the bystander lost.
+    const auto blast = [&](const WeaponSet& with, double scale) {
+        Game game = duel(with, "bio-rifle", 600);
+        game.bodies.push_back(game.bodies[1]);
+        game.bodies[2].move.location.y += 150;
+        game.shots.push_back(Shot{.kind = kind, .owner = 0, .location = {540, 0, STANDING}, .velocity = {700, 0, 0},
+                                  .lifetime = glob.lifetime, .damageScale = scale});
+        double radius = 0;
+        const std::vector<MoveCommand> commands(3);
+        for (int k = 0; k < 10; ++k) {
+            tick(world, with, RULES, game, commands, DT);
+            for (const Event& event : game.events)
+                if (event.kind == Event::Kind::Explosion) radius = event.radius;
+        }
+        return std::pair{radius, 1e9 - game.bodies[2].health};
+    };
+    CHECK(blast(set, 1) == std::pair{75.0, 0.0});
+    CHECK(blast(set, 3).first == 225);
+    CHECK(blast(set, 3).second > 0);
+    CHECK(blast(set, 4.28).first == 250);
+    // Without the key a charge leaves the radius alone.
+    WeaponSet fixed = set;
+    fixed.projectiles[kind].splashRadiusMax = 0;
+    CHECK(blast(fixed, 3) == std::pair{75.0, 0.0});
 }
 
 TEST_CASE("SS 4.9: damage lands whole, scaled by hardcore's damage-scale", "[ugame][game]") {

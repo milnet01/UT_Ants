@@ -188,7 +188,7 @@ Result<void> readWeapon(Weapon& weapon, Keys& keys) {
 
 Result<void> readCharge(FireMode& mode, Keys& keys) {
     if (!keys.has("charge-time") && !keys.has("charge-min") && !keys.has("charge-max") && !keys.has("charge-scales") &&
-        !keys.has("charge-step"))
+        !keys.has("charge-step") && !keys.has("charge-step-last"))
         return {};
     if (mode.archetype == Archetype::Beam) return {}; // left untaken: finish refuses them
     Charge charge;
@@ -200,6 +200,8 @@ Result<void> readCharge(FireMode& mode, Keys& keys) {
     charge.max = *max;
     UTA_TRY(const std::optional<double> step, keys.decimal("charge-step", false, 0, TIME_MAX));
     charge.step = step.value_or(0);
+    UTA_TRY(const std::optional<double> stepLast, keys.decimal("charge-step-last", false, 0, TIME_MAX));
+    charge.stepLast = stepLast.value_or(0);
     UTA_TRY(const std::optional<Entry> scales, keys.take("charge-scales", true));
     UTA_TRY(const std::size_t which, choiceOf(SCALES_NAMES, *scales));
     charge.scales = static_cast<ChargeScales>(which);
@@ -321,6 +323,8 @@ Result<void> readProjectile(Projectile& projectile, Keys& keys, std::size_t head
     projectile.turnRandom = turn.value_or(0);
     UTA_TRY(const std::optional<double> splash, keys.decimal("splash-radius", false, 0, DISTANCE_MAX));
     projectile.splashRadius = splash.value_or(0);
+    UTA_TRY(const std::optional<double> splashMax, keys.decimal("splash-radius-max", false, 0, DISTANCE_MAX));
+    projectile.splashRadiusMax = splashMax.value_or(0);
     UTA_TRY(const std::optional<Entry> from, keys.take("splash-from", false));
     if (from) {
         UTA_TRY(const std::size_t moved, choiceOf(SPLASH_FROM_NAMES, *from));
@@ -542,9 +546,11 @@ std::string fireText(std::string_view weapon, std::string_view which, const Fire
         out += std::format("repress = {}\nspin-up = {}\n", decimal(mode.repress), decimal(mode.spinUp));
     if (mode.spinUp > 0) out += std::format("spin-refire = {}\n", decimal(mode.spinRefire));
     if (mode.charge)
-        out += std::format("charge-time = {}\ncharge-min = {}\ncharge-max = {}\ncharge-step = {}\ncharge-scales = {}\n",
+        out += std::format("charge-time = {}\ncharge-min = {}\ncharge-max = {}\ncharge-step = {}\n"
+                           "charge-step-last = {}\ncharge-scales = {}\n",
                            decimal(mode.charge->time), decimal(mode.charge->min), decimal(mode.charge->max),
-                           decimal(mode.charge->step), SCALES_NAMES[static_cast<std::size_t>(mode.charge->scales)]);
+                           decimal(mode.charge->step), decimal(mode.charge->stepLast),
+                           SCALES_NAMES[static_cast<std::size_t>(mode.charge->scales)]);
     if (mode.rule != FireRule::None)
         out += std::format("rule = {}\n", RULE_NAMES[static_cast<std::size_t>(mode.rule)]);
     if (mode.archetype == Archetype::Projectile) {
@@ -596,9 +602,10 @@ std::string write(const WeaponSet& set) {
                            decimal(projectile.acceleration), decimal(projectile.maxSpeed), decimal(projectile.lift),
                            decimal(projectile.inherit), decimal(projectile.speedRandom), projectile.turnRandom,
                            decimal(projectile.lifetimeRandom));
-        out += std::format("splash-from = {}\nbody-hit = {}\nsplash-up-max = {}\n",
+        out += std::format("splash-from = {}\nbody-hit = {}\nsplash-up-max = {}\nsplash-radius-max = {}\n",
                            SPLASH_FROM_NAMES[projectile.splashFromMoved ? 1 : 0],
-                           BODY_HIT_NAMES[projectile.bodyDirect ? 1 : 0], decimal(projectile.splashUpMax));
+                           BODY_HIT_NAMES[projectile.bodyDirect ? 1 : 0], decimal(projectile.splashUpMax),
+                           decimal(projectile.splashRadiusMax));
         switch (projectile.strike) {
         case Strike::Explode: break;
         case Strike::Bounce:

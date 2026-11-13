@@ -18609,6 +18609,24 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Minigun runs but alt 85 (30/29) and primary 120 (23/24), each one
   round at the hold's end.
   Not built: FinishFire's unwind (0.9 s before the gun is idle again).
+  2026-11-13, bio damage and loading. A charged glob's blast widens
+  with its charge: UT_BioGel.Timer hurts within 75 x DrawScale, at
+  most 250 (new key splash-radius-max). Damage now matches to the
+  point in all nine charged runs, and charge-4's blast reaches the
+  firer as recorded. The press's own tick counts toward a stepped
+  charge's first step (the weapon ticks after its owner's press, in
+  that frame): bio's spends were a tick late, hidden by the tick's
+  allowance, and a release just after a step lost that step.
+  Rocket loading, from the T-row times at 30, 85 and 120 fps: a
+  round loads when the hold passes 0.9, 1.8, 2.7, 3.6 and 4.44 s,
+  at any rate, so a step's overshoot carries (its animation runs
+  on) and the sixth takes 0.84 (new key charge-step-last). 0.88 was
+  the old convention's fit. Bio's Count starts from nothing, as its
+  script says. Spend ticks now match in every rocket and grenade
+  run. The test compares one tick's hits by victim: a blast hurts
+  its bodies in no recorded order. Failures 223 -> 197.
+  Mutations: five stale ones re-pointed, and the sloped-shot slab
+  and the continuous count's ammo cut given the checks they lacked.
   **Layman:** The guns. Built as a table of numbers rather than as code, so a different set -- your super weapons -- is a different table rather than a second codebase.
   Kind: implement.
   Source: design-2026-09-03.
@@ -23645,6 +23663,10 @@ docs/standards/versioning-overrides.md. Closes S8.
   It carries compare with mem, bisect with the depth skip and skip_reason
   (FLED-0020), budget, report's pacing figure (FLED-0011) and the
   FLED-0023 flag limits. Verify the hash on download.
+  frameledger, 2026-11-13 (its FLED-0070, agreed here): started_utc
+  must be a real UTC date and time, YYYY-MM-DDTHH:MM:SS, optional
+  fraction digits, Z; second 60 is refused. Build it from the UTC
+  system clock, never local time fields.
   **Layman:** Save every frame's timings in the format shared with Vestige and DOOM Ants, so one analyser can find stutters and compare builds for all three games.
   Kind: feature.
   Source: user-request-2026-10-24.

@@ -673,7 +673,13 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
         return e;
     }
 
-    // Hits, in order: tick, damage, the victim's velocity after.
+    // Hits, in order: tick, damage, the victim's velocity after. One blast
+    // hurts its bodies in no order the recording keeps: within a tick, by victim.
+    const auto byTickThenVictim = [](const Hit& a, const Hit& b) {
+        return a.tick != b.tick ? a.tick < b.tick : a.victim < b.victim;
+    };
+    std::ranges::stable_sort(ourHits, byTickThenVictim);
+    std::ranges::stable_sort(theirHits, byTickThenVictim);
     for (std::size_t i = 0; i < std::min(ourHits.size(), theirHits.size()); ++i) {
         const Hit& a = ourHits[i];
         const Hit& b = theirHits[i];

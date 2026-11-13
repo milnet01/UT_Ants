@@ -169,11 +169,14 @@ void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
             // since the last one exceeds it, and spends a round.
             body.stepHeld += tick.dt;
             const bool room = count ? body.loaded < mode.count : body.charged < charge.time;
-            if (room && body.stepHeld > charge.step && carried.ammo >= mode.ammo) {
+            const bool last = count && charge.stepLast > 0 && body.loaded + 1 >= mode.count;
+            const double step = last ? charge.stepLast : charge.step;
+            if (room && body.stepHeld > step && carried.ammo >= mode.ammo) {
                 carried.ammo -= mode.ammo;
-                if (count) ++body.loaded;
-                else body.charged += body.stepHeld;
-                body.stepHeld = 0;
+                // UT_Eightball loads on its animation, which runs on past
+                // the step; UT_BioRifle's Count starts again from nothing.
+                if (count) ++body.loaded, body.stepHeld -= step;
+                else body.charged += body.stepHeld, body.stepHeld = 0;
                 // The launcher fires once its last rocket is in or its ammo is out.
                 full = count && (body.loaded >= mode.count || carried.ammo < mode.ammo);
             }
@@ -214,7 +217,9 @@ void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
             carried.ammo -= mode->ammo;
             body.charging = which;
             body.charged = 0;
-            body.stepHeld = 0;
+            // The press's own tick counts toward the first step: the weapon
+            // ticks after its owner's press, in the same frame.
+            body.stepHeld = tick.dt;
             body.loaded = 1;
         } else {
             detail::fire(tick, index, *mode, 1);
@@ -240,14 +245,17 @@ void explode(Tick& tick, std::size_t index, int struck, const Vec3& away, const 
     tick.shotGone[index] = true;
     const double damage = kind.damage * shot.damageScale;
     const double momentum = kind.momentum * shot.damageScale;
+    // UT_BioGel.Timer: a charged glob's blast is as much wider as it is stronger, up to a cap.
+    const double radius = kind.splashRadiusMax > 0 ? std::min(kind.splashRadius * shot.damageScale, kind.splashRadiusMax)
+                                                   : kind.splashRadius;
     if (kind.splashRadius > 0 && (struck < 0 || !kind.bodyDirect)) {
-        detail::splash(tick, shot.location, damage, momentum, kind.splashRadius, shot.owner, kind.splashUpMax);
+        detail::splash(tick, shot.location, damage, momentum, radius, shot.owner, kind.splashUpMax);
     } else if (struck >= 0) {
         const double speed = uworld::length(shot.velocity);
         const Vec3 along = speed > 0 ? shot.velocity * (1 / speed) : Vec3{};
         tick.owed.push_back(Owed{struck, damage, along * momentum, shot.owner});
     }
-    tick.game.events.push_back(Event{Event::Kind::Explosion, shot.location, shot.location, kind.splashRadius});
+    tick.game.events.push_back(Event{Event::Kind::Explosion, shot.location, shot.location, radius});
     if (kind.strike != Strike::Split) return;
     // flakslug.Explode: each piece starts a little off the surface struck and
     // flies on along the shell's own aim, turned by the piece's own draws.

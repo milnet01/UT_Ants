@@ -39,11 +39,15 @@ enum class ChargeScales : std::uint8_t { Damage, Count };
 /// rounds when it fires. Stepped: each time the hold since the last step
 /// passes `step`, one more `ammo` is spent and the charge grows -- a count
 /// charge by one projectile, a damage charge by that hold, as UT_BioRifle and
-/// UT_Eightball load (SS 4.9).
+/// UT_Eightball load (SS 4.9). The press's own tick counts toward the first
+/// step. A count charge's hold past a step counts toward the next (its
+/// animation runs on); a damage charge's starts again from nothing
+/// (UT_BioRifle's Count).
 struct Charge {
     double time = 1;      ///< seconds from empty to full
     double min = 1, max = 1;
     double step = 0;      ///< seconds a step takes; 0 for a continuous charge
+    double stepLast = 0;  ///< seconds the step that fills a count takes; 0 for `step`
     ChargeScales scales = ChargeScales::Damage;
     bool operator==(const Charge&) const = default;
 };
@@ -130,6 +134,7 @@ struct Projectile {
     bool expireExplodes = false; ///< at the end of its lifetime: explodes, else vanishes
     double damage = 0, momentum = 0;
     double splashRadius = 0; ///< 0 hits only what it strikes
+    double splashRadiusMax = 0; ///< above 0: the radius grows by a charge's scale, up to this
     /// Striking a body, the blast centres where its whole move this tick
     /// ends (the script's `Location`), not where it met the body.
     bool splashFromMoved = false;
