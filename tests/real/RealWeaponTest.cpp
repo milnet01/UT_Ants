@@ -37,7 +37,8 @@
 // floor early. A kind that bounces and has no blast is raised by the firer's
 // hover from the tick of its first bounce, and flown at the recorded height
 // from then on. One with a blast is judged against the bodies and stays low:
-// its bounces are taken from the recording and not compared. A kind that
+// its bounces are taken from the recording and not compared; a bounce that
+// would leave it under the floor raises it too, from that tick. A kind that
 // sticks is raised the same way from the tick ours first sticks, so it lands
 // where the recorded one did; stuck to a floor it is as near the bodies.
 //
@@ -707,6 +708,16 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
                     // its own, and a bounce of a shot not raised.
                     Vec3 at = vec(after->second.location);
                     if (!s.raised) at.z -= firerHover;
+                    // A shot kept low is under the floor the recorded one
+                    // bounced off; left there, it would start its next tick
+                    // in solid and strike at once. It is flown at the
+                    // recorded height from here on, as a raised kind is.
+                    // This bounce was ours while low, so it is not compared.
+                    const bool buried = !s.raised && world.trace(at, at).startsInside;
+                    if (buried) {
+                        s.raised = true;
+                        at.z += firerHover;
+                    }
                     const Vec3 velocity = vec(after->second.velocity);
                     const std::string where = name + " bounce at tick " + std::to_string(tick);
                     const auto half = with(0.5);
@@ -719,7 +730,7 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
                     const double size = uworld::dot(scaled, scaled);
                     const bool once = both && size > 0 &&
                                       alongOf(velocity, scaled) > alongOf(all[0].velocity, scaled) * (1 + kind.bounceKeep) / 2;
-                    if (s.raised && once && uworld::length(start.velocity) >= SETTLING) {
+                    if (s.raised && !buried && once && uworld::length(start.velocity) >= SETTLING) {
                         const double draw = 1 - uworld::dot(all[0].velocity - velocity, scaled) / size;
                         // A unit a second of the speed the draw scales.
                         const double slack = MAX_VELOCITY_ERROR / std::sqrt(size);

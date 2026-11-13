@@ -18788,6 +18788,16 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   199). The same in grenade-load-1.2. Not a miss read as a hit:
   entersCylinder returns 2 for one. Unexplained; next to look at.
   The user asked for a way to try the guns: UTA-0472.
+  2026-11-13, grenades explained: the replay's, not the game's. A blast
+  kind is kept low by the firer's hover, and its bounce is taken from
+  the recording, lowered: 4 under the floor the recorded grenade bounced
+  off. Its next tick started in solid and struck at once. Replay: a
+  bounce that would leave a low shot under the floor raises it from that
+  tick, as a no-blast kind is raised; that one bounce is not compared,
+  later ones are (within 0.14). Failures 95 -> 88: grenade hit counts
+  match in every run. Left: grenade-load-5 at 30 fps (damage 34 at tick
+  198, a hit 9 ticks off, one launch draw out of range). Step 5 is built
+  and pushed as UTA-0472.
   **Layman:** The guns. Built as a table of numbers rather than as code, so a different set -- your super weapons -- is a different table rather than a second codebase.
   Kind: implement.
   Source: design-2026-09-03.
