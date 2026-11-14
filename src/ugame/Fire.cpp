@@ -116,7 +116,7 @@ void launch(Tick& tick, std::uint32_t kind, int owner, const Vec3& at, std::int3
     Vec3 velocity = direction * speed + direction * (uworld::dot(firerVelocity, direction) * projectile.inherit);
     velocity.z += projectile.lift;
     velocity = velocity * speedScale;
-    tick.spawned.push_back(Shot{.kind = kind, .owner = owner, .location = at, .velocity = velocity,
+    tick.spawned.push_back(Shot{.kind = kind, .owner = owner, .location = at, .velocity = velocity, .previous = at,
                                 .acceleration = direction * projectile.acceleration, .yaw = yaw, .pitch = pitch,
                                 .lifetime = lifetime,
                                 .damageScale = damageScale});

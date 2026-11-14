@@ -308,6 +308,8 @@ void fly(Tick& tick, std::size_t index) {
         else tick.shotGone[index] = true;
         return;
     }
+    const Vec3 old = shot.previous;
+    shot.previous = shot.location;
     // A bounce ends one move and starts another in the same tick, over the
     // time the first left. `more` is time it moves for and does not fall for.
     double time = tick.dt, more = 0;
@@ -354,8 +356,22 @@ void fly(Tick& tick, std::size_t index) {
             const Body& body = bodies[static_cast<std::size_t>(struck)];
             const double moving = uworld::length(shot.velocity);
             const Vec3 inset = moving > 0 ? shot.velocity * (HIT_INSET * body.size.radius / moving) : Vec3{};
-            const Vec3 met = from + delta * first + inset;
-            const Vec3 end = from + delta * moved;
+            Vec3 met = from + delta * first + inset;
+            Vec3 end = from + delta * moved;
+            if (move == 0 && first == 0) {
+                // The body moved onto the shot. Projectile.Touch traces the
+                // shot's last move, OldLocation to Location, for where it met
+                // the body where the body now stands; a move that starts
+                // inside it finds nothing, and the hit is on its side, towards
+                // the shot, not moved in. The shot does not move on.
+                const double back = entersCylinder(old, from, body.move.location, body.size.radius + kind.radius,
+                                                   body.size.halfHeight + kind.radius);
+                const Vec3 off = from - body.move.location;
+                const double away = uworld::length(off);
+                if (back > 0 && back <= 1) met = old + (from - old) * back + inset;
+                else met = away > 0 ? body.move.location + off * (body.size.radius / away) : from;
+                end = from;
+            }
             shot.location = kind.splashFromMoved ? end : met;
             // flakslug.ProcessTouch: off the body from where the shot met it, the
             // pieces starting from where its move ended.
@@ -529,6 +545,7 @@ std::uint64_t stateHash(const Game& game) {
         add(static_cast<std::uint64_t>(shot.owner));
         addVec(shot.location);
         addVec(shot.velocity);
+        addVec(shot.previous);
         addVec(shot.acceleration);
         add(static_cast<std::uint64_t>(shot.yaw));
         add(static_cast<std::uint64_t>(shot.pitch));

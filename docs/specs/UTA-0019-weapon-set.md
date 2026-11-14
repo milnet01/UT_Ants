@@ -356,6 +356,11 @@ Botpack `DeathMatchPlus.ReduceDamage`):
   falls and moves for the time left. Recorded.
 - A shot's hit on a body is moved 0.4 of the body's radius on along the
   shot (Engine `Pawn.AdjustHitLocation`). Recorded: the flak slug's push.
+- A body that moves onto a shot is met along the shot's last move, from
+  where its last tick began, into the body where it now stands, and moved
+  in as above. A last move that starts inside the body meets its side,
+  towards the shot, unmoved (Engine `Projectile.Touch`). Recorded
+  2026-11-14: rockets meeting a thrown target at 120 frames a second.
 - A flak slug's chunks start 10 off what it struck, from where its move
   ended, and fly along the slug's own aim, each turned by its own draws
   (Botpack `flakslug.Explode`). Off a body, the direction is from the

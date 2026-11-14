@@ -65,6 +65,7 @@ struct Shot {
     std::uint32_t kind = 0; ///< an index into the set's projectiles
     int owner = -1;         ///< the body that fired it
     Vec3 location{}, velocity{};
+    Vec3 previous{};        ///< where its last tick began (the engine's OldLocation)
     Vec3 acceleration{};    ///< its kind's, along its launch direction
     std::int32_t yaw = 0, pitch = 0; ///< the aim it was launched along, before its kind's turn
     double lifetime = 0;    ///< its kind's, with its random part drawn

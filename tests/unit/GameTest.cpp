@@ -548,6 +548,31 @@ TEST_CASE("SS 4.9: a charged glob's blast widens by its charge, up to splash-rad
     CHECK(blast(fixed, 3) == std::pair{75.0, 0.0});
 }
 
+TEST_CASE("INV-6: a body moved onto a shot is met along the shot's last move", "[ugame][game]") {
+    // Projectile.Touch: the trace from OldLocation to Location, into the
+    // body where it now stands, moved in 0.4 of its radius; a last move
+    // that starts inside it meets the body's side, towards the shot.
+    const BodyWorld world = arena();
+    const WeaponSet& set = stock();
+    const Projectile& rocket = *set.projectile("rocket");
+    REQUIRE(!rocket.splashFromMoved);
+    const auto kind = static_cast<std::uint32_t>(&rocket - set.projectiles.data());
+    const auto blastAt = [&](double previous) {
+        Game game = duel(set, "rocket-launcher", 600);
+        const double radius = game.bodies[1].size.radius;
+        game.shots.push_back(Shot{.kind = kind, .owner = 0, .location = {600 - radius + 7, 0, STANDING},
+                                  .velocity = {900, 0, 0}, .previous = {previous, 0, STANDING},
+                                  .lifetime = rocket.lifetime});
+        tick(world, set, RULES, game, std::vector<MoveCommand>(2), DT);
+        for (const Event& event : game.events)
+            if (event.kind == Event::Kind::Explosion) return event.from.x - (600 - radius);
+        return -1e9;
+    };
+    const double radius = duel(set, "rocket-launcher", 600).bodies[1].size.radius;
+    CHECK(std::abs(blastAt(560) - 0.4 * radius) < 1e-9);
+    CHECK(std::abs(blastAt(600 - radius + 3)) < 1e-9);
+}
+
 TEST_CASE("SS 4.9: damage lands whole, scaled by hardcore's damage-scale", "[ugame][game]") {
     const BodyWorld world = arena();
     REQUIRE(stock().damageScale == 1.5);
@@ -1337,5 +1362,5 @@ TEST_CASE("INV-5: a scripted fight is the same at every frame rate and on every 
         CHECK(again == reference);
     }
     INFO("final hash " << reference.back());
-    CHECK(reference.back() == 8509411630250113570u);
+    CHECK(reference.back() == 12172766123763076317u);
 }

@@ -18828,6 +18828,16 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Projectile.Touch (a line traced from OldLocation into the bare
   cylinder, moved in 0.4 of its radius); the original's sits about 0.04
   from it. Not a tolerance to loosen without the user.
+  2026-11-14, a body moved onto a shot. Projectile.Touch traces the
+  shot's last move, OldLocation to Location, into the body where it now
+  stands; ours met it where the shot was, a radius further on. A shot now
+  keeps where its last tick began (`previous`, in the state hash: INV-5's
+  pinned hash moved, and without the field it is the old one). Failures
+  52 -> 50: the damage of rocket-load-5 and rocket-primary at 120 fps.
+  Left for the user: in both, the original's target, airborne and moving
+  onto the rocket, takes the damage but keeps its own velocity: the next
+  G rows carry no push (rocket-load-5 120 D 366, rocket-primary 120 D
+  217). A rocket flying into it keeps the push (D 215). Ours pushes.
   **Layman:** The guns. Built as a table of numbers rather than as code, so a different set -- your super weapons -- is a different table rather than a second codebase.
   Kind: implement.
   Source: design-2026-09-03.
