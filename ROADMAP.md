@@ -18838,6 +18838,27 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   onto the rocket, takes the damage but keeps its own velocity: the next
   G rows carry no push (rocket-load-5 120 D 366, rocket-primary 120 D
   217). A rocket flying into it keeps the push (D 215). Ours pushes.
+  2026-11-14, cadence, looked at only. minigun-alt 85, switch-minigun 85
+  and switch-pulse (all rates) are our steady cadence: ours carries a
+  refire's overshoot to the next, the original rounds each sleep to whole
+  ticks and carries nothing. Over a hold ours drifts one to three ticks
+  and lands one shot more or fewer (minigun-alt 85: 30 for 29;
+  switch-pulse 85 and 120: 7 for 8, the last due a tick after the
+  release). INV-6 allows this for the chainsaw only: asked the user
+  whether it covers every held weapon.
+  2026-11-15, the user's two answers, now in INV-6: every mode whose
+  original sleeps keeps our steady cadence (a shot more or fewer in a run,
+  each within three ticks, its shots paired within three); and a body
+  moved onto a shot keeps the push, compared with the logged push within
+  a tick's gravity. Failures 50 -> 40.
+  Left, worst first: flak bounces and out-of-range draws (flak-primary,
+  flak-tap, switch-flak, flak-alt 30 and 120); flak-alt-tap 85's chunks
+  (two of five hurt a body, three flew on); grenade-load-5 at 30;
+  bio-primary 30 after the hitch; rocket-alt 85's flight; chainsaw-primary
+  85's velocity. Blast velocities 1.08 to 1.88 over 1 unit/s
+  (rocket-primary, rocket-load-*, flak-alt and flak-alt-tap at 30) look
+  like the slug's 0.04-unit blast point: suspected single-precision, not
+  checked.
   **Layman:** The guns. Built as a table of numbers rather than as code, so a different set -- your super weapons -- is a different table rather than a second codebase.
   Kind: implement.
   Source: design-2026-09-03.

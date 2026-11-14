@@ -8,3 +8,4 @@
 | impl | 2026-11-12 | none | – | – | – | – | The user asked for modern explosion effects: § 4.8 and § 9 point the stand-in sphere at UTA-0470. No reviewer dispatched: the gate is cancelled here. |
 | impl | 2026-11-12 | none | – | – | – | – | Matching the replays amended § 4.4: `splash-from`, `body-hit` and `splash-up-max`. No reviewer dispatched: the gate is cancelled here. |
 | impl | 2026-11-14 | none | – | – | – | – | Matching the replays amended § 4.9: a body that moves onto a shot is met along the shot's last move (`Projectile.Touch`). No reviewer dispatched: the gate is cancelled here. |
+| impl | 2026-11-15 | none | – | – | – | – | The user widened INV-6: every mode that sleeps keeps a steady cadence (a shot more or fewer, within three ticks), and a body moved onto a shot keeps its push. No reviewer dispatched: the gate is cancelled here. |

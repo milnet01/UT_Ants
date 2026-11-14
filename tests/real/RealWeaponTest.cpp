@@ -86,7 +86,7 @@ constexpr std::int64_t MAX_TICK_ERROR = 1;
 constexpr double MAX_POSITION_ERROR = 1;
 constexpr double MAX_VELOCITY_ERROR = 1;
 
-// INV-6's four allowed differences (user, 2026-11-13).
+// INV-6's allowed differences (user, 2026-11-13 and 2026-11-15).
 /// A blast at the firer's own feet. The original's player hovers 4.8 over
 /// the floor and ours stands on it, so the blast is that much nearer our
 /// centre: the recorded push is 3.30 up for 1 across, ours 2.92.
@@ -97,10 +97,18 @@ constexpr double HOVER_VELOCITY_ERROR = 25;
 /// ended at a frame: at 30 frames a second our first shot is two ticks early.
 constexpr std::string_view SWITCH_RUNS = "switch-";
 constexpr std::int64_t SWITCH_TICK_ERROR = 2;
-/// Our cadence does not move with the frame rate. The original's chainsaw
-/// cuts 22 to 24 ticks apart at 85 frames a second where ours cuts every 24,
-/// so the last recorded cut of a run may fall after ours ends.
-constexpr std::string_view STEADY_RUN = "chainsaw-primary";
+/// Our cadence does not move with the frame rate (user, 2026-11-13; every
+/// held weapon, user 2026-11-15). The original sleeps whole ticks between
+/// shots and carries nothing over; ours carries each refire's overshoot.
+/// Its chainsaw cuts 22 to 24 ticks apart at 85 frames a second where ours
+/// cuts every 24, and over a hold its Minigun and Pulse Gun drift up to
+/// three ticks from ours: a run of a mode that sleeps may fire one shot
+/// more or fewer, and its shots land within three ticks.
+constexpr std::int64_t STEADY_TICK_ERROR = 3;
+/// A body moved onto a shot keeps the push here (user, 2026-11-15). The
+/// original logs the push and then drops it, its falling move overwriting
+/// the velocity: the logged one has the frame's gravity from part way
+/// through that move, so a tick's gravity is allowed on such a hit.
 /// Where a stuck shot rests: recorded ones lie up to 2.5 along their path
 /// from ours, either way, and 0.9 apart on one flat floor.
 constexpr double MAX_REST_ERROR = 3;
@@ -206,6 +214,8 @@ struct Hit {
     /// that tick are never logged, so the replay cannot copy their draws.
     Vec3 pieces{};
     bool burst = false;
+    /// Theirs: a body that moved onto the shot, whose push the original dropped.
+    bool lost = false;
 };
 
 /// The worst of each comparison over a run.
@@ -217,6 +227,7 @@ struct Errors {
     std::string damageAt, velocityAt, spawnAt, flightAt, bounceAt, restAt;
     std::size_t unmatched = 0;
     bool randomHits = false;    ///< the mode draws its hits: counts are not compared
+    bool steady = false;        ///< the mode's original sleeps between shots
     std::size_t outOfRange = 0; ///< recorded draws outside our rule's range
     std::string outOfRangeAt;
 };
@@ -298,6 +309,12 @@ std::string str(const Vec3& v) {
 /// Minigun modes, the Enforcer's alt, the Pulse Gun's primary and the
 /// Chainsaw's, which sleeps 0.15 twice a cut and once, and a tick, after
 /// the press's.
+/// Whether the original's mode sleeps between shots (see `slept`).
+bool sleeps(const ugame::Weapon& weapon, bool alt) {
+    if (alt) return weapon.alt && (weapon.name == "minigun" || weapon.name == "enforcer");
+    return weapon.name == "minigun" || weapon.name == "pulse-gun" || weapon.name == "chainsaw";
+}
+
 ugame::WeaponSet slept(ugame::WeaponSet set, double dt) {
     const auto ticks = [dt](double time) { return std::max(1.0, std::round(time / dt)); };
     const auto whole = [&](double& time) {
@@ -317,8 +334,8 @@ ugame::WeaponSet slept(ugame::WeaponSet set, double dt) {
     for (ugame::Weapon& weapon : set.weapons) {
         grown(weapon.primary);
         if (weapon.alt) grown(*weapon.alt);
-        if (weapon.name == "minigun" || weapon.name == "pulse-gun") sleeper(weapon.primary);
-        if (weapon.alt && (weapon.name == "minigun" || weapon.name == "enforcer")) sleeper(*weapon.alt);
+        if (weapon.name != "chainsaw" && sleeps(weapon, false)) sleeper(weapon.primary);
+        if (sleeps(weapon, true)) sleeper(*weapon.alt);
         if (weapon.name == "chainsaw") {
             const double sleep = ticks(0.15);
             weapon.primary.refire = (2 * sleep - 0.002) * dt;
@@ -425,6 +442,15 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
         const double m = uworld::length(vec(d.momentum));
         if (std::ranges::any_of(pieceMomenta, [m](double p) { return std::abs(m - p) <= 1; }))
             hit.pieces = hit.pieces + (vec(d.velocity1) - vec(d.velocity0));
+        // A falling body whose next row keeps its speed across, a push
+        // across logged: it moved onto the shot, and the push was dropped.
+        if (victim == TARGET && targeted && d.physics0 == "PHYS_Falling" &&
+            static_cast<std::size_t>(d.tick) < recording.target.size()) {
+            const auto across = [](const std::array<double, 3>& v) { return Vec3{v[0], v[1], 0}; };
+            const Vec3 kept = across(recording.target[static_cast<std::size_t>(d.tick)].velocity);
+            if (uworld::length(kept - across(d.velocity0)) < 1 && uworld::length(across(d.velocity1) - across(d.velocity0)) > 1)
+                hit.lost = true;
+        }
     }
     std::vector<std::int64_t> theirSpends;
     if (recording.weapon[0].ammo >= 0 && recording.weapon[0].ammo < set.weapons[static_cast<std::size_t>(inHand)].ammoMax)
@@ -436,6 +462,7 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
     }
 
     Errors e;
+    e.steady = sleeps(weapon, alt) || (other >= 0 && sleeps(set.weapons[static_cast<std::size_t>(other)], alt));
     const auto outOfRange = [&e](const std::string& at) {
         if (e.outOfRange++ == 0) e.outOfRangeAt = at;
     };
@@ -663,7 +690,9 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
                 int best = -1;
                 for (std::size_t r = 0; r < theirOrder.size(); ++r) {
                     const RecordedShot& t = theirs.at(theirOrder[r]);
-                    if (claimed[r] || t.kind != kind.name || ticksFrom(tick, t.first) > MAX_TICK_ERROR) continue;
+                    if (claimed[r] || t.kind != kind.name ||
+                        ticksFrom(tick, t.first) > (e.steady ? STEADY_TICK_ERROR : MAX_TICK_ERROR))
+                        continue;
                     best = static_cast<int>(r);
                     break;
                 }
@@ -866,7 +895,7 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
     }
     e.ourSpends = ourSpends.size();
     e.theirSpends = theirSpends.size();
-    if (ourSpends.size() == theirSpends.size()) e.spendTick = worstTick(ourSpends, theirSpends);
+    if (ourSpends.size() == theirSpends.size() || e.steady) e.spendTick = worstTick(ourSpends, theirSpends);
     e.ourShots = ours.size();
     e.theirShots = theirOrder.size();
     e.ourHits = ourHits.size();
@@ -909,8 +938,12 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
         if (std::abs(a.damage - b.damage) > e.damage) e.damage = std::abs(a.damage - b.damage), e.damageAt = at;
         // Where ours burst, the pieces' drawn pushes are left out on both
         // sides; their count is in the damage.
-        const double v = a.burst ? uworld::length((a.velocity - a.pieces) - (b.velocity - b.pieces))
-                                 : uworld::length(a.velocity - b.velocity);
+        const double off = a.burst ? uworld::length((a.velocity - a.pieces) - (b.velocity - b.pieces))
+                                   : uworld::length(a.velocity - b.velocity);
+        // A push the original dropped is compared as it logged it, less a
+        // tick's gravity (the allowance above).
+        const auto frame = static_cast<std::size_t>(std::clamp<std::int64_t>(b.tick - 1, 0, static_cast<std::int64_t>(rows.size()) - 1));
+        const double v = b.lost ? std::max(0.0, off - std::abs(uworld::MoveRules{}.gravityZ) * rows[frame].dt) : off;
         if (v > e.velocity) e.velocity = v, e.velocityAt = at;
     }
 
@@ -981,12 +1014,16 @@ TEST_CASE("UTA-0019 INV-6: the stock set matches the original's weapon runs on D
         const bool hover = std::ranges::find(HOVER_RUNS, r.name) != HOVER_RUNS.end();
         const double damageError = hover ? HOVER_DAMAGE_ERROR : 0;
         const double velocityError = hover ? HOVER_VELOCITY_ERROR : MAX_VELOCITY_ERROR;
-        const std::int64_t spendError = r.name.starts_with(SWITCH_RUNS) ? SWITCH_TICK_ERROR : MAX_TICK_ERROR;
+        const std::int64_t tickError = e.steady ? STEADY_TICK_ERROR : MAX_TICK_ERROR;
+        const std::int64_t spendError = std::max(r.name.starts_with(SWITCH_RUNS) ? SWITCH_TICK_ERROR : MAX_TICK_ERROR, tickError);
+        // A mode that sleeps may fire one more or one fewer (the allowance above).
+        const auto counts = [&e](std::size_t ours, std::size_t theirs) {
+            return ours == theirs || (e.steady && (ours + 1 == theirs || theirs + 1 == ours));
+        };
         CHECK(e.outOfRange == 0);
-        if (r.name == STEADY_RUN) CHECK((e.ourHits == e.theirHits || e.ourHits + 1 == e.theirHits));
-        else if (!e.randomHits) CHECK(e.ourHits == e.theirHits);
-        CHECK(e.ourShots == e.theirShots);
-        CHECK(e.unmatched == 0);
+        if (!e.randomHits) CHECK(counts(e.ourHits, e.theirHits));
+        CHECK(counts(e.ourShots, e.theirShots));
+        CHECK(e.unmatched <= (e.steady && e.ourShots != e.theirShots ? 1u : 0u));
         CHECK(e.damage <= damageError);
         CHECK(e.velocity <= velocityError);
         CHECK(e.spawn <= MAX_POSITION_ERROR);
@@ -994,10 +1031,10 @@ TEST_CASE("UTA-0019 INV-6: the stock set matches the original's weapon runs on D
         CHECK(e.rest <= MAX_REST_ERROR);
         CHECK(e.bounce <= MAX_POSITION_ERROR);
         if (r.timed) {
-            CHECK(e.ourSpends == e.theirSpends);
+            CHECK(counts(e.ourSpends, e.theirSpends));
             CHECK(e.spendTick <= spendError);
-            CHECK(e.shotTick <= MAX_TICK_ERROR);
-            CHECK(e.hitTick <= MAX_TICK_ERROR);
+            CHECK(e.shotTick <= tickError);
+            CHECK(e.hitTick <= tickError);
         }
     }
 }
