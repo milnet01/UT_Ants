@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=472 -->
+<!-- ants-roadmap-id-high-water: UTA=473 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -18809,6 +18809,25 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   and ripper primary spawn at 120; bio-primary 30's shot after the
   hitch; chainsaw-primary 85's velocity; grenade-load-5 at 30;
   minigun-alt 85. Still open for the user: UTA-0469's extra languages.
+  2026-11-14, three replay faults, none the game's. Failures 69 -> 52.
+  - Survivors are matched to the shots they were by each old shot flown
+    the tick alone: a straight line put a chunk turned back off a wall
+    next to one lying still, and swapped them (flak-alt 30's flight).
+  - A slug's pieces that hit in the tick it breaks are never logged, so
+    their drawn cones cannot be copied. Where ours breaks one, both sides'
+    hit velocity leaves the pieces' pushes out; damage still counts them.
+    The slug's own blast is compared to 1 unit/s (flak-alt and
+    flak-alt-tap at 85 and 120).
+  - A launch a tick from the original's makes its first move over the
+    original's frame, as its later moves already did, and a refire the
+    original made a tick earlier starts from that row's eye, before the
+    view shakes. Fixed: flak-alt 85 and 120's third slug, pulse and ripper
+    primary at 120, bio-primary 120.
+  Looked at, not changed: flak-alt and flak-alt-tap at 30 miss 1 unit/s
+  by under 0.01. The slug's blast point follows flakslug.ProcessTouch and
+  Projectile.Touch (a line traced from OldLocation into the bare
+  cylinder, moved in 0.4 of its radius); the original's sits about 0.04
+  from it. Not a tolerance to loosen without the user.
   **Layman:** The guns. Built as a table of numbers rather than as code, so a different set -- your super weapons -- is a different table rather than a second codebase.
   Kind: implement.
   Source: design-2026-09-03.
@@ -24008,6 +24027,26 @@ docs/standards/versioning-overrides.md. Closes S8.
   Kind: feature.
   Source: user-request-2026-11-10.
   Lanes: uui, ugame.
+
+- 📋 [UTA-0473] **Measure whether the per-frame storage buffers read across the bus.**
+  DOOM_Ants (2026-11-13, know_how topic
+  vulkan-host-visible-vertex-buffer-lands-in-system-ram): on the RX 6600
+  under RADV, the first HOST_VISIBLE | HOST_COHERENT memory type is system
+  RAM. Their vertex buffer cost 3.56 ms there and 0.89 ms once it preferred
+  DEVICE_LOCAL | HOST_VISIBLE | HOST_COHERENT.
+  Ours: Buffer::create (src/urender/Resources.cpp) takes that same first
+  type for BufferMemory::HostWrite. Static geometry goes through staging
+  to Device memory and is not affected. Read from system RAM each frame:
+  objects, lights, shadowFaces, clusterBounds, volumeLightIndices, frameData
+  and placeShapes' vertices (src/urender/Frame.cpp).
+  Check: prefer the device-local host-visible type, falling back to the
+  current one. Time the two in one cc-job, per map (ut-bench frame). The
+  cost should be the same at every render scale; the know-how entry says
+  how to tell it apart from a cost per pixel.
+  **Layman:** The game may keep its per-frame lists of lights and objects in ordinary memory, so the graphics card fetches them over the cable every frame. That could cost time.
+  Kind: perf.
+  Source: peer-doom-ants-2026-11-13.
+  Lanes: urender.
 
 ## After 1.0.0
 

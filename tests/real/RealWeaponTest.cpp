@@ -68,6 +68,7 @@
 #include <iostream>
 #include <map>
 #include <numbers>
+#include <optional>
 #include <set>
 #include <sstream>
 #include <string>
@@ -200,6 +201,11 @@ struct Hit {
     double damage = 0;
     Vec3 velocity{};
     bool traced = false; ///< ours: by the weapon's own trace, not a shot
+    /// What a split's pieces pushed. Ours sets `burst` in a tick a split
+    /// kind breaks: its pieces' cones are drawn, and the ones that hit in
+    /// that tick are never logged, so the replay cannot copy their draws.
+    Vec3 pieces{};
+    bool burst = false;
 };
 
 /// The worst of each comparison over a run.
@@ -401,15 +407,24 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
     }
 
     // The recorded hits, summed per tick and victim, and the spends.
+    // A piece's push is its kind's momentum, undiminished: a line of that
+    // size is a piece's.
+    std::vector<double> pieceMomenta;
+    for (const std::string& name : launched)
+        if (const ugame::Projectile* kind = set.projectile(name); kind != nullptr && !kind->splitInto.empty())
+            if (const ugame::Projectile* piece = set.projectile(kind->splitInto); piece != nullptr)
+                pieceMomenta.push_back(piece->momentum);
     std::vector<Hit> theirHits;
     for (const auto& d : recording.damage) {
         const int victim = d.victim.starts_with("UTARecTarget") ? TARGET : FIRER;
-        if (!theirHits.empty() && theirHits.back().tick == d.tick && theirHits.back().victim == victim) {
-            theirHits.back().damage += d.health0 - d.health1;
-            theirHits.back().velocity = vec(d.velocity1);
-        } else {
-            theirHits.push_back({d.tick, victim, d.health0 - d.health1, vec(d.velocity1)});
-        }
+        if (theirHits.empty() || theirHits.back().tick != d.tick || theirHits.back().victim != victim)
+            theirHits.push_back({d.tick, victim, 0, {}});
+        Hit& hit = theirHits.back();
+        hit.damage += d.health0 - d.health1;
+        hit.velocity = vec(d.velocity1);
+        const double m = uworld::length(vec(d.momentum));
+        if (std::ranges::any_of(pieceMomenta, [m](double p) { return std::abs(m - p) <= 1; }))
+            hit.pieces = hit.pieces + (vec(d.velocity1) - vec(d.velocity0));
     }
     std::vector<std::int64_t> theirSpends;
     if (recording.weapon[0].ammo >= 0 && recording.weapon[0].ammo < set.weapons[static_cast<std::size_t>(inHand)].ammoMax)
@@ -489,8 +504,14 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
         // fires before its frame moves the eye, at this row's height; the
         // weapon's own tick fires after, at the next row's.
         const ugame::Body& hand = game.bodies[FIRER];
+        // A refire the original made a tick before ours (its spend logged
+        // at this row) was fired at this row's height, before its shake.
         const bool atRest = hand.refireLeft <= 0 && hand.winding < 0 && hand.charging < 0;
-        game.bodies[FIRER].eyeHeight = recording.weapon[atRest ? k : k + 1].eyeHeight;
+        const auto spentAt = [&theirSpends](std::size_t row) {
+            return std::ranges::find(theirSpends, static_cast<std::int64_t>(row)) != theirSpends.end();
+        };
+        const bool theirsEarlier = !atRest && spentAt(k) && !spentAt(k + 1);
+        game.bodies[FIRER].eyeHeight = recording.weapon[atRest || theirsEarlier ? k : k + 1].eyeHeight;
 
         std::array<uworld::MoveCommand, 2> commands{};
         auto& c = commands[FIRER];
@@ -543,7 +564,24 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
             if (b == TARGET && (traced || afterPhysics) && gameBefore.bodies[at].move.physics == uworld::Physics::Falling &&
                 game.bodies[at].move.physics == uworld::Physics::Falling)
                 velocity.z -= rules.gravityZ * row.dt;
-            ourHits.push_back({tick, b, lost, velocity, traced});
+            Hit hit{tick, b, lost, velocity, traced};
+            // A split kind broke: the tick again with its pieces pushing
+            // nothing, which draws as this one did, gives their push.
+            for (const ugame::Shot& before : shotsBefore) {
+                const ugame::Projectile& kind = set.projectiles[before.kind];
+                if (kind.splitInto.empty() || std::ranges::count(game.shots, before.kind, &ugame::Shot::kind) >=
+                                                  std::ranges::count(shotsBefore, before.kind, &ugame::Shot::kind))
+                    continue;
+                ugame::WeaponSet still = set;
+                for (ugame::Projectile& p : still.projectiles)
+                    if (p.name == kind.splitInto) p.momentum = 0;
+                ugame::Game again = gameBefore;
+                ugame::tick(world, still, rules, again, commands, row.dt);
+                hit.pieces = game.bodies[at].move.velocity - again.bodies[at].move.velocity;
+                hit.burst = true;
+                break;
+            }
+            ourHits.push_back(hit);
         }
 
         // Follow our shots: survivors keep their order, the new ones come
@@ -551,12 +589,24 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
         // The survivors keep their order. Where some are gone, a survivor
         // is, of the shots it could be, the one that would have carried on
         // nearest to it: shots of one kind and launch are alike but for that.
+        // Where it would have carried on is that shot flown the tick alone,
+        // bounces and all: a chunk turned back off a wall passes near one
+        // lying still, where a straight line would put it in the wall.
         std::vector<int> next;
         std::vector<std::size_t> was; // per game.shots, its index before; a new one's is unused
         std::size_t from = 0;
         std::size_t gone = shotsBefore.size();
         for (const ugame::Shot& shot : game.shots)
             if (shot.age != row.dt || shot.stuck) --gone;
+        std::vector<std::optional<ugame::Shot>> carriedOn(shotsBefore.size());
+        if (gone > 0)
+            for (std::size_t j = 0; j < shotsBefore.size(); ++j) {
+                ugame::Game alone = gameBefore;
+                alone.shots = {shotsBefore[j]};
+                for (ugame::Body& body : alone.bodies) body.weapon = -1;
+                ugame::tick(world, set, rules, alone, std::array<uworld::MoveCommand, 2>{}, row.dt);
+                if (alone.shots.size() == 1) carriedOn[j] = alone.shots[0];
+            }
         for (ugame::Shot& shot : game.shots) {
             const bool fresh = shot.age == row.dt && !shot.stuck;
             int id = -1;
@@ -567,7 +617,10 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
                     const ugame::Shot& was = shotsBefore[j];
                     if (was.kind != shot.kind || was.lifetime != shot.lifetime || was.damageScale != shot.damageScale)
                         continue;
-                    const double off = uworld::length(was.location + was.velocity * row.dt - shot.location);
+                    const double off =
+                        carriedOn[j] ? uworld::length(carriedOn[j]->location - shot.location) +
+                                           uworld::length(carriedOn[j]->velocity - shot.velocity) * row.dt
+                                     : uworld::length(was.location + was.velocity * row.dt - shot.location);
                     if (nearest == shotsBefore.size() || off < least) nearest = j, least = off;
                 }
                 REQUIRE(nearest < shotsBefore.size());
@@ -669,6 +722,21 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
                     logged.z -= firerHover;
                     const bool flown = uworld::length(logged - shot.location) < uworld::length(logged - launch.location);
                     s.late = t.first - (flown ? 1 : 0) - tick;
+                }
+                // A launch a tick from the original's makes its first move
+                // over the original's frame, as its later moves do (below).
+                // A random launch has taken the recorded move instead.
+                if (s.late != 0 && !rangeOf(*mode, kind, freshOfKind[shot.kind] > 1).random()) {
+                    const auto aged =
+                        std::clamp<std::int64_t>(tick + s.late, 0, static_cast<std::int64_t>(rows.size()) - 1);
+                    ugame::Game alone = gameBefore;
+                    ugame::Shot start = launch;
+                    start.age = 0;
+                    alone.shots = {start};
+                    for (ugame::Body& body : alone.bodies) body.weapon = -1;
+                    ugame::tick(world, set, rules, alone, std::array<uworld::MoveCommand, 2>{},
+                                rows[static_cast<std::size_t>(aged)].dt);
+                    if (alone.shots.size() == 1) shot = alone.shots[0], s.rows[tick + 1] = shot;
                 }
             } else if (s.recorded >= 0) {
                 const std::string& name = theirOrder[static_cast<std::size_t>(s.recorded)];
@@ -839,7 +907,10 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
         const std::string at = "tick " + std::to_string(b.tick);
         e.hitTick = std::max(e.hitTick, ticksFrom(a.tick, b.tick));
         if (std::abs(a.damage - b.damage) > e.damage) e.damage = std::abs(a.damage - b.damage), e.damageAt = at;
-        const double v = uworld::length(a.velocity - b.velocity);
+        // Where ours burst, the pieces' drawn pushes are left out on both
+        // sides; their count is in the damage.
+        const double v = a.burst ? uworld::length((a.velocity - a.pieces) - (b.velocity - b.pieces))
+                                 : uworld::length(a.velocity - b.velocity);
         if (v > e.velocity) e.velocity = v, e.velocityAt = at;
     }
 
