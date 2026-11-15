@@ -845,7 +845,12 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
                     const bool both = all.size() == 1 && half.size() == 1;
                     const Vec3 scaled = both ? (all[0].velocity - half[0].velocity) * 2 : Vec3{};
                     const double size = uworld::dot(scaled, scaled);
-                    const bool once = both && size > 0 &&
+                    // Once each: ours flown keeping all and half its speed off
+                    // the surface bounced once, and the recorded shot kept more
+                    // of its speed along it than a second bounce would leave.
+                    // A floor a chunk skids on turns both several times a tick.
+                    const bool once = both && size > 0 && all[0].bounces == start.bounces + 1 &&
+                                      half[0].bounces == start.bounces + 1 &&
                                       alongOf(velocity, scaled) > alongOf(all[0].velocity, scaled) * (1 + kind.bounceKeep) / 2;
                     if (s.raised && !buried && once && uworld::length(start.velocity) >= SETTLING) {
                         const double draw = 1 - uworld::dot(all[0].velocity - velocity, scaled) / size;
