@@ -18859,6 +18859,23 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   (rocket-primary, rocket-load-*, flak-alt and flak-alt-tap at 30) look
   like the slug's 0.04-unit blast point: suspected single-precision, not
   checked.
+  2026-11-15, flak bounces: the replay's. A chunk skidding on a floor
+  bounces three times a tick (speed along it x 0.512, 0.8 cubed). The
+  replay's one draw, from our flight keeping all and half its speed off
+  the surface, meant nothing where either flight bounced more than once.
+  Both must now bounce once. Failures 40 -> 29.
+  Looked at, not changed:
+  - flak-primary 30 (UTChunk13, tick 74) and switch-flak 30 (UTChunk46,
+    tick 58): a chunk under 0.1 above the floor. Ours meets the floor a
+    tick before the original's does, which flies a whole tick on and
+    falls only 0.22 where its velocity gives 0.38. Unexplained.
+  - flak-primary 120, the fourth shot: the original's four chunks hit
+    over ticks 182-184 (1, 2, 1), ours all at 183, so the hits per tick
+    differ (5 for 7). The whole shot is a tick behind the original's in
+    our rows, yet chunk 14 hits on the original's tick. Unexplained.
+  Left, worst first: those two; flak-alt-tap 85's chunks;
+  grenade-load-5 at 30; bio-primary 30; rocket-alt 85's flight;
+  chainsaw-primary 85's velocity; the blast velocities 1.08-1.88.
   **Layman:** The guns. Built as a table of numbers rather than as code, so a different set -- your super weapons -- is a different table rather than a second codebase.
   Kind: implement.
   Source: design-2026-09-03.
