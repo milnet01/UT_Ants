@@ -18876,6 +18876,18 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Left, worst first: those two; flak-alt-tap 85's chunks;
   grenade-load-5 at 30; bio-primary 30; rocket-alt 85's flight;
   chainsaw-primary 85's velocity; the blast velocities 1.08-1.88.
+  2026-11-15, flak-alt-tap 85: the game's and the replay's. A slug's
+  chunks start inside the target it struck. The original's chunks that
+  head in towards its axis hit it where they start, moved in 0.4 of its
+  radius; those heading out fly on (two hit, three flew). Ours hit with
+  all five. Fixed: a shot launched inside a body meets it only heading
+  in. The two that hit are never logged, so their draws cannot be
+  copied: the replay now draws the break tick again until as many
+  pieces hit as the original's. Failures 29 -> 26.
+  Left, worst first: flak-primary 30 and switch-flak 30 (a chunk meets
+  the floor a tick early); flak-primary 120's fourth shot;
+  grenade-load-5 at 30; bio-primary 30; rocket-alt 85's flight;
+  chainsaw-primary 85's velocity; the blast velocities 1.08-1.88.
   **Layman:** The guns. Built as a table of numbers rather than as code, so a different set -- your super weapons -- is a different table rather than a second codebase.
   Kind: implement.
   Source: design-2026-09-03.

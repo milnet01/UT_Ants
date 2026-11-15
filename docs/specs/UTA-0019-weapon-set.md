@@ -365,6 +365,11 @@ Botpack `DeathMatchPlus.ReduceDamage`):
   ended, and fly along the slug's own aim, each turned by its own draws
   (Botpack `flakslug.Explode`). Off a body, the direction is from the
   body's centre to the hit. Recorded.
+- A shot launched inside a body meets it only if its first move, seen
+  from above, heads in towards the body's axis. It meets it where it
+  starts, moved in as above. Heading out, it flies on. Recorded
+  2026-11-15: a flak slug's chunks started inside the target at 85 frames
+  a second; the two heading in hit it, the three heading out flew on.
 
 **Where a shot starts** (Engine `Weapon.ProjectileFire`,
 `Weapon.TraceFire`, `Inventory.CalcDrawOffset`):
@@ -498,7 +503,9 @@ linearly from the victim's edge, not its centre, as `Fire.cpp`'s
   the hammer and rocket jumps included, is within 1 unit/s. Where the
   original draws at random (§ 3 item 6), the recorded value lies within
   the range our rule draws from, and the rest of the shot matches as
-  above. Five differences are allowed (user, 2026-11-13 and
+  above. A split's pieces that hit in the tick they are born are never
+  logged, so the replay draws that tick again until as many hit as the
+  original's. Five differences are allowed (user, 2026-11-13 and
   2026-11-15):
   a blast at the firer's own feet may differ by 3 damage and 25 unit/s,
   because the original's player hovers 4.8 units over the floor and ours

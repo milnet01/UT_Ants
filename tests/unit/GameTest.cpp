@@ -562,7 +562,7 @@ TEST_CASE("INV-6: a body moved onto a shot is met along the shot's last move", "
         const double radius = game.bodies[1].size.radius;
         game.shots.push_back(Shot{.kind = kind, .owner = 0, .location = {600 - radius + 7, 0, STANDING},
                                   .velocity = {900, 0, 0}, .previous = {previous, 0, STANDING},
-                                  .lifetime = rocket.lifetime});
+                                  .lifetime = rocket.lifetime, .age = DT});
         tick(world, set, RULES, game, std::vector<MoveCommand>(2), DT);
         for (const Event& event : game.events)
             if (event.kind == Event::Kind::Explosion) return event.from.x - (600 - radius);
@@ -571,6 +571,30 @@ TEST_CASE("INV-6: a body moved onto a shot is met along the shot's last move", "
     const double radius = duel(set, "rocket-launcher", 600).bodies[1].size.radius;
     CHECK(std::abs(blastAt(560) - 0.4 * radius) < 1e-9);
     CHECK(std::abs(blastAt(600 - radius + 3)) < 1e-9);
+}
+
+TEST_CASE("INV-6: a shot launched inside a body meets it only heading in", "[ugame][game]") {
+    // A flak slug's pieces start inside the body it struck: one heading in,
+    // towards the body's axis, meets it where it starts, moved in 0.4 of its
+    // radius; one heading out flies on.
+    const BodyWorld world = arena();
+    const WeaponSet& set = stock();
+    const Projectile& rocket = *set.projectile("rocket");
+    REQUIRE(!rocket.splashFromMoved);
+    const auto kind = static_cast<std::uint32_t>(&rocket - set.projectiles.data());
+    const double radius = duel(set, "rocket-launcher", 600).bodies[1].size.radius;
+    const Vec3 start{600 - radius + 7, 0, STANDING};
+    const auto blastAt = [&](double speed) {
+        Game game = duel(set, "rocket-launcher", 600);
+        game.shots.push_back(Shot{.kind = kind, .owner = 0, .location = start, .velocity = {speed, 0, 0},
+                                  .previous = start, .lifetime = rocket.lifetime});
+        tick(world, set, RULES, game, std::vector<MoveCommand>(2), DT);
+        for (const Event& event : game.events)
+            if (event.kind == Event::Kind::Explosion) return event.from.x - start.x;
+        return -1e9;
+    };
+    CHECK(std::abs(blastAt(900) - 0.4 * radius) < 1e-9);
+    CHECK(blastAt(-900) == -1e9);
 }
 
 TEST_CASE("SS 4.9: damage lands whole, scaled by hardcore's damage-scale", "[ugame][game]") {

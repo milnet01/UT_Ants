@@ -295,9 +295,17 @@ constexpr double HIT_INSET = 0.4;
 /// jammed in a corner keeps 0.8 x 0.8 x 0.8 of its speed a tick, and stays put.
 constexpr int BOUNCES_A_TICK = 3;
 
+/// How far a launched shot's move, seen from above, must head in towards a
+/// body's axis it starts inside to meet it: the move times the shot's offset
+/// from the axis, in units squared. Recorded: of a flak slug's five pieces
+/// started inside a body, the two heading in hit it and the three heading
+/// out flew on; the recording fixes the sign, not this margin.
+constexpr double LAUNCHED_INSIDE_IN = 0.1;
+
 void fly(Tick& tick, std::size_t index) {
     Shot& shot = tick.game.shots[index];
     const Projectile& kind = tick.set.projectiles[shot.kind];
+    const bool launched = shot.age == 0;
     shot.age += tick.dt;
     if (shot.stuck) {
         if (shot.age >= kind.fuse) explode(tick, index, -1, Vec3{0, 0, 1}, shot.location);
@@ -343,6 +351,13 @@ void fly(Tick& tick, std::size_t index) {
             if (static_cast<int>(i) == shot.owner || !bodies[i].alive()) continue;
             const double at = entersCylinder(from, to, bodies[i].move.location, bodies[i].size.radius + kind.radius,
                                              bodies[i].size.halfHeight + kind.radius);
+            // A shot launched inside a body meets it only where its move heads
+            // in, towards the body's axis; heading out, it flies on. Recorded:
+            // a flak slug's pieces, started inside the body it struck.
+            if (launched && at == 0) {
+                const Vec3 off = from - bodies[i].move.location;
+                if (delta.x * off.x + delta.y * off.y >= -LAUNCHED_INSIDE_IN) continue;
+            }
             if (at <= first && at <= 1) {
                 first = at;
                 struck = static_cast<int>(i);
@@ -358,7 +373,7 @@ void fly(Tick& tick, std::size_t index) {
             const Vec3 inset = moving > 0 ? shot.velocity * (HIT_INSET * body.size.radius / moving) : Vec3{};
             Vec3 met = from + delta * first + inset;
             Vec3 end = from + delta * moved;
-            if (move == 0 && first == 0) {
+            if (move == 0 && first == 0 && !launched) {
                 // The body moved onto the shot. Projectile.Touch traces the
                 // shot's last move, OldLocation to Location, for where it met
                 // the body where the body now stands; a move that starts

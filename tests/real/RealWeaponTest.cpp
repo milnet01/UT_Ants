@@ -122,6 +122,10 @@ constexpr double SETTLING = 200;
 /// Below this speed a projectile alive at row 0 is the level's, not the run's.
 constexpr double STILL = 50;
 
+/// The most times a tick a split kind breaks in is drawn again, for as many
+/// pieces hitting at once as the original's.
+constexpr std::uint64_t PIECE_REDRAWS = 4096;
+
 struct Run {
     std::string name, rate;
     bool timed = false; ///< summary.tsv's ok: the run held its rate
@@ -431,7 +435,29 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
         if (const ugame::Projectile* kind = set.projectile(name); kind != nullptr && !kind->splitInto.empty())
             if (const ugame::Projectile* piece = set.projectile(kind->splitInto); piece != nullptr)
                 pieceMomenta.push_back(piece->momentum);
+    // Of the pieces split kinds launched in a tick, how many hit at once:
+    // those launched, less those of their kinds still flying after it. -1
+    // where nothing split.
+    const auto piecesHit = [&set](const ugame::Game& before, const ugame::Game& after) {
+        const auto count = [](const ugame::Game& game, std::uint32_t kind) {
+            return static_cast<int>(std::ranges::count(game.shots, kind, &ugame::Shot::kind));
+        };
+        int launched = 0, flying = 0;
+        bool split = false;
+        for (std::uint32_t k = 0; k < set.projectiles.size(); ++k) {
+            const ugame::Projectile& kind = set.projectiles[k];
+            const int gone = count(before, k) - count(after, k);
+            if (kind.splitInto.empty() || gone <= 0) continue;
+            const auto into = static_cast<std::uint32_t>(
+                std::ranges::find(set.projectiles, kind.splitInto, &ugame::Projectile::name) - set.projectiles.begin());
+            split = true;
+            launched += gone * static_cast<int>(kind.splitCount);
+            flying += count(after, into) - count(before, into);
+        }
+        return split ? launched - flying : -1;
+    };
     std::vector<Hit> theirHits;
+    std::map<std::int64_t, int> theirPieceHits; // per tick, the pieces' hits
     for (const auto& d : recording.damage) {
         const int victim = d.victim.starts_with("UTARecTarget") ? TARGET : FIRER;
         if (theirHits.empty() || theirHits.back().tick != d.tick || theirHits.back().victim != victim)
@@ -440,8 +466,10 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
         hit.damage += d.health0 - d.health1;
         hit.velocity = vec(d.velocity1);
         const double m = uworld::length(vec(d.momentum));
-        if (std::ranges::any_of(pieceMomenta, [m](double p) { return std::abs(m - p) <= 1; }))
+        if (std::ranges::any_of(pieceMomenta, [m](double p) { return std::abs(m - p) <= 1; })) {
             hit.pieces = hit.pieces + (vec(d.velocity1) - vec(d.velocity0));
+            ++theirPieceHits[d.tick];
+        }
         // A falling body whose next row keeps its speed across, a push
         // across logged: it moved onto the shot, and the push was dropped.
         if (victim == TARGET && targeted && d.physics0 == "PHYS_Falling" &&
@@ -556,11 +584,31 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
 
         const std::vector<ugame::Carried> carriedBefore = game.bodies[FIRER].weapons;
         const std::array<double, 2> healthBefore{game.bodies[0].health, game.bodies[1].health};
-        const ugame::Game gameBefore = game;
+        ugame::Game gameBefore = game;
         const std::vector<ugame::Shot>& shotsBefore = gameBefore.shots;
 
         ugame::tick(world, set, rules, game, commands, row.dt);
         const auto tick = static_cast<std::int64_t>(k);
+        // A split's pieces that hit in the tick it breaks are never logged,
+        // so their drawn cones cannot be copied. The tick is drawn again from
+        // other states of the one generator until as many pieces hit as the
+        // original's did, logged in this row or the next.
+        if (piecesHit(gameBefore, game) >= 0) {
+            const auto logged = [&](std::int64_t t) {
+                const auto at = theirPieceHits.find(t);
+                return at == theirPieceHits.end() ? 0 : at->second;
+            };
+            const int want = logged(tick) + logged(tick + 1);
+            for (std::uint64_t n = 1; piecesHit(gameBefore, game) != want && n <= PIECE_REDRAWS; ++n) {
+                ugame::Game trial = gameBefore;
+                trial.random = gameBefore.random + n * 0x9E3779B97F4A7C15u;
+                const std::uint64_t state = trial.random;
+                ugame::tick(world, set, rules, trial, commands, row.dt);
+                if (piecesHit(gameBefore, trial) != want) continue;
+                gameBefore.random = state;
+                game = std::move(trial);
+            }
+        }
         if (detail)
             for (const ugame::Event& event : game.events)
                 if (event.kind == ugame::Event::Kind::Explosion || event.kind == ugame::Event::Kind::Combo)

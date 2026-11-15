@@ -9,3 +9,4 @@
 | impl | 2026-11-12 | none | – | – | – | – | Matching the replays amended § 4.4: `splash-from`, `body-hit` and `splash-up-max`. No reviewer dispatched: the gate is cancelled here. |
 | impl | 2026-11-14 | none | – | – | – | – | Matching the replays amended § 4.9: a body that moves onto a shot is met along the shot's last move (`Projectile.Touch`). No reviewer dispatched: the gate is cancelled here. |
 | impl | 2026-11-15 | none | – | – | – | – | The user widened INV-6: every mode that sleeps keeps a steady cadence (a shot more or fewer, within three ticks), and a body moved onto a shot keeps its push. No reviewer dispatched: the gate is cancelled here. |
+| impl | 2026-11-15 | none | – | – | – | – | Matching the replays amended § 4.9 and INV-6: a shot launched inside a body meets it only heading in, and the replay draws a split's break tick again until as many pieces hit as the original's. No reviewer dispatched: the gate is cancelled here. |
