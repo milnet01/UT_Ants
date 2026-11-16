@@ -269,12 +269,12 @@ LaunchRange rangeOf(const ugame::FireMode& mode, const ugame::Projectile& kind, 
 /// both launches' turns, less their lift. A cluster's draw turns the whole
 /// velocity, lift and all (UT_Eightball's grenades), which keeps its
 /// length: the speed is solved from that length about an aim rising
-/// `aimUp`, once `fell`, the gravity of a tick flown before the row, is
-/// put back.
+/// `aimUp`, once `gained`, what a tick flown before the row added, is
+/// taken off.
 bool launchInRange(const ugame::Projectile& kind, const LaunchRange& range, Vec3 recorded, Vec3 ours, double aimUp,
-                   double fell) {
+                   const Vec3& gained) {
     // |aim * along + lift up| is the launch's length, for `along` the speed.
-    const double size = uworld::length(recorded + Vec3{0, 0, fell});
+    const double size = uworld::length(recorded - gained);
     const double lift = kind.lift;
     const double along = -lift * aimUp + std::sqrt(std::max(0.0, size * size - lift * lift * (1 - aimUp * aimUp)));
     recorded.z -= lift;
@@ -791,10 +791,16 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
                         logged.z -= firerHover;
                         const bool flown =
                             uworld::length(logged - shot.location) < uworld::length(logged - launch.location);
-                        const double fell =
-                            flown ? -rules.gravityZ * (kind.gravity + kind.gravityAfter) * row.dt : 0;
-                        if (!launchInRange(kind, range, vec(first.velocity), (flown ? shot : launch).velocity,
-                                           ugame::aimOf(w.yaw, w.pitch).z, fell))
+                        // A tick's gravity, and its acceleration along the flight.
+                        const Vec3 recorded = vec(first.velocity);
+                        const double recordedSpeed = uworld::length(recorded);
+                        const Vec3 gained =
+                            flown ? Vec3{0, 0, rules.gravityZ * (kind.gravity + kind.gravityAfter) * row.dt} +
+                                        (recordedSpeed > 0 ? recorded * (kind.acceleration * row.dt / recordedSpeed)
+                                                           : Vec3{})
+                                  : Vec3{};
+                        if (!launchInRange(kind, range, recorded, (flown ? shot : launch).velocity,
+                                           ugame::aimOf(w.yaw, w.pitch).z, gained))
                             outOfRange(at);
                         // A start drawn behind ours takes the recorded one. One
                         // that has flown may also be off by what its launch drew,
