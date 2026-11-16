@@ -18888,6 +18888,26 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   the floor a tick early); flak-primary 120's fourth shot;
   grenade-load-5 at 30; bio-primary 30; rocket-alt 85's flight;
   chainsaw-primary 85's velocity; the blast velocities 1.08-1.88.
+  2026-11-16, three game rules and four replay faults. Failures 26 -> 11.
+  - Game: a falling shot turning over in a tick with both speeds past
+    7.05 keeps its height until the top of its arc (every 30 fps
+    crossing fits this or the plain move exactly); a grenade's fuse
+    blast goes off 16 above it (`expire-up`, UT_Grenade.Timer); a
+    falling shot moves a tick over 0.05 in the engine's steps (0.05,
+    then the rest in two halves). Fixed flak-primary, switch-flak and
+    flak-alt 30's floor bounce; bio-primary 30; rocket-alt 85.
+  - Replay: copies a grenade's drawn fuse; lowers a raised grenade into
+    the bodies' frame before its fuse blast; the launch check solves the
+    speed from the velocity's length (a cluster turns the lift too) after
+    taking off a flown tick's gravity and acceleration; a steady
+    cadence's late hit holds the target up to three ticks. Fixed
+    grenade-load-5 30, rocket-primary 30's draw, chainsaw-primary 85.
+  Left: flak-primary 120's fourth shot, a tick late under INV-6: all
+  four chunks hit at 183 for the original's 182, 183, 183, 184.
+  Unchecked lead: the replay holds the target, still, until ours lands a
+  hit, so all four reach it at once; the original's first push moved it
+  on. And the blast pushes 1.01 to 1.88 over 1 unit/s (flak-alt,
+  flak-alt-tap, rocket-primary, rocket-load-*): the limit is the user's.
   **Layman:** The guns. Built as a table of numbers rather than as code, so a different set -- your super weapons -- is a different table rather than a second codebase.
   Kind: implement.
   Source: design-2026-09-03.
