@@ -536,16 +536,20 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
         if (targeted) {
             const auto& g = recording.target[k];
             // A recorded hit ours has yet to land (a refire a tick late)
-            // holds the target as it was before the hit one tick more.
+            // holds the target as it was before the hit, for as many ticks
+            // as ours may be late: a steady cadence's three (INV-6).
             const auto* hit = firstHit[TARGET];
-            if (hit == nullptr && k > 0) {
-                const auto last = static_cast<std::int64_t>(k) - 1;
+            const std::int64_t hold = e.steady ? STEADY_TICK_ERROR : MAX_TICK_ERROR;
+            for (std::int64_t back = 1; hit == nullptr && back <= hold && back <= static_cast<std::int64_t>(k); ++back) {
+                const auto last = static_cast<std::int64_t>(k) - back;
                 const auto late = std::ranges::find_if(recording.damage, [last](const auto& d) {
                     return d.tick == last && d.victim.starts_with("UTARecTarget");
                 });
                 const bool landed = std::ranges::any_of(
                     ourHits, [last](const Hit& h) { return h.victim == TARGET && h.tick >= last - 1; });
-                if (late != recording.damage.end() && !landed) hit = &*late;
+                if (late == recording.damage.end()) continue;
+                if (landed) break;
+                hit = &*late;
             }
             // A shot's hit is logged a row after the tick ours lands in. Once
             // ours has landed as many ticks of shots' hits as are logged by
