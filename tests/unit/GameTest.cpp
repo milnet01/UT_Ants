@@ -904,6 +904,29 @@ TEST_CASE("SS 4.9: a falling shot turning over fast in a tick falls only after t
     CHECK(std::abs(fallFrom(-gained - 6.9) - -6.9 * dt) < 1e-9);
 }
 
+TEST_CASE("SS 4.9: a falling shot moves a long tick in steps of 0.05 and the rest in two halves",
+          "[ugame][game]") {
+    const BodyWorld world = arena();
+    const WeaponSet& set = stock();
+    const Projectile& gel = *set.projectile("bio-gel");
+    REQUIRE(gel.gravity > 0);
+    // Recorded: a 0.1566 s tick at 30 frames a second.
+    const double dt = 0.1566;
+    const Vec3 velocity{100, 0, -2};
+    Game game = oneShot(set, "bio-gel", Vec3{0, 500, 300}, velocity);
+    tick(world, set, RULES, game, std::vector<MoveCommand>(2), dt);
+    REQUIRE(game.shots.size() == 1);
+    const double rest = (dt - 0.1) / 2;
+    double z = 300, vz = velocity.z;
+    for (const double step : {0.05, 0.05, rest, rest}) {
+        vz += RULES.gravityZ * gel.gravity * step;
+        z += vz * step;
+    }
+    CHECK(std::abs(game.shots[0].location.z - z) < 1e-9);
+    CHECK(std::abs(game.shots[0].velocity.z - vz) < 1e-9);
+    CHECK(std::abs(game.shots[0].location.x - velocity.x * dt) < 1e-9);
+}
+
 TEST_CASE("SS 4.9: a shot whose lifetime ends explodes expire-up above where it is", "[ugame][game]") {
     const BodyWorld world = arena();
     const WeaponSet& set = stock();

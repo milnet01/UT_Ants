@@ -309,6 +309,11 @@ constexpr double LAUNCHED_INSIDE_IN = 0.1;
 /// plain move when either is under 6.97.
 constexpr double APEX_SPEED = 7.05;
 
+/// The longest step PHYS_Falling moves a shot in. Recorded: a gel in flight
+/// over a 0.157 s tick fell in four steps, 0.05, 0.05 and the rest in two
+/// halves, each at the speed its own gravity gave.
+constexpr double FALLING_STEP = 0.05;
+
 void fly(Tick& tick, std::size_t index) {
     Shot& shot = tick.game.shots[index];
     const Projectile& kind = tick.set.projectiles[shot.kind];
@@ -330,122 +335,131 @@ void fly(Tick& tick, std::size_t index) {
     }
     const Vec3 old = shot.previous;
     shot.previous = shot.location;
-    // A bounce ends one move and starts another in the same tick, over the
-    // time the first left. `more` is time it moves for and does not fall for.
-    double time = tick.dt, more = 0;
-    for (int move = 0; move < BOUNCES_A_TICK; ++move) {
-        const double falls = shot.bounces > 0 && kind.bounceGravity ? *kind.bounceGravity : kind.gravity;
-        const double rising = shot.velocity.z;
-        shot.velocity.z += tick.rules.gravityZ * falls * time;
-        // The engine's projectile physics: speed up, but no faster than its
-        // most. A kind launched faster than that (the ripper's blade) is held
-        // to it from its first move.
-        shot.velocity = shot.velocity + shot.acceleration * time;
-        const double speed = uworld::length(shot.velocity);
-        if (kind.maxSpeed > 0 && speed > kind.maxSpeed) shot.velocity = shot.velocity * (kind.maxSpeed / speed);
-        const Vec3 from = shot.location;
-        Vec3 delta = shot.velocity * (time + more);
-        // Turning over fast enough in a whole tick, the original's shot keeps
-        // its height until the top of its arc and falls only for the rest.
-        if (move == 0 && kind.gravityAfter == 0 && rising > APEX_SPEED && shot.velocity.z < -APEX_SPEED) {
-            const double top = time * rising / (rising - shot.velocity.z);
-            delta.z = shot.velocity.z * (time - top);
-        }
-        const Vec3 to = from + delta;
+    // PHYS_Falling moves a long tick in steps: none longer than FALLING_STEP,
+    // and the last two halving what is left. Straight flight takes it whole.
+    double left = tick.dt;
+    for (bool opening = true; left > 0; opening = false) {
+        const bool falling = kind.gravity > 0 || (shot.bounces > 0 && kind.bounceGravity);
+        const double step = !falling || left <= FALLING_STEP ? left : std::min(FALLING_STEP, left / 2);
+        left -= step;
+        // A bounce ends one move and starts another in the same step, over
+        // the time the first left. `more` is time it moves for and does not
+        // fall for.
+        double time = step, more = 0;
+        for (int move = 0; move < BOUNCES_A_TICK; ++move) {
+            const double falls = shot.bounces > 0 && kind.bounceGravity ? *kind.bounceGravity : kind.gravity;
+            const double rising = shot.velocity.z;
+            shot.velocity.z += tick.rules.gravityZ * falls * time;
+            // The engine's projectile physics: speed up, but no faster than its
+            // most. A kind launched faster than that (the ripper's blade) is held
+            // to it from its first move.
+            shot.velocity = shot.velocity + shot.acceleration * time;
+            const double speed = uworld::length(shot.velocity);
+            if (kind.maxSpeed > 0 && speed > kind.maxSpeed) shot.velocity = shot.velocity * (kind.maxSpeed / speed);
+            const Vec3 from = shot.location;
+            Vec3 delta = shot.velocity * (time + more);
+            // Turning over fast enough in one step, the original's shot keeps
+            // its height until the top of its arc and falls only for the rest.
+            if (move == 0 && kind.gravityAfter == 0 && rising > APEX_SPEED && shot.velocity.z < -APEX_SPEED) {
+                const double top = time * rising / (rising - shot.velocity.z);
+                delta.z = shot.velocity.z * (time - top);
+            }
+            const Vec3 to = from + delta;
 
-        // The level is looked for a little past the move's end; `first` and
-        // `met` are fractions of the move itself, so may pass 1.
-        const double reach = uworld::length(delta);
-        const double looked = reach > 0 ? (reach + LOOK_ON) / reach : 1;
-        const Vec3 past = from + delta * looked;
-        const uworld::BodyHit level = kind.radius > 0
-                                          ? tick.world.sweep(uworld::BodySize{kind.radius, kind.radius}, from, past)
-                                          : tick.world.trace(from, past);
-        const bool surface = level.startsInside || level.fraction < 1;
-        const double met = level.startsInside ? 0 : level.fraction * looked;
-        double first = met;
-        int struck = -1;
-        const std::vector<Body>& bodies = tick.game.bodies;
-        for (std::size_t i = 0; i < bodies.size(); ++i) {
-            if (static_cast<int>(i) == shot.owner || !bodies[i].alive()) continue;
-            const double at = entersCylinder(from, to, bodies[i].move.location, bodies[i].size.radius + kind.radius,
-                                             bodies[i].size.halfHeight + kind.radius);
-            // A shot launched inside a body meets it only where its move heads
-            // in, towards the body's axis; heading out, it flies on. Recorded:
-            // a flak slug's pieces, started inside the body it struck.
-            if (launched && at == 0) {
-                const Vec3 off = from - bodies[i].move.location;
-                if (delta.x * off.x + delta.y * off.y >= -LAUNCHED_INSIDE_IN) continue;
+            // The level is looked for a little past the move's end; `first` and
+            // `met` are fractions of the move itself, so may pass 1.
+            const double reach = uworld::length(delta);
+            const double looked = reach > 0 ? (reach + LOOK_ON) / reach : 1;
+            const Vec3 past = from + delta * looked;
+            const uworld::BodyHit level = kind.radius > 0
+                                              ? tick.world.sweep(uworld::BodySize{kind.radius, kind.radius}, from, past)
+                                              : tick.world.trace(from, past);
+            const bool surface = level.startsInside || level.fraction < 1;
+            const double met = level.startsInside ? 0 : level.fraction * looked;
+            double first = met;
+            int struck = -1;
+            const std::vector<Body>& bodies = tick.game.bodies;
+            for (std::size_t i = 0; i < bodies.size(); ++i) {
+                if (static_cast<int>(i) == shot.owner || !bodies[i].alive()) continue;
+                const double at = entersCylinder(from, to, bodies[i].move.location, bodies[i].size.radius + kind.radius,
+                                                 bodies[i].size.halfHeight + kind.radius);
+                // A shot launched inside a body meets it only where its move heads
+                // in, towards the body's axis; heading out, it flies on. Recorded:
+                // a flak slug's pieces, started inside the body it struck.
+                if (launched && opening && at == 0) {
+                    const Vec3 off = from - bodies[i].move.location;
+                    if (delta.x * off.x + delta.y * off.y >= -LAUNCHED_INSIDE_IN) continue;
+                }
+                if (at <= first && at <= 1) {
+                    first = at;
+                    struck = static_cast<int>(i);
+                }
             }
-            if (at <= first && at <= 1) {
-                first = at;
-                struck = static_cast<int>(i);
+            if (struck >= 0) {
+                // The script's Location is where the move ends, the level allowing;
+                // its HitLocation is where the shot met the body.
+                // Pawn.AdjustHitLocation moves it on into the body, along the shot.
+                const double moved = std::min(met, 1.0);
+                const Body& body = bodies[static_cast<std::size_t>(struck)];
+                const double moving = uworld::length(shot.velocity);
+                const Vec3 inset = moving > 0 ? shot.velocity * (HIT_INSET * body.size.radius / moving) : Vec3{};
+                Vec3 met = from + delta * first + inset;
+                Vec3 end = from + delta * moved;
+                if (opening && move == 0 && first == 0 && !launched) {
+                    // The body moved onto the shot. Projectile.Touch traces the
+                    // shot's last move, OldLocation to Location, for where it met
+                    // the body where the body now stands; a move that starts
+                    // inside it finds nothing, and the hit is on its side, towards
+                    // the shot, not moved in. The shot does not move on.
+                    const double back = entersCylinder(old, from, body.move.location, body.size.radius + kind.radius,
+                                                       body.size.halfHeight + kind.radius);
+                    const Vec3 off = from - body.move.location;
+                    const double away = uworld::length(off);
+                    if (back > 0 && back <= 1) met = old + (from - old) * back + inset;
+                    else met = away > 0 ? body.move.location + off * (body.size.radius / away) : from;
+                    end = from;
+                }
+                shot.location = kind.splashFromMoved ? end : met;
+                // flakslug.ProcessTouch: off the body from where the shot met it, the
+                // pieces starting from where its move ended.
+                explode(tick, index, struck, met - body.move.location, end);
+                return;
             }
-        }
-        if (struck >= 0) {
-            // The script's Location is where the move ends, the level allowing;
-            // its HitLocation is where the shot met the body.
-            // Pawn.AdjustHitLocation moves it on into the body, along the shot.
-            const double moved = std::min(met, 1.0);
-            const Body& body = bodies[static_cast<std::size_t>(struck)];
-            const double moving = uworld::length(shot.velocity);
-            const Vec3 inset = moving > 0 ? shot.velocity * (HIT_INSET * body.size.radius / moving) : Vec3{};
-            Vec3 met = from + delta * first + inset;
-            Vec3 end = from + delta * moved;
-            if (move == 0 && first == 0 && !launched) {
-                // The body moved onto the shot. Projectile.Touch traces the
-                // shot's last move, OldLocation to Location, for where it met
-                // the body where the body now stands; a move that starts
-                // inside it finds nothing, and the hit is on its side, towards
-                // the shot, not moved in. The shot does not move on.
-                const double back = entersCylinder(old, from, body.move.location, body.size.radius + kind.radius,
-                                                   body.size.halfHeight + kind.radius);
-                const Vec3 off = from - body.move.location;
-                const double away = uworld::length(off);
-                if (back > 0 && back <= 1) met = old + (from - old) * back + inset;
-                else met = away > 0 ? body.move.location + off * (body.size.radius / away) : from;
-                end = from;
+            if (!surface) {
+                shot.location = to;
+                // The engine's falling physics gives an actor that does not bounce
+                // the second half of a tick's gravity after its move.
+                shot.velocity.z += tick.rules.gravityZ * kind.gravityAfter * time;
+                break;
             }
-            shot.location = kind.splashFromMoved ? end : met;
-            // flakslug.ProcessTouch: off the body from where the shot met it, the
-            // pieces starting from where its move ended.
-            explode(tick, index, struck, met - body.move.location, end);
-            return;
+            // The level: a shot starting in solid strikes where it is (SS 6).
+            // It stops short of the surface, and the time it would have taken
+            // to close that gap is left to it.
+            if (reach > 0) first = std::max(0.0, first - BACK_OFF / reach);
+            shot.location = from + delta * first;
+            const Vec3 normal = level.normal;
+            if (kind.strike == Strike::Stick && !level.startsInside) {
+                shot.stuck = true;
+                shot.velocity = {};
+                shot.age = 0;
+                return;
+            }
+            if (kind.strike != Strike::Bounce || shot.bounces >= kind.bounces || level.startsInside) {
+                explode(tick, index, -1, normal, shot.location);
+                return;
+            }
+            // UTChunk.HitWall and UT_Grenade.HitWall: its speed along the surface
+            // and its speed off it are each kept in part, the second by a draw.
+            const Vec3 into = normal * uworld::dot(shot.velocity, normal);
+            const double off = kind.bounceOff + detail::rangeDraw(tick.game, kind.bounceOffRandom);
+            shot.velocity = (shot.velocity - into) * kind.bounceKeep - into * off;
+            // The move goes on over the time left. A kind that starts to fall at
+            // its first bounce falls for the time left and moves for a whole tick
+            // more: recorded, the original's change of physics inside HitWall.
+            time = (time + more) * (1 - first);
+            more = shot.bounces == 0 && kind.bounceGravity ? tick.dt : 0;
+            ++shot.bounces;
         }
-        if (!surface) {
-            shot.location = to;
-            // The engine's falling physics gives an actor that does not bounce
-            // the second half of a tick's gravity after its move.
-            shot.velocity.z += tick.rules.gravityZ * kind.gravityAfter * time;
-            return;
-        }
-        // The level: a shot starting in solid strikes where it is (SS 6).
-        // It stops short of the surface, and the time it would have taken
-        // to close that gap is left to it.
-        if (reach > 0) first = std::max(0.0, first - BACK_OFF / reach);
-        shot.location = from + delta * first;
-        const Vec3 normal = level.normal;
-        if (kind.strike == Strike::Stick && !level.startsInside) {
-            shot.stuck = true;
-            shot.velocity = {};
-            shot.age = 0;
-            return;
-        }
-        if (kind.strike != Strike::Bounce || shot.bounces >= kind.bounces || level.startsInside) {
-            explode(tick, index, -1, normal, shot.location);
-            return;
-        }
-        // UTChunk.HitWall and UT_Grenade.HitWall: its speed along the surface
-        // and its speed off it are each kept in part, the second by a draw.
-        const Vec3 into = normal * uworld::dot(shot.velocity, normal);
-        const double off = kind.bounceOff + detail::rangeDraw(tick.game, kind.bounceOffRandom);
-        shot.velocity = (shot.velocity - into) * kind.bounceKeep - into * off;
-        // The move goes on over the time left. A kind that starts to fall at
-        // its first bounce falls for the time left and moves for a whole tick
-        // more: recorded, the original's change of physics inside HitWall.
-        time = (time + more) * (1 - first);
-        more = shot.bounces == 0 && kind.bounceGravity ? tick.dt : 0;
-        ++shot.bounces;
     }
 }
 

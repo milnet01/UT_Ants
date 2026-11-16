@@ -353,6 +353,10 @@ Botpack `DeathMatchPlus.ReduceDamage`):
   Recorded 2026-11-16 at 30 frames a second: flak chunks, grenades and gel
   follow it with both speeds past 7.13, and the plain move with either
   under 6.97.
+- A falling projectile moves a tick longer than 0.05 in steps: 0.05 at a
+  time while more than 0.1 is left, then the rest in two halves, each
+  step gaining its own gravity before its move. Recorded 2026-11-16: a
+  gel over a 0.157 tick at 30 frames a second.
 - A shot strikes a surface up to 2 past the end of its move, along its
   path. Recorded 2026-11-13: a flak chunk turned off a floor its move
   ended 1.4 above; INV-6's replay fails fewer checks at 2 than at 2.5.
