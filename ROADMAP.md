@@ -18521,7 +18521,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: design-2026-09-03.
   Lanes: uinput.
 
-- 🚧 [UTA-0019] **The core weapon set, as data.**
+- ✅ [UTA-0019] **The core weapon set, as data.**
   A weapon is a definition: damage, fire rate, projectile, spread, ammo, model,
   sounds. Behaviour that genuinely differs sits behind a small set of firing
   archetypes.
@@ -18937,6 +18937,10 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   passes every recording; it counts scattered hits as drawn, so the
   cone is unconfirmed by a run. Nothing in the table is marked
   unmeasured now. Left before shipping: the user plays it (spec § 10).
+  2026-11-16, shipped. Spec § 10's last check: the user played the
+  guns in the viewer and judged them fine for now. Full judgement
+  waits on gun models and real projectiles (UTA-0467, UTA-0470).
+  GitHub's matrix green at 5a93527.
   **Layman:** The guns. Built as a table of numbers rather than as code, so a different set -- your super weapons -- is a different table rather than a second codebase.
   Kind: implement.
   Source: design-2026-09-03.
