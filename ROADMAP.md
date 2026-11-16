@@ -18908,6 +18908,19 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   hit, so all four reach it at once; the original's first push moved it
   on. And the blast pushes 1.01 to 1.88 over 1 unit/s (flak-alt,
   flak-alt-tap, rocket-primary, rocket-load-*): the limit is the user's.
+  2026-11-16, flak-primary 120's fourth shot: the replay's. Ours
+  fires it a tick late (INV-6's one), so its chunks fly the frames
+  after the original's, each of another length (0.013 to 0.015 s):
+  ours missed at 182 by under 0.1 and landed all four at 183. Two
+  replay faults. The target was placed from 183's D line, which
+  already carried the first chunk's push ours had yet to give: the
+  oldest hit ours owes now holds it. A late launch's hits on a body
+  are now one hit on each side (INV-6): damage summed, the velocity
+  after the last less the fall between. Failures 11 -> 8; flak-primary
+  passes at every rate (0.92 unit/s at 120: which chunk lifts the
+  standing target first). Left: the blast pushes 1.01 to 1.88 over
+  1 unit/s (flak-alt, flak-alt-tap, rocket-primary, rocket-load-*):
+  the limit is the user's.
   **Layman:** The guns. Built as a table of numbers rather than as code, so a different set -- your super weapons -- is a different table rather than a second codebase.
   Kind: implement.
   Source: design-2026-09-03.

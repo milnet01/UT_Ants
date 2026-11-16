@@ -13,3 +13,4 @@
 | impl | 2026-11-16 | none | – | – | – | – | Matching the replays amended § 4.9: a falling shot turning over fast in a tick falls only after the top of its arc. No reviewer dispatched: the gate is cancelled here. |
 | impl | 2026-11-16 | none | – | – | – | – | Matching the replays amended § 4.4's projectile keys: `expire-up`, how far above the shot a blast at the end of its lifetime goes off (`UT_Grenade.Timer`'s 16). No reviewer dispatched: the gate is cancelled here. |
 | impl | 2026-11-16 | none | – | – | – | – | Matching the replays amended § 4.9: a falling projectile moves a tick longer than 0.05 in the engine's steps. No reviewer dispatched: the gate is cancelled here. |
+| impl | 2026-11-16 | none | – | – | – | – | Matching the replays amended INV-6: a launch a tick out has its hits on a body compared as one, damage summed and the velocity after the last less the fall between. No reviewer dispatched: the gate is cancelled here. |

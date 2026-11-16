@@ -25,7 +25,9 @@
 // A ROW IS LOGGED AFTER ITS TICK'S HITS. A body a D line at tick k hit
 // starts tick k from that line's place, velocity and physics from before
 // the hit, not from row k's, which already carry the push. A target ours
-// has yet to hit, a tick late, starts the next tick from them too.
+// has yet to hit, a tick late, starts the next ticks from them too. A
+// launch a tick late reaches a body over other ticks than the original's,
+// so its hits are compared as one on each side.
 // THE WEAPON'S OWN TRACE HURTS THE TARGET BEFORE THAT FRAME MOVES IT, ours
 // after: a target hit so while falling is judged without the gravity our
 // tick gave it. Shots, and hits on the firer, come after the move in both.
@@ -537,10 +539,12 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
             const auto& g = recording.target[k];
             // A recorded hit ours has yet to land (a refire a tick late)
             // holds the target as it was before the hit, for as many ticks
-            // as ours may be late: a steady cadence's three (INV-6).
+            // as ours may be late: a steady cadence's three (INV-6). The
+            // oldest such hit holds it, even where a later one is logged at
+            // this tick: that one's state already carries a push ours owes.
             const auto* hit = firstHit[TARGET];
             const std::int64_t hold = e.steady ? STEADY_TICK_ERROR : MAX_TICK_ERROR;
-            for (std::int64_t back = 1; hit == nullptr && back <= hold && back <= static_cast<std::int64_t>(k); ++back) {
+            for (std::int64_t back = 1; back <= hold && back <= static_cast<std::int64_t>(k); ++back) {
                 const auto last = static_cast<std::int64_t>(k) - back;
                 const auto late = std::ranges::find_if(recording.damage, [last](const auto& d) {
                     return d.tick == last && d.victim.starts_with("UTARecTarget");
@@ -995,6 +999,62 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
     e.ourSpends = ourSpends.size();
     e.theirSpends = theirSpends.size();
     if (ourSpends.size() == theirSpends.size() || e.steady) e.spendTick = worstTick(ourSpends, theirSpends);
+    // A launch a tick from the original's flies frames of other lengths, so
+    // its shots reach a body over other ticks than the original's did. On
+    // each side, the hits on a body by that launch's shots alone are one
+    // hit: damage summed, and the velocity after the last less the fall
+    // between the first and the last (a push lifts the body off the floor).
+    // Our shot's last row is keyed by the tick it ended in; a recorded
+    // one's hit is logged a row after its last.
+    std::set<std::int64_t> lateLaunches;
+    for (const OurShot& s : ours)
+        if (s.late != 0 && s.recorded >= 0) lateLaunches.insert(s.first);
+    for (const std::int64_t launch : lateLaunches) {
+        std::set<std::int64_t> ourEnds, ourOthers, theirEnds, theirOthers;
+        std::set<std::string> launched;
+        for (const OurShot& s : ours) {
+            if (s.rows.empty()) continue;
+            (s.first == launch ? ourEnds : ourOthers).insert(s.rows.rbegin()->first);
+            if (s.first == launch && s.recorded >= 0) launched.insert(theirOrder[static_cast<std::size_t>(s.recorded)]);
+        }
+        for (const auto& [name, t] : theirs)
+            if (!t.rows.empty()) (launched.contains(name) ? theirEnds : theirOthers).insert(t.rows.back().first + 1);
+        // The frames the body fell through between two hits: ours ticks
+        // after the first, a logged hit's frame is the row before it.
+        const auto ourFall = [&rows](std::int64_t a, std::int64_t b) {
+            double t = 0;
+            for (std::int64_t k = a + 1; k <= b; ++k) t += rows[static_cast<std::size_t>(k)].dt;
+            return t;
+        };
+        const auto theirFall = [&rows](std::int64_t a, std::int64_t b) {
+            double t = 0;
+            for (std::int64_t k = a; k < b; ++k) t += rows[static_cast<std::size_t>(k)].dt;
+            return t;
+        };
+        const auto merge = [](std::vector<Hit>& hits, const std::set<std::int64_t>& ends,
+                              const std::set<std::int64_t>& others, const auto& fall) {
+            for (int victim = 0; victim < 2; ++victim) {
+                std::vector<std::size_t> group;
+                for (std::size_t i = 0; i < hits.size(); ++i) {
+                    const Hit& h = hits[i];
+                    if (h.victim == victim && ends.contains(h.tick) && !others.contains(h.tick) && !h.traced &&
+                        !h.burst && !h.lost)
+                        group.push_back(i);
+                }
+                if (group.size() < 2) continue;
+                Hit& one = hits[group.front()];
+                const Hit& last = hits[group.back()];
+                one.velocity = last.velocity;
+                one.velocity.z -= uworld::MoveRules{}.gravityZ * fall(one.tick, last.tick);
+                for (std::size_t g = 1; g < group.size(); ++g) one.damage += hits[group[g]].damage;
+                for (std::size_t g = group.size() - 1; g >= 1; --g)
+                    hits.erase(hits.begin() + static_cast<std::ptrdiff_t>(group[g]));
+            }
+        };
+        merge(ourHits, ourEnds, ourOthers, ourFall);
+        merge(theirHits, theirEnds, theirOthers, theirFall);
+    }
+
     e.ourShots = ours.size();
     e.theirShots = theirOrder.size();
     e.ourHits = ourHits.size();

@@ -516,7 +516,10 @@ linearly from the victim's edge, not its centre, as `Fire.cpp`'s
   the range our rule draws from, and the rest of the shot matches as
   above. A split's pieces that hit in the tick they are born are never
   logged, so the replay draws that tick again until as many hit as the
-  original's. Five differences are allowed (user, 2026-11-13 and
+  original's. A launch a tick out flies frames of other lengths and
+  reaches a body over other ticks, so its hits on a body are compared as
+  one: damage summed, and the velocity after the last less the fall
+  between the first and the last. Five differences are allowed (user, 2026-11-13 and
   2026-11-15):
   a blast at the firer's own feet may differ by 3 damage and 25 unit/s,
   because the original's player hovers 4.8 units over the floor and ours
