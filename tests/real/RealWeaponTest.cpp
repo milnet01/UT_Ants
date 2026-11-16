@@ -750,6 +750,21 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
                     const RecordedShot& t = theirs.at(theirOrder[static_cast<std::size_t>(best)]);
                     const auto& first = t.rows.front().second;
                     const LaunchRange range = rangeOf(*mode, kind, freshOfKind[shot.kind] > 1);
+                    // A drawn fuse (SS 3 item 6) takes the recorded one: ours
+                    // ends in the tick of the recorded shot's last row. One
+                    // gone sooner than the fuse allows met something first,
+                    // and one that outlives the run shows none: both keep ours.
+                    const std::int64_t end = t.rows.back().first;
+                    if (kind.lifetimeRandom > 0 && end > tick && end + 1 < static_cast<std::int64_t>(rows.size())) {
+                        double alive = 0;
+                        for (std::int64_t k2 = tick; k2 < end; ++k2) alive += rows[static_cast<std::size_t>(k2)].dt;
+                        const double fuse = alive + 0.5 * rows[static_cast<std::size_t>(end)].dt;
+                        const double slack = rows[static_cast<std::size_t>(end)].dt;
+                        if (fuse > kind.lifetime + kind.lifetimeRandom + slack)
+                            outOfRange(theirOrder[static_cast<std::size_t>(best)] + " fuse");
+                        else if (fuse >= kind.lifetime - kind.lifetimeRandom - slack)
+                            shot.lifetime = fuse;
+                    }
                     if (range.random()) {
                         const std::string at = theirOrder[static_cast<std::size_t>(best)] + " launch";
                         // A shot first logged a row late has flown once (below):
