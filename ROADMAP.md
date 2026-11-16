@@ -24180,9 +24180,9 @@ Work the user wants once 1.0.0 has replaced the live server, not before it.
   Languages (user, 2026-11-12): French, Italian, Spanish, German,
   Portuguese (Brazilian and Portugal), Hebrew, Arabic, Korean,
   Japanese, Chinese (Traditional and Simplified), Thai, Vietnamese,
-  "and any other languages you think would help". Suggested to the
-  user, not yet agreed: Russian and Polish (large UT99 communities),
-  Turkish, Dutch, Czech, Ukrainian, Indonesian. Design notes: Hebrew
+  "and any other languages you think would help". Added by the user
+  (2026-11-16): Russian and Polish (large UT99 communities), Turkish,
+  Dutch, Czech, Ukrainian, Indonesian. Design notes: Hebrew
   and Arabic read right to left; Chinese, Japanese, Korean and Thai
   need their own fonts and text shaping.
   **Layman:** Menus, messages and the game's other text can be shown in the player's own language.
