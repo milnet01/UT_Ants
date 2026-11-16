@@ -366,7 +366,9 @@ Botpack `DeathMatchPlus.ReduceDamage`):
 - A bounce ends one move and starts another in the same tick: the shot
   falls and moves for the time left. Recorded.
 - A shot's hit on a body is moved 0.4 of the body's radius on along the
-  shot (Engine `Pawn.AdjustHitLocation`). Recorded: the flak slug's push.
+  shot (Engine `Pawn.AdjustHitLocation`), less a thousandth of the trace
+  from where its last tick began (`UPrimitive::LineCheck`). Recorded: the
+  flak slug's and the rocket's push, 2026-11-16.
 - A body that moves onto a shot is met along the shot's last move, from
   where its last tick began, into the body where it now stands, and moved
   in as above. A last move that starts inside the body meets its side,

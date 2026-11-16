@@ -467,9 +467,10 @@ TEST_CASE("SS 4.9: a shock ball striking a body bursts where its move ends, not 
     WeaponSet met = stock();
     for (Projectile& p : met.projectiles)
         if (p.name == ball.name) p.splashFromMoved = false;
-    // Where it met it is moved 0.4 of the body's radius on (Pawn.AdjustHitLocation).
+    // Where it met it is moved 0.4 of the body's radius on (Pawn.AdjustHitLocation),
+    // less 0.001 of its last move, which the trace meets the body early by.
     const double inset = 0.4 * uta::uworld::BodySize{}.radius;
-    CHECK(std::abs(altBlastAt(world, met, "shock-rifle").x - contact - inset) < 1e-6);
+    CHECK(std::abs(altBlastAt(world, met, "shock-rifle").x - contact - inset + 0.001 * step) < 1e-6);
 }
 
 TEST_CASE("SS 4.9: the ripper's alt blade hurts the body it strikes alone; its blast is for the level", "[ugame][game]") {
@@ -550,8 +551,9 @@ TEST_CASE("SS 4.9: a charged glob's blast widens by its charge, up to splash-rad
 
 TEST_CASE("INV-6: a body moved onto a shot is met along the shot's last move", "[ugame][game]") {
     // Projectile.Touch: the trace from OldLocation to Location, into the
-    // body where it now stands, moved in 0.4 of its radius; a last move
-    // that starts inside it meets the body's side, towards the shot.
+    // body where it now stands, met 0.001 of the trace early and moved in
+    // 0.4 of its radius; a last move that starts inside it meets the body's
+    // side, towards the shot.
     const BodyWorld world = arena();
     const WeaponSet& set = stock();
     const Projectile& rocket = *set.projectile("rocket");
@@ -569,14 +571,14 @@ TEST_CASE("INV-6: a body moved onto a shot is met along the shot's last move", "
         return -1e9;
     };
     const double radius = duel(set, "rocket-launcher", 600).bodies[1].size.radius;
-    CHECK(std::abs(blastAt(560) - 0.4 * radius) < 1e-9);
+    CHECK(std::abs(blastAt(560) - 0.4 * radius + 0.001 * (600 - radius + 7 - 560)) < 1e-9);
     CHECK(std::abs(blastAt(600 - radius + 3)) < 1e-9);
 }
 
 TEST_CASE("INV-6: a shot launched inside a body meets it only heading in", "[ugame][game]") {
     // A flak slug's pieces start inside the body it struck: one heading in,
     // towards the body's axis, meets it where it starts, moved in 0.4 of its
-    // radius; one heading out flies on.
+    // radius less 0.001 of its move; one heading out flies on.
     const BodyWorld world = arena();
     const WeaponSet& set = stock();
     const Projectile& rocket = *set.projectile("rocket");
@@ -593,7 +595,7 @@ TEST_CASE("INV-6: a shot launched inside a body meets it only heading in", "[uga
             if (event.kind == Event::Kind::Explosion) return event.from.x - start.x;
         return -1e9;
     };
-    CHECK(std::abs(blastAt(900) - 0.4 * radius) < 1e-9);
+    CHECK(std::abs(blastAt(900) - 0.4 * radius + 0.001 * 900 * DT) < 1e-9);
     CHECK(blastAt(-900) == -1e9);
 }
 

@@ -291,6 +291,10 @@ constexpr double LOOK_ON = 2.0;
 /// radius (Pawn.AdjustHitLocation).
 constexpr double HIT_INSET = 0.4;
 
+/// How early a trace meets a body, of the trace's own length
+/// (UPrimitive::LineCheck; Fire.cpp's, recorded on the hammer).
+constexpr double HIT_EARLY = 0.001;
+
 /// The bounces a shot makes in one tick at most. Recorded: a flak chunk
 /// jammed in a corner keeps 0.8 x 0.8 x 0.8 of its speed a tick, and stays put.
 constexpr int BOUNCES_A_TICK = 3;
@@ -403,8 +407,10 @@ void fly(Tick& tick, std::size_t index) {
                 const Body& body = bodies[static_cast<std::size_t>(struck)];
                 const double moving = uworld::length(shot.velocity);
                 const Vec3 inset = moving > 0 ? shot.velocity * (HIT_INSET * body.size.radius / moving) : Vec3{};
-                Vec3 met = from + delta * first + inset;
                 Vec3 end = from + delta * moved;
+                // Projectile.Touch's trace, OldLocation to Location, meets the
+                // body a little early (UPrimitive::LineCheck).
+                Vec3 met = from + delta * first + inset - (end - shot.previous) * HIT_EARLY;
                 if (opening && move == 0 && first == 0 && !launched) {
                     // The body moved onto the shot. Projectile.Touch traces the
                     // shot's last move, OldLocation to Location, for where it met
@@ -415,7 +421,7 @@ void fly(Tick& tick, std::size_t index) {
                                                        body.size.halfHeight + kind.radius);
                     const Vec3 off = from - body.move.location;
                     const double away = uworld::length(off);
-                    if (back > 0 && back <= 1) met = old + (from - old) * back + inset;
+                    if (back > 0 && back <= 1) met = old + (from - old) * (back - HIT_EARLY) + inset;
                     else met = away > 0 ? body.move.location + off * (body.size.radius / away) : from;
                     end = from;
                 }
