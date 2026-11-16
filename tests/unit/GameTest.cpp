@@ -945,6 +945,34 @@ TEST_CASE("SS 4.9: a shot whose lifetime ends explodes expire-up above where it 
     CHECK(blast->from == Vec3{at.x, at.y, at.z + grenade.expireUp});
 }
 
+TEST_CASE("SS 4.9: a bio gel still in flight bursts 3.1 to 3.3 s after it leaves", "[ugame][game]") {
+    const BodyWorld world = arena();
+    const WeaponSet& set = stock();
+    Game game = duel(set, "bio-rifle", 1500);
+    game.bodies[1].move.location.y = -2500; // out of the way
+    // Tossed high, so it is still rising or falling when its fuse ends.
+    std::vector<MoveCommand> commands(2);
+    commands[0].fire = true;
+    commands[0].pitch = 12000;
+    int launched = -1, burst = -1;
+    double height = 0;
+    for (int k = 0; k < 600 && burst < 0; ++k) {
+        tick(world, set, RULES, game, commands, DT);
+        commands[0].fire = false;
+        if (launched < 0 && !game.shots.empty()) launched = k;
+        const auto blast = std::ranges::find(game.events, Event::Kind::Explosion, &Event::kind);
+        if (blast != game.events.end()) burst = k, height = blast->from.z;
+    }
+    REQUIRE(launched == 0);
+    REQUIRE(burst > 0);
+    CHECK(height > 100); // in the air, not on the floor
+    // It flies in the tick it is fired, so that tick counts toward its age.
+    const double age = (burst - launched + 1) * DT;
+    CAPTURE(age);
+    CHECK(age >= 3.1);
+    CHECK(age < 3.3 + DT);
+}
+
 TEST_CASE("SS 4.9: a bounce keeps bounce-keep of the speed along the surface and bounce-off of it off",
           "[ugame][game]") {
     const BodyWorld world = arena();
@@ -1250,6 +1278,54 @@ TEST_CASE("SS 4.9: one Enforcer hit in five pushes five times as hard", "[ugame]
     CHECK(plain > hard);
 }
 
+TEST_CASE("SS 4.9: a held mode's cone widens by spread-grow a shot to spread-max, and narrows at a new press",
+          "[ugame][game]") {
+    const BodyWorld world = arena();
+    const FireMode& stockAlt = *stock().weapons[static_cast<std::size_t>(weaponNamed(stock(), "enforcer"))].alt;
+    REQUIRE(stockAlt.spreadGrow > 0);
+    REQUIRE(stockAlt.windUp > 0); // its first shot leaves through the wind-up
+    // Numbers that make each part show: no cone at first, one shot's growth
+    // its whole width.
+    WeaponSet set = stock();
+    FireMode& alt = *set.weapons[static_cast<std::size_t>(weaponNamed(set, "enforcer"))].alt;
+    alt.spread = 0;
+    alt.spreadGrow = 1000;
+    alt.spreadMax = 1000;
+    Game game = duel(set, "enforcer", 1500);
+    game.bodies[1].move.location.y = -2500; // out of the way
+    // Each shot's turn off the aim, in angle units: the larger of its yaw's and pitch's.
+    const auto turnOf = [](const Event& shot) {
+        const Vec3 d = shot.to - shot.from;
+        const double units = 32768 / std::numbers::pi;
+        return std::max(std::abs(std::atan2(d.y, d.x)), std::abs(std::atan2(d.z, std::hypot(d.x, d.y)))) * units;
+    };
+    std::vector<double> turns;
+    std::vector<MoveCommand> commands(2);
+    for (int k = 0; k < 300; ++k) {
+        commands[0].altFire = k != 150; // let go once, and press again
+        tick(world, set, RULES, game, commands, DT);
+        for (const Event& event : game.events)
+            if (event.kind == Event::Kind::InstantHit) turns.push_back(turnOf(event));
+        if (k == 150) {
+            REQUIRE(turns.size() >= 4);
+            turns.push_back(-1); // marks the new press
+        }
+    }
+    CAPTURE(turns);
+    const auto press = std::ranges::find(turns, -1.0);
+    REQUIRE(press - turns.begin() >= 4);
+    REQUIRE(turns.end() - press >= 3);
+    // A press's first shot has no cone, its second has one shot's growth,
+    // and none passes the most.
+    CHECK(turns[0] < 1);
+    CHECK(turns[1] > 1);
+    CHECK(press[1] < 1);
+    CHECK(press[2] > 1);
+    for (const double turn : turns) CHECK(turn <= 1000.5);
+    // Held on, it is still the whole width: the draws reach past half of it.
+    CHECK(*std::ranges::max_element(turns.begin() + 1, press) > 500);
+}
+
 TEST_CASE("SS 4.9: the sniper's head hit and body hit, and no alt fire", "[ugame][game]") {
     const BodyWorld world = arena();
     const WeaponSet& set = stock();
@@ -1450,5 +1526,5 @@ TEST_CASE("INV-5: a scripted fight is the same at every frame rate and on every 
         CHECK(again == reference);
     }
     INFO("final hash " << reference.back());
-    CHECK(reference.back() == 12172766123763076317u);
+    CHECK(reference.back() == 10349483679520011397u);
 }

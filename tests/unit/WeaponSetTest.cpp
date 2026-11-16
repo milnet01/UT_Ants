@@ -34,6 +34,8 @@ archetype = instant-hit
 refire = 0.7
 ammo = 1
 spread = 100
+spread-grow = 260
+spread-max = 1756
 offset = 4.4 6.7 -9.6
 damage = 40
 momentum = 60000
@@ -196,6 +198,8 @@ TEST_CASE("INV-2: the small set parses and reads back from write", "[ugame][weap
     CHECK(set->weapons[0].primary.headDamage == 100);
     CHECK(set->weapons[0].primary.headMomentum == 35000);
     CHECK(set->weapons[0].primary.damageRandom == 5);
+    CHECK(set->weapons[0].primary.spreadGrow == 260);
+    CHECK(set->weapons[0].primary.spreadMax == 1756);
     CHECK(set->weapons[0].primary.pushChance == 0.2);
     CHECK(set->weapons[1].alt->hitEvery == 0.22);
     CHECK(set->weapons[1].primary.momentumSide == -10000);
@@ -309,6 +313,12 @@ TEST_CASE("INV-1: each refusal names its line", "[ugame][weapons]") {
         {"a bounce draw below nothing", edited("bounce-off-random = 0.2", "bounce-off-random = 0.4"),
          "[projectile chunk]", "bounce-off-random is more than bounce-off"},
         {"a spin-up with no spin-refire", edited("spin-refire = 0.2\n", ""), "[fire hammer alt]", "has no `spin-refire`"},
+        {"a spread-grow with no spread-max", edited("spread-max = 1756\n", ""), "[fire gun primary]",
+         "has no `spread-max`"},
+        {"a spread-max with no spread-grow", edited("spread-grow = 260\n", ""), "spread-max = 1756",
+         "has no key 'spread-max'"},
+        {"a spread-max under the spread", edited("spread-max = 1756", "spread-max = 99"), "spread-max",
+         "spread-max is from 100 to"},
         {"a spin-refire with no spin-up", edited("spin-up = 0.5\n", ""), "spin-refire = 0.2", "has no key 'spin-refire'"},
         {"a lifetime draw to zero", edited("lifetime-random = 0.5", "lifetime-random = 2.9"), "[projectile chunk]",
          "lifetime-random is not less than lifetime"},

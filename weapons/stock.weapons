@@ -9,9 +9,6 @@ ut-ants weapons 1
 #     where both held their rate. A time is game seconds between shots.
 #   "script: Class.Function" -- read from the exported script (SS 4.7) and
 #     not yet confirmed by a run.
-#   "rule to build" -- the original does more than the key can say; the
-#     number is the nearest the key holds until SS 4.9's rule is built.
-#   "unmeasured" -- a stand-in. Nothing marked so is trusted; INV-6 checks.
 
 [set]
 name = "Stock"
@@ -112,7 +109,9 @@ offset = 3.3 5.5 -4.4      # SS 4.9: PlayerViewOffset plus the class's FireOffse
 refire = 0.287             # recorded at 85 fps only
 wind-up = 0.185            # recorded at 30, 85 and 120 fps: Enforcer.AltFiring turns the gun before its first shot, a tap too
 ammo = 1
-spread = 208               # script: Enforcer, accuracy 0.4 growing 0.5 a shot to 3.4 (rule to build)
+spread = 208               # script: Enforcer.AltFire, accuracy 0.4 over 10000
+spread-grow = 260          # script: Enforcer.AltFiring, accuracy 0.5 more a shot
+spread-max = 1756          # script: Enforcer.AltFiring, accuracy 3.4 at most
 damage = 17                # SS 4.9: Enforcer.HitDamage
 momentum = 3000            # SS 4.9
 push-chance = 0.2          # SS 4.9: one hit in five
@@ -190,7 +189,7 @@ spiral-turn = 18775        # script: 1.8 radians a shot, the first straight up; 
 [fire pulse-gun alt]
 archetype = beam
 offset = 16.5 15 0         # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed
-refire = 0.1               # unmeasured: a beam fires every tick held
+refire = 0.1               # not used: a beam works every tick held
 ammo = 1                   # script: PulseGun.AltFiring, a round each time the hold passes ammo-every; recorded
 press-ammo = 1             # script: PulseGun.AltFire, the press spends one; recorded
 ammo-every = 0.24          # script: PulseGun.AltFiring; recorded
@@ -343,20 +342,24 @@ head-momentum = 35000      # SS 4.9; recorded
 speed = 840                # default: UT_BioGel.speed
 radius = 2                 # default: UT_BioGel.CollisionRadius
 gravity = 0.5              # recorded: UT_BioGel falls (PHYS_Falling) at half the zone's gravity
-lifetime = 12              # default: UT_BioGel.LifeSpan
+lifetime = 3.2             # script: UT_BioGel's 3 s timer in flight, then Exploding's 0.1 + FRand() * 0.2
+lifetime-random = 0.1      # script: as lifetime
+expire = explode           # script: UT_BioGel.Timer
 damage = 40                # script: UT_BioGel.Explode, Damage 20 x DrawScale 2; recorded 37 near the edge
 momentum = 40000           # script: UT_BioGel.Explode, 20000 x 2; recorded
 splash-radius = 150        # script: UT_BioGel.Explode, 75 x DrawScale
 splash-from = moved        # script: UT_BioGel.Timer, HurtRadius at Location
 strike = stick
-fuse = 3.8                 # script: UT_BioGel, 3.8 s once landed, 3 s in flight (rule to build)
+fuse = 3.8                 # script: UT_BioGel.OnSurface, 3.8 s from landing
 lift = 120                 # SS 4.9: UT_BioGel's Flying state
 
 [projectile bio-glob]
 speed = 700                # default: BioGlob.speed
 radius = 2                 # default: BioGlob.CollisionRadius
 gravity = 0.5              # recorded: BioGlob falls (PHYS_Falling) at half the zone's gravity
-lifetime = 12              # default: BioGlob.LifeSpan
+lifetime = 3.2             # script: as the gel's (BioGlob extends UT_BioGel)
+lifetime-random = 0.1      # script: as the gel's
+expire = explode           # script: as the gel's
 damage = 75                # default: BioGlob.Damage, x the charge's scale
 momentum = 30000           # default: BioGlob.MomentumTransfer, x the scale
 splash-radius = 75         # script: UT_BioGel.Timer, 75 x the scale

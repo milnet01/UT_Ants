@@ -240,6 +240,13 @@ Result<void> readFire(FireMode& mode, Keys& keys) {
     }
     UTA_TRY(const std::optional<std::uint32_t> spread, keys.number("spread", false, 0, SPREAD_MAX));
     mode.spread = spread.value_or(0);
+    UTA_TRY(const std::optional<std::uint32_t> grow, keys.number("spread-grow", false, 0, SPREAD_MAX));
+    mode.spreadGrow = grow.value_or(0);
+    // Read only beside a growth: without one it is a key the mode does not have.
+    if (mode.spreadGrow > 0) {
+        UTA_TRY(const std::optional<std::uint32_t> max, keys.number("spread-max", true, mode.spread, SPREAD_MAX));
+        mode.spreadMax = *max;
+    }
     UTA_TRY(const std::optional<Triple> offset, keys.triple("offset", OFFSET_MAX));
     mode.offset = offset.value_or(Triple{});
     UTA_CHECK(readCharge(mode, keys));
@@ -565,6 +572,7 @@ std::string fireText(std::string_view weapon, std::string_view which, const Fire
                                   weapon, which, archetype, decimal(mode.refire), decimal(mode.refireLead),
                                   decimal(mode.windUp), mode.ammo, mode.pressAmmo, mode.spread,
                                   decimal(mode.offset[0]), decimal(mode.offset[1]), decimal(mode.offset[2]));
+    if (mode.spreadGrow > 0) out += std::format("spread-grow = {}\nspread-max = {}\n", mode.spreadGrow, mode.spreadMax);
     if (mode.windUp > 0)
         out += std::format("repress = {}\nspin-up = {}\n", decimal(mode.repress), decimal(mode.spinUp));
     if (mode.spinUp > 0) out += std::format("spin-refire = {}\n", decimal(mode.spinRefire));

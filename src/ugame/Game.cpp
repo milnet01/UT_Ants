@@ -155,6 +155,7 @@ void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
         body.windLeft -= tick.dt;
         if (body.windLeft <= 0) {
             detail::fire(tick, index, mode, 1);
+            ++body.burst;
             body.refireLeft = refireOf(mode, body.winding) + body.windLeft;
             body.winding = -1;
             body.windLeft = 0;

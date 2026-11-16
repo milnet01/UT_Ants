@@ -185,6 +185,9 @@ charge's hold starts again from nothing. A count
 charge fires itself once its count is loaded or its ammo is out; a damage
 charge waits for release.
 
+**`spread-grow`** widens a mode's cone by that much each shot since both
+triggers were last up, to `spread-max` (the Enforcer's alt, § 4.9).
+
 A fire mode's **`rule`** names behaviour no key can say (§ 3 item 6). Each
 rule belongs to one archetype, and `Fire.cpp` holds what it does; another
 archetype's rule, or an unknown one, is refused. Projectile rules:
@@ -424,7 +427,9 @@ Botpack `DeathMatchPlus.ReduceDamage`):
   landing 0.3 s after the press. Recorded.
 - **Enforcer:** 17 damage, momentum 3000; one hit in five, momentum
   15000. Alt fires repeatedly; its accuracy is 0.4 on the first shot
-  and grows 0.5 a shot to 3.4.
+  and grows 0.5 a shot to 3.4, starting again at each press. Accuracy
+  `a` scatters the aim up to `a` × 500 at 10000: in angle units 208,
+  then 260 a shot, at most 1756 (`spread-grow`, `spread-max`).
 - **Shock:** 40 damage, 60000. A hit on a ball spends 2 ammo and sets off
   the combo: 165 damage, radius 250, momentum 140000. Recorded: 40.
 - **Pulse:** primary every 0.18 s, its start circling the muzzle. Alt
@@ -462,9 +467,10 @@ Botpack `DeathMatchPlus.ReduceDamage`):
   rocket gains speed by 50 a second²; a grenade's speed, fuse and bounce
   are part random.
 - **Bio:** a gel is tossed with lift 120 and bursts after its fuse or on
-  a body. Its fuse is 3 s in flight and 3.8 s once landed. The alt
-  charge steps once its hold passes 0.5 s, spending a round and adding
-  that hold, until it reaches 4.1. Recorded. The glob's scale is
+  a body. In flight it bursts 3.1 to 3.3 s after launch (a 3 s timer,
+  then `Exploding`'s 0.1 + FRand() × 0.2); landed, 3.8 s after landing.
+  The alt charge steps once its hold passes 0.5 s, spending a round and
+  adding that hold, until it reaches 4.1. Recorded. The glob's scale is
   1 + 0.8 × charge, and a gel's is 2. The scale multiplies damage,
   momentum and splash radius (75 × scale, at most 250).
 - **Sniper:** a hit above 0.62 of the body's half-height is a head: 100

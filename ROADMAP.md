@@ -18927,6 +18927,16 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   move: Projectile.Touch's trace meets the body a thousandth of its
   length early (UPrimitive::LineCheck), as the hammer's already did.
   Failures 8 -> 0; the blast pushes are 0.001 to 0.22 off.
+  2026-11-16, the table's last two "rule to build" lines, built from the
+  script. The Enforcer's alt cone widens 260 angle units a shot from
+  208 to 1756, starting again at each press (Enforcer.AltFiring's
+  AltAccuracy; keys spread-grow, spread-max); a wind-up's shot now
+  counts toward the hold's shots. A gel or glob still in flight bursts
+  3.1 to 3.3 s after launch (UT_BioGel's 3 s timer, then Exploding's
+  0.1 to 0.3 s); it had flown on to its 12 s life. The replay still
+  passes every recording; it counts scattered hits as drawn, so the
+  cone is unconfirmed by a run. Nothing in the table is marked
+  unmeasured now. Left before shipping: the user plays it (spec § 10).
   **Layman:** The guns. Built as a table of numbers rather than as code, so a different set -- your super weapons -- is a different table rather than a second codebase.
   Kind: implement.
   Source: design-2026-09-03.

@@ -86,6 +86,10 @@ struct FireMode {
     double spinUp = 0;
     double spinRefire = 0;
     std::uint32_t spread = 0; ///< the cone's half-angle, in angle units
+    /// The cone widens this much a shot since both triggers were last up,
+    /// to `spreadMax` (Enforcer.AltFiring's AltAccuracy). 0 for never.
+    std::uint32_t spreadGrow = 0;
+    std::uint32_t spreadMax = 0;
     std::optional<Charge> charge;
     double damage = 0;   ///< instant-hit, melee; per second for a beam
     double momentum = 0; ///< instant-hit, melee (below 0 pulls); per second for a beam

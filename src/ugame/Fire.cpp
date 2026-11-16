@@ -210,14 +210,23 @@ Vec3 turned(const Vec3& v, std::int32_t pitch, std::int32_t yaw, std::int32_t ro
     return x * v.x + y * v.y + z * v.z;
 }
 
+/// `mode`'s cone for `body`'s next shot: widened by each shot of the hold so
+/// far (Enforcer.AltFiring's AltAccuracy), to its most.
+std::uint32_t spreadOf(const Body& body, const FireMode& mode) {
+    if (mode.spreadGrow == 0) return mode.spread;
+    const std::uint64_t grown = mode.spread + std::uint64_t{mode.spreadGrow} * body.burst;
+    return static_cast<std::uint32_t>(std::min<std::uint64_t>(grown, mode.spreadMax));
+}
+
 /// `count` projectiles of `kind` from `body`'s `start`, by `mode`'s rule.
 void launchAll(Tick& tick, int index, const FireMode& mode, std::uint32_t kind, std::uint32_t count,
                const Vec3& start, double damageScale) {
     const Body& body = tick.game.bodies[static_cast<std::size_t>(index)];
     if (mode.rule == FireRule::None) {
+        const std::uint32_t spread = spreadOf(body, mode);
         for (std::uint32_t i = 0; i < count; ++i) {
-            const std::int32_t yawOff = spreadDraw(tick.game, mode.spread);
-            const std::int32_t pitchOff = spreadDraw(tick.game, mode.spread);
+            const std::int32_t yawOff = spreadDraw(tick.game, spread);
+            const std::int32_t pitchOff = spreadDraw(tick.game, spread);
             launch(tick, kind, index, start, body.yaw + yawOff, body.pitch + pitchOff, body.move.velocity,
                    damageScale, 1);
         }
@@ -330,8 +339,9 @@ void fire(Tick& tick, int index, const FireMode& mode, double scale) {
     switch (mode.archetype) {
     case Archetype::InstantHit: {
         carried.ammo -= spend;
+        const std::uint32_t spread = spreadOf(body, mode);
         for (std::uint32_t pellet = 0; pellet < mode.pellets; ++pellet) {
-            const Vec3 aim = spreadAim(tick.game, body.yaw, body.pitch, mode.spread);
+            const Vec3 aim = spreadAim(tick.game, body.yaw, body.pitch, spread);
             const Vec3 end = start + aim * mode.range;
             const SegmentHit hit = traceSegment(tick, start, end, index, true);
             const Vec3 stop = start + (end - start) * std::min(hit.fraction, 1.0);
