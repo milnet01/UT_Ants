@@ -459,6 +459,7 @@ gravity = 0.5              # recorded: UT_Grenade falls (PHYS_Falling) at half t
 lifetime = 2.75            # SS 4.9: UT_Grenade's fuse, 2.5 + FRand() * 0.5
 lifetime-random = 0.25     # SS 4.9
 expire = explode
+expire-up = 16             # script: UT_Grenade.Timer, Explosion(Location + 16 up); recorded
 damage = 80                # default: UT_Grenade.Damage; recorded
 momentum = 50000           # default: UT_Grenade.MomentumTransfer; recorded
 splash-radius = 200        # script: UT_Grenade.Explosion

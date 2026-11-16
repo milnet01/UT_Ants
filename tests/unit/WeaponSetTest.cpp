@@ -154,6 +154,7 @@ lifetime = 12
 lift = 120
 inherit = 0.4
 expire = explode
+expire-up = 16
 damage = 20
 momentum = 20000
 strike = stick
@@ -225,6 +226,8 @@ TEST_CASE("INV-2: the small set parses and reads back from write", "[ugame][weap
     CHECK(set->weapons[1].alt->archetype == uta::ugame::Archetype::Beam);
     CHECK(set->projectile("gel")->expireExplodes);
     CHECK_FALSE(set->projectile("chunk")->expireExplodes);
+    CHECK(set->projectile("gel")->expireUp == 16);
+    CHECK(set->projectile("chunk")->expireUp == 0);
     CHECK(set->projectile("shell")->splitInto == "chunk");
     CHECK(set->projectile("shell")->gravityAfter == 0.25);
     CHECK(set->combo("boom")->splashRadius == 250);

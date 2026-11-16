@@ -319,8 +319,13 @@ void fly(Tick& tick, std::size_t index) {
         return;
     }
     if (shot.age >= shot.lifetime) {
-        if (kind.expireExplodes) explode(tick, index, -1, shot.velocity * -1, shot.location);
-        else tick.shotGone[index] = true;
+        if (kind.expireExplodes) {
+            // UT_Grenade.Timer: the blast goes off above the shot.
+            shot.location.z += kind.expireUp;
+            explode(tick, index, -1, shot.velocity * -1, shot.location);
+        } else {
+            tick.shotGone[index] = true;
+        }
         return;
     }
     const Vec3 old = shot.previous;

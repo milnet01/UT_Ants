@@ -265,13 +265,22 @@ LaunchRange rangeOf(const ugame::FireMode& mode, const ugame::Projectile& kind, 
 }
 
 /// Whether a recorded launch velocity lies in `range`, against `ours`, our
-/// own launch of it: its speed less its lift about the kind's, and its
-/// direction within both launches' turns.
-bool launchInRange(const ugame::Projectile& kind, const LaunchRange& range, Vec3 recorded, Vec3 ours) {
-    recorded.z -= kind.lift;
-    ours.z -= kind.lift;
+/// own launch of it: its speed about the kind's, and its direction within
+/// both launches' turns, less their lift. A cluster's draw turns the whole
+/// velocity, lift and all (UT_Eightball's grenades), which keeps its
+/// length: the speed is solved from that length about an aim rising
+/// `aimUp`, once `fell`, the gravity of a tick flown before the row, is
+/// put back.
+bool launchInRange(const ugame::Projectile& kind, const LaunchRange& range, Vec3 recorded, Vec3 ours, double aimUp,
+                   double fell) {
+    // |aim * along + lift up| is the launch's length, for `along` the speed.
+    const double size = uworld::length(recorded + Vec3{0, 0, fell});
+    const double lift = kind.lift;
+    const double along = -lift * aimUp + std::sqrt(std::max(0.0, size * size - lift * lift * (1 - aimUp * aimUp)));
+    recorded.z -= lift;
+    ours.z -= lift;
     constexpr double SPEED_SLACK = 1, TURN_SLACK = 20;
-    const bool speed = std::abs(uworld::length(recorded) - kind.speed) <= range.speed + SPEED_SLACK;
+    const bool speed = std::abs(along - kind.speed) <= range.speed + SPEED_SLACK;
     const bool turn = angleUnits(recorded, ours) <= range.turn + TURN_SLACK;
     return speed && turn;
 }
@@ -584,6 +593,15 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
 
         const std::vector<ugame::Carried> carriedBefore = game.bodies[FIRER].weapons;
         const std::array<double, 2> healthBefore{game.bodies[0].health, game.bodies[1].health};
+        // A raised shot flies at the recorded height, the bodies below theirs
+        // by their hover. One whose lifetime ends this tick blasts from where
+        // it is, so it is lowered into the bodies' frame first.
+        for (std::size_t i = 0; i < game.shots.size(); ++i) {
+            ugame::Shot& shot = game.shots[i];
+            if (set.projectiles[shot.kind].expireExplodes && !shot.stuck &&
+                ours[static_cast<std::size_t>(live[i])].raised && shot.age + row.dt >= shot.lifetime)
+                shot.location.z -= firerHover;
+        }
         ugame::Game gameBefore = game;
         const std::vector<ugame::Shot>& shotsBefore = gameBefore.shots;
 
@@ -773,7 +791,10 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
                         logged.z -= firerHover;
                         const bool flown =
                             uworld::length(logged - shot.location) < uworld::length(logged - launch.location);
-                        if (!launchInRange(kind, range, vec(first.velocity), (flown ? shot : launch).velocity))
+                        const double fell =
+                            flown ? -rules.gravityZ * (kind.gravity + kind.gravityAfter) * row.dt : 0;
+                        if (!launchInRange(kind, range, vec(first.velocity), (flown ? shot : launch).velocity,
+                                           ugame::aimOf(w.yaw, w.pitch).z, fell))
                             outOfRange(at);
                         // A start drawn behind ours takes the recorded one. One
                         // that has flown may also be off by what its launch drew,

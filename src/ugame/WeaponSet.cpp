@@ -333,7 +333,8 @@ Result<void> readProjectile(Projectile& projectile, Keys& keys, std::size_t head
                                    std::tuple{"lift", &projectile.lift, DISTANCE_MAX},
                                    std::tuple{"inherit", &projectile.inherit, 1.0},
                                    std::tuple{"speed-random", &projectile.speedRandom, DISTANCE_MAX},
-                                   std::tuple{"lifetime-random", &projectile.lifetimeRandom, TIME_MAX}}) {
+                                   std::tuple{"lifetime-random", &projectile.lifetimeRandom, TIME_MAX},
+                                   std::tuple{"expire-up", &projectile.expireUp, DISTANCE_MAX}}) {
         UTA_TRY(const std::optional<double> value, keys.decimal(key, false, 0, max));
         *field = value.value_or(0);
     }
@@ -625,10 +626,10 @@ std::string write(const WeaponSet& set) {
                            decimal(projectile.momentum), decimal(projectile.splashRadius),
                            STRIKE_NAMES[static_cast<std::size_t>(projectile.strike)]);
         out += std::format("acceleration = {}\nmax-speed = {}\nlift = {}\ninherit = {}\nspeed-random = {}\n"
-                           "turn-random = {}\nlifetime-random = {}\n",
+                           "turn-random = {}\nlifetime-random = {}\nexpire-up = {}\n",
                            decimal(projectile.acceleration), decimal(projectile.maxSpeed), decimal(projectile.lift),
                            decimal(projectile.inherit), decimal(projectile.speedRandom), projectile.turnRandom,
-                           decimal(projectile.lifetimeRandom));
+                           decimal(projectile.lifetimeRandom), decimal(projectile.expireUp));
         out += std::format("splash-from = {}\nbody-hit = {}\nsplash-up-max = {}\nsplash-radius-max = {}\n",
                            SPLASH_FROM_NAMES[projectile.splashFromMoved ? 1 : 0],
                            BODY_HIT_NAMES[projectile.bodyDirect ? 1 : 0], decimal(projectile.splashUpMax),

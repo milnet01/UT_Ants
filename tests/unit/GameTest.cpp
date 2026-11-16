@@ -904,6 +904,22 @@ TEST_CASE("SS 4.9: a falling shot turning over fast in a tick falls only after t
     CHECK(std::abs(fallFrom(-gained - 6.9) - -6.9 * dt) < 1e-9);
 }
 
+TEST_CASE("SS 4.9: a shot whose lifetime ends explodes expire-up above where it is", "[ugame][game]") {
+    const BodyWorld world = arena();
+    const WeaponSet& set = stock();
+    const Projectile& grenade = *set.projectile("grenade");
+    REQUIRE(grenade.expireExplodes);
+    REQUIRE(grenade.expireUp == 16);
+    const Vec3 at{0, 500, 300};
+    Game game = oneShot(set, "grenade", at, Vec3{});
+    game.shots[0].lifetime = DT / 2; // it ends this tick, before it moves
+    tick(world, set, RULES, game, std::vector<MoveCommand>(2), DT);
+    CHECK(game.shots.empty());
+    const auto blast = std::ranges::find(game.events, Event::Kind::Explosion, &Event::kind);
+    REQUIRE(blast != game.events.end());
+    CHECK(blast->from == Vec3{at.x, at.y, at.z + grenade.expireUp});
+}
+
 TEST_CASE("SS 4.9: a bounce keeps bounce-keep of the speed along the surface and bounce-off of it off",
           "[ugame][game]") {
     const BodyWorld world = arena();

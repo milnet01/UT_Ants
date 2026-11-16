@@ -142,6 +142,7 @@ struct Projectile {
     double lifetime = 0;
     double lifetimeRandom = 0; ///< a lifetime from `lifetime` less this to `lifetime` plus this
     bool expireExplodes = false; ///< at the end of its lifetime: explodes, else vanishes
+    double expireUp = 0;         ///< exploding at the end of its lifetime: this far above the shot
     double damage = 0, momentum = 0;
     double splashRadius = 0; ///< 0 hits only what it strikes
     double splashRadiusMax = 0; ///< above 0: the radius grows by a charge's scale, up to this
