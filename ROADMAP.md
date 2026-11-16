@@ -18921,6 +18921,12 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   standing target first). Left: the blast pushes 1.01 to 1.88 over
   1 unit/s (flak-alt, flak-alt-tap, rocket-primary, rocket-load-*):
   the limit is the user's.
+  2026-11-16, the blast pushes: the game's. Not single precision: in
+  float the push turns 0.002 degrees, the gap was 0.135. The original's
+  blast point sits on the shot's line 0.036 short of ours on a 36-unit
+  move: Projectile.Touch's trace meets the body a thousandth of its
+  length early (UPrimitive::LineCheck), as the hammer's already did.
+  Failures 8 -> 0; the blast pushes are 0.001 to 0.22 off.
   **Layman:** The guns. Built as a table of numbers rather than as code, so a different set -- your super weapons -- is a different table rather than a second codebase.
   Kind: implement.
   Source: design-2026-09-03.
