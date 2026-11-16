@@ -346,6 +346,12 @@ Botpack `DeathMatchPlus.ReduceDamage`):
   the zone's gravity before each tick's move. Recorded 2026-11-12: 475 a
   second², not 950. One that does not bounce (the flak slug) gains the
   other half after the move (`gravity-after`): recorded 950.
+- One without `gravity-after` that turns over in a tick, rising faster
+  than 7.05 at its start and falling faster than 7.05 at its end, keeps its
+  height until the top of its arc and falls only for the rest of the tick.
+  Recorded 2026-11-16 at 30 frames a second: flak chunks, grenades and gel
+  follow it with both speeds past 7.13, and the plain move with either
+  under 6.97.
 - A shot strikes a surface up to 2 past the end of its move, along its
   path. Recorded 2026-11-13: a flak chunk turned off a floor its move
   ended 1.4 above; INV-6's replay fails fewer checks at 2 than at 2.5.

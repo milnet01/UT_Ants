@@ -302,6 +302,13 @@ constexpr int BOUNCES_A_TICK = 3;
 /// out flew on; the recording fixes the sign, not this margin.
 constexpr double LAUNCHED_INSIDE_IN = 0.1;
 
+/// The upward speed a falling shot must start a tick above, and the downward
+/// speed it must end it below, for the tick's move to fall only after the top
+/// of its arc. Recorded at 30 frames a second: every flak chunk, grenade and
+/// gel turning over in a tick follows the rule when both pass 7.13 and the
+/// plain move when either is under 6.97.
+constexpr double APEX_SPEED = 7.05;
+
 void fly(Tick& tick, std::size_t index) {
     Shot& shot = tick.game.shots[index];
     const Projectile& kind = tick.set.projectiles[shot.kind];
@@ -323,6 +330,7 @@ void fly(Tick& tick, std::size_t index) {
     double time = tick.dt, more = 0;
     for (int move = 0; move < BOUNCES_A_TICK; ++move) {
         const double falls = shot.bounces > 0 && kind.bounceGravity ? *kind.bounceGravity : kind.gravity;
+        const double rising = shot.velocity.z;
         shot.velocity.z += tick.rules.gravityZ * falls * time;
         // The engine's projectile physics: speed up, but no faster than its
         // most. A kind launched faster than that (the ripper's blade) is held
@@ -331,7 +339,13 @@ void fly(Tick& tick, std::size_t index) {
         const double speed = uworld::length(shot.velocity);
         if (kind.maxSpeed > 0 && speed > kind.maxSpeed) shot.velocity = shot.velocity * (kind.maxSpeed / speed);
         const Vec3 from = shot.location;
-        const Vec3 delta = shot.velocity * (time + more);
+        Vec3 delta = shot.velocity * (time + more);
+        // Turning over fast enough in a whole tick, the original's shot keeps
+        // its height until the top of its arc and falls only for the rest.
+        if (move == 0 && kind.gravityAfter == 0 && rising > APEX_SPEED && shot.velocity.z < -APEX_SPEED) {
+            const double top = time * rising / (rising - shot.velocity.z);
+            delta.z = shot.velocity.z * (time - top);
+        }
         const Vec3 to = from + delta;
 
         // The level is looked for a little past the move's end; `first` and

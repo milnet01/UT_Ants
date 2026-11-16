@@ -881,6 +881,29 @@ Game oneShot(const WeaponSet& set, std::string_view kind, const Vec3& at, const 
     return game;
 }
 
+TEST_CASE("SS 4.9: a falling shot turning over fast in a tick falls only after the top of its arc", "[ugame][game]") {
+    const BodyWorld world = arena();
+    const WeaponSet& set = stock();
+    const Projectile& gel = *set.projectile("bio-gel");
+    REQUIRE(gel.gravity > 0);
+    REQUIRE(gel.gravityAfter == 0);
+    // A tick at 30 frames a second, as recorded; its gravity takes 17.4 off.
+    const double dt = uta::uworld::DEFAULT_GAME_SPEED / 30;
+    const double gained = RULES.gravityZ * gel.gravity * dt;
+    const auto fallFrom = [&](double rising) {
+        Game game = oneShot(set, "bio-gel", Vec3{0, 500, 300}, Vec3{100, 0, rising});
+        tick(world, set, RULES, game, std::vector<MoveCommand>(2), dt);
+        REQUIRE(game.shots.size() == 1);
+        return game.shots[0].location.z - 300;
+    };
+    // Rising 8.7, falling 8.7 after: still until the top, half the tick in.
+    const double falling = 8.7 + gained;
+    CHECK(std::abs(fallFrom(8.7) - falling * (dt - dt * 8.7 / (8.7 - falling))) < 1e-9);
+    // Either side under 7.05: the whole tick at the speed it ends with.
+    CHECK(std::abs(fallFrom(6.9) - (6.9 + gained) * dt) < 1e-9);
+    CHECK(std::abs(fallFrom(-gained - 6.9) - -6.9 * dt) < 1e-9);
+}
+
 TEST_CASE("SS 4.9: a bounce keeps bounce-keep of the speed along the surface and bounce-off of it off",
           "[ugame][game]") {
     const BodyWorld world = arena();
