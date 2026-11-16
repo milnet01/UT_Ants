@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=473 -->
+<!-- ants-roadmap-id-high-water: UTA=474 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -21429,6 +21429,21 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: implement.
   Source: user-request-2026-11-13.
   Lanes: ugame, apps.
+
+- 📋 [UTA-0474] **Headless viewer runs ignore any real gamepad.**
+  The viewer opens every connected gamepad (apps/ut-ants/main.cpp's
+  open, Launcher.cpp's handle), and headless checks run that same
+  viewer (under Xvfb or a hidden Weston). A controller left connected
+  can then reach a check: since UTA-0472 the triggers fire while
+  walking. Raised in the UTA-0019 session of 2026-11-16; the leak was
+  not reproduced. The unit tests open no gamepad.
+  Shape to settle when picked up: a switch the headless runs pass (a
+  flag or an environment variable) that skips SDL_INIT_GAMEPAD, with a
+  check that a run so started opens none.
+  **Layman:** A game controller left plugged in should not be able to steer or fire inside an automated check of the viewer.
+  Kind: test.
+  Source: user-request-2026-11-16.
+  Lanes: apps, uinput.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
