@@ -102,6 +102,7 @@ add_executable(uta_unit_tests
     unit/CoreMd5Test.cpp
     unit/CoreSha256Test.cpp
     unit/DumpCliTest.cpp
+    unit/ExportSceneTest.cpp
     unit/LightFixture.cpp
     unit/MapPicCliTest.cpp
     unit/MaterialCompressTest.cpp
@@ -182,6 +183,9 @@ target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-bound-scan
 target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-shot/Cli.cpp")
 # And ut-ref's tracer and scorer -- UTA-0292.
 target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-ref/Reference.cpp")
+# And ut-export's scene and camera path -- UTA-0476.
+target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-export/Scene.cpp"
+                                      "${PROJECT_SOURCE_DIR}/tools/ut-export/Path.cpp")
 target_include_directories(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools")
 # And the client's parts that need no window -- UTA-0016. Compiled in whether or
 # not UTA_BUILD_CLIENT is on, because neither links SDL.

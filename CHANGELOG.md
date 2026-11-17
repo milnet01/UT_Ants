@@ -14,6 +14,15 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **`ut-export`: a baked map as a scene for ExperiRays' lighting lab** (UTA-0476)
+  A new developer tool writes a baked map as a glTF 2.0 binary file and a
+  camera-path file, in the format the ExperiRays project's EXRAY-0001
+  fixes. The scene holds the level's surfaces with their zones and
+  shadow-mask charts, every light, the light-to-polygon pairs and the
+  movers. The camera path walks four player-sized walkers through the
+  map's navigation graph, with a camera following the first. Materials
+  are plain white for now; textures are not exported.
+
 - **Try the guns in the viewer** (UTA-0472, UTA-0019)
   Walking in a map, you now carry every stock weapon with full ammo. The
   left mouse button fires and the right one alt-fires; the number keys and

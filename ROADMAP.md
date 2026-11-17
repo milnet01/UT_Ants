@@ -24271,6 +24271,18 @@ docs/standards/versioning-overrides.md. Closes S8.
   2c2efbc), so this can start. Since this review it also tests sway per
   triangle (§ 4.3) and maps a spot's cone to outerConeAngle (§ 4.5).
   ExperiRays' EXRAY-0001, 0012, 0018 and 0025 name this item.
+  2026-11-17: built as tools/ut-export (ut-export --map --bundle --out),
+  tested by tests/unit/ExportSceneTest.cpp. DM-Bishop exports in under
+  2 s, and a scratch reader of the .glb finds every SS 4 rule a reader
+  can see holding. Agreed with ExperiRays while building: scene_key
+  is ut:<sha256 .unr>:<sha256 .utab> (a recipe edit renumbers lights
+  under one baker revision; EXRAY-0001 amendment pending); walkers
+  are camera-path actors, 4 by default, with a chase camera. Known
+  gap, agreed: no images, so every material is white and a masked
+  surface is opaque until a BC7 decoder is vendored.
+  Waiting-on: EXRAY-0012, the lab's glTF reader, for the item's own
+  proof: loading the export through it. ExperiRays will send the
+  command when it lands.
   **Layman:** Write a map out in the shared scene format another project's lighting lab reads, so it can test lighting ideas on our maps.
   Kind: feature.
   Source: peer-experirays-2026-11-17.
