@@ -18964,6 +18964,10 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   docs/specs/UTA-0020-weapon-wheel.md. Prototype branch wheel-proto
   (worktree in Scratchpad/UT_Ants/wheel-proto) stays as a reference
   until the spec lands, then goes.
+  2026-11-17: spec written, docs/specs/UTA-0020-weapon-wheel.md
+  (R1 and Q hold the wheel, user 2026-11-17). Next: build it. The
+  prototype branch stays until the build has copied its overlay-label
+  code, then goes.
   **Layman:** Pick a gun from a wheel instead of scrolling through them one at a time.
   Kind: implement.
   Source: design-2026-09-03.
