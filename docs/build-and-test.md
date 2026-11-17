@@ -97,12 +97,18 @@ or the machine is busy, and it is never a gate.
 moving between them, on this machine's GPU:
 
 ```sh
-build/tools/ut-bench/ut-bench frame --cameras <file> --tier ultra --size 3840x2160 <bundle>
+/mnt/Emulators/.claude/locks/gpu-timed UT_ANTS \
+  build/tools/ut-bench/ut-bench frame --cameras <file> --tier ultra --size 3840x2160 <bundle>
 ```
 
 A capture folder's `camera.txt` is one camera line. Compare on the median and
 the 99th percentile. Each view also shows each step's median GPU time —
 shadows, clusters, fog, scene, bloom and post (`UTA-0351`).
+
+**Every timed GPU run holds the machine's shared GPU lock** (`UTA-0475`), as
+above; wrap a timed sweep the same way. Other projects time on the same card,
+and two timed runs at once spoil both. Nothing checks it. What it covers is in
+the know_how topic `shared-gpu-timed-run-lock`.
 
 **`ut-compare` puts the original game's frame beside ours, from the same
 camera** (`UTA-0306`). It runs the original client headless, then draws ours
