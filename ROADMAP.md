@@ -24236,7 +24236,9 @@ docs/standards/versioning-overrides.md. Closes S8.
   scene_key ut:<sha256 of the .unr>:<baker revision>. And a camera-path
   file for H5's actor positions. Output goes under content/, read by
   path (ADR-0005). Proven by loading through the lab's reader.
-  Waits for EXRAY-0001 to close (all three engines agreed).
+  EXRAY-0001 accepted by all three engines 2026-11-17 (ExperiRays
+  2c2efbc), so this can start. Since this review it also tests sway per
+  triangle (§ 4.3) and maps a spot's cone to outerConeAngle (§ 4.5).
   ExperiRays' EXRAY-0001, 0012, 0018 and 0025 name this item.
   **Layman:** Write a map out in the shared scene format another project's lighting lab reads, so it can test lighting ideas on our maps.
   Kind: feature.
