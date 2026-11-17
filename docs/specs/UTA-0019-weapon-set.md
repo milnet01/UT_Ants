@@ -325,7 +325,8 @@ there is trusted once a recording agrees.
   that grows and fades, dummies cylinders. Modern explosion effects
   replace that sphere in UTA-0470 (user, 2026-11-12).
 - **A crosshair** at the screen's centre, and the overlay text gains the
-  weapon's name, its ammo and the player's health.
+  weapon's name, its ammo and the player's health. A tipped view moves
+  it up, onto the aim (UTA-0021 § 4.5).
 - **The walking mode carries the whole set** with full ammo. Placed
   weapon pickups wait for the game modes (UTA-0027).
 - **A key drops a dummy** a few metres ahead, standing on the floor,

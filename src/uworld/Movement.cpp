@@ -215,6 +215,20 @@ MoveState push(const MoveState& state, const Vec3& velocity) {
     return s;
 }
 
+std::optional<Landing> projectLanding(const BodyWorld& world, const BodySize& size, const MoveRules& rules,
+                                      const MoveState& state, const MoveCommand& command, double dt, int maxTicks) {
+    if (state.physics != Physics::Falling) return std::nullopt;
+    MoveCommand held = command;
+    held.jump = false; // starts no jump, so no air jump is assumed
+    held.dodge = DodgeDir::None;
+    MoveState s = state;
+    for (int ticks = 1; ticks <= maxTicks; ++ticks) {
+        s = tick(world, size, rules, s, held, dt);
+        if (s.physics == Physics::Walking) return Landing{s.location, ticks};
+    }
+    return std::nullopt;
+}
+
 DodgeDir DoubleTap::update(const DirectionKeys& held, double dt, bool ready) noexcept {
     const DirectionKeys was = was_;
     was_ = held;

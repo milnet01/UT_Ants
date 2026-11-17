@@ -232,8 +232,9 @@ public:
 
     /// UTA-0019 SS 4.8: a crosshair at the centre of every later PRESENTED
     /// frame, white with a black edge, drawn as the overlay text is and so
-    /// never seen by readback.
-    void setCrosshair(bool shown);
+    /// never seen by readback. UTA-0021 SS 4.5: its centre `up` of the
+    /// image's half-height above the centre, where a tipped view's aim is.
+    void setCrosshair(bool shown, double up = 0);
 
     /// UTA-0020 SS 4.6: `labels` drawn with the overlay in every later frame,
     /// until set again; on the presented image only, as the text is.

@@ -12,6 +12,7 @@
 #include "uworld/BodyCollision.h"
 
 #include <cstdint>
+#include <optional>
 
 namespace uta::uworld {
 
@@ -85,6 +86,24 @@ inline constexpr double PUSH_FAST_RISE = 380;
 /// UTA-0019 SS 4.6: `velocity` added to a body, as the original's
 /// AddVelocity does; a walking body is lifted into Falling. A pure function.
 [[nodiscard]] MoveState push(const MoveState& state, const Vec3& velocity);
+
+/// UTA-0021 SS 4.2: where a falling body first lands -- its centre on that tick.
+struct Landing {
+    Vec3 location{};
+    int ticks = 0; ///< ticks from the state given until it lands
+};
+
+/// Ticks looked ahead for a landing: two seconds at TICKS_PER_SECOND.
+inline constexpr int LANDING_HORIZON_TICKS = 170;
+
+/// UTA-0021 SS 4.2: where `state` first turns Walking if `command` is held
+/// every tick, with its jump and dodge cleared, `dt` game seconds a tick;
+/// nullopt when `state` is not Falling or no landing comes within `maxTicks`.
+/// A pure function: the arc is `tick` itself, so it cannot drift from it.
+[[nodiscard]] std::optional<Landing> projectLanding(const BodyWorld& world, const BodySize& size,
+                                                    const MoveRules& rules, const MoveState& state,
+                                                    const MoveCommand& command, double dt,
+                                                    int maxTicks = LANDING_HORIZON_TICKS);
 
 /// The direction keys held on one tick.
 struct DirectionKeys {

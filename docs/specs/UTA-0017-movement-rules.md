@@ -258,7 +258,8 @@ dodges the way the left stick points most. Its rules allow one air jump
 the bottom face button jumps (the right shoulder holds UTA-0020's weapon
 wheel), Ctrl or the left shoulder ducks, and Shift or pressing the left stick walks
 (`apps/ut-ants/Cli.cpp`'s help). Walking, the triggers fire
-(UTA-0019 § 4.8).
+(UTA-0019 § 4.8). In the air the drawn view may tip below the aim
+(UTA-0021 § 4.6).
 
 **The eye** rests at `BaseEyeHeight` (27, `PAWN`) above the body's
 centre. It copies UT99's `PlayerPawn.UpdateEyeHeight`, read from the

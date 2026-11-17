@@ -18,6 +18,7 @@
 // THE LEVEL ONLY, NO MOVERS, as UTA-0457's case: no recorded run rides one.
 
 #include "uworld/BodyCollision.h"
+#include "uworld/FixedTick.h"
 #include "uworld/Movement.h"
 
 #include "RealLevel.h"
@@ -27,7 +28,9 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -289,4 +292,53 @@ TEST_CASE("UTA-0017 INV-2: our rules copy the original's tick for tick, on DM-De
         CHECK(e.height <= MAX_HEIGHT_ERROR);
         CHECK(e.wallPosition <= wallReach({recording->pawn.at("CollisionRadius"), recording->pawn.at("CollisionHeight")}));
     }
+}
+
+// docs/specs/UTA-0021-landing-marker.md SS 13: what projectLanding costs on a
+// real map. Hidden: it prints a figure and asserts nothing about speed. Run
+// with  uta_real_asset_tests "[timing]"  on a quiet machine.
+TEST_CASE("UTA-0021: projectLanding's cost a tick on DM-Deck16][", "[.][real][timing]") {
+    uta::ubundle::Collision collision;
+    collision.level = uta::test::real::levelTreeOf(fs::path(UTA_UT_INSTALL_DIR) / "Maps" / "DM-Deck16][.unr");
+    auto built = BodyWorld::build(collision, {});
+    REQUIRE(built.has_value());
+    std::array<double, 3> low{1e30, 1e30, 1e30}, high{-1e30, -1e30, -1e30};
+    for (const auto& p : collision.level.points)
+        for (int a = 0; a < 3; ++a) {
+            low[a] = std::min(low[a], double(p[a]));
+            high[a] = std::max(high[a], double(p[a]));
+        }
+    const BodySize size;
+    const MoveRules rules;
+    const double dt = DEFAULT_GAME_SPEED / TICKS_PER_SECOND;
+    MoveCommand forward;
+    forward.forward = 1;
+    std::int64_t ticks = 0;
+    int projections = 0, full = 0;
+    double seconds = 0, worst = 0;
+    constexpr int GRID = 24;
+    for (int i = 0; i < GRID; ++i)
+        for (int j = 0; j < GRID; ++j)
+            for (int k = 1; k < 4; ++k) {
+                const Vec3 at{low[0] + (high[0] - low[0]) * (i + 0.5) / GRID,
+                              low[1] + (high[1] - low[1]) * (j + 0.5) / GRID, low[2] + (high[2] - low[2]) * k / 4};
+                if (!built->fits(size, at)) continue;
+                MoveState s;
+                s.location = at;
+                s.velocity = {300, 0, rules.jumpZ};
+                s.physics = Physics::Falling;
+                const auto start = std::chrono::steady_clock::now();
+                const auto landing = projectLanding(*built, size, rules, s, forward, dt);
+                const double took = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+                seconds += took;
+                worst = std::max(worst, took);
+                ticks += landing ? landing->ticks : LANDING_HORIZON_TICKS;
+                full += landing ? 0 : 1;
+                ++projections;
+            }
+    REQUIRE(projections > 0);
+    std::cout << "UTA-0021 projectLanding on DM-Deck16][: " << projections << " projections (" << full
+              << " ran the whole horizon), " << ticks << " ticks, " << seconds / ticks * 1e6
+              << " us a tick, so " << seconds / ticks * LANDING_HORIZON_TICKS * 1e3
+              << " ms for a full horizon; slowest projection " << worst * 1e3 << " ms\n";
 }

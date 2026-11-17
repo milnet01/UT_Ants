@@ -156,6 +156,26 @@ TEST_CASE("UTA-0019: the crosshair is four white arms about the centre each in a
     CHECK(larger.lit[0].width > layout.lit[0].width);
 }
 
+TEST_CASE("UTA-0021 INV-5: the crosshair sits up a share of the half-height", "[render]") {
+    const std::uint32_t width = 2560, height = 1440;
+    const auto middleRow = [](const OverlayLayout& layout) {
+        std::uint32_t top = UINT32_MAX, bottom = 0;
+        for (const OverlayRect& arm : layout.lit) {
+            top = std::min(top, arm.y);
+            bottom = std::max(bottom, arm.y + arm.height);
+        }
+        return (top + bottom - 1) / 2; // the centre pixel's row
+    };
+    const OverlayLayout centred = layOutOverlay("", width, height, true, {}, 0);
+    REQUIRE(centred.lit.size() == 4);
+    CHECK(middleRow(centred) == height / 2);
+    const OverlayLayout raised = layOutOverlay("", width, height, true, {}, 0.5);
+    REQUIRE(raised.lit.size() == 4);
+    CHECK(middleRow(raised) == height / 2 - height / 4);
+    // Raised past the top, it is left out as one too big for the image is.
+    CHECK(layOutOverlay("", width, height, true, {}, 1.0).edges.empty());
+}
+
 TEST_CASE("UTA-0019: the crosshair and the text share one layout without touching", "[render]") {
     const OverlayLayout layout = layOutOverlay("ROCKET LAUNCHER\nAMMO 48\nHEALTH 100", 1920, 1080, true);
     REQUIRE(layout.edges.size() == 4);

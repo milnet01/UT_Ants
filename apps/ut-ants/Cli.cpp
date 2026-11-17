@@ -17,9 +17,11 @@ namespace uta::client {
 void usage(std::ostream& err) {
     err << "usage: ut-ants [--tier <low|medium|high|ultra>] [--frames <n>] [--validation] [--windowed]\n"
            "               [--show-missing] [--no-added-lamps] [--fov <degrees>] [--notes <file>]\n"
+           "               [--no-landing-marker] [--no-take-off-pitch]\n"
            "               [--baker-version <text>] <install> <bundle>\n"
            "       ut-ants [--tier <low|medium|high|ultra>] [--validation] [--windowed] [--show-missing]\n"
-           "               [--no-added-lamps] [--fov <degrees>] <install>\n"
+           "               [--no-added-lamps] [--fov <degrees>] [--no-landing-marker]\n"
+           "               [--no-take-off-pitch] <install>\n"
            "       ut-ants --help\n"
            "\n"
            "Given only <install>, opens the map launcher: every playable map in the\n"
@@ -74,6 +76,9 @@ void usage(std::ostream& err) {
            "rather than grey, so it stands out.\n"
            "--no-added-lamps draws the map without the lamps its recipe adds, as\n"
            "the map was made.\n"
+           "--no-landing-marker hides the ring that shows, in the air, where you\n"
+           "will land.\n"
+           "--no-take-off-pitch keeps the view from tipping down to show it.\n"
            "--tier picks the quality tier; without it the game picks one from the\n"
            "graphics card.\n"
            "--fov opens at that field of view, in degrees across the screen, as\n"
@@ -96,6 +101,10 @@ std::optional<Options> parseArguments(std::span<const std::string_view> args, st
             options.showMissing = true;
         } else if (arg == "--no-added-lamps") {
             options.addedLamps = false;
+        } else if (arg == "--no-landing-marker") {
+            options.landingMarker = false;
+        } else if (arg == "--no-take-off-pitch") {
+            options.takeOffPitch = false;
         } else if (arg == "--windowed") {
             options.windowed = true;
         } else if (arg == "--tier") {
@@ -208,6 +217,8 @@ std::vector<std::string> inheritedArguments(const Options& options) {
     if (options.validation) args.emplace_back("--validation");
     if (options.showMissing) args.emplace_back("--show-missing");
     if (!options.addedLamps) args.emplace_back("--no-added-lamps");
+    if (!options.landingMarker) args.emplace_back("--no-landing-marker");
+    if (!options.takeOffPitch) args.emplace_back("--no-take-off-pitch");
     if (options.fov.has_value()) {
         args.emplace_back("--fov");
         args.push_back(std::format("{}", *options.fov)); // the shortest text that reads back exactly

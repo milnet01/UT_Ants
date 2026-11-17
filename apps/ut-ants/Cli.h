@@ -44,6 +44,10 @@ struct Options {
     bool showMissing = false;
     /// UTA-0256 SS 4.4: draw the recipe's added lamps. False: the map as it was made.
     bool addedLamps = true;
+    /// UTA-0021 SS 4.6: the landing marker and the take-off pitch, each the
+    /// player's own setting, on unless turned off.
+    bool landingMarker = true;
+    bool takeOffPitch = true;
     /// UTA-0153: a resizable window. Unset: borderless fullscreen at the desktop's size.
     bool windowed = false;
     /// UTA-0051: the quality tier. Unset: urender chooses from the device.

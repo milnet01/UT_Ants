@@ -174,6 +174,8 @@ TEST_CASE("UTA-0422: the launcher's viewer inherits every option it is given", "
     given.validation = true;
     given.showMissing = true;
     given.addedLamps = false;
+    given.landingMarker = false; // UTA-0021
+    given.takeOffPitch = false;
     given.windowed = true;
     given.tier = uta::urender::Tier::Medium;
     given.fov = 72.5;
@@ -187,6 +189,8 @@ TEST_CASE("UTA-0422: the launcher's viewer inherits every option it is given", "
     CHECK(parsed.options->validation);
     CHECK(parsed.options->showMissing);
     CHECK_FALSE(parsed.options->addedLamps);
+    CHECK_FALSE(parsed.options->landingMarker);
+    CHECK_FALSE(parsed.options->takeOffPitch);
     CHECK(parsed.options->windowed);
     CHECK(parsed.options->tier == uta::urender::Tier::Medium);
     CHECK(parsed.options->fov == 72.5);

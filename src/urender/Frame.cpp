@@ -724,6 +724,7 @@ struct Renderer::Impl {
     Buffer overlayPixels;
     std::uint64_t overlayPixelsHeld = 0; ///< texels of each colour in overlayPixels
     bool crosshair = false; ///< UTA-0019 SS 4.8, drawn with the overlay
+    double crosshairUp = 0; ///< UTA-0021 SS 4.5: of the half-height above the centre
     std::vector<OverlayLabel> overlayLabels; ///< UTA-0020 SS 4.6, drawn with the overlay
     /// UTA-0019 SS 4.8: the stand-in shapes setShapes holds; this frame's
     /// records of them, host-written and grown, never shrunk; the draws that
@@ -2243,7 +2244,7 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     OverlayLayout overlay;
     if (image) {
         overlay = layOutOverlay(overlayText, swapchain->extent().width, swapchain->extent().height, crosshair,
-                                overlayLabels);
+                                overlayLabels, crosshairUp);
         if (!overlay.empty()) UTA_CHECK(holdOverlayPixels(overlay.pixelCount()));
     }
 
@@ -2651,7 +2652,10 @@ void Renderer::setLinearOutput(bool enabled) noexcept { impl_->config.linearOutp
 
 void Renderer::setOverlayText(std::string text) { impl_->overlayText = std::move(text); }
 
-void Renderer::setCrosshair(bool shown) { impl_->crosshair = shown; }
+void Renderer::setCrosshair(bool shown, double up) {
+    impl_->crosshair = shown;
+    impl_->crosshairUp = up;
+}
 
 void Renderer::setOverlayLabels(std::vector<OverlayLabel> labels) { impl_->overlayLabels = std::move(labels); }
 

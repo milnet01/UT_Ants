@@ -25,6 +25,7 @@
 #include "ugame/WeaponSet.h"
 #include "uinput/Input.h"
 #include "urender/Renderer.h"
+#include "uui/Platforming.h"
 #include "uui/Wheel.h"
 #include "uworld/BodyCollision.h"
 
@@ -374,7 +375,9 @@ void Viewer::showOverlay() {
         if (wheel.isOpen())
             for (const auto& weapon : walker->set().weapons) names.push_back(weapon.name);
         renderer.setOverlayLabels(uta::uui::layOut(wheel, names));
-        renderer.setCrosshair(!wheel.isOpen());
+        // UTA-0021 SS 4.5: on the aim ray, which a tipped view moves up the screen.
+        renderer.setCrosshair(!wheel.isOpen(),
+                              walker->crosshairUp(start.camera.fov(), config.width, config.height));
     }
     if (text == overlayShown) return;
     renderer.setOverlayText(text);
@@ -431,6 +434,7 @@ void Viewer::toggleWalking() {
                    bundle.placements ? uta::uworld::Teleporters::fromPlacements(*bundle.placements)
                                      : uta::uworld::Teleporters{},
                    *weapons, std::move(spawns));
+    walker->setAssists({.landingMarker = options.landingMarker, .takeOffPitch = options.takeOffPitch});
     renderer.setCrosshair(true);
     // Walking, the triggers fire; the bottom face button and the shoulders
     // still jump and duck.
@@ -574,6 +578,9 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
         uta::urender::Camera view;
         if (viewer.walker) {
             const std::size_t dummies = viewer.walker->dummies();
+            if (viewer.config.height > 0)
+                viewer.walker->setViewShape(camera.fov(), static_cast<double>(viewer.config.width) /
+                                                              static_cast<double>(viewer.config.height));
             viewer.walker->update(input, seconds, *viewer.bodies);
             if (input.wasPressed(uta::uinput::Action::DropDummy))
                 std::cerr << (viewer.walker->dummies() > dummies ? "ut-ants: a dummy stands ahead\n"
@@ -581,7 +588,14 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
             view = viewer.walker->view(camera.fov(), viewer.config.width, viewer.config.height);
             // UTA-0020 SS 3 item 4: what the game simulates slows with it.
             viewer.standIns.advance(viewer.walker->gameSeconds(), viewer.walker->events());
-            viewer.renderer.setShapes(viewer.standIns.shapes(viewer.walker->game(), viewer.walker->set()));
+            std::vector<uta::urender::Shape> shapes =
+                viewer.standIns.shapes(viewer.walker->game(), viewer.walker->set());
+            if (const auto landing = viewer.walker->landing()) { // UTA-0021 SS 4.3
+                const uta::uworld::BodySize& size = viewer.walker->body().size;
+                shapes.push_back(uta::uui::landingMarker(
+                    {landing->location.x, landing->location.y, landing->location.z}, size.radius, size.halfHeight));
+            }
+            viewer.renderer.setShapes(shapes);
         } else {
             camera.update(input, seconds, level);
             view = camera.camera(viewer.config.width, viewer.config.height);

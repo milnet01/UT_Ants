@@ -65,8 +65,9 @@ bullet).
 | `src/uworld/Movement.h`, `.cpp` | `Landing`, `LANDING_HORIZON_TICKS`, `projectLanding` (§ 4.2) |
 | `src/uui/Platforming.h`, `.cpp` (new) | the marker's shape and the pitch's target and easing (§ 4.3, § 4.4) |
 | `src/urender/Overlay.h`, `.cpp`, `Renderer.h`, `Frame.cpp` | the crosshair's height (§ 4.5) |
-| `apps/ut-ants/Walker.h`, `.cpp`, `main.cpp`, `Cli.cpp` | projecting, tipping, the two flags (§ 4.6) |
-| `tests/unit/` | `MovementTest`, `ClientWalkerTest`, `RenderOverlayTest`, and a new `UiPlatformingTest` (§ 7) |
+| `apps/ut-ants/Walker.h`, `.cpp`, `main.cpp`, `Cli.h`, `Cli.cpp` | projecting, tipping, the two flags (§ 4.6) |
+| `tests/unit/` | `MovementTest`, `ClientWalkerTest`, `ClientCliTest`, `RenderOverlayTest`, and a new `UiPlatformingTest` (§ 7) |
+| `tests/real/RealMovementTest.cpp` | a hidden case timing `projectLanding` on a real map (§ 13) |
 
 ### 4.2 The arc (`uworld`)
 
@@ -169,7 +170,8 @@ struct Assists {
     bool takeOffPitch = true;
 };
 void setAssists(Assists assists) noexcept;
-[[nodiscard]] const std::optional<uworld::Landing>& landing() const noexcept;
+void setViewShape(double fov, double aspect) noexcept; ///< the drawn view's field and width over height
+[[nodiscard]] std::optional<uworld::Landing> landing() const noexcept;
 [[nodiscard]] double tip() const noexcept;      ///< degrees down, now
 [[nodiscard]] double crosshairUp(double fov, std::uint32_t width, std::uint32_t height) const noexcept;
 ```
@@ -186,8 +188,10 @@ In `Walker::update`, after the frame's ticks:
 
 `Walker::eye` and `Walker::view` draw at `pitch_` less the tip, clamped
 at `-FlyCamera::PITCH_LIMIT`. `pitch_`, and every command's `pitch`,
-never see the tip. `main.cpp` adds `landingMarker` to the shapes it
-sets and passes `crosshairUp` to `setCrosshair`. `Cli.cpp` adds
+never see the tip. `main.cpp` gives `setViewShape` the view's field and shape before each
+update, adds `landingMarker` to the shapes it sets and passes
+`crosshairUp` to `setCrosshair`. The launcher passes both flags on to
+the map it opens (`inheritedArguments`). `Cli.cpp` adds
 `--no-landing-marker` and `--no-take-off-pitch`, and its help names
 both. The fly camera has neither.
 
@@ -201,8 +205,9 @@ both. The fly camera has neither.
   the floor below, holding forward and a turned yaw.
   *Breaks when:* the projection integrates on its own, uses another
   `dt`, or keeps the jump bit (an air jump would lengthen the arc).
-  The held jump isolates the last: only the cleared bit stops the air
-  jump the fixture's rules allow.
+  The projection is given a fresh jump press from a state whose key
+  was let go, which isolates the last: only the cleared bit stops the
+  air jump the fixture's rules allow.
 
 - **INV-2** — `projectLanding` is nullopt for a Walking body and for a
   fall that meets no floor within `maxTicks`.
@@ -217,7 +222,8 @@ both. The fly camera has neither.
   commands, tick for tick, with both assists on as with both off, and
   its player's state is identical after each tick.
   *Test:* `tests/unit/ClientWalkerTest.cpp`, the same frames fed to two
-  walkers.
+  walkers; each tick compares `stateHash` and the body's aim, since a
+  shot that hits nothing leaves no trace in the hash.
   *Breaks when:* the tip is written into `pitch_` or a command's
   `pitch` (the shot would follow the tipped view, failing **S2**).
 
@@ -244,8 +250,9 @@ both. The fly camera has neither.
 - **INV-6** — With the marker off, `landing()` is always nullopt. With
   the pitch off, `tip()` is always 0.
   *Test:* `tests/unit/ClientWalkerTest.cpp`, a jump off a ledge with
-  each assist off.
-  *Breaks when:* a flag is read only at start, or one turns off both.
+  each assist off, and the pitch turned off mid-air.
+  *Breaks when:* a flag is read only at start, one turns off both, or
+  the pitch eases back instead of stopping.
 
 ## 6. Failure modes
 
@@ -270,6 +277,9 @@ Unit tier, label `unit`, on every leg of GitHub's matrix:
 - `ClientWalkerTest.cpp`: INV-3, INV-5's walker half, INV-6.
 - `UiPlatformingTest.cpp` (new): INV-4.
 - `RenderOverlayTest.cpp`: INV-5's layout half.
+
+`tests/real/RealMovementTest.cpp` holds a hidden case that prints
+`projectLanding`'s cost (§ 13). It asserts nothing about speed.
 
 Each new case is seen failing before its code lands. No file in
 `scripts/mutations/` covers `uworld`, `uui` or the walker, so each
@@ -327,7 +337,11 @@ reviews). Building it is the reviewer. Record:
 ## 13. Resource cost
 
 While the body is in the air, each update that runs a tick runs up to
-`LANDING_HORIZON_TICKS` movement ticks for the projection. Unmeasured.
-The implementing session times `projectLanding`'s worst case on a large
-map and records it here; over 0.2 ms a frame, it projects every other
-tick instead.
+`LANDING_HORIZON_TICKS` movement ticks for the projection.
+
+Measured 2026-11-17 on DM-Deck16][, with every core busy (load
+average 12 on 12 cores), so likely high: 2.5 µs a tick, 0.43 ms for a
+full horizon. A fall that finds a floor stops early. Re-run on a quiet
+machine with `uta_real_asset_tests "[timing]"` (the real-asset tier).
+Projecting every other tick, the fallback this section first named,
+was not taken: it halves the average but not the slowest frame.

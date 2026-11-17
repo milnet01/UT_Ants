@@ -8,9 +8,12 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <numbers>
+#include <utility>
 #include <vector>
 
 using uta::uinput::Frame;
@@ -145,4 +148,108 @@ TEST_CASE("UTA-0020 INV-8: the open wheel holds the view and the triggers and a 
     CHECK(picked);
     CHECK_FALSE(walker.wheel().isOpen());
     CHECK(walker.game().timeScale == 1);
+}
+
+// docs/specs/UTA-0021-landing-marker.md INV-3, INV-5 and INV-6: the landing
+// marker and the take-off pitch, on a walker running off a shelf 600 high.
+namespace {
+
+uta::uworld::BodyWorld shelfWorld() {
+    uta::ubundle::Collision collision;
+    collision.level = solidBlocks({box({-2000, -2000, -64}, {2000, 2000, 0}), box({-2000, -2000, 0}, {0, 2000, 600})});
+    auto world = uta::uworld::BodyWorld::build(collision, {});
+    REQUIRE(world.has_value());
+    return std::move(*world);
+}
+
+/// A walker on the shelf, facing its edge (+X), standing.
+Walker onTheShelf(const uta::uworld::BodyWorld& world, Walker::Assists assists) {
+    auto set = uta::ugame::load(uta::ugame::shippedDirectory() / "stock.weapons");
+    REQUIRE(set.has_value());
+    Walker walker({-60, 0, 700}, 0, 0, {}, *set);
+    walker.setAssists(assists);
+    for (int frame = 0; frame < 60; ++frame) walker.update({}, 1.0 / 60, world);
+    REQUIRE(walker.state().physics == uta::uworld::Physics::Walking);
+    return walker;
+}
+
+/// Frame `n` of the run: forward, a jump on frame 3, fire held, a turn now and then.
+Frame runFrame(int n) {
+    Frame frame;
+    frame.forward = 1;
+    frame.up = n == 3 ? 1.0f : 0.0f;
+    frame.fire = true;
+    frame.lookRight = n % 20 == 0 ? 300 : 0;
+    return frame;
+}
+
+} // namespace
+
+TEST_CASE("UTA-0021 INV-3: the assists change no game state") {
+    const auto world = shelfWorld();
+    Walker on = onTheShelf(world, {});
+    Walker off = onTheShelf(world, {.landingMarker = false, .takeOffPitch = false});
+    REQUIRE(uta::ugame::stateHash(on.game()) == uta::ugame::stateHash(off.game()));
+    double mostTip = 0;
+    for (int n = 0; n < 170; ++n) {
+        on.update(runFrame(n), 1.0 / 85, world);
+        off.update(runFrame(n), 1.0 / 85, world);
+        mostTip = std::max(mostTip, on.tip());
+        REQUIRE(uta::ugame::stateHash(on.game()) == uta::ugame::stateHash(off.game()));
+        // The aim each command carried: a shot that hits nothing leaves no trace in the hash.
+        REQUIRE(on.body().pitch == off.body().pitch);
+        REQUIRE(on.body().yaw == off.body().yaw);
+    }
+    CHECK(mostTip > 5); // the run did tip the view while it fired
+}
+
+TEST_CASE("UTA-0021 INV-5: the crosshair sits on the aim ray of a tipped view") {
+    const auto world = shelfWorld();
+    Walker walker = onTheShelf(world, {});
+    walker.setViewShape(90, 1920.0 / 1080);
+    int n = 0;
+    while (walker.tip() < 5 && n < 170) walker.update(runFrame(n++), 1.0 / 85, world);
+    REQUIRE(walker.tip() >= 5);
+    CHECK(walker.body().pitch == 0); // the aim stays level
+
+    const auto camera = walker.view(90, 1920, 1080);
+    const double aim = walker.body().pitch * 2 * std::numbers::pi / 65536;
+    const double drawn = camera.rotation[0] * 2 * std::numbers::pi / 65536;
+    REQUIRE(drawn < aim);
+    // The aim's direction in the drawn camera's frame, projected.
+    const double ahead = std::cos(aim) * std::cos(drawn) + std::sin(aim) * std::sin(drawn);
+    const double up = -std::cos(aim) * std::sin(drawn) + std::sin(aim) * std::cos(drawn);
+    const double halfHeight = camera.verticalFovDegrees * std::numbers::pi / 360;
+    CHECK(std::abs(walker.crosshairUp(90, 1920, 1080) - up / ahead / std::tan(halfHeight)) < 1e-6);
+    CHECK(walker.crosshairUp(90, 1920, 1080) > 0.1);
+}
+
+TEST_CASE("UTA-0021 INV-6: each assist turns off alone") {
+    const auto world = shelfWorld();
+    Walker both = onTheShelf(world, {});
+    Walker noMarker = onTheShelf(world, {.landingMarker = false, .takeOffPitch = true});
+    Walker noPitch = onTheShelf(world, {.landingMarker = true, .takeOffPitch = false});
+    bool landed = false, markerSeen = false, tipped = false;
+    for (int n = 0; n < 170; ++n) {
+        both.update(runFrame(n), 1.0 / 85, world);
+        noMarker.update(runFrame(n), 1.0 / 85, world);
+        noPitch.update(runFrame(n), 1.0 / 85, world);
+        landed = landed || both.landing().has_value();
+        CHECK_FALSE(noMarker.landing().has_value());
+        CHECK(noPitch.tip() == 0);
+        markerSeen = markerSeen || noPitch.landing().has_value();
+        tipped = tipped || noMarker.tip() > 1;
+    }
+    CHECK(landed);
+    CHECK(markerSeen); // the pitch off leaves the marker
+    CHECK(tipped);     // the marker off leaves the pitch
+
+    // Turned off mid-air, the view is straight at once, not eased back.
+    Walker late = onTheShelf(world, {});
+    int n = 0;
+    while (late.tip() < 5 && n < 170) late.update(runFrame(n++), 1.0 / 85, world);
+    REQUIRE(late.tip() >= 5);
+    late.setAssists({.landingMarker = true, .takeOffPitch = false});
+    late.update(runFrame(n), 1.0 / 85, world);
+    CHECK(late.tip() == 0);
 }

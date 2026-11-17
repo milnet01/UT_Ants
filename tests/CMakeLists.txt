@@ -115,6 +115,7 @@ add_executable(uta_unit_tests
     unit/ShotCliTest.cpp
     unit/TimingTest.cpp
     unit/UiWheelTest.cpp
+    unit/UiPlatformingTest.cpp
     unit/PackageAncestryTest.cpp
     unit/PackageBuilderTest.cpp
     unit/PackageClassTest.cpp

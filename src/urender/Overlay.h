@@ -67,8 +67,10 @@ inline constexpr std::string_view OVERLAY_CHARACTERS = "0123456789ABCDEFGHIJKLMN
 /// image; the crosshair when it would not fit, or would touch the text's box.
 /// Then each of `labels`, sized the same way; one is left out where its box
 /// would leave the image or touch the text's box, the crosshair or an
-/// earlier label.
+/// earlier label. UTA-0021 SS 4.5: the crosshair's centre sits `crosshairUp`
+/// of the image's half-height above the image's centre.
 [[nodiscard]] OverlayLayout layOutOverlay(std::string_view text, std::uint32_t width, std::uint32_t height,
-                                          bool crosshair = false, std::span<const OverlayLabel> labels = {});
+                                          bool crosshair = false, std::span<const OverlayLabel> labels = {},
+                                          double crosshairUp = 0);
 
 } // namespace uta::urender

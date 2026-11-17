@@ -2,6 +2,8 @@
 
 #include "Walker.h"
 
+#include "uui/Platforming.h"
+
 #include <algorithm>
 #include <cmath>
 #include <numbers>
@@ -245,6 +247,39 @@ void Walker::update(const uinput::Frame& input, double seconds, const uworld::Bo
             previousEyeHeight_ = eyeHeight_;
         }
     }
+
+    // UTA-0021 SS 4.6: where the body lands, after this frame's ticks, and
+    // how far the drawn view tips to show it, eased on the wall clock.
+    const ugame::Body& self = game_.bodies[0];
+    if (due > 0) {
+        projected_ = assists_.landingMarker || assists_.takeOffPitch
+                         ? uworld::projectLanding(world, self.size, rules_, self.move, command, clock_.dt())
+                         : std::nullopt;
+    }
+    double target = 0;
+    if (assists_.takeOffPitch && projected_ && zoomLevel_ == 0) { // a moving crosshair would spoil a zoomed shot
+        const uworld::Vec3& at = self.move.location;
+        const uworld::Vec3& lands = projected_->location;
+        target = uui::tipTarget({at.x, at.y, at.z + eyeHeight_}, pitch_, yaw_,
+                                {lands.x, lands.y, lands.z - self.size.halfHeight}, viewFov_, viewAspect_);
+    }
+    tip_ = assists_.takeOffPitch ? uui::easeTip(tip_, target, seconds) : 0;
+}
+
+void Walker::setViewShape(double fov, double aspect) noexcept {
+    if (fov > 0) viewFov_ = fov;
+    if (aspect > 0) viewAspect_ = aspect;
+}
+
+std::int32_t Walker::drawnPitch() const noexcept {
+    return units(std::max(pitch_ - tip_ * 65536.0 / 360, -double(FlyCamera::PITCH_LIMIT)));
+}
+
+double Walker::crosshairUp(double fov, std::uint32_t width, std::uint32_t height) const noexcept {
+    const double tipped = (units(pitch_) - drawnPitch()) * 2 * std::numbers::pi / 65536;
+    if (tipped <= 0 || width == 0 || height == 0) return 0;
+    const double halfHeight = view(fov, width, height).verticalFovDegrees * std::numbers::pi / 360;
+    return std::tan(tipped) / std::tan(halfHeight);
 }
 
 FlyCamera Walker::eye(double fov) const noexcept {
@@ -253,7 +288,7 @@ FlyCamera Walker::eye(double fov) const noexcept {
     const uworld::Vec3 at = previous_.location + (now - previous_.location) * blend;
     const double eyeHeight = previousEyeHeight_ + (eyeHeight_ - previousEyeHeight_) * blend;
     FlyCamera view({static_cast<float>(at.x), static_cast<float>(at.y), static_cast<float>(at.z + eyeHeight)},
-                   units(pitch_), units(yaw_));
+                   drawnPitch(), units(yaw_));
     view.setFov(fov);
     return view;
 }

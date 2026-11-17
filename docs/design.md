@@ -47,7 +47,7 @@ enforced, not merely described — see *What may depend on what*.
 | `unet` | Transport, replication, server discovery and query, and content transfer against a fingerprint manifest |
 | `uai` | Bots. Navigation, combat, and the planner that gets them through door puzzles |
 | `ugame` | The rules. Deathmatch, Team Deathmatch, Monster Hunt, weapons, monsters, pickups, mutators, chat, map voting. The only part that knows what a frag is. Its first code is the weapon set, read from `weapons/` (UTA-0019) |
-| `uui` | Menus, HUD, scoreboard, settings, the weapon wheel, the between-match map browser, and the level-map screen. Its first code is the weapon wheel's pointing and ring (UTA-0020) |
+| `uui` | Menus, HUD, scoreboard, settings, the weapon wheel, the between-match map browser, and the level-map screen. Its first code is the weapon wheel's pointing and ring (UTA-0020), then the landing marker and the take-off pitch (UTA-0021) |
 
 ### Tools — not runtime targets
 

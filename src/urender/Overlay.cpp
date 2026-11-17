@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstddef>
 
 namespace uta::urender {
@@ -136,15 +137,21 @@ void layOutText(OverlayLayout& layout, std::string_view text, std::uint32_t widt
         layOutLine(layout, lines[r], backing.x + pad, backing.y + pad + r * lineAdvance, scale);
 }
 
-/// Four arms about the image's centre, apart so no two edges touch, each a
-/// white bar inside a black one.
-void layOutCrosshair(OverlayLayout& layout, std::uint32_t width, std::uint32_t height, std::uint32_t scale) {
+/// Four arms about the image's centre, raised `up` of the half-height
+/// (UTA-0021 SS 4.5), apart so no two edges touch, each a white bar inside a
+/// black one.
+void layOutCrosshair(OverlayLayout& layout, std::uint32_t width, std::uint32_t height, std::uint32_t scale,
+                     double up) {
     const std::uint32_t length = ARM_LENGTH * scale;
     const std::uint32_t gap = ARM_GAP * scale;
     const std::uint32_t thickness = ARM_THICKNESS * scale;
     const std::uint32_t edge = std::max<std::uint32_t>(1, scale / 2);
     const std::uint32_t reach = gap + length + edge;
-    const std::uint32_t cx = width / 2, cy = height / 2;
+    const std::uint32_t half = height / 2; // the centre pixel's row
+    const double row = std::round(half - up * half);
+    if (!(row >= reach)) return; // raised off the top, or not a number
+    const std::uint32_t cx = width / 2;
+    const auto cy = static_cast<std::uint32_t>(std::min(row, double(height)));
     if (cx < reach || cy < reach || cx + 1 + reach > width || cy + 1 + reach > height) return;
     // Symmetric about the centre pixel (cx, cy): each arm starts `gap` pixels
     // past it, and a bar's `thickness` rows (or columns) are centred on it.
@@ -220,12 +227,12 @@ std::uint64_t OverlayLayout::pixelCount() const noexcept {
 }
 
 OverlayLayout layOutOverlay(std::string_view text, std::uint32_t width, std::uint32_t height, bool crosshair,
-                            std::span<const OverlayLabel> labels) {
+                            std::span<const OverlayLabel> labels, double crosshairUp) {
     OverlayLayout layout;
     // Two image pixels per font pixel at 720 lines, three at 1440, four at 2160.
     const std::uint32_t scale = std::max<std::uint32_t>(2, height / 480);
     layOutText(layout, text, width, height, scale);
-    if (crosshair) layOutCrosshair(layout, width, height, scale);
+    if (crosshair) layOutCrosshair(layout, width, height, scale, crosshairUp);
     layOutLabels(layout, labels, width, height, scale);
     return layout;
 }

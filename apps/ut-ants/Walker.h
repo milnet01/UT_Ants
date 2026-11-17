@@ -11,6 +11,9 @@
 // wheel, which the frame points; letting go picks. While it is open, a lone
 // player's game runs slowed, and the clock follows it.
 //
+// docs/specs/UTA-0021-landing-marker.md SS 4.6: in the air, where the body
+// will land, and the drawn view tipped down to show it; the aim stays put.
+//
 // No SDL here, so the unit tests can drive it.
 
 #pragma once
@@ -101,6 +104,27 @@ public:
     /// The share of the view the zoom leaves: 1 with none.
     [[nodiscard]] double zoom() const noexcept { return 1 - zoomLevel_ * ZOOM_NARROWS; }
 
+    /// docs/specs/UTA-0021-landing-marker.md SS 4.6: the player's visual
+    /// platforming assists, each on by default. Neither changes a command.
+    struct Assists {
+        bool landingMarker = true;
+        bool takeOffPitch = true;
+    };
+    void setAssists(Assists assists) noexcept { assists_ = assists; }
+    /// The drawn view's horizontal field of view and width over height,
+    /// which the take-off pitch frames the landing in.
+    void setViewShape(double fov, double aspect) noexcept;
+    /// Where the body lands, from the last tick: none while walking, past
+    /// the horizon, or with the marker off.
+    [[nodiscard]] std::optional<uworld::Landing> landing() const noexcept {
+        return assists_.landingMarker ? projected_ : std::nullopt;
+    }
+    /// Degrees the drawn view tips below the aim now.
+    [[nodiscard]] double tip() const noexcept { return tip_; }
+    /// The crosshair's height for `view(fov, width, height)`: the aim ray's,
+    /// as a share of the half-height above the image's centre.
+    [[nodiscard]] double crosshairUp(double fov, std::uint32_t width, std::uint32_t height) const noexcept;
+
 private:
     uworld::FixedTick clock_;
     uworld::DoubleTap tap_;
@@ -125,7 +149,14 @@ private:
     /// The eye above the body's centre after the last two ticks: it lags a
     /// step up or down and eases back to EYE_HEIGHT (spec SS 4.8).
     double eyeHeight_ = EYE_HEIGHT, previousEyeHeight_ = EYE_HEIGHT;
-    double pitch_, yaw_; ///< UT angle units, as FlyCamera keeps them
+    double pitch_, yaw_; ///< UT angle units, as FlyCamera keeps them; the aim, never tipped
+    Assists assists_;
+    std::optional<uworld::Landing> projected_; ///< the last tick's landing, kept for either assist
+    double tip_ = 0;                           ///< degrees, eased on the wall clock
+    double viewFov_ = FlyCamera::DEFAULT_FOV, viewAspect_ = 16.0 / 9.0;
+
+    /// The pitch the view is drawn at: the aim less the tip, in UT units.
+    [[nodiscard]] std::int32_t drawnPitch() const noexcept;
 
     [[nodiscard]] ugame::Body armed(const Spawn& at) const;
     void respawn();

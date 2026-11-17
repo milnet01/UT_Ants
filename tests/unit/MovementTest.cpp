@@ -245,6 +245,58 @@ TEST_CASE("UTA-0017: walking off a ledge keeps its speed into the fall") {
     CHECK(s.velocity.x > RULES.groundSpeed - 1);
 }
 
+TEST_CASE("UTA-0021 INV-1: projectLanding predicts the real landing exactly") {
+    // A shelf 100 high ending at x = 100; the body jumps off it running.
+    const auto world = levelOf({box({-500, -500, 0}, {100, 500, 100})});
+    MoveRules rules = RULES;
+    rules.airJumps = 1; // so a kept jump bit would jump again and lengthen the arc
+    MoveCommand held = forward();
+    held.strafe = 0.5;
+    held.yaw = 2048;
+    MoveCommand takeOff = held;
+    takeOff.jump = true;
+
+    MoveState s = standingAt(60, 0, 100);
+    s.velocity = {RULES.groundSpeed, 0, 0};
+    s = tick(world, BODY, rules, s, takeOff, DT);
+    REQUIRE(s.physics == Physics::Falling);
+    s = tick(world, BODY, rules, s, held, DT); // the jump key is let go
+    REQUIRE(!s.jumpHeld);
+
+    // Projected with a fresh jump press in the command: only clearing the bit
+    // keeps the air jump out, as the real run below never makes one.
+    MoveCommand pressed = held;
+    pressed.jump = true;
+    const auto landing = projectLanding(world, BODY, rules, s, pressed, DT);
+
+    MoveState real = s;
+    int ticks = 0;
+    while (real.physics == Physics::Falling && ticks < 1000) {
+        real = tick(world, BODY, rules, real, held, DT);
+        ++ticks;
+    }
+    REQUIRE(real.physics == Physics::Walking);
+    CHECK(real.location.z < 100); // it cleared the shelf and landed on the floor
+    REQUIRE(landing.has_value());
+    CHECK(landing->ticks == ticks);
+    CHECK(landing->location.x == real.location.x);
+    CHECK(landing->location.y == real.location.y);
+    CHECK(landing->location.z == real.location.z);
+}
+
+TEST_CASE("UTA-0021 INV-2: no landing for a walking body, or past the horizon") {
+    const auto world = levelOf({});
+    CHECK_FALSE(projectLanding(world, BODY, RULES, standingAt(0, 0), {}, DT).has_value());
+
+    MoveState high = standingAt(0, 0, 500);
+    high.physics = Physics::Falling;
+    CHECK_FALSE(projectLanding(world, BODY, RULES, high, {}, DT, 10).has_value());
+    // The same fall lands inside the default horizon, so the 10 is what refused it.
+    const auto landing = projectLanding(world, BODY, RULES, high, {}, DT);
+    REQUIRE(landing.has_value());
+    CHECK(std::abs(landing->location.z - STANDING) < 1);
+}
+
 TEST_CASE("UTA-0017 INV-7: a fixed script over a level with a turning mover hashes to one constant") {
     // Walls turned by Pythagorean triples, never by std::sin, and a door
     // turned by placeMover, whose sine is core::sineOf (BodyCollisionTest's

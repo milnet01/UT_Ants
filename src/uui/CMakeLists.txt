@@ -1,8 +1,9 @@
 # uui -- the menus and the HUD (docs/design.md § The parts). Its first code is
 # the weapon wheel's pointing and ring, docs/specs/UTA-0020-weapon-wheel.md
-# SS 4.6.
+# SS 4.6. Then the landing marker and the take-off pitch,
+# docs/specs/UTA-0021-landing-marker.md SS 4.3 and 4.4.
 
-add_library(uta_uui STATIC Wheel.cpp)
+add_library(uta_uui STATIC Wheel.cpp Platforming.cpp)
 target_include_directories(uta_uui PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
 target_link_libraries(uta_uui PUBLIC uta_core uta_uinput uta_urender)
 
