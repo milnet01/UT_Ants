@@ -18946,7 +18946,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: design-2026-09-03.
   Lanes: ugame.
 
-- 🚧 [UTA-0020] **The weapon wheel, and whether it pauses or slows time.**
+- ✅ [UTA-0020] **The weapon wheel, and whether it pauses or slows time.**
   ugame owns what is in the wheel; uui owns how it is drawn (rule 13).
   The pause-or-slow-time question is settled at the START of this release,
   against a prototype, and before the tick is finished -- a time scale the server
@@ -18968,6 +18968,12 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   (R1 and Q hold the wheel, user 2026-11-17). Next: build it. The
   prototype branch stays until the build has copied its overlay-label
   code, then goes.
+  2026-11-17: built at 946d445, green on GitHub's matrix (GCC, Clang,
+  MSVC). INV-1 to INV-10 tested; mutations in
+  scripts/mutations/ugame-wheel.py, the rest by hand, all killed. Left
+  to the user: whether the wheel feels right on a pad (spec § 10). The
+  prototype worktree is removed; branch wheel-proto is kept pending the
+  user's say, as it holds the only copy.
   **Layman:** Pick a gun from a wheel instead of scrolling through them one at a time.
   Kind: implement.
   Source: design-2026-09-03.
