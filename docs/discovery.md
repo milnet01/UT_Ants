@@ -170,4 +170,5 @@ half fails the sign.
   Blender or its equivalents; this project imports them and sets them up.
 - **No ray tracing required.** The visual target is reachable on the
   hardware that exists — dynamic lights, shadow maps, baked bounce light,
-  volumetrics. Ray tracing is not a goal and is not a fallback plan.
+  volumetrics. A traced effect may be a setting on top, only where the
+  game still holds 60 fps on High (user, 2026-11-17).

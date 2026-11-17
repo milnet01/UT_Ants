@@ -428,11 +428,11 @@ without Vulkan 1.3 does not run this. No compiler older than GCC 14,
 Clang 19 or MSVC 19.40 (Visual Studio 2022 17.10) -- Clang 18 reports
 `__cpp_concepts` as 201907L, and libstdc++ gates `std::expected` on
 202002L, so it compiles the header away and this project cannot build
-under it at all. And ray tracing is
-neither required nor planned — the
-visual target is reached with shadow maps, baked indirect light and
-volumetrics, so no feature may be designed on the assumption that rays
-are available.
+under it at all. And ray tracing while the game runs is never
+required — the visual target is reached with shadow maps, baked
+indirect light and volumetrics, so every feature works without rays. A
+traced effect may sit on top as a setting, only where the game still
+holds 60 fps on High, since it is played online (user, 2026-11-17).
 
 ## Decided later, deliberately
 

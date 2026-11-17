@@ -23452,6 +23452,11 @@ docs/standards/versioning-overrides.md. Closes S8.
   map for the flashlight only. So a route for this project without rays
   takes the cheap ladder's IDEA -- cull, then sample a few lights per
   pixel by importance -- and applies it to shadow-mapped lights.
+  Settled (user, 2026-11-17): the design.md constraint above is
+  lifted. Ray tracing while the game runs is still never required, but a
+  traced effect may be a setting on top where 60 fps on High holds.
+  ExperiRays (/mnt/Games/Scripts/Linux/ExperiRays) now experiments on
+  this item's problem for all three engines.
   **Layman:** A room full of lamps should light and shadow everything at once without slowing the game down.
   Kind: feature.
   Source: user-request-2026-09-14.

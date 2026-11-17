@@ -27,7 +27,7 @@ share: how a light's UT99 numbers become light at a point.
    collision. ADR-0002 lists baked indirect light among what a bundle carries.
    `docs/design.md` § The stack, and what it rules out, says the visual target
    is reached with shadow maps, baked indirect light and volumetrics, with ray
-   tracing neither required nor planned. The rays § 4.7 casts are the baker's
+   tracing never required. The rays § 4.7 casts are the baker's
    own arithmetic on the CPU, at bake time; no graphics card traces them.
 2. **UTA-0014 draws direct light only.** Its body: the level's light actors
    *"become real dynamic lights with shadow maps"*. Light bouncing off a wall
