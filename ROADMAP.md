@@ -19031,7 +19031,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: design-2026-09-03.
   Lanes: uworld.
 
-- 🚧 [UTA-0056] **uaudio: the mixer, with a priority rule that keeps speech audible.**
+- ✅ [UTA-0056] **uaudio: the mixer, with a priority rule that keeps speech audible.**
   `uaudio` has no item until this one: the design names the part
   (`docs/design.md` § The parts -- "Sound playback, positional mixing,
   music") and nothing in the queue built it. Filed because a requirement
@@ -19093,6 +19093,11 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   fixed gain dip on every group below speech, not a compressor; the dip
   recovers in about half a second; on by default, with a player switch
   to turn it off and a slider for its depth.
+  Shipped 2026-11-17 in 22689aa, green on GitHub's matrix (run 44129555073).
+  src/uaudio (Wav, Mixer), the client's SDL3 device (apps/ut-ants/Audio),
+  ut-mix and RealMixTest. At defaults on the install's sounds: speech
+  margin 10.2 dB, limiter 3.3 dB, 3 impact voices (targets 6, 6, 4).
+  Nothing plays in the game until UTA-0478.
   **Layman:** Make sure the important sounds -- the announcer, warnings -- are still audible when a loud weapon is firing, instead of being buried.
   Kind: implement.
   Source: user-request-2026-09-05.
@@ -24308,6 +24313,11 @@ docs/standards/versioning-overrides.md. Closes S8.
   Waiting-on: EXRAY-0012, the lab's glTF reader, for the item's own
   proof: loading the export through it. ExperiRays will send the
   command when it lands.
+  2026-11-17, from ExperiRays' EXRAY-0003 review: EXRAY-0001 § 4.6 moves
+  a mover through the camera path, as a per-frame "nodes" entry keyed by
+  its xr.id; the scene holds only its rest transform. writeCameraPath
+  emits actors only, so movers would sit at rest. Add per-frame mover
+  entries before running EXRAY-0012's load command.
   **Layman:** Write a map out in the shared scene format another project's lighting lab reads, so it can test lighting ideas on our maps.
   Kind: feature.
   Source: peer-experirays-2026-11-17.

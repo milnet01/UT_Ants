@@ -1,7 +1,7 @@
 <!-- ants-spec-format: 1 -->
 # UTA-0056 — mix the game's sounds so speech stays audible
 
-**Status:** accepted (2026-11-17), unreviewed. Contract reviews are cancelled for this project (`CLAUDE.md` § Contract reviews); building it is the reviewer.
+**Status:** shipped (2026-11-17), green on the matrix. No review: contract reviews are cancelled for this project (`CLAUDE.md` § Contract reviews); building it was the reviewer.
 **Kind:** implement.
 **Source:** ROADMAP UTA-0056 (user-request-2026-09-05, widened 2026-09-08).
 **Blocker for:** UTA-0467.  **Pairs with:** UTA-0478.
