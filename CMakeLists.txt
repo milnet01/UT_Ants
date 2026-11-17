@@ -114,8 +114,11 @@ endif()
 # did nothing until the numbers stop matching across machines, which is
 # exactly the failure this whole contract exists to prevent. Same idiom as
 # the compiler-version checks above and the UTA_SANITIZE check below: explain
-# why, then fail fast.
-set(_uta_unsafe_fp_pattern "(-ffast-math|-Ofast|/fp:fast|-ffp-contract=fast)")
+# why, then fail fast. Ordering cannot save MSVC's /fp:contract at all: it is
+# an opt-in that holds alongside /fp:precise rather than a mode /fp:precise
+# replaces (UTA-0477). -ffp-contract=on is GCC's and Clang's other enabling
+# value.
+set(_uta_unsafe_fp_pattern "(-ffast-math|-Ofast|/fp:fast|/fp:contract|-ffp-contract=fast|-ffp-contract=on)")
 foreach(_uta_fp_flags_var IN ITEMS
         CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
         CMAKE_CXX_FLAGS_RELWITHDEBINFO CMAKE_CXX_FLAGS_MINSIZEREL)

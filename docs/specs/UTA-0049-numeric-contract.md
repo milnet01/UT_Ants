@@ -185,8 +185,9 @@ against each invariant.
 ### 4.3 The refuse guard
 
 If `CMAKE_CXX_FLAGS` or any of `CMAKE_CXX_FLAGS_{DEBUG,RELEASE,
-RELWITHDEBINFO,MINSIZEREL}` matches `-ffast-math`, `-Ofast`, `/fp:fast` or
-`-ffp-contract=fast`, configuration fails with `message(FATAL_ERROR ...)`
+RELWITHDEBINFO,MINSIZEREL}` matches `-ffast-math`, `-Ofast`, `/fp:fast`,
+`/fp:contract`, `-ffp-contract=fast` or `-ffp-contract=on`, configuration
+fails with `message(FATAL_ERROR ...)`
 naming the offending variable and value. §8 is the alternatives-considered
 reasoning for why this exists rather than relying on flag ordering alone.
 
@@ -383,3 +384,4 @@ disagreement it exists to catch.
 | Loop | Date | Lanes | Q1 | Q2 | Q3 | Q4 | Outcome |
 |------|------|-------|----|----|----|----|---------|
 | amend | 2026-11-17 | none dispatched | — | — | — | — | § 2 and § 4.2: `/fp:contract-` does not exist; MSVC takes `/fp:precise` alone, as `CMakeLists.txt` does. ExperiRays found the stale text. |
+| amend | 2026-11-17 | none dispatched | — | — | — | — | § 4.3 (UTA-0477): the guard also refuses `/fp:contract` and `-ffp-contract=on`. Seen getting past it before the change, and refused after. |

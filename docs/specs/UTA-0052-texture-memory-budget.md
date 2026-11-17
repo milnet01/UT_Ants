@@ -190,7 +190,7 @@ in the form `src/ubundle/CMakeLists.txt` uses for UTA-0008's INV-10 — naming
 what is permitted rather than forbidding all, so neither fails the moment a
 line above is legitimately needed. The first is the link list (INV-12). The
 second is `uta_umat`'s `COMPILE_OPTIONS`, which must carry no entry matching
-the root guard's own pattern, `(-ffast-math|-Ofast|/fp:fast|-ffp-contract=fast)`
+the root guard's own pattern, `(-ffast-math|-Ofast|/fp:fast|/fp:contract|-ffp-contract=fast|-ffp-contract=on)`
 (INV-8).
 
 **That pattern is the root guard's verbatim, and matching a wider one would
@@ -781,7 +781,7 @@ in from elsewhere would otherwise encode nothing and succeed.
   compiles, the vendored sources included.
   *Test:* `src/umat/CMakeLists.txt` reads `uta_umat`'s `COMPILE_OPTIONS`
   property and stops with a `FATAL_ERROR` where any entry matches the root
-  guard's own pattern, `(-ffast-math|-Ofast|/fp:fast|-ffp-contract=fast)` —
+  guard's own pattern, `(-ffast-math|-Ofast|/fp:fast|/fp:contract|-ffp-contract=fast|-ffp-contract=on)` —
   the assertion form `src/ubundle/CMakeLists.txt` uses for UTA-0008's INV-10.
   **Prove it by breaking it once**: add `target_compile_options(uta_umat
   PRIVATE -ffast-math)` and configure, which must stop. No arrow: the file
