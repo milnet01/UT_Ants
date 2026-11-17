@@ -72,7 +72,7 @@ to `-S` assembly or run directly), on this machine, 2026-09-04: GCC
   this spec does not lean on that ordering alone.
 - **MSVC's spellings could not be verified by compiling** — this machine
   has no MSVC, and `ssh wintest` (this project's Windows box) can run
-  binaries but cannot build. `/fp:precise`, `/fp:contract-` and `/fp:fast`
+  binaries but cannot build. `/fp:precise`, `/fp:contract` and `/fp:fast`
   are taken from Microsoft's own documented behaviour ("`/fp:contract` …
   is enabled by `/fp:fast`, and disabled by `/fp:precise` and
   `/fp:strict`"), stated explicitly here as unverified-by-compilation so
@@ -177,8 +177,10 @@ against each invariant.
   bundle — redundant with the defaults §2 measured, but explicit rather
   than assumed, matching this file's existing style of not trusting a
   compiler default silently).
-- **MSVC:** `/fp:precise` and `/fp:contract-`, both explicit rather than
-  relied on as the default (§2's unverified-by-compilation note applies).
+- **MSVC:** `/fp:precise` alone, explicit rather than relied on as the
+  default. It stops contraction from Visual Studio 2022 on, the project's
+  floor. `/fp:contract` is the opt-in and has no minus form, so there is no
+  second flag (§2's unverified-by-compilation note applies).
 
 ### 4.3 The refuse guard
 
@@ -380,3 +382,4 @@ disagreement it exists to catch.
 
 | Loop | Date | Lanes | Q1 | Q2 | Q3 | Q4 | Outcome |
 |------|------|-------|----|----|----|----|---------|
+| amend | 2026-11-17 | none dispatched | — | — | — | — | § 2 and § 4.2: `/fp:contract-` does not exist; MSVC takes `/fp:precise` alone, as `CMakeLists.txt` does. ExperiRays found the stale text. |
