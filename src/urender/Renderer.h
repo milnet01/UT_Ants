@@ -21,6 +21,7 @@
 
 #include "core/Error.h"
 #include "ubundle/Bundle.h"
+#include "urender/Overlay.h"
 #include "urender/Shapes.h"
 
 #include <array>
@@ -233,6 +234,10 @@ public:
     /// frame, white with a black edge, drawn as the overlay text is and so
     /// never seen by readback.
     void setCrosshair(bool shown);
+
+    /// UTA-0020 SS 4.6: `labels` drawn with the overlay in every later frame,
+    /// until set again; on the presented image only, as the text is.
+    void setOverlayLabels(std::vector<OverlayLabel> labels);
 
     /// UTA-0019 SS 4.8: draw `shapes` in every later frame, until set again.
     /// Empty draws nothing. Flat and unlit, depth-tested against the level,

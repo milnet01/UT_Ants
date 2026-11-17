@@ -55,6 +55,7 @@ enum class Action : std::uint8_t {
     Weapon9,
     Weapon0,
     DropDummy, ///< UTA-0019 SS 4.8: stands a target dummy ahead
+    Wheel,     ///< UTA-0020 SS 4.7: held, the weapon wheel is open
     Count
 };
 inline constexpr std::size_t ACTION_COUNT = static_cast<std::size_t>(Action::Count);
@@ -74,6 +75,7 @@ enum class Key : std::uint16_t {
     G = 10,
     H = 11,
     P = 19,
+    Q = 20,
     S = 22,
     T = 23,
     W = 26,
@@ -171,12 +173,12 @@ struct Bindings {
 };
 
 /// The built-in bindings: W, A, S and D or the left stick move; Space, Cross
-/// or the right trigger or shoulder are Up; Ctrl or the left trigger or
-/// shoulder are Down; Shift or pressing the left stick walks; Circle dodges;
-/// the left and right mouse buttons fire and alt-fire; the number row picks a
-/// weapon and the wheel or the D-pad's left and right steps through them; T
-/// or the D-pad's up drops a dummy; and the viewer's keys as
-/// apps/ut-ants/Cli.cpp's help lists them.
+/// or the right trigger are Up; Ctrl or the left trigger or shoulder are
+/// Down; Shift or pressing the left stick walks; Circle dodges; the left and
+/// right mouse buttons fire and alt-fire; the number row picks a weapon and
+/// the mouse wheel or the D-pad's left and right steps through them; Q or the
+/// right shoulder, held, opens the weapon wheel; T or the D-pad's up drops a
+/// dummy; and the viewer's keys as apps/ut-ants/Cli.cpp's help lists them.
 [[nodiscard]] Bindings defaultBindings();
 
 /// One frame's actions, from every device at once.
@@ -188,6 +190,11 @@ struct Frame {
     double lookUp = 0;    ///< UT angle units to tip the view up
     bool walk = false;
     bool fire = false, altFire = false;
+    bool wheel = false; ///< Action::Wheel held (UTA-0020 SS 4.7)
+    /// The right stick's position past its dead zone, inside the unit circle
+    /// and not scaled by the frame's time: the weapon wheel's pointer, +Down
+    /// as SDL's y. With several pads, the one pushed furthest.
+    double pointRight = 0, pointDown = 0;
     std::bitset<ACTION_COUNT> pressed; ///< the once-a-press actions this frame
 
     [[nodiscard]] bool wasPressed(Action action) const noexcept {

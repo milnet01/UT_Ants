@@ -8,9 +8,10 @@ namespace uta::uworld {
 
 FixedTick::FixedTick(double gameSpeed) noexcept : dt_(gameSpeed / TICKS_PER_SECOND) {}
 
-int FixedTick::advance(double wallSeconds) noexcept {
+int FixedTick::advance(double wallSeconds, double scale) noexcept {
     if (!(wallSeconds > 0) || !std::isfinite(wallSeconds)) return 0;
-    owed_ += wallSeconds * TICKS_PER_SECOND;
+    if (!(scale > 0 && scale <= 1)) scale = 1; // NaN fails both
+    owed_ += wallSeconds * TICKS_PER_SECOND * scale;
     const double whole = std::floor(owed_);
     owed_ -= whole;
     return whole > MAX_TICKS_PER_ADVANCE ? MAX_TICKS_PER_ADVANCE : static_cast<int>(whole);

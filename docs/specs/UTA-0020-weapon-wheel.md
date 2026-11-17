@@ -76,6 +76,7 @@ agree with the client tick for tick.
 | `src/urender/Overlay.h`, `.cpp`, `Renderer.h`, `Frame.cpp` | `OverlayLabel` and `Renderer::setOverlayLabels` (§ 4.6) |
 | `apps/ut-ants/Walker.h`, `.cpp`, `main.cpp`, `Cli.cpp` | open, point, pick; the clock's scale; the stand-ins on game time; the help text (§ 4.8) |
 | `tests/unit/` | `GameTest`, `FixedTickTest`, `InputTest`, `RenderOverlayTest`, `ClientWalkerTest`, and a new `UiWheelTest` (§ 7) |
+| `scripts/mutations/ugame-wheel.py` (new) | the `ugame` invariants' mutations (§ 7) |
 
 ### 4.2 The command (amends UTA-0017 § 4.2 and UTA-0019 § 4.6)
 
@@ -343,8 +344,11 @@ Unit tier, label `unit`, on every leg of GitHub's matrix:
 - `RenderOverlayTest.cpp`: INV-10.
 
 Each new case is seen failing before its code lands.
-`scripts/mutations/ugame.py` gains entries for INV-1 and INV-6. INV-3
-is mutated by hand: `uworld` has no mutation file.
+`scripts/mutations/ugame-wheel.py` holds mutations for INV-1, INV-2,
+INV-4, INV-5 and INV-6. It is not `ugame.py`, because a subject reports
+against one spec's invariants and UTA-0019's are numbered alike. INV-3
+and INV-7 to INV-10 are mutated by hand: their tests are outside that
+file's `[game]` filter, and `uworld` has no mutation file.
 
 ## 8. Alternatives considered (and rejected)
 
@@ -373,13 +377,13 @@ is mutated by hand: `uworld` has no mutation file.
 
 | Invariant | Checked by |
 |---|---|
-| INV-1, INV-2, INV-5, INV-6 | `GameTest`, and the `ugame` mutation file |
+| INV-1, INV-2, INV-5, INV-6 | `GameTest`, and the `ugame-wheel` mutation file |
 | INV-3 | `FixedTickTest`, mutated by hand |
 | INV-4 | `GameTest` on GitHub's matrix |
-| INV-7 | `UiWheelTest` |
-| INV-8 | `ClientWalkerTest` |
-| INV-9 | `InputTest` |
-| INV-10 | `RenderOverlayTest` |
+| INV-7 | `UiWheelTest`, mutated by hand |
+| INV-8 | `ClientWalkerTest`, mutated by hand |
+| INV-9 | `InputTest`, mutated by hand |
+| INV-10 | `RenderOverlayTest`, mutated by hand |
 | § 3 item 3, the wheel feels right on a pad | The user, playing it |
 | § 4.8, stand-ins slow with the game | **nothing** — `main.cpp` passes the seconds; no test drives it |
 

@@ -57,10 +57,11 @@ Bindings defaultBindings() {
                  {Key::N8, Action::Weapon8},
                  {Key::N9, Action::Weapon9},
                  {Key::N0, Action::Weapon0},
-                 {Key::T, Action::DropDummy}},
+                 {Key::T, Action::DropDummy},
+                 {Key::Q, Action::Wheel}},
         .mouseButtons = {{MouseButton::Left, Action::Fire}, {MouseButton::Right, Action::AltFire}},
         .padButtons = {{PadButton::South, Action::Up},
-                       {PadButton::RightShoulder, Action::Up},
+                       {PadButton::RightShoulder, Action::Wheel}, // UTA-0020: held; South still jumps
                        {PadButton::LeftShoulder, Action::Down},
                        {PadButton::LeftStick, Action::Walk},
                        {PadButton::East, Action::Dodge},
@@ -143,6 +144,12 @@ Frame Input::frame(std::span<const bool> keys, std::span<const PadState> pads, d
         const auto look = stick(pad.rightX, pad.rightY, settings_.stickDeadZone, settings_.lookCurve);
         out.lookRight += look[0] * lookPerSecond * seconds;
         out.lookUp -= look[1] * lookPerSecond * seconds;
+        // UTA-0020 SS 4.7: where the stick is, for the weapon wheel's pointer.
+        const auto point = stick(pad.rightX, pad.rightY, settings_.stickDeadZone, 1);
+        if (std::hypot(point[0], point[1]) > std::hypot(out.pointRight, out.pointDown)) {
+            out.pointRight = point[0];
+            out.pointDown = point[1];
+        }
     }
     const auto on = [&held](Action action) { return held.test(index(action)) ? 1.0 : 0.0; };
     forward += on(Action::Forward) - on(Action::Back);
@@ -154,6 +161,7 @@ Frame Input::frame(std::span<const bool> keys, std::span<const PadState> pads, d
     out.walk = held.test(index(Action::Walk));
     out.fire = held.test(index(Action::Fire));
     out.altFire = held.test(index(Action::AltFire));
+    out.wheel = held.test(index(Action::Wheel));
     return out;
 }
 

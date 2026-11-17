@@ -724,6 +724,7 @@ struct Renderer::Impl {
     Buffer overlayPixels;
     std::uint64_t overlayPixelsHeld = 0; ///< texels of each colour in overlayPixels
     bool crosshair = false; ///< UTA-0019 SS 4.8, drawn with the overlay
+    std::vector<OverlayLabel> overlayLabels; ///< UTA-0020 SS 4.6, drawn with the overlay
     /// UTA-0019 SS 4.8: the stand-in shapes setShapes holds; this frame's
     /// records of them, host-written and grown, never shrunk; the draws that
     /// take them, empty when the frame draws none; and what shape.vert is pushed.
@@ -2241,7 +2242,8 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     // UTA-0452: the overlay goes on the presented image only.
     OverlayLayout overlay;
     if (image) {
-        overlay = layOutOverlay(overlayText, swapchain->extent().width, swapchain->extent().height, crosshair);
+        overlay = layOutOverlay(overlayText, swapchain->extent().width, swapchain->extent().height, crosshair,
+                                overlayLabels);
         if (!overlay.empty()) UTA_CHECK(holdOverlayPixels(overlay.pixelCount()));
     }
 
@@ -2650,6 +2652,8 @@ void Renderer::setLinearOutput(bool enabled) noexcept { impl_->config.linearOutp
 void Renderer::setOverlayText(std::string text) { impl_->overlayText = std::move(text); }
 
 void Renderer::setCrosshair(bool shown) { impl_->crosshair = shown; }
+
+void Renderer::setOverlayLabels(std::vector<OverlayLabel> labels) { impl_->overlayLabels = std::move(labels); }
 
 void Renderer::setShapes(std::span<const Shape> shapes) { impl_->shapes.assign(shapes.begin(), shapes.end()); }
 

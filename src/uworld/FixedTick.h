@@ -21,9 +21,12 @@ class FixedTick {
 public:
     explicit FixedTick(double gameSpeed = DEFAULT_GAME_SPEED) noexcept;
 
-    /// Adds `wallSeconds` and returns the whole ticks now due, at most
-    /// MAX_TICKS_PER_ADVANCE. A negative or non-finite time adds nothing.
-    int advance(double wallSeconds) noexcept;
+    /// Adds `wallSeconds` at `scale` game speed and returns the whole ticks
+    /// now due, at most MAX_TICKS_PER_ADVANCE. A negative or non-finite time
+    /// adds nothing. A scale outside (0, 1], or not finite, counts as 1: a
+    /// scale of 0 would run no tick, so no command could end it (UTA-0020
+    /// SS 4.4). dt() is the same at any scale.
+    int advance(double wallSeconds, double scale = 1) noexcept;
 
     /// One tick in game seconds: gameSpeed / TICKS_PER_SECOND.
     [[nodiscard]] double dt() const noexcept { return dt_; }

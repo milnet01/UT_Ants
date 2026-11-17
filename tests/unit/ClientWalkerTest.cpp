@@ -1,6 +1,6 @@
 // UTA-0017 SS 4.8: ut-ants' walking mode. A walker dropped above a floor
 // lands with its eye EYE_HEIGHT above a standing body's centre, and the keys
-// move it the way it looks.
+// move it the way it looks. UTA-0020 INV-8: the weapon wheel in a walker.
 
 #include "BlockFixture.h"
 
@@ -9,6 +9,9 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <vector>
 
 using uta::uinput::Frame;
 using uta::client::Walker;
@@ -95,4 +98,51 @@ TEST_CASE("UTA-0018: a Dodge press dodges the way the move points and needs a mo
     CHECK(walker.state().dodge == uta::uworld::DodgeState::Active);
     // Facing +Y, its right is -X: a quarter turn of yaw further round.
     CHECK(walker.state().velocity.x < -500);
+}
+
+TEST_CASE("UTA-0020 INV-8: the open wheel holds the view and the triggers and a release picks on a tick") {
+    uta::ubundle::Collision collision;
+    collision.level = solidBlocks({box({-2000, -2000, -64}, {2000, 2000, 0})});
+    auto world = uta::uworld::BodyWorld::build(collision, {});
+    REQUIRE(world.has_value());
+    auto set = uta::ugame::load(uta::ugame::shippedDirectory() / "stock.weapons");
+    REQUIRE(set.has_value());
+    Walker walker({0, 0, 100}, 0, 16384, {}, *set);
+    for (int frame = 0; frame < 60; ++frame) walker.update({}, 1.0 / 60, *world);
+    REQUIRE(walker.body().human);
+    // The item a quarter turn round the ring, which the stick pushed right points at.
+    const std::vector<int> ring = uta::ugame::wheelWeapons(walker.set(), walker.body());
+    const int right = ring.at(static_cast<std::size_t>(std::lround(static_cast<double>(ring.size()) / 4)));
+    REQUIRE(right != walker.body().weapon);
+
+    // The right stick over to the right, which would also turn the view, and both triggers held.
+    Frame pointing;
+    pointing.wheel = true;
+    pointing.pointRight = 1;
+    pointing.lookRight = 3000;
+    pointing.lookUp = 1000;
+    pointing.fire = pointing.altFire = true;
+    const std::uint64_t ticksBefore = walker.game().ticks;
+    for (int frame = 0; frame < 30; ++frame) walker.update(pointing, 1.0 / 60, *world);
+    // Half a second: about 42 ticks at full speed, and a fifth of that slowed
+    // after the first frame, which runs at the last tick's scale.
+    CHECK(walker.game().ticks - ticksBefore <= 12);
+    CHECK(walker.wheel().isOpen());
+    CHECK(walker.wheel().highlighted() == right);
+    CHECK(walker.game().timeScale == uta::ugame::WHEEL_TIME_SCALE); // the ticks carried wheelOpen
+    CHECK(walker.gameSeconds() == 1.0 / 60 * uta::ugame::WHEEL_TIME_SCALE);
+    CHECK(walker.body().yaw == 16384);
+    CHECK(walker.body().pitch == 0);
+    CHECK_FALSE(walker.body().fireHeld);
+    CHECK_FALSE(walker.body().altHeld);
+
+    // Let go: the pick is asked for on the next tick, and time runs again.
+    bool picked = false;
+    for (int frame = 0; frame < 10 && !picked; ++frame) {
+        walker.update({}, 1.0 / 60, *world);
+        picked = walker.body().pending == right || walker.body().weapon == right;
+    }
+    CHECK(picked);
+    CHECK_FALSE(walker.wheel().isOpen());
+    CHECK(walker.game().timeScale == 1);
 }

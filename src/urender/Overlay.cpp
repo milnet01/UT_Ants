@@ -88,6 +88,31 @@ bool overlaps(const OverlayRect& a, const OverlayRect& b) {
     return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 }
 
+/// One line of glyphs with its top-left at (`left`, `top`), as white runs.
+void layOutLine(OverlayLayout& layout, std::string_view line, std::uint32_t left, std::uint32_t top,
+                std::uint32_t scale) {
+    const std::uint32_t advance = (GLYPH_WIDTH + 1) * scale;
+    for (std::uint32_t c = 0; c < line.size(); ++c) {
+        const std::size_t glyph = glyphOf(line[c]);
+        if (glyph == std::string_view::npos) continue; // drawn as a space
+        for (std::uint32_t row = 0; row < GLYPH_HEIGHT; ++row) {
+            const std::uint8_t bits = GLYPHS[glyph][row];
+            for (std::uint32_t column = 0; column < GLYPH_WIDTH;) {
+                if ((bits & (0b10000u >> column)) == 0) {
+                    ++column;
+                    continue;
+                }
+                const std::uint32_t first = column;
+                while (column < GLYPH_WIDTH && (bits & (0b10000u >> column)) != 0) ++column;
+                layout.lit.push_back({.x = left + c * advance + first * scale,
+                                      .y = top + row * scale,
+                                      .width = (column - first) * scale,
+                                      .height = scale});
+            }
+        }
+    }
+}
+
 void layOutText(OverlayLayout& layout, std::string_view text, std::uint32_t width, std::uint32_t height,
                 std::uint32_t scale) {
     if (text.empty()) return;
@@ -107,30 +132,8 @@ void layOutText(OverlayLayout& layout, std::string_view text, std::uint32_t widt
     if (backing.x + backing.width > width || backing.y + backing.height > height) return;
     layout.backing = backing;
 
-    for (std::uint32_t r = 0; r < rows; ++r) {
-        const std::string_view line = lines[r];
-        const std::uint32_t top = backing.y + pad + r * lineAdvance;
-        for (std::uint32_t c = 0; c < line.size(); ++c) {
-            const std::size_t glyph = glyphOf(line[c]);
-            if (glyph == std::string_view::npos) continue; // drawn as a space
-            const std::uint32_t left = backing.x + pad + c * advance;
-            for (std::uint32_t row = 0; row < GLYPH_HEIGHT; ++row) {
-                const std::uint8_t bits = GLYPHS[glyph][row];
-                for (std::uint32_t column = 0; column < GLYPH_WIDTH;) {
-                    if ((bits & (0b10000u >> column)) == 0) {
-                        ++column;
-                        continue;
-                    }
-                    const std::uint32_t first = column;
-                    while (column < GLYPH_WIDTH && (bits & (0b10000u >> column)) != 0) ++column;
-                    layout.lit.push_back({.x = left + first * scale,
-                                          .y = top + row * scale,
-                                          .width = (column - first) * scale,
-                                          .height = scale});
-                }
-            }
-        }
-    }
+    for (std::uint32_t r = 0; r < rows; ++r)
+        layOutLine(layout, lines[r], backing.x + pad, backing.y + pad + r * lineAdvance, scale);
 }
 
 /// Four arms about the image's centre, apart so no two edges touch, each a
@@ -164,6 +167,48 @@ void layOutCrosshair(OverlayLayout& layout, std::uint32_t width, std::uint32_t h
     layout.lit.insert(layout.lit.end(), arms.begin(), arms.end());
 }
 
+/// UTA-0020 SS 4.6: each label on its own black box, left out where the box
+/// would leave the image or touch a black rectangle already laid out.
+void layOutLabels(OverlayLayout& layout, std::span<const OverlayLabel> labels, std::uint32_t width,
+                  std::uint32_t height, std::uint32_t scale) {
+    const std::uint32_t advance = (GLYPH_WIDTH + 1) * scale;
+    for (const OverlayLabel& label : labels) {
+        const bool pointer = label.text.empty();
+        const auto columns = static_cast<std::uint32_t>(label.text.size());
+        // The pointer is a square two font pixels across in a one-pixel edge.
+        const std::uint32_t textWidth = pointer ? 2 * scale : columns * advance - scale;
+        const std::uint32_t textHeight = pointer ? 2 * scale : GLYPH_HEIGHT * scale;
+        const std::uint32_t pad = pointer ? scale : 3 * scale;
+        const std::uint32_t boxWidth = textWidth + 2 * pad, boxHeight = textHeight + 2 * pad;
+        const double cx = width / 2.0 + label.x * height, cy = height / 2.0 + label.y * height;
+        if (!(cx >= boxWidth / 2.0 && cy >= boxHeight / 2.0 && cx + boxWidth / 2.0 <= width
+              && cy + boxHeight / 2.0 <= height))
+            continue; // the negated form also leaves out a NaN position
+        const OverlayRect box{.x = static_cast<std::uint32_t>(cx - boxWidth / 2.0),
+                              .y = static_cast<std::uint32_t>(cy - boxHeight / 2.0),
+                              .width = boxWidth,
+                              .height = boxHeight};
+        if (layout.backing.width != 0 && overlaps(box, layout.backing)) continue;
+        if (std::ranges::any_of(layout.edges, [&box](const OverlayRect& edge) { return overlaps(box, edge); }))
+            continue;
+        layout.edges.push_back(box);
+        const std::uint32_t left = box.x + pad, top = box.y + pad;
+        if (pointer) {
+            layout.lit.push_back({.x = left, .y = top, .width = textWidth, .height = textHeight});
+            continue;
+        }
+        if (label.highlighted) { // a frame one font pixel wide, one in from the box's edge
+            const std::uint32_t x0 = box.x + scale, y0 = box.y + scale;
+            const std::uint32_t w = box.width - 2 * scale, h = box.height - 2 * scale;
+            layout.lit.push_back({.x = x0, .y = y0, .width = w, .height = scale});
+            layout.lit.push_back({.x = x0, .y = y0 + h - scale, .width = w, .height = scale});
+            layout.lit.push_back({.x = x0, .y = y0 + scale, .width = scale, .height = h - 2 * scale});
+            layout.lit.push_back({.x = x0 + w - scale, .y = y0 + scale, .width = scale, .height = h - 2 * scale});
+        }
+        layOutLine(layout, label.text, left, top, scale);
+    }
+}
+
 } // namespace
 
 std::uint64_t OverlayLayout::pixelCount() const noexcept {
@@ -174,12 +219,14 @@ std::uint64_t OverlayLayout::pixelCount() const noexcept {
     return largest;
 }
 
-OverlayLayout layOutOverlay(std::string_view text, std::uint32_t width, std::uint32_t height, bool crosshair) {
+OverlayLayout layOutOverlay(std::string_view text, std::uint32_t width, std::uint32_t height, bool crosshair,
+                            std::span<const OverlayLabel> labels) {
     OverlayLayout layout;
     // Two image pixels per font pixel at 720 lines, three at 1440, four at 2160.
     const std::uint32_t scale = std::max<std::uint32_t>(2, height / 480);
     layOutText(layout, text, width, height, scale);
     if (crosshair) layOutCrosshair(layout, width, height, scale);
+    layOutLabels(layout, labels, width, height, scale);
     return layout;
 }
 

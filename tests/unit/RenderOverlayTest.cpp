@@ -1,4 +1,5 @@
-// UTA-0452: the overlay's layout, device-free (src/urender/Overlay.h).
+// UTA-0452: the overlay's layout, device-free (src/urender/Overlay.h). UTA-0020
+// INV-10: the weapon wheel's labels.
 //
 // NO TEST NAME CONTAINS A COMMA. Catch2 treats one as a filter separator.
 
@@ -10,6 +11,7 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 using uta::urender::layOutOverlay;
@@ -185,4 +187,68 @@ TEST_CASE("UTA-0452: empty text or a screen too small for the box draws nothing"
     CHECK(layOutOverlay("60 FPS 16.7 MS", 40, 720).empty());
     CHECK(layOutOverlay("60 FPS 16.7 MS", 1280, 10).empty());
     CHECK(layOutOverlay("60 FPS 16.7 MS", 1280, 10).lit.empty());
+}
+
+// UTA-0020 INV-10: the weapon wheel's labels.
+
+namespace {
+
+using uta::urender::OverlayLabel;
+
+/// Where in the image a label's share of the height lands: (`px`, `py`) at 2560 x 1440.
+OverlayLabel labelAt(std::string text, double px, double py, bool highlighted = false) {
+    return {.text = std::move(text), .x = (px - 1280) / 1440, .y = (py - 720) / 1440, .highlighted = highlighted};
+}
+
+} // namespace
+
+TEST_CASE("UTA-0020 INV-10: a label is centred where asked on its own box and a highlight frames it", "[render]") {
+    // 1440 lines: three image pixels per font pixel.
+    const std::vector<OverlayLabel> plain{labelAt("1", 1280, 720)};
+    const OverlayLayout layout = layOutOverlay("", 2560, 1440, false, plain);
+    REQUIRE(layout.edges.size() == 1);
+    const OverlayRect& box = layout.edges[0];
+    CHECK(box.x * 2 + box.width >= 2559);
+    CHECK(box.x * 2 + box.width <= 2561);
+    CHECK(box.y * 2 + box.height >= 1439);
+    CHECK(box.y * 2 + box.height <= 1441);
+    CHECK(litArea(layout) == 10u * 3 * 3); // the digit 1's ten font pixels
+    for (const OverlayRect& rect : layout.lit) CHECK(inside(rect, box));
+    CHECK_FALSE(layout.empty());
+
+    const std::vector<OverlayLabel> framed{labelAt("1", 1280, 720, true)};
+    const OverlayLayout highlighted = layOutOverlay("", 2560, 1440, false, framed);
+    REQUIRE(highlighted.edges.size() == 1);
+    CHECK(litArea(highlighted) > litArea(layout));
+    for (std::size_t i = 0; i < highlighted.lit.size(); ++i) {
+        CHECK(inside(highlighted.lit[i], highlighted.edges[0]));
+        for (std::size_t j = i + 1; j < highlighted.lit.size(); ++j)
+            CHECK_FALSE(overlap(highlighted.lit[i], highlighted.lit[j]));
+    }
+
+    // Empty text is the pointer: a small white square on its box.
+    const std::vector<OverlayLabel> pointer{labelAt("", 1280, 720)};
+    const OverlayLayout pointed = layOutOverlay("", 2560, 1440, false, pointer);
+    REQUIRE(pointed.lit.size() == 1);
+    CHECK(pointed.lit[0].width == pointed.lit[0].height);
+    CHECK(inside(pointed.lit[0], pointed.edges.at(0)));
+}
+
+TEST_CASE("UTA-0020 INV-10: a label is left out off the image or over the text or an earlier label", "[render]") {
+    const std::vector<OverlayLabel> off{labelAt("ROCKET LAUNCHER", 2550, 720), labelAt("ENFORCER", 1280, 5)};
+    CHECK(layOutOverlay("", 2560, 1440, false, off).empty());
+
+    // The text's box runs from the top-left corner past (150, 40); the label
+    // centred there fits the image, so only the text can leave it out.
+    const std::vector<OverlayLabel> overText{labelAt("ENFORCER", 150, 40)};
+    const OverlayLayout hud = layOutOverlay("AMMO 50\nHEALTH 100", 2560, 1440, false, overText);
+    CHECK(hud.edges.empty());
+    for (const OverlayRect& rect : hud.lit) CHECK(inside(rect, hud.backing));
+
+    const std::vector<OverlayLabel> twice{labelAt("ENFORCER", 1280, 400), labelAt("CHAINSAW", 1290, 405),
+                                          labelAt("MINIGUN", 1280, 1000)};
+    const OverlayLayout two = layOutOverlay("", 2560, 1440, false, twice);
+    REQUIRE(two.edges.size() == 2); // the second gives way to the first
+    CHECK(two.edges[1].y > 900);
+    CHECK_FALSE(overlap(two.edges[0], two.edges[1]));
 }

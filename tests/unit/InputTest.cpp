@@ -138,10 +138,10 @@ TEST_CASE("UTA-0167: the right stick turns at STICK_LOOK_RATE and slower with it
     CHECK_THAT(half.lookRight, WithinAbs(turn.lookRight, 1e-3)); // the float half-push rounds
 }
 
-TEST_CASE("UTA-0167: the triggers and shoulders are Up and Down and the stick press walks", "[uinput]") {
+TEST_CASE("UTA-0167: the triggers and the left shoulder are Up and Down and the stick press walks", "[uinput]") {
     CHECK_THAT(padFrame(PadState{.rightTrigger = 1}).up, WithinAbs(1, 1e-6));
     CHECK_THAT(padFrame(PadState{.leftTrigger = 1, .rightTrigger = 1}).up, WithinAbs(0, 1e-6));
-    CHECK(padFrame(holding(PadButton::RightShoulder)).up == 1);
+    // The right shoulder holds the weapon wheel instead (UTA-0020 INV-9).
     CHECK(padFrame(holding(PadButton::LeftShoulder)).up == -1);
     CHECK(padFrame(holding(PadButton::LeftStick)).walk);
 
@@ -211,4 +211,44 @@ TEST_CASE("UTA-0019 SS 4.8: the triggers rise and sink or fire by the setting", 
     const Frame alt = padFrame(pad, 1, settings);
     CHECK_FALSE(alt.fire);
     CHECK(alt.altFire);
+}
+
+TEST_CASE("UTA-0020 INV-9: Q and the right shoulder hold the wheel and the shoulder no longer jumps", "[uinput]") {
+    Input input;
+    const auto q = keyboard({Key::Q});
+    CHECK(input.frame(q, {}, 1).wheel);
+    const Frame shoulder = padFrame(holding(PadButton::RightShoulder));
+    CHECK(shoulder.wheel);
+    CHECK(shoulder.up == 0); // every open would jump
+    // The right shoulder asks for the wheel and nothing else.
+    for (const auto& [button, action] : uta::uinput::defaultBindings().padButtons)
+        if (button == PadButton::RightShoulder) CHECK(action == Action::Wheel);
+    CHECK(padFrame(holding(PadButton::South)).up == 1);
+    const auto space = keyboard({Key::Space});
+    CHECK(input.frame(space, {}, 1).up == 1);
+    CHECK_FALSE(input.frame(space, {}, 1).wheel);
+}
+
+TEST_CASE("UTA-0020 INV-9: the right stick points past its dead zone inside the unit circle at any frame time",
+          "[uinput]") {
+    // Full over to the right and down: the direction, at length one.
+    const Frame corner = padFrame(PadState{.rightX = 1, .rightY = 1}, 1.0 / 60);
+    CHECK_THAT(std::hypot(corner.pointRight, corner.pointDown), WithinAbs(1, 1e-6));
+    CHECK_THAT(corner.pointRight, WithinAbs(corner.pointDown, 1e-9));
+    // Halfway past the dead zone, straight up, at half length; the same held a second.
+    const PadState half{.rightY = -(1 + DEAD_ZONE) / 2};
+    const Frame quick = padFrame(half, 1.0 / 144);
+    CHECK_THAT(quick.pointDown, WithinAbs(-0.5, 1e-6));
+    CHECK(quick.pointRight == 0);
+    CHECK(padFrame(half, 1).pointDown == quick.pointDown);
+    // Inside the dead zone it points nowhere.
+    const Frame rest = padFrame(PadState{.rightX = DEAD_ZONE / 2});
+    CHECK(rest.pointRight == 0);
+    CHECK(rest.pointDown == 0);
+    // With two pads, the one pushed furthest, whichever comes first.
+    Input input;
+    const std::vector<PadState> lastFurthest{PadState{.rightX = 0.6f}, PadState{.rightX = -1}};
+    CHECK_THAT(input.frame({}, lastFurthest, 1).pointRight, WithinAbs(-1, 1e-6));
+    const std::vector<PadState> firstFurthest{PadState{.rightX = -1}, PadState{.rightX = 0.6f}};
+    CHECK_THAT(input.frame({}, firstFurthest, 1).pointRight, WithinAbs(-1, 1e-6));
 }

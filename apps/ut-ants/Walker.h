@@ -7,6 +7,10 @@
 // full ammo and fires it, a key stands a target dummy ahead, and a weapon with
 // no alt fire zooms the view on AltFire, as UT99's sniper rifle does.
 //
+// docs/specs/UTA-0020-weapon-wheel.md SS 4.8: Wheel held opens the weapon
+// wheel, which the frame points; letting go picks. While it is open, a lone
+// player's game runs slowed, and the clock follows it.
+//
 // No SDL here, so the unit tests can drive it.
 
 #pragma once
@@ -16,6 +20,7 @@
 #include "ugame/Game.h"
 #include "uworld/FixedTick.h"
 #include "uworld/Movement.h"
+#include "uui/Wheel.h"
 #include "uworld/Teleporters.h"
 
 #include <array>
@@ -65,6 +70,9 @@ public:
     /// points most, on the next tick; with no move, or while a dodge is not
     /// ready, it is dropped, as a double tap's press would be. Fire, AltFire
     /// and a weapon key reach the next tick even where this frame runs none.
+    /// While the weapon wheel is open the frame points it instead of turning
+    /// the view, and sends no fire; a weapon picked on it is asked for on
+    /// the next tick. The clock runs at the game's time scale.
     void update(const uinput::Frame& input, double seconds, const uworld::BodyWorld& world);
 
     /// The view from the body's eye with a `fov`-degree field of view, drawn
@@ -85,6 +93,11 @@ public:
     [[nodiscard]] const std::optional<Hit>& lastHit() const noexcept { return lastHit_; }
     /// The dummies standing.
     [[nodiscard]] std::size_t dummies() const noexcept;
+    /// The weapon wheel, open while Wheel is held.
+    [[nodiscard]] const uui::Wheel& wheel() const noexcept { return wheel_; }
+    /// The game seconds the last `update` ran: its wall seconds times the
+    /// game's time scale, for what is drawn on game time.
+    [[nodiscard]] double gameSeconds() const noexcept { return gameSeconds_; }
     /// The share of the view the zoom leaves: 1 with none.
     [[nodiscard]] double zoom() const noexcept { return 1 - zoomLevel_ * ZOOM_NARROWS; }
 
@@ -104,6 +117,9 @@ private:
     uworld::MoveState previous_;
     bool fireAsked_ = false, altAsked_ = false; ///< held in a frame that ran no tick
     int slotAsked_ = -1, stepAsked_ = 0;        ///< a weapon key waiting for a tick
+    uui::Wheel wheel_;
+    int pickAsked_ = -1;      ///< a weapon picked on the wheel, waiting for a tick
+    double gameSeconds_ = 0;  ///< the last update's
     double zoomLevel_ = 0; ///< seconds of zooming in, to ZOOM_SECONDS
     bool zooming_ = false, altWas_ = false;
     /// The eye above the body's centre after the last two ticks: it lags a

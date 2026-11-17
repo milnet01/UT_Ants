@@ -16,6 +16,8 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -32,16 +34,27 @@ struct OverlayLayout {
     /// The opaque black box behind the text. Zero-sized when there is no text.
     OverlayRect backing;
     /// White: the text's lit pixels, one rectangle per horizontal run of a
-    /// glyph row, each inside `backing`; then the crosshair's arms.
+    /// glyph row, each inside `backing`; then the crosshair's arms; then each
+    /// label's frame and runs, inside its box.
     std::vector<OverlayRect> lit;
-    /// Black: the crosshair's edge, one rectangle around each arm. Empty with
-    /// no crosshair.
+    /// Black: the crosshair's edge, one rectangle around each arm; then each
+    /// label's box. Empty with neither.
     std::vector<OverlayRect> edges;
 
     [[nodiscard]] bool empty() const noexcept { return (backing.width == 0 || backing.height == 0) && edges.empty(); }
     /// Texels in the largest rectangle of the layout: the size of each
     /// colour's run in the buffer the copies read from.
     [[nodiscard]] std::uint64_t pixelCount() const noexcept;
+};
+
+/// UTA-0020 SS 4.6: one line of text centred at (`x`, `y`), each a share of
+/// the image's height from its centre, +y down, on its own black box. A
+/// `highlighted` one has a white frame inside its box. Empty text draws a
+/// small white square: the weapon wheel's pointer.
+struct OverlayLabel {
+    std::string text;
+    double x = 0, y = 0;
+    bool highlighted = false;
 };
 
 /// The characters the built-in font draws. A lower-case letter draws as its upper case.
@@ -52,7 +65,10 @@ inline constexpr std::string_view OVERLAY_CHARACTERS = "0123456789ABCDEFGHIJKLMN
 /// on any screen; and with `crosshair`, a crosshair at the image's centre,
 /// sized the same way. The text is left out when its box would not fit the
 /// image; the crosshair when it would not fit, or would touch the text's box.
+/// Then each of `labels`, sized the same way; one is left out where its box
+/// would leave the image or touch the text's box, the crosshair or an
+/// earlier label.
 [[nodiscard]] OverlayLayout layOutOverlay(std::string_view text, std::uint32_t width, std::uint32_t height,
-                                          bool crosshair = false);
+                                          bool crosshair = false, std::span<const OverlayLabel> labels = {});
 
 } // namespace uta::urender

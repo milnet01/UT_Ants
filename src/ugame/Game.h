@@ -22,6 +22,9 @@ using uworld::Vec3;
 inline constexpr double EYE_HEIGHT = 27;
 /// A body's starting health: TournamentPlayer.Health.
 inline constexpr double START_HEALTH = 100;
+/// Game seconds per wall second while a lone human's weapon wheel is open
+/// (docs/decisions/ADR-0009-weapon-wheel-slows-time-for-a-lone-player.md).
+inline constexpr double WHEEL_TIME_SCALE = 0.2;
 
 /// One weapon a body carries: whether it has it, and its ammo.
 struct Carried {
@@ -57,6 +60,7 @@ struct Body {
     double eyeHeight = EYE_HEIGHT; ///< its eye above its centre
     std::int32_t yaw = 0, pitch = 0; ///< the last command's aim
     bool fireHeld = false, altHeld = false;
+    bool human = false; ///< a person plays it; a dummy or a bot does not (UTA-0020 SS 4.3)
 
     [[nodiscard]] bool alive() const { return health > 0; }
 };
@@ -91,6 +95,9 @@ struct Game {
     std::uint64_t ticks = 0;
     std::uint64_t random = 0x9E3779B97F4A7C15u; ///< the one generator's state (SS 4.5)
     std::vector<Event> events;                   ///< this tick's; cleared at its start
+    /// What the last tick set: game seconds per wall second, over the tick's
+    /// own speed. The caller advances its clock at it (UTA-0020 SS 4.3).
+    double timeScale = 1;
 };
 
 /// INV-5: a hash of every integer in `game` and the bits of every double,
@@ -104,13 +111,20 @@ struct Game {
 /// Gives `body` every weapon in `set` with its most ammo.
 void giveAll(const WeaponSet& set, Body& body);
 
+/// The weapons `body` carries, in NextWeapon's order: by slot, the 0 key
+/// last, then by file order. The weapon wheel shows these, clockwise from
+/// the top (UTA-0020 SS 4.5).
+[[nodiscard]] std::vector<int> wheelWeapons(const WeaponSet& set, const Body& body);
+
 /// The direction of `yaw` and `pitch`, a unit vector (core/Angles.h).
 [[nodiscard]] Vec3 aimOf(std::int32_t yaw, std::int32_t pitch);
 
 /// SS 4.5: one tick. `commands` holds one per body, in order; a dead body's
 /// is ignored. Each body switches weapon and moves, then each fires; then
 /// the shots fly; then damage and momentum land, so no body's order changes
-/// what another's shot hits.
+/// what another's shot hits. Last, `game.timeScale` is set: WHEEL_TIME_SCALE
+/// where exactly one body is human, it is alive and its command has the
+/// wheel open; else 1 (UTA-0020 SS 4.3).
 void tick(const uworld::BodyWorld& world, const WeaponSet& set, const uworld::MoveRules& rules, Game& game,
           std::span<const uworld::MoveCommand> commands, double dt);
 

@@ -86,6 +86,7 @@ ugame::Body Walker::armed(const Spawn& at) const {
     ugame::Body body = ugame::bodyAt(set_, {at.location[0], at.location[1], at.location[2]}, units(at.yaw));
     ugame::giveAll(set_, body);
     body.move.physics = uworld::Physics::Falling;
+    body.human = true; // UTA-0020 SS 4.8: the player; a dummy is not
     return body;
 }
 
@@ -145,19 +146,34 @@ void Walker::zoomBy(bool altFire, double seconds) noexcept {
 }
 
 void Walker::update(const uinput::Frame& input, double seconds, const uworld::BodyWorld& world) {
+    // UTA-0020 SS 4.8: held, the weapon wheel is open and takes the look and
+    // the triggers; let go, its highlighted weapon waits for a tick.
+    if (input.wheel && !wheel_.isOpen()) {
+        wheel_.open(ugame::wheelWeapons(set_, game_.bodies[0]));
+    } else if (!input.wheel && wheel_.isOpen()) {
+        if (const int picked = wheel_.close(); picked >= 0) pickAsked_ = picked;
+    }
+    wheel_.point(input);
+    const bool wheelOpen = wheel_.isOpen();
+    if (wheelOpen) fireAsked_ = altAsked_ = false;
+    const double lookRight = wheelOpen ? 0 : input.lookRight;
+    const double lookUp = wheelOpen ? 0 : input.lookUp;
+    const bool fire = input.fire && !wheelOpen;
+    const bool altFire = input.altFire && !wheelOpen;
+
     // The look as the fly camera's, so switching between them keeps the view;
     // a zoomed view turns as much slower as it is narrower, as UT99's does.
-    yaw_ = std::fmod(yaw_ + input.lookRight * zoom(), 65536.0);
-    pitch_ = std::clamp(pitch_ + input.lookUp * zoom(), -double(FlyCamera::PITCH_LIMIT),
+    yaw_ = std::fmod(yaw_ + lookRight * zoom(), 65536.0);
+    pitch_ = std::clamp(pitch_ + lookUp * zoom(), -double(FlyCamera::PITCH_LIMIT),
                         double(FlyCamera::PITCH_LIMIT));
     if (input.wasPressed(uinput::Action::Dodge)) dodgeAsked_ = dodgeToward(input.forward, input.right);
     if (const int slot = slotPressed(input); slot >= 0) slotAsked_ = slot;
     if (input.wasPressed(uinput::Action::NextWeapon) != input.wasPressed(uinput::Action::PrevWeapon))
         stepAsked_ = input.wasPressed(uinput::Action::NextWeapon) ? 1 : -1;
-    fireAsked_ = fireAsked_ || input.fire;
-    altAsked_ = altAsked_ || input.altFire;
+    fireAsked_ = fireAsked_ || fire;
+    altAsked_ = altAsked_ || altFire;
     if (input.wasPressed(uinput::Action::DropDummy)) dropDummy(world);
-    zoomBy(input.altFire, seconds);
+    zoomBy(altFire, seconds);
     events_.clear();
 
     uworld::MoveCommand command;
@@ -168,10 +184,15 @@ void Walker::update(const uinput::Frame& input, double seconds, const uworld::Bo
     command.jump = input.up > 0;
     command.duck = input.up < 0;
     command.walk = input.walk;
+    command.wheelOpen = wheelOpen;
     const uworld::DirectionKeys keys{input.forward > TAP_PRESS, input.forward < -TAP_PRESS, input.right < -TAP_PRESS,
                                      input.right > TAP_PRESS};
 
-    const int due = clock_.advance(seconds);
+    // The scale the last tick set (UTA-0020 SS 4.4): the frame that opens
+    // the wheel still runs at full speed, and the slow starts with the next.
+    const double scale = game_.timeScale;
+    gameSeconds_ = seconds * scale;
+    const int due = clock_.advance(seconds, scale);
     for (int t = 0; t < due; ++t) {
         const bool dodgeReady = uworld::dodgeReady(game_.bodies[0].move);
         command.dodge = tap_.update(keys, clock_.dt(), dodgeReady);
@@ -179,13 +200,15 @@ void Walker::update(const uinput::Frame& input, double seconds, const uworld::Bo
             if (command.dodge == uworld::DodgeDir::None && dodgeReady) command.dodge = dodgeAsked_;
             dodgeAsked_ = uworld::DodgeDir::None;
         }
-        command.fire = input.fire || fireAsked_;
-        command.altFire = input.altFire || altAsked_;
+        command.fire = fire || fireAsked_;
+        command.altFire = altFire || altAsked_;
         command.weaponSlot = static_cast<std::int8_t>(slotAsked_);
         command.weaponStep = static_cast<std::int8_t>(stepAsked_);
+        command.weaponPick = static_cast<std::int8_t>(pickAsked_);
         fireAsked_ = altAsked_ = false;
         slotAsked_ = -1;
         stepAsked_ = 0;
+        pickAsked_ = -1;
 
         std::vector<double> healthBefore;
         for (const ugame::Body& body : game_.bodies) healthBefore.push_back(body.health);

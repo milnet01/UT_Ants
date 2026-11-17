@@ -32,6 +32,9 @@ struct MoveCommand {
     bool fire = false, altFire = false; ///< held
     std::int8_t weaponSlot = -1;    ///< a number key pressed this tick, 0 to 9; -1 for none
     std::int8_t weaponStep = 0;     ///< +1 next weapon, -1 previous, 0 neither
+    // UTA-0020 SS 4.2: the weapon wheel, which ugame judges.
+    bool wheelOpen = false;         ///< the weapon wheel is open this tick
+    std::int8_t weaponPick = -1;    ///< a weapon picked on the wheel this tick, an index into the set; -1 for none
 };
 
 enum class Physics : std::uint8_t { Walking, Falling };

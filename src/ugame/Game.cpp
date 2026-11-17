@@ -29,14 +29,13 @@ int stepKey(const WeaponSet& set, int weapon) {
     return static_cast<int>(slot == 0 ? 10 : slot) * 1000 + weapon;
 }
 
-/// The weapon a command asks for, or -1 for none.
+/// The weapon a command asks for, or -1 for none. A wheel's pick of a
+/// carried weapon wins over the slot and the step (UTA-0020 SS 4.5).
 int askedWeapon(const WeaponSet& set, const Body& body, const uworld::MoveCommand& command) {
     const int current = body.pending >= 0 ? body.pending : body.weapon;
-    std::vector<int> carried;
-    for (std::size_t i = 0; i < body.weapons.size(); ++i)
-        if (body.weapons[i].has) carried.push_back(static_cast<int>(i));
+    const std::vector<int> carried = wheelWeapons(set, body);
     if (carried.empty()) return -1;
-    std::ranges::sort(carried, {}, [&set](int weapon) { return stepKey(set, weapon); });
+    if (std::ranges::find(carried, int{command.weaponPick}) != carried.end()) return command.weaponPick;
 
     if (command.weaponSlot >= 0) {
         std::vector<int> inSlot;
@@ -503,6 +502,14 @@ Body bodyAt(const WeaponSet& set, const Vec3& location, std::int32_t yaw) {
     return body;
 }
 
+std::vector<int> wheelWeapons(const WeaponSet& set, const Body& body) {
+    std::vector<int> carried;
+    for (std::size_t i = 0; i < body.weapons.size(); ++i)
+        if (body.weapons[i].has) carried.push_back(static_cast<int>(i));
+    std::ranges::sort(carried, {}, [&set](int weapon) { return stepKey(set, weapon); });
+    return carried;
+}
+
 void giveAll(const WeaponSet& set, Body& body) {
     body.weapons.resize(set.weapons.size());
     for (std::size_t i = 0; i < set.weapons.size(); ++i) body.weapons[i] = Carried{true, set.weapons[i].ammoMax};
@@ -540,6 +547,18 @@ void tick(const uworld::BodyWorld& world, const WeaponSet& set, const uworld::Mo
         if (!tick.shotGone[i]) kept.push_back(game.shots[i]);
     game.shots = std::move(kept);
     ++game.ticks;
+
+    // UTA-0020 SS 4.3: the wheel slows time only for a lone human, alive, so
+    // its command is read; a dead body's bit, or a dummy's, is not.
+    int humans = 0;
+    std::size_t human = 0;
+    for (std::size_t i = 0; i < game.bodies.size(); ++i) {
+        if (!game.bodies[i].human) continue;
+        ++humans;
+        human = i;
+    }
+    const bool slowed = humans == 1 && human < count && game.bodies[human].alive() && commands[human].wheelOpen;
+    game.timeScale = slowed ? WHEEL_TIME_SCALE : 1;
 }
 
 std::uint64_t stateHash(const Game& game) {
@@ -559,6 +578,7 @@ std::uint64_t stateHash(const Game& game) {
     };
     add(game.ticks);
     add(game.random);
+    addDouble(game.timeScale);
     add(game.bodies.size());
     for (const Body& body : game.bodies) {
         addVec(body.move.location);
@@ -593,6 +613,7 @@ std::uint64_t stateHash(const Game& game) {
         addDouble(body.beamSince);
         add(body.burst);
         addDouble(body.eyeHeight);
+        add(body.human ? 1 : 0);
     }
     add(game.shots.size());
     for (const Shot& shot : game.shots) {

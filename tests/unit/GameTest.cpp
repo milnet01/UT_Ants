@@ -1,7 +1,9 @@
 // Locks docs/specs/UTA-0019-weapon-set.md INV-4 (behaviour comes from the
 // file), INV-5 (the tick is deterministic), INV-7 (ammo is never spent below
 // zero), INV-8 (a combo needs a hit) and INV-9 (a body is hit where its
-// cylinder is), on BlockFixture's hand-built levels.
+// cylinder is), on BlockFixture's hand-built levels. And
+// docs/specs/UTA-0020-weapon-wheel.md INV-1, INV-2, INV-4, INV-5 and INV-6:
+// the open wheel's time scale, and what the wheel lists and picks.
 
 #include "BlockFixture.h"
 
@@ -1476,6 +1478,7 @@ std::vector<MoveCommand> scriptAt(int k) {
     shooter.fire = k % 120 > 30 && k % 120 < 80;
     shooter.altFire = k % 120 >= 85 && k % 120 < 115;
     shooter.forward = k % 300 < 40 ? 1 : 0;
+    shooter.wheelOpen = k % 240 >= 200; // UTA-0020 INV-4: over the end of an alt-fire hold
     MoveCommand& dummy = commands[1];
     dummy.yaw = 32768;
     dummy.strafe = (k / 60) % 2 == 0 ? 1 : -1;
@@ -1488,6 +1491,7 @@ std::vector<std::uint64_t> scripted(const BodyWorld& world, const std::vector<do
                                     std::vector<Event::Kind>* kinds = nullptr) {
     uta::uworld::FixedTick clock;
     Game game = duel(stock(), "impact-hammer", 900);
+    game.bodies[0].human = true; // UTA-0020 INV-4: the open wheel slows this game
     std::vector<std::uint64_t> hashes;
     for (std::size_t f = 0; static_cast<int>(hashes.size()) < ticks; ++f) {
         const int due = clock.advance(frames[f % frames.size()]);
@@ -1526,5 +1530,130 @@ TEST_CASE("INV-5: a scripted fight is the same at every frame rate and on every 
         CHECK(again == reference);
     }
     INFO("final hash " << reference.back());
-    CHECK(reference.back() == 10349483679520011397u);
+    CHECK(reference.back() == 10585331384520321765u); // UTA-0020: the script opens the wheel
+}
+
+// UTA-0020: the weapon wheel's time scale, and what it lists and picks.
+
+namespace {
+
+/// The time scale one tick of `game` sets, the shooter's command having the
+/// wheel open or not; the dummy's has it where `dummyOpens`.
+double scaleAfterTick(const BodyWorld& world, Game game, bool shooterOpens, bool dummyOpens = false) {
+    std::vector<MoveCommand> commands(game.bodies.size());
+    commands[0].wheelOpen = shooterOpens;
+    commands[1].wheelOpen = dummyOpens;
+    tick(world, stock(), RULES, game, commands, DT);
+    return game.timeScale;
+}
+
+} // namespace
+
+TEST_CASE("UTA-0020 INV-1: the open wheel slows time only for one live human", "[ugame][game]") {
+    const BodyWorld world = arena();
+    Game game = duel(stock(), "enforcer", 900);
+    game.bodies[0].human = true;
+    CHECK(scaleAfterTick(world, game, true) == WHEEL_TIME_SCALE);
+    CHECK(scaleAfterTick(world, game, false) == 1);
+    // A non-human's bit is not read: the dummy opening a wheel slows nothing.
+    CHECK(scaleAfterTick(world, game, false, true) == 1);
+
+    // Two humans, either one opening a wheel: nobody is slowed.
+    Game two = game;
+    two.bodies[1].human = true;
+    CHECK(scaleAfterTick(world, two, true) == 1);
+    CHECK(scaleAfterTick(world, two, false, true) == 1);
+
+    Game dead = game;
+    dead.bodies[0].health = 0;
+    CHECK(scaleAfterTick(world, dead, true) == 1);
+
+    // Set each tick, so a slowed game runs at full speed again once the wheel closes.
+    game.timeScale = WHEEL_TIME_SCALE;
+    CHECK(scaleAfterTick(world, game, false) == 1);
+}
+
+TEST_CASE("UTA-0020 INV-2: the wheel bit changes nothing but the time scale", "[ugame][game]") {
+    const BodyWorld world = arena();
+    Game open = duel(stock(), "impact-hammer", 900);
+    open.bodies[0].human = true;
+    Game shut = open;
+    bool slowed = false;
+    for (int k = 0; k < 600; ++k) {
+        std::vector<MoveCommand> commands = scriptAt(k);
+        commands[0].wheelOpen = false;
+        tick(world, stock(), RULES, shut, commands, DT);
+        commands[0].wheelOpen = k % 50 < 20;
+        tick(world, stock(), RULES, open, commands, DT);
+        slowed = slowed || open.timeScale != 1;
+        Game reset = open;
+        reset.timeScale = 1;
+        CAPTURE(k);
+        REQUIRE(stateHash(reset) == stateHash(shut));
+    }
+    CHECK(slowed); // the bit was read, so the run says something
+}
+
+TEST_CASE("UTA-0020 INV-4: the time scale and a body's human are in the hash", "[ugame][game]") {
+    const Game game = duel(stock(), "enforcer", 900);
+    Game slowed = game;
+    slowed.timeScale = WHEEL_TIME_SCALE;
+    Game person = game;
+    person.bodies[1].human = true;
+    CHECK(stateHash(slowed) != stateHash(game));
+    CHECK(stateHash(person) != stateHash(game));
+}
+
+TEST_CASE("UTA-0020 INV-5: the wheel lists the weapons carried by slot with the 0 key last", "[ugame][game]") {
+    const WeaponSet& set = stock();
+    Body body = bodyAt(set, {0, 0, STANDING}, 0);
+    for (Carried& carried : body.weapons) carried.has = false;
+    // Slots 1 (two of them), 2 and 0; not 3.
+    for (const char* name : {"sniper-rifle", "enforcer", "chainsaw", "impact-hammer"})
+        body.weapons[static_cast<std::size_t>(weaponNamed(set, name))].has = true;
+    REQUIRE(set.weapons[static_cast<std::size_t>(weaponNamed(set, "bio-rifle"))].slot == 3);
+    CHECK(wheelWeapons(set, body) == std::vector<int>{weaponNamed(set, "impact-hammer"), weaponNamed(set, "chainsaw"),
+                                                      weaponNamed(set, "enforcer"), weaponNamed(set, "sniper-rifle")});
+}
+
+namespace {
+
+/// What `body` is bringing up after one tick of `command`; -1 for nothing.
+int pendingAfter(const BodyWorld& world, Game game, const MoveCommand& command) {
+    std::vector<MoveCommand> commands(game.bodies.size());
+    commands[0] = command;
+    tick(world, stock(), RULES, game, commands, DT);
+    return game.bodies[0].pending;
+}
+
+} // namespace
+
+TEST_CASE("UTA-0020 INV-6: a pick of a carried weapon wins and any other is refused", "[ugame][game]") {
+    const BodyWorld world = arena();
+    const WeaponSet& set = stock();
+    const Game game = duel(set, "impact-hammer", 900);
+    const int rockets = weaponNamed(set, "rocket-launcher");
+    const int enforcer = weaponNamed(set, "enforcer");
+
+    MoveCommand picked;
+    picked.weaponPick = static_cast<std::int8_t>(enforcer);
+    picked.weaponSlot = 9;
+    CHECK(pendingAfter(world, game, picked) == enforcer); // the pick wins over the slot
+
+    MoveCommand stepped;
+    stepped.weaponPick = 99;
+    stepped.weaponStep = 1;
+    CHECK(pendingAfter(world, game, stepped) == weaponNamed(set, "chainsaw")); // out of range: the step applies
+
+    Game without = game;
+    without.bodies[0].weapons[static_cast<std::size_t>(rockets)].has = false;
+    MoveCommand uncarried;
+    uncarried.weaponPick = static_cast<std::int8_t>(rockets);
+    uncarried.weaponSlot = 2;
+    CHECK(pendingAfter(world, without, uncarried) == enforcer); // not carried: the slot applies
+
+    MoveCommand inHand;
+    inHand.weaponPick = static_cast<std::int8_t>(game.bodies[0].weapon);
+    inHand.weaponSlot = 9;
+    CHECK(pendingAfter(world, game, inHand) == -1); // the weapon in hand: nothing changes
 }

@@ -126,7 +126,9 @@ row's own.
 
 UTA-0019 § 4.6 (`docs/specs/UTA-0019-weapon-set.md`) adds `pitch` and
 fire and weapon buttons to `MoveCommand`, and a push to a body's
-velocity. A tick with no push moves as above.
+velocity. A tick with no push moves as above. UTA-0020 § 4.2
+(`docs/specs/UTA-0020-weapon-wheel.md`) adds the weapon wheel's
+`wheelOpen` and `weaponPick`, which movement ignores.
 
 **A double tap becomes a dodge before the command.** `DoubleTap`, in
 `Movement.h`, takes each tick's held direction keys and `dt`, and
@@ -242,7 +244,8 @@ public:
 The caller measures wall time and passes it in; `uworld` reads no clock.
 A frame draws the body at `blend` between the last two tick states.
 `advance` runs at most 8 ticks a call, dropping the rest, so a stall
-does not freeze the game catching up.
+does not freeze the game catching up. UTA-0020 § 4.4 gives `advance` a
+time scale, which slows the ticks owed and leaves `dt` alone.
 
 ### 4.8 Walking in `ut-ants`
 
@@ -251,9 +254,9 @@ dropped to the floor. Keyboard, mouse and gamepad drive it through the
 same `uinput` frame `FlyCamera` reads (UTA-0018), building a
 `MoveCommand` a tick and `DoubleTap` for dodges. A pad's Dodge press
 dodges the way the left stick points most. Its rules allow one air jump
-(§ 3 item 7). G, or pressing a pad's right stick, toggles it; Space, the
-bottom face button or the right shoulder jumps, Ctrl or the left shoulder
-ducks, and Shift or pressing the left stick walks
+(§ 3 item 7). G, or pressing a pad's right stick, toggles it; Space or
+the bottom face button jumps (the right shoulder holds UTA-0020's weapon
+wheel), Ctrl or the left shoulder ducks, and Shift or pressing the left stick walks
 (`apps/ut-ants/Cli.cpp`'s help). Walking, the triggers fire
 (UTA-0019 § 4.8).
 

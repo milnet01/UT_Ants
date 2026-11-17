@@ -25,6 +25,7 @@
 #include "ugame/WeaponSet.h"
 #include "uinput/Input.h"
 #include "urender/Renderer.h"
+#include "uui/Wheel.h"
 #include "uworld/BodyCollision.h"
 
 #include <SDL3/SDL.h>
@@ -135,6 +136,7 @@ Start startingCamera(const uta::ubundle::Bundle& bundle) {
 static_assert(int(uta::uinput::Key::A) == SDL_SCANCODE_A && int(uta::uinput::Key::D) == SDL_SCANCODE_D &&
               int(uta::uinput::Key::F) == SDL_SCANCODE_F && int(uta::uinput::Key::G) == SDL_SCANCODE_G &&
               int(uta::uinput::Key::H) == SDL_SCANCODE_H && int(uta::uinput::Key::P) == SDL_SCANCODE_P &&
+              int(uta::uinput::Key::Q) == SDL_SCANCODE_Q &&
               int(uta::uinput::Key::S) == SDL_SCANCODE_S && int(uta::uinput::Key::W) == SDL_SCANCODE_W &&
               int(uta::uinput::Key::T) == SDL_SCANCODE_T && int(uta::uinput::Key::N1) == SDL_SCANCODE_1 &&
               int(uta::uinput::Key::N2) == SDL_SCANCODE_2 && int(uta::uinput::Key::N3) == SDL_SCANCODE_3 &&
@@ -366,6 +368,13 @@ void Viewer::showOverlay() {
     if (walker) {
         if (!text.empty()) text += '\n';
         text += hudText(walker->body(), walker->set(), walker->lastHit());
+        // UTA-0020 SS 4.6: the wheel, every frame it is open, since its pointer moves.
+        const uta::uui::Wheel& wheel = walker->wheel();
+        std::vector<std::string> names;
+        if (wheel.isOpen())
+            for (const auto& weapon : walker->set().weapons) names.push_back(weapon.name);
+        renderer.setOverlayLabels(uta::uui::layOut(wheel, names));
+        renderer.setCrosshair(!wheel.isOpen());
     }
     if (text == overlayShown) return;
     renderer.setOverlayText(text);
@@ -382,6 +391,7 @@ void Viewer::toggleWalking() {
         standIns = {};
         renderer.setShapes({});
         renderer.setCrosshair(false);
+        renderer.setOverlayLabels({});
         uta::uinput::Settings settings = input.settings();
         settings.triggersFire = false;
         input.setSettings(settings);
@@ -569,7 +579,8 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
                 std::cerr << (viewer.walker->dummies() > dummies ? "ut-ants: a dummy stands ahead\n"
                                                                  : "ut-ants: no room for a dummy here\n");
             view = viewer.walker->view(camera.fov(), viewer.config.width, viewer.config.height);
-            viewer.standIns.advance(seconds, viewer.walker->events());
+            // UTA-0020 SS 3 item 4: what the game simulates slows with it.
+            viewer.standIns.advance(viewer.walker->gameSeconds(), viewer.walker->events());
             viewer.renderer.setShapes(viewer.standIns.shapes(viewer.walker->game(), viewer.walker->set()));
         } else {
             camera.update(input, seconds, level);

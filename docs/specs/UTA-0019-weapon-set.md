@@ -258,6 +258,9 @@ fires; then each projectile moves, sweeping its radius through the
 radius 0 is traced as a segment, by `BodyWorld::trace`. Damage and
 momentum land at the end of the tick. Every body moves before any
 fires, so no body's place in the order changes what a shot hits.
+UTA-0020 (`docs/specs/UTA-0020-weapon-wheel.md`) adds a human body, the
+time scale the tick sets last (§ 4.3 there), and a weapon picked on the
+wheel (§ 4.5 there).
 
 - **Bodies are UT99's upright cylinders** (`BodySize`). A segment or a
   projectile hits one where it enters the cylinder. A hit in its upper

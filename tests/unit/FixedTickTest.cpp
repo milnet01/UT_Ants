@@ -1,7 +1,8 @@
 // Locks INV-1 of docs/specs/UTA-0017-movement-rules.md: movement is the same
 // at every frame rate. A fixed script of commands, run through FixedTick with
 // frames of 1/30, 1/60 and 1/144 s and an uneven mix, gives bit-identical
-// states tick for tick. Also FixedTick's own contract (SS 4.7).
+// states tick for tick. Also FixedTick's own contract (SS 4.7), and its time
+// scale: docs/specs/UTA-0020-weapon-wheel.md INV-3.
 
 #include "BlockFixture.h"
 
@@ -93,4 +94,30 @@ TEST_CASE("UTA-0017: FixedTick drops what a stall owes past eight ticks, and ign
     CHECK(halves.advance(0.5 / TICKS_PER_SECOND) == 0);
     CHECK(halves.blend() == 0.5);
     CHECK(halves.advance(0.5 / TICKS_PER_SECOND) == 1);
+}
+
+namespace {
+
+/// Ticks one wall second of 1/60 s frames runs at `scale`.
+int ticksInASecondAt(double scale) {
+    FixedTick clock;
+    int ticks = 0;
+    for (int f = 0; f < 60; ++f) ticks += clock.advance(1.0 / 60, scale);
+    return ticks;
+}
+
+} // namespace
+
+TEST_CASE("UTA-0020 INV-3: a time scale slows the ticks owed and leaves dt alone") {
+    CHECK(std::abs(ticksInASecondAt(0.2) - 17) <= 1);
+    CHECK(std::abs(ticksInASecondAt(1) - TICKS_PER_SECOND) <= 1);
+    // Outside (0, 1], or not finite, counts as 1: a scale of 0 would freeze the clock.
+    for (const double bad : {0.0, -1.0, 2.0, std::numeric_limits<double>::quiet_NaN()}) {
+        CAPTURE(bad);
+        CHECK(std::abs(ticksInASecondAt(bad) - TICKS_PER_SECOND) <= 1);
+    }
+    FixedTick clock;
+    const double dt = clock.dt();
+    (void)clock.advance(1.0 / 60, 0.2);
+    CHECK(clock.dt() == dt);
 }
