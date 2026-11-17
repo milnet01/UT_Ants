@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=477 -->
+<!-- ants-roadmap-id-high-water: UTA=478 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -19031,7 +19031,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: design-2026-09-03.
   Lanes: uworld.
 
-- 📋 [UTA-0056] **uaudio: the mixer, with a priority rule that keeps speech audible.**
+- 🚧 [UTA-0056] **uaudio: the mixer, with a priority rule that keeps speech audible.**
   `uaudio` has no item until this one: the design names the part
   (`docs/design.md` § The parts -- "Sound playback, positional mixing,
   music") and nothing in the queue built it. Filed because a requirement
@@ -19085,6 +19085,14 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
 
   Still 0.2.0 and still blocked by the core weapon set -- there is no
   weapon to overwhelm anything with yet.
+  Started 2026-11-17. Blocked-by cleared: the core weapon set (UTA-0019)
+  shipped. Spec owed (a real design choice; others bind to the API):
+  docs/specs/UTA-0056-audio-mixer.md.
+  Decided by the user, 2026-11-17: four groups, speech over weapons and
+  impacts over world over music, each with its own volume; ducking is a
+  fixed gain dip on every group below speech, not a compressor; the dip
+  recovers in about half a second; on by default, with a player switch
+  to turn it off and a slider for its depth.
   **Layman:** Make sure the important sounds -- the announcer, warnings -- are still audible when a loud weapon is firing, instead of being buried.
   Kind: implement.
   Source: user-request-2026-09-05.
@@ -21506,6 +21514,20 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: review-fix.
   Source: review-code-2026-11-17.
   Lanes: build.
+
+- 📋 [UTA-0478] **ubake: bake the sounds a map and the weapon set use into the bundle, so the game can play them.**
+  Found writing UTA-0056 (2026-11-17). docs/design.md rule 2 keeps upkg
+  out of the runtime programs, so the client cannot read a .uax package.
+  A sound must reach it through the bundle, as textures and meshes do: a
+  new bundle section, a format bump and a re-bake (shapeOf samples the new
+  section). The mixer's decodeWav (UTA-0056 § 4.2) takes the RIFF bytes
+  the bundle would carry. Covers the map's own sounds (ambient sounds,
+  movers, triggers) and the weapon set's, which UTA-0467 then plays.
+  Blocker for UTA-0467.
+  **Layman:** Copy the sounds each map needs into the game's own map files, because the game is not allowed to read Unreal Tournament's files directly.
+  Kind: implement.
+  Source: in-session-2026-11-17 UTA-0056 spec.
+  Lanes: ubake, ubundle, uaudio.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
