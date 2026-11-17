@@ -8,6 +8,7 @@
 // display (docs/specs/UTA-0014-vulkan-draw-path.md SS 4.12).
 
 #include "BuildCommit.h" // generated -- UTA-0200
+#include "Audio.h"
 #include "Capture.h"
 #include "Cli.h"
 #include "FlyCamera.h"
@@ -695,7 +696,13 @@ int main(int argc, char** argv) {
         SDL_Quit();
         return EXIT_FAILED;
     }
-    const int status = run(window, *bundle, *options, bundleHash);
+    int status = EXIT_OK;
+    {
+        // UTA-0056 SS 4.8: open for the whole run and silent until UTA-0478
+        // gives it sounds; closed before SDL_Quit.
+        const uta::client::Audio audio;
+        status = run(window, *bundle, *options, bundleHash);
+    }
     SDL_DestroyWindow(window);
     SDL_Quit();
     return status;

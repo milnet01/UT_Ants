@@ -3,6 +3,7 @@
 # uworld, sits by core. Nothing depends on the order.
 add_subdirectory(core)
 add_subdirectory(uinput)
+add_subdirectory(uaudio)
 add_subdirectory(ufire)
 add_subdirectory(upkg)
 add_subdirectory(unav)

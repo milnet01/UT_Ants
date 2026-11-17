@@ -214,6 +214,9 @@ The scenario must show three results:
 3. **The shrapnel is one hit.** No more than 4 voices of `Chunkhit1` play
    at any frame.
 
+Measured 2026-11-17 at the defaults above: speech margin 10.2 dB, limiter
+3.3 dB, 3 impact voices. With the duck off the margin is -1.8 dB.
+
 If a target fails on the real sounds, the build changes the defaults
 (`duckDb`, a group's default volume, the caps) until it holds. It then
 records the change here (`write-spec` Step 8). It never lowers a target.
@@ -262,7 +265,7 @@ allows for a tool.
 - **INV-9** — `mix` allocates no memory. *Test:* `MixerTest`, counting global `operator new` calls across a `mix` of 64 playing voices.
   *Breaks when:* a voice list grows inside `mix`, or a `std::vector` is built per call.
 - **INV-10** — `flak-announcer` meets § 4.7's three targets at default settings. *Test:* `RealMixTest`, on the real-asset tier.
-  *Breaks when:* the duck is off, `duckDb` is 0, or the collapse window is 0.
+  *Breaks when:* the duck is off, or `duckDb` is 0. Not when the collapse window is 0: the per-clip cap alone holds result 3 (measured 2026-11-17: 4 voices, limiter 3.7 dB). INV-6 grades the collapse.
 - **INV-11** — `uta_uaudio` links `uta_core` and nothing else, and `uta_ugame` still links no `uta_uaudio`. *Test:* configure time, `src/uaudio/CMakeLists.txt` and the existing check in `src/ugame/CMakeLists.txt`.
   *Breaks when:* `uaudio` links SDL3, or `ugame` links `uaudio` to play a sound.
 
@@ -351,5 +354,6 @@ Building it is the reviewer. Record:
 ## 13. Resource cost
 
 Mixing 64 voices at 48000 Hz is about three million interpolated samples a
-second, on the audio thread, not the frame. Unmeasured until built;
-`RealMixTest` prints the scenario's mix time.
+second, on the audio thread, not the frame. The scenario's 4 s mixed in
+5 to 8 ms (2026-11-17, `RealMixTest` and `ut-mix`, on a machine at load
+15), about 0.2 % of one core. `RealMixTest` prints the figure.

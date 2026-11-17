@@ -151,11 +151,13 @@ add_executable(uta_unit_tests
     unit/RoomMapTest.cpp
     unit/TextureCacheTest.cpp
     unit/ToolsJsonTest.cpp
+    unit/WavTest.cpp
+    unit/MixerTest.cpp
     unit/WeaponSetTest.cpp
     unit/WiringGraphTest.cpp)
 target_link_libraries(uta_unit_tests PRIVATE uta_core uta_upkg uta_unav uta_unav_build
                                             uta_umap uta_umap_build uta_ubundle uta_umat
-                                            uta_urecipe uta_ubake uta_urender uta_ufire uta_uworld uta_ugame uta_uinput uta_uui uta_test_support
+                                            uta_urecipe uta_ubake uta_urender uta_ufire uta_uworld uta_ugame uta_uinput uta_uaudio uta_uui uta_test_support
                                             Catch2::Catch2WithMain
                                             # INV-3's synthetic devices are Vulkan's own feature structs.
                                             Vulkan::Vulkan)
@@ -331,7 +333,8 @@ if(UTA_REAL_ASSET_TESTS)
                                         real/RealLightProbesTest.cpp real/RealFlamesTest.cpp
                                         real/RealLiquidsTest.cpp real/RealClothTest.cpp
                                         real/RealMeshTest.cpp real/RealBodyCollisionTest.cpp
-                                        real/RealMovementTest.cpp real/RealWeaponTest.cpp)
+                                        real/RealMovementTest.cpp real/RealWeaponTest.cpp
+                                        real/RealMixTest.cpp)
     target_link_libraries(uta_real_asset_tests PRIVATE uta_upkg uta_umap uta_umap_build uta_unav_build
                                                        uta_umat uta_ubake uta_uworld uta_ugame uta_test_support
                                                        Catch2::Catch2WithMain)
@@ -340,6 +343,9 @@ if(UTA_REAL_ASSET_TESTS)
     # ut-paths, as built once (UTA-0433); the tests use all but its command
     # line -- UTA-0121 SS 7.
     target_link_libraries(uta_real_asset_tests PRIVATE uta_paths)
+    # ut-mix's scenario, as built once -- UTA-0056 SS 7.
+    include("${PROJECT_SOURCE_DIR}/tools/ut-mix/Library.cmake")
+    target_link_libraries(uta_real_asset_tests PRIVATE uta_mix)
     target_include_directories(uta_real_asset_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools")
     target_compile_definitions(uta_real_asset_tests
         PRIVATE UTA_UT_INSTALL_DIR="${UTA_UT_INSTALL_DIR}"

@@ -246,6 +246,10 @@ S2 reachable.**
     them is a check for forbidden edges — never a list of permitted
     ones. Without this line rule 10's *"may depend on anything"* implies
     a whitelist, and half the rules above become redundant under it.
+20. **`uaudio` depends on `core` alone and contains no SDL.** The client
+    owns the sound device and hands the mixer a buffer to fill, so the
+    mixer's tests build on the leg with no SDL. `src/uaudio/CMakeLists.txt`
+    asserts it at configure time (UTA-0056 INV-11).
 
 ## What every part does the same way
 

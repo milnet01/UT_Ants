@@ -14,6 +14,16 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **A sound mixer that keeps the announcer audible** (UTA-0056)
+  The game now opens your sound device and has a mixer behind it. While
+  the announcer or a warning speaks, every other sound dips by 12 dB
+  and comes back over half a second. A burst of flak shrapnel plays as
+  one hit instead of eight sounds piling up. Nothing plays in the game
+  yet: map sounds arrive with UTA-0478. Until then the developer tool
+  `ut-mix` renders a flak-cannon-and-announcer test to a WAV file from
+  your install's sounds, so the mix can be heard. If no sound device
+  opens, the game says "sound is off" once and carries on silent.
+
 - **`ut-export`: a baked map as a scene for ExperiRays' lighting lab** (UTA-0476)
   A new developer tool writes a baked map as a glTF 2.0 binary file and a
   camera-path file, in the format the ExperiRays project's EXRAY-0001
