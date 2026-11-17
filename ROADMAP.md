@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=474 -->
+<!-- ants-roadmap-id-high-water: UTA=475 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -24180,6 +24180,19 @@ docs/standards/versioning-overrides.md. Closes S8.
   Kind: perf.
   Source: peer-doom-ants-2026-11-13.
   Lanes: urender.
+
+- 📋 [UTA-0475] **Timed GPU runs take the machine-wide GPU lock.**
+  ExperiRays proposed it on 2026-11-17 and UT_Ants agreed: wrap each
+  timed GPU run, and nothing else, in
+  `flock -w 3600 /mnt/Emulators/.claude/locks/gpu-timed-run.lock <cmd>`.
+  Covers ut-bench frame and any timed sweep script. Not builds, untimed
+  device tests or lavapipe runs. ci-matrix.sh's own gate.lock stays.
+  Wait for the know_how entry once all three engines agree, then say
+  where the rule lives (docs/build-and-test.md, beside ut-bench).
+  **Layman:** When we time how fast the game draws, other projects' timing runs wait, so neither result is spoiled.
+  Kind: chore.
+  Source: in-session-2026-11-17.
+  Lanes: ut-bench.
 
 ## After 1.0.0
 
