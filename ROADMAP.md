@@ -24189,6 +24189,10 @@ docs/standards/versioning-overrides.md. Closes S8.
   device tests or lavapipe runs. ci-matrix.sh's own gate.lock stays.
   Wait for the know_how entry once all three engines agree, then say
   where the rule lives (docs/build-and-test.md, beside ut-bench).
+  2026-11-17: the lock is live. Preferred form writes the holder into
+  the lock file: `/mnt/Emulators/.claude/locks/gpu-timed UT_ANTS <cmd>`;
+  plain flock on the same file stays valid. know_how topic:
+  shared-gpu-timed-run-lock.
   **Layman:** When we time how fast the game draws, other projects' timing runs wait, so neither result is spoiled.
   Kind: chore.
   Source: in-session-2026-11-17.
