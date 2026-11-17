@@ -18981,7 +18981,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: design-2026-09-03.
   Lanes: ugame, uui.
 
-- 📋 [UTA-0021] **First-person platforming: the landing marker and the take-off pitch.**
+- 🚧 [UTA-0021] **First-person platforming: the landing marker and the take-off pitch.**
   A marker on the ground where the current jump arc lands, and a small automatic
   downward pitch on take-off so the landing is in frame.
   Both are VISUAL. The pitch offsets the render camera only; the view angles in
@@ -18990,6 +18990,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   pointed. That is what makes them free against S2.
   The player's own setting, on by default.
   This is what S11's first half is measured on.
+  Spec: docs/specs/UTA-0021-landing-marker.md (2026-11-17).
   **Layman:** The reason you fall off ledges in most shooters is that you cannot see your feet. Metroid Prime solved it by showing where you will land -- so we show it too.
   Kind: implement.
   Source: design-2026-09-03.
@@ -24204,7 +24205,7 @@ docs/standards/versioning-overrides.md. Closes S8.
   Source: peer-doom-ants-2026-11-13.
   Lanes: urender.
 
-- 📋 [UTA-0475] **Timed GPU runs take the machine-wide GPU lock.**
+- ✅ [UTA-0475] **Timed GPU runs take the machine-wide GPU lock.**
   ExperiRays proposed it on 2026-11-17 and UT_Ants agreed: wrap each
   timed GPU run, and nothing else, in
   `flock -w 3600 /mnt/Emulators/.claude/locks/gpu-timed-run.lock <cmd>`.
@@ -24216,6 +24217,8 @@ docs/standards/versioning-overrides.md. Closes S8.
   the lock file: `/mnt/Emulators/.claude/locks/gpu-timed UT_ANTS <cmd>`;
   plain flock on the same file stays valid. know_how topic:
   shared-gpu-timed-run-lock.
+  2026-11-17: docs/build-and-test.md wraps ut-bench frame in gpu-timed
+  and points at the know_how topic (28de836, CI green).
   **Layman:** When we time how fast the game draws, other projects' timing runs wait, so neither result is spoiled.
   Kind: chore.
   Source: in-session-2026-11-17.
