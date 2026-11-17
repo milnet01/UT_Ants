@@ -11,7 +11,8 @@ item: `UTA-0249` (reconfirmed 2026-10-05; `UTA-0186` closed 2026-10-19). `UTA-00
 `UTA-0283` waits on UT_MonsterHunt.
 In 0.2.0, `UTA-0022` (the physical platforming assists) shipped
 2026-11-17. Next is `UTA-0056`, the audio mixer. `UTA-0476`,
-ExperiRays' scene exporter, goes first as help to another session.
+ExperiRays' scene exporter, is built and waits on their reader,
+`EXRAY-0012`.
 **In flight:** `roadmap_query status:"in-progress"`. Not kept by hand.
 
 > `State:` is a formula, so no session owes it an edit and it cannot

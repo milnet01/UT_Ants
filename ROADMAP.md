@@ -21489,7 +21489,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-11-16.
   Lanes: apps, uinput.
 
-- 📋 [UTA-0477] **UTA-0049's refuse guard: also refuse /fp:contract and -ffp-contract=on.**
+- ✅ [UTA-0477] **UTA-0049's refuse guard: also refuse /fp:contract and -ffp-contract=on.**
   Found by UT_Ants' review of ExperiRays' EXRAY-0002 (8e9f9a5),
   2026-11-17, whose guard copies ours. CMakeLists.txt's
   _uta_unsafe_fp_pattern is "(-ffast-math|-Ofast|/fp:fast|
@@ -21499,6 +21499,9 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   turns fused multiply-add back on, which UTA-0049 exists to stop. Fix:
   add both to the pattern and to UTA-0049 § 4.3's list; prove it by
   configuring a throwaway build with each and seeing it refuse.
+  2026-11-17: shipped in c859afd, green on GitHub's matrix. The pattern
+  refuses /fp:contract and -ffp-contract=on, and still passes the
+  build's own -ffp-contract=off, /fp:precise and -fno-fast-math.
   **Layman:** Make the build refuse two more compiler settings that would quietly change how maths rounds on one compiler.
   Kind: review-fix.
   Source: review-code-2026-11-17.
