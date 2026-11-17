@@ -464,13 +464,9 @@ untouched.
 - **Bot difficulty model (`0.3.0`).** Whether bots are made harder by
   better decisions or by tighter aim, and where the honest ceiling sits.
   `0.3.0` is where bots first ship.
-- **Whether the weapon wheel pauses or slows time (`0.2.0`).** UT99 has
-  no precedent and the answer changes how the game plays, not just how
-  it looks. It is `0.2.0` because a time scale the server must agree on
-  is an input to the fixed tick, and adding one later would cross rules
-  9 and 12. **Not because of S9** — `versioning-overrides.md` cuts
-  **S9** at `0.4.0`, where the Monster Hunt round it asks for exists,
-  and that table owns what a release contains.
+- **Whether the weapon wheel pauses or slows time (`0.2.0`).** Settled
+  by [ADR-0009](decisions/ADR-0009-weapon-wheel-slows-time-for-a-lone-player.md):
+  it slows time to 20%, only while one human is playing.
 
 ## Close calls
 
@@ -482,3 +478,4 @@ untouched.
 | [ADR-0004](decisions/ADR-0004-resolve-classes-by-ancestry.md) | Understand custom actors by ancestry, not by running UnrealScript |
 | [ADR-0005](decisions/ADR-0005-own-network-protocol.md) | Our own protocol, not UT99 wire compatibility |
 | [ADR-0006](decisions/ADR-0006-community-content-may-be-served.md) | The quarantine restricts Epic-derived content; community work may be served |
+| [ADR-0009](decisions/ADR-0009-weapon-wheel-slows-time-for-a-lone-player.md) | The open weapon wheel slows time to 20%, only for a lone human player |

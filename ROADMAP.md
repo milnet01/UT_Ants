@@ -18958,6 +18958,12 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   prototype in a worktree (run, slow, stop), the user plays it, ADR, then
   the spec, then the build. Online play cannot slow time for everyone, so
   the question is what the wheel does alone or against bots.
+  Settled (user, 2026-11-17, after playing the prototype on a
+  controller): the open wheel slows time to 20%, only while one human
+  is playing. Recorded as ADR-0009. Next: the spec,
+  docs/specs/UTA-0020-weapon-wheel.md. Prototype branch wheel-proto
+  (worktree in Scratchpad/UT_Ants/wheel-proto) stays as a reference
+  until the spec lands, then goes.
   **Layman:** Pick a gun from a wheel instead of scrolling through them one at a time.
   Kind: implement.
   Source: design-2026-09-03.
