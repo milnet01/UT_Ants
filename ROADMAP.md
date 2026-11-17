@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=476 -->
+<!-- ants-roadmap-id-high-water: UTA=477 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -21489,6 +21489,21 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-11-16.
   Lanes: apps, uinput.
 
+- 📋 [UTA-0477] **UTA-0049's refuse guard: also refuse /fp:contract and -ffp-contract=on.**
+  Found by UT_Ants' review of ExperiRays' EXRAY-0002 (8e9f9a5),
+  2026-11-17, whose guard copies ours. CMakeLists.txt's
+  _uta_unsafe_fp_pattern is "(-ffast-math|-Ofast|/fp:fast|
+  -ffp-contract=fast)". It misses /fp:contract, MSVC's opt-in to
+  contraction, which works alongside /fp:precise, so flag order cannot
+  undo it. It also misses -ffp-contract=on. Either in CMAKE_CXX_FLAGS
+  turns fused multiply-add back on, which UTA-0049 exists to stop. Fix:
+  add both to the pattern and to UTA-0049 § 4.3's list; prove it by
+  configuring a throwaway build with each and seeing it refuse.
+  **Layman:** Make the build refuse two more compiler settings that would quietly change how maths rounds on one compiler.
+  Kind: review-fix.
+  Source: review-code-2026-11-17.
+  Lanes: build.
+
 ## 0.3.0 — Monsters, bots and Deathmatch
 
 Monsters resolved by ancestry, combat bots on the maps' own waypoints, and
@@ -24240,7 +24255,7 @@ docs/standards/versioning-overrides.md. Closes S8.
   Source: in-session-2026-11-17.
   Lanes: ut-bench.
 
-- 📋 [UTA-0476] **Export a baked map to ExperiRays' glTF scene and camera-path files.**
+- 🚧 [UTA-0476] **Export a baked map to ExperiRays' glTF scene and camera-path files.**
   The UT_Ants exporter that ExperiRays' EXRAY-0001 spec binds
   (/mnt/Games/Scripts/Linux/ExperiRays/docs/specs/EXRAY-0001-gltf-extras.md,
   reviewed by UT_Ants 2026-11-17, folded in ExperiRays c894826). It
