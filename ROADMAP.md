@@ -19001,7 +19001,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: design-2026-09-03.
   Lanes: uui, urender.
 
-- 🚧 [UTA-0022] **uworld: the physical platforming assists, defaulting off.**
+- ✅ [UTA-0022] **uworld: the physical platforming assists, defaulting off.**
   Coyote time, mantling, and step-up ABOVE UT99's own step-up height. Physical,
   so they live in uworld and are a server setting replicated on join like every
   other rule (rule 14).
@@ -19015,6 +19015,17 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Turning one on is a server operator's deliberate trade, and S11 is measured at
   the defaults.
   Blocked-by: the movement model.
+  Shipped 2026-11-17 (8d23d4f, CI run 44105131224 green on GCC, Clang
+  and MSVC). No spec: one subsystem, off by default, cheap to redo.
+  As built: MoveRules::coyoteTime (on at 0.1 s; a jump as from the
+  floor, using no air jump); mantleHeight with mantleSpeed (on at 64
+  units above the feet, climbing at 250 units a second, up then over;
+  needs jump held and a push into the wall, room on top and a floor;
+  a push knocks the body off mid-climb); extraStepHeight (on at 20,
+  added to UT99's 25 going up only). All 0 by default. ut-ants turns
+  each on with --coyote-time, --mantle and --high-step until a server
+  setting exists (UTA-0026). The on-values are first guesses for the
+  user to judge by playing.
   **Layman:** A small grace period after you step off a ledge, pulling yourself up onto one, and stepping over low obstacles. These change how the body moves, so they are a server's choice and they are off unless someone turns them on.
   Kind: implement.
   Source: design-2026-09-03.
