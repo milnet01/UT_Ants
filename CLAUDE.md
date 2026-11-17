@@ -9,8 +9,9 @@ open fix-kind or review-sourced item, oldest first; then 0.2.0. Parked fix
 item: `UTA-0249` (reconfirmed 2026-10-05; `UTA-0186` closed 2026-10-19). `UTA-0098` and
 `UTA-0100` defer themselves. 0.1.0 released 2026-11-04 (tag `v0.1.0`).
 `UTA-0283` waits on UT_MonsterHunt.
-In 0.2.0, `UTA-0020` (the weapon wheel) shipped 2026-11-17. Next is
-`UTA-0021`, the landing marker and the take-off pitch.
+In 0.2.0, `UTA-0021` (the landing marker and the take-off pitch)
+shipped 2026-11-17. Next is `UTA-0022`, the physical platforming
+assists, defaulting off.
 **In flight:** `roadmap_query status:"in-progress"`. Not kept by hand.
 
 > `State:` is a formula, so no session owes it an edit and it cannot

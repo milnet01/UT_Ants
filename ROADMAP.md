@@ -18981,7 +18981,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: design-2026-09-03.
   Lanes: ugame, uui.
 
-- 🚧 [UTA-0021] **First-person platforming: the landing marker and the take-off pitch.**
+- ✅ [UTA-0021] **First-person platforming: the landing marker and the take-off pitch.**
   A marker on the ground where the current jump arc lands, and a small automatic
   downward pitch on take-off so the landing is in frame.
   Both are VISUAL. The pitch offsets the render camera only; the view angles in
@@ -18991,6 +18991,11 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   The player's own setting, on by default.
   This is what S11's first half is measured on.
   Spec: docs/specs/UTA-0021-landing-marker.md (2026-11-17).
+  2026-11-17: shipped in 92ba50f, green on GitHub's matrix (run
+  44098714474: GCC, Clang, MSVC). S11's first half is the user's to
+  judge by playing (spec § 10). projectLanding's cost was measured on a
+  saturated machine; re-run uta_real_asset_tests "[timing]" on a quiet
+  one (spec § 13).
   **Layman:** The reason you fall off ledges in most shooters is that you cannot see your feet. Metroid Prime solved it by showing where you will land -- so we show it too.
   Kind: implement.
   Source: design-2026-09-03.
