@@ -111,6 +111,16 @@ public:
         bool takeOffPitch = true;
     };
     void setAssists(Assists assists) noexcept { assists_ = assists; }
+    /// UTA-0022: the physical platforming assists, each off by default. Each
+    /// changes the rules the body moves by, so it is a server's setting; this
+    /// viewer is its own server.
+    struct PhysicalAssists {
+        bool coyoteTime = false;
+        bool mantle = false;
+        bool highStep = false;
+    };
+    void setPhysicalAssists(PhysicalAssists assists) noexcept;
+    [[nodiscard]] const uworld::MoveRules& rules() const noexcept { return rules_; }
     /// The drawn view's horizontal field of view and width over height,
     /// which the take-off pitch frames the landing in.
     void setViewShape(double fov, double aspect) noexcept;

@@ -253,3 +253,23 @@ TEST_CASE("UTA-0021 INV-6: each assist turns off alone") {
     late.update(runFrame(n), 1.0 / 85, world);
     CHECK(late.tip() == 0);
 }
+
+TEST_CASE("UTA-0022: the physical assists are off until set, each turning on its own rule", "[client]") {
+    Walker walker({0, 0, 100}, 0, 0);
+    const auto off = [](const uta::uworld::MoveRules& r) {
+        return r.coyoteTime == 0 && r.mantleHeight == 0 && r.extraStepHeight == 0;
+    };
+    CHECK(off(walker.rules()));
+    walker.setPhysicalAssists({.coyoteTime = true});
+    CHECK(walker.rules().coyoteTime == uta::uworld::COYOTE_TIME_ON);
+    CHECK(walker.rules().mantleHeight == 0);
+    walker.setPhysicalAssists({.mantle = true});
+    CHECK(walker.rules().coyoteTime == 0);
+    CHECK(walker.rules().mantleHeight == uta::uworld::MANTLE_HEIGHT_ON);
+    CHECK(walker.rules().extraStepHeight == 0);
+    walker.setPhysicalAssists({.highStep = true});
+    CHECK(walker.rules().extraStepHeight == uta::uworld::EXTRA_STEP_HEIGHT_ON);
+    walker.setPhysicalAssists({});
+    CHECK(off(walker.rules()));
+    CHECK(walker.rules().airJumps == 1); // the double jump is not one of them
+}

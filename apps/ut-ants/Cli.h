@@ -48,6 +48,10 @@ struct Options {
     /// player's own setting, on unless turned off.
     bool landingMarker = true;
     bool takeOffPitch = true;
+    /// UTA-0022: the physical platforming assists, each off unless turned on.
+    bool coyoteTime = false;
+    bool mantle = false;
+    bool highStep = false;
     /// UTA-0153: a resizable window. Unset: borderless fullscreen at the desktop's size.
     bool windowed = false;
     /// UTA-0051: the quality tier. Unset: urender chooses from the device.

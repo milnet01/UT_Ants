@@ -84,6 +84,12 @@ Walker::Walker(std::array<double, 3> location, double pitch, double yaw, uworld:
     previous_ = game_.bodies[0].move;
 }
 
+void Walker::setPhysicalAssists(PhysicalAssists assists) noexcept {
+    rules_.coyoteTime = assists.coyoteTime ? uworld::COYOTE_TIME_ON : 0;
+    rules_.mantleHeight = assists.mantle ? uworld::MANTLE_HEIGHT_ON : 0;
+    rules_.extraStepHeight = assists.highStep ? uworld::EXTRA_STEP_HEIGHT_ON : 0;
+}
+
 ugame::Body Walker::armed(const Spawn& at) const {
     ugame::Body body = ugame::bodyAt(set_, {at.location[0], at.location[1], at.location[2]}, units(at.yaw));
     ugame::giveAll(set_, body);

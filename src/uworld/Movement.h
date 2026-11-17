@@ -6,6 +6,11 @@
 // Every rule and constant was fitted to the original's recordings (UTA-0456)
 // at 60 and 85 fps; the spec's SS 4.3 says how each was measured. Positions
 // are a body's centre, in UT99's units and on its axes; time is game seconds.
+//
+// UTA-0022 adds three physical platforming assists the original lacks:
+// coyote time, mantling and a higher step. Each is a rule that defaults off
+// (docs/design.md, the movement-assist bullet), so the defaults still copy
+// the original.
 
 #pragma once
 
@@ -38,7 +43,8 @@ struct MoveCommand {
     std::int8_t weaponPick = -1;    ///< a weapon picked on the wheel this tick, an index into the set; -1 for none
 };
 
-enum class Physics : std::uint8_t { Walking, Falling };
+/// Mantling is UTA-0022's climb onto a ledge: up, then over, at mantleSpeed.
+enum class Physics : std::uint8_t { Walking, Falling, Mantling };
 
 /// Where a dodge is: none, in the air, or landed and not yet ready again.
 enum class DodgeState : std::uint8_t { None, Active, Done };
@@ -50,6 +56,10 @@ struct MoveState {
     double dodgeDoneTime = 0; ///< game seconds spent in DodgeState::Done
     bool jumpHeld = false;    ///< the last command's jump, so a held key jumps once
     int airJumpsUsed = 0;     ///< jumps made in the air since the body last landed
+    /// UTA-0022: game seconds left in which a body that walked off a ledge
+    /// may still jump as if from the floor.
+    double coyoteLeft = 0;
+    Vec3 mantleTo{}; ///< UTA-0022: where a Mantling body stands when the climb ends
 };
 
 /// The movement constants. The defaults are the player's, each from the
@@ -72,7 +82,24 @@ struct MoveRules {
     /// Jumps a body may make in the air before it lands (spec SS 4.4). The
     /// original has none, so the default copies it; ut-ants allows one.
     int airJumps = 0;
+    // UTA-0022's physical platforming assists. Each is 0, off, by default;
+    // a server turns one on (docs/design.md rule 14).
+    /// Game seconds after walking off a ledge in which a jump still starts
+    /// as from the floor, using no air jump.
+    double coyoteTime = 0;
+    /// How far above the feet a ledge may be for a falling body, holding
+    /// jump and pushing into its wall, to climb onto it.
+    double mantleHeight = 0;
+    double mantleSpeed = 250; ///< the climb's speed, up and then over
+    /// Added to maxStepHeight when walking up a step. maxStepHeight is the
+    /// original's own, always on; stepping down keeps it.
+    double extraStepHeight = 0;
 };
+
+/// UTA-0022: the values the assists are turned on at.
+inline constexpr double COYOTE_TIME_ON = 0.1;
+inline constexpr double MANTLE_HEIGHT_ON = 64;
+inline constexpr double EXTRA_STEP_HEIGHT_ON = 20;
 
 /// The next state: `command` applied to `state` over `dt` game seconds. A
 /// pure function. A body that starts inside something does not move and keeps
@@ -84,7 +111,8 @@ struct MoveRules {
 inline constexpr double PUSH_FAST_RISE = 380;
 
 /// UTA-0019 SS 4.6: `velocity` added to a body, as the original's
-/// AddVelocity does; a walking body is lifted into Falling. A pure function.
+/// AddVelocity does; a walking or mantling body is lifted into Falling, with
+/// no coyote time left. A pure function.
 [[nodiscard]] MoveState push(const MoveState& state, const Vec3& velocity);
 
 /// UTA-0021 SS 4.2: where a falling body first lands -- its centre on that tick.

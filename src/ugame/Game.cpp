@@ -588,6 +588,8 @@ std::uint64_t stateHash(const Game& game) {
         addDouble(body.move.dodgeDoneTime);
         add(body.move.jumpHeld ? 1 : 0);
         add(static_cast<std::uint64_t>(body.move.airJumpsUsed));
+        addDouble(body.move.coyoteLeft);
+        addVec(body.move.mantleTo);
         addDouble(body.health);
         for (const Carried& carried : body.weapons) {
             add(carried.has ? 1 : 0);

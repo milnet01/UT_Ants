@@ -19001,7 +19001,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: design-2026-09-03.
   Lanes: uui, urender.
 
-- 📋 [UTA-0022] **uworld: the physical platforming assists, defaulting off.**
+- 🚧 [UTA-0022] **uworld: the physical platforming assists, defaulting off.**
   Coyote time, mantling, and step-up ABOVE UT99's own step-up height. Physical,
   so they live in uworld and are a server setting replicated on join like every
   other rule (rule 14).

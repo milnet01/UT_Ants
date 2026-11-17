@@ -124,6 +124,11 @@ MoveState tick(const BodyWorld&, const BodySize&, const MoveRules&,
 game passes § 4.7's fixed value, and the recording tests pass each
 row's own.
 
+UTA-0022 adds the physical platforming assists, each a rule that
+defaults off: `coyoteTime`, `mantleHeight` with `mantleSpeed`, and
+`extraStepHeight`. They bring `Physics::Mantling` and the state's
+`coyoteLeft` and `mantleTo`. `Movement.h` says what each does.
+
 UTA-0019 § 4.6 (`docs/specs/UTA-0019-weapon-set.md`) adds `pitch` and
 fire and weapon buttons to `MoveCommand`, and a push to a body's
 velocity. A tick with no push moves as above. UTA-0020 § 4.2

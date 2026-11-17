@@ -435,6 +435,8 @@ void Viewer::toggleWalking() {
                                      : uta::uworld::Teleporters{},
                    *weapons, std::move(spawns));
     walker->setAssists({.landingMarker = options.landingMarker, .takeOffPitch = options.takeOffPitch});
+    walker->setPhysicalAssists(
+        {.coyoteTime = options.coyoteTime, .mantle = options.mantle, .highStep = options.highStep});
     renderer.setCrosshair(true);
     // Walking, the triggers fire; the bottom face button and the shoulders
     // still jump and duck.

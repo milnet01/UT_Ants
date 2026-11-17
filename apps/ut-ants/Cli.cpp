@@ -18,10 +18,11 @@ void usage(std::ostream& err) {
     err << "usage: ut-ants [--tier <low|medium|high|ultra>] [--frames <n>] [--validation] [--windowed]\n"
            "               [--show-missing] [--no-added-lamps] [--fov <degrees>] [--notes <file>]\n"
            "               [--no-landing-marker] [--no-take-off-pitch]\n"
+           "               [--coyote-time] [--mantle] [--high-step]\n"
            "               [--baker-version <text>] <install> <bundle>\n"
            "       ut-ants [--tier <low|medium|high|ultra>] [--validation] [--windowed] [--show-missing]\n"
            "               [--no-added-lamps] [--fov <degrees>] [--no-landing-marker]\n"
-           "               [--no-take-off-pitch] <install>\n"
+           "               [--no-take-off-pitch] [--coyote-time] [--mantle] [--high-step] <install>\n"
            "       ut-ants --help\n"
            "\n"
            "Given only <install>, opens the map launcher: every playable map in the\n"
@@ -79,6 +80,10 @@ void usage(std::ostream& err) {
            "--no-landing-marker hides the ring that shows, in the air, where you\n"
            "will land.\n"
            "--no-take-off-pitch keeps the view from tipping down to show it.\n"
+           "Three assists change how the body moves, so each is off unless turned\n"
+           "on: --coyote-time lets a jump start just after walking off a ledge;\n"
+           "--mantle climbs onto a ledge in reach while you hold jump and push into\n"
+           "it; --high-step walks up steps higher than UT99's.\n"
            "--tier picks the quality tier; without it the game picks one from the\n"
            "graphics card.\n"
            "--fov opens at that field of view, in degrees across the screen, as\n"
@@ -105,6 +110,12 @@ std::optional<Options> parseArguments(std::span<const std::string_view> args, st
             options.landingMarker = false;
         } else if (arg == "--no-take-off-pitch") {
             options.takeOffPitch = false;
+        } else if (arg == "--coyote-time") {
+            options.coyoteTime = true;
+        } else if (arg == "--mantle") {
+            options.mantle = true;
+        } else if (arg == "--high-step") {
+            options.highStep = true;
         } else if (arg == "--windowed") {
             options.windowed = true;
         } else if (arg == "--tier") {
@@ -219,6 +230,9 @@ std::vector<std::string> inheritedArguments(const Options& options) {
     if (!options.addedLamps) args.emplace_back("--no-added-lamps");
     if (!options.landingMarker) args.emplace_back("--no-landing-marker");
     if (!options.takeOffPitch) args.emplace_back("--no-take-off-pitch");
+    if (options.coyoteTime) args.emplace_back("--coyote-time");
+    if (options.mantle) args.emplace_back("--mantle");
+    if (options.highStep) args.emplace_back("--high-step");
     if (options.fov.has_value()) {
         args.emplace_back("--fov");
         args.push_back(std::format("{}", *options.fov)); // the shortest text that reads back exactly

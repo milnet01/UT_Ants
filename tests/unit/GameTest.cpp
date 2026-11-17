@@ -1530,7 +1530,8 @@ TEST_CASE("INV-5: a scripted fight is the same at every frame rate and on every 
         CHECK(again == reference);
     }
     INFO("final hash " << reference.back());
-    CHECK(reference.back() == 10585331384520321765u); // UTA-0020: the script opens the wheel
+    // UTA-0020: the script opens the wheel. UTA-0022: the hash covers coyoteLeft and mantleTo.
+    CHECK(reference.back() == 10514489237897718501u);
 }
 
 // UTA-0020: the weapon wheel's time scale, and what it lists and picks.

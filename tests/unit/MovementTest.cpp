@@ -245,6 +245,123 @@ TEST_CASE("UTA-0017: walking off a ledge keeps its speed into the fall") {
     CHECK(s.velocity.x > RULES.groundSpeed - 1);
 }
 
+TEST_CASE("UTA-0022: every physical platforming assist is off by default") {
+    CHECK(RULES.coyoteTime == 0);
+    CHECK(RULES.mantleHeight == 0);
+    CHECK(RULES.extraStepHeight == 0);
+}
+
+namespace {
+
+/// Runs off a shelf 100 high ending at x = 100; the state on the first
+/// falling tick.
+MoveState walkedOff(const BodyWorld& world, const MoveRules& rules) {
+    MoveState s = standingAt(0, 0, 100);
+    s.velocity = {rules.groundSpeed, 0, 0};
+    for (int k = 0; k < 100 && s.physics == Physics::Walking; ++k) s = tick(world, BODY, rules, s, forward(), DT);
+    REQUIRE(s.physics == Physics::Falling);
+    return s;
+}
+
+/// `s` after `ticks` falling ticks pushing forward, then a jump pressed.
+MoveState jumpAfter(const BodyWorld& world, const MoveRules& rules, MoveState s, int ticks) {
+    for (int k = 0; k < ticks; ++k) s = tick(world, BODY, rules, s, forward(), DT);
+    MoveCommand jump = forward();
+    jump.jump = true;
+    return tick(world, BODY, rules, s, jump, DT);
+}
+
+} // namespace
+
+TEST_CASE("UTA-0022: coyote time lets a jump start just off a ledge, using no air jump") {
+    const auto world = levelOf({box({-500, -200, 0}, {100, 200, 100})});
+    MoveRules rules = RULES;
+    rules.coyoteTime = COYOTE_TIME_ON;
+    rules.airJumps = 1;
+    const int window = static_cast<int>(COYOTE_TIME_ON / DT); // falling ticks still inside it
+
+    const MoveState late = jumpAfter(world, rules, walkedOff(world, rules), window - 1);
+    CHECK(late.velocity.z > 0.9 * rules.jumpZ);
+    CHECK(late.airJumpsUsed == 0);
+    CHECK(late.coyoteLeft == 0);
+
+    // Past the window, the press is the air jump.
+    const MoveState after = jumpAfter(world, rules, walkedOff(world, rules), window + 2);
+    CHECK(after.airJumpsUsed == 1);
+
+    // Off, as the original: no jump at all.
+    const MoveState off = jumpAfter(world, RULES, walkedOff(world, RULES), 1);
+    CHECK(off.velocity.z < 0);
+}
+
+TEST_CASE("UTA-0022: a falling body holding jump against a ledge in reach climbs onto it") {
+    MoveRules rules = RULES;
+    rules.mantleHeight = MANTLE_HEIGHT_ON;
+    // Jumps from against a wall, holding forward throughout, and jump too
+    // where `holdJump` says so.
+    const auto run = [&](const BodyWorld& world, const MoveRules& r, bool holdJump = true) {
+        MoveState s = standingAt(200 - BODY.radius - 1, 0);
+        bool mantled = false;
+        for (int k = 0; k < 300; ++k) {
+            MoveCommand c = forward();
+            c.jump = k == 0 || holdJump;
+            s = tick(world, BODY, r, s, c, DT);
+            if (s.physics == Physics::Mantling) {
+                mantled = true;
+                CHECK(push(s, {}).physics == Physics::Falling); // knocked off mid-climb
+            }
+        }
+        return std::pair{s, mantled};
+    };
+
+    const auto wall = levelOf({box({200, -200, 0}, {1900, 200, 100})}); // longer than 300 ticks' walk
+    const auto [up, mantled] = run(wall, rules);
+    CHECK(mantled);
+    CHECK(up.physics == Physics::Walking);
+    CHECK(up.location.x > 200 + BODY.radius);
+    CHECK(std::abs(up.location.z - (100 + STANDING)) < 0.01);
+
+    // Off, as the original; or with jump let go after the take-off: the
+    // body stays below.
+    for (const auto& [r, holdJump] : {std::pair{RULES, true}, std::pair{rules, false}}) {
+        const auto [below, any] = run(wall, r, holdJump);
+        CHECK_FALSE(any);
+        CHECK(below.location.x < 200);
+    }
+
+    // A ledge beyond a jump's height plus mantleHeight is out of reach.
+    const auto high = levelOf({box({200, -200, 0}, {1500, 200, 140})});
+    CHECK_FALSE(run(high, rules).second);
+
+    // No room for the body on top: a ceiling 50 above the ledge.
+    const auto low = levelOf({box({200, -200, 0}, {1500, 200, 100}), box({200, -200, 150}, {1500, 200, 300})});
+    CHECK_FALSE(run(low, rules).second);
+}
+
+TEST_CASE("UTA-0022: extraStepHeight raises the step walked up, not the step walked down") {
+    MoveRules rules = RULES;
+    rules.extraStepHeight = EXTRA_STEP_HEIGHT_ON;
+    const double most = RULES.maxStepHeight + EXTRA_STEP_HEIGHT_ON;
+    for (const double height : {most, most + 1}) {
+        const auto world = levelOf({box({200, -200, 0}, {1500, 200, height})});
+        MoveState s = standingAt(0, 0);
+        for (int k = 0; k < 200; ++k) s = tick(world, BODY, rules, s, forward(), DT);
+        INFO("a step " << height << " high");
+        CHECK(s.physics == Physics::Walking);
+        CHECK((s.location.x > 200 + BODY.radius) == (height == most));
+    }
+
+    // Walking off a step higher than maxStepHeight still falls.
+    const auto world = levelOf({box({-500, -200, 0}, {100, 200, RULES.maxStepHeight + 1})});
+    MoveState s = standingAt(0, 0, RULES.maxStepHeight + 1);
+    bool fell = false;
+    for (int k = 0; k < 100; ++k) {
+        s = tick(world, BODY, rules, s, forward(), DT);
+        fell = fell || s.physics == Physics::Falling;
+    }
+    CHECK(fell);
+}
+
 TEST_CASE("UTA-0021 INV-1: projectLanding predicts the real landing exactly") {
     // A shelf 100 high ending at x = 100; the body jumps off it running.
     const auto world = levelOf({box({-500, -500, 0}, {100, 500, 100})});

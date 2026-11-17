@@ -8,6 +8,8 @@
 
 #include "core/Angles.h"
 
+#include <algorithm>
+
 
 namespace uta::uworld {
 namespace {
@@ -80,6 +82,68 @@ bool walkable(const MoveRules& rules, const BodyHit& hit) {
 
 double levelDistance(const Vec3& a, const Vec3& b) { return length(flat(b - a)); }
 
+/// A body coming to stand, from a fall or a climb.
+void land(const MoveRules& rules, MoveState& s) {
+    s.physics = Physics::Walking;
+    s.airJumpsUsed = 0;
+    s.coyoteLeft = 0;
+    if (s.dodge == DodgeState::Active) {
+        s.velocity = s.velocity * rules.dodgeLandingKeep;
+        s.dodge = DodgeState::Done;
+        s.dodgeDoneTime = 0;
+    }
+}
+
+/// UTA-0022: where a body at `at`, pushing along `push`, stands after
+/// climbing the ledge in front of it. Nothing when no wall is within a
+/// radius ahead, its top is more than mantleHeight above the feet, there is
+/// no room above it, or no floor to stand on there.
+std::optional<Vec3> ledgeAhead(const BodyWorld& world, const BodySize& size, const MoveRules& rules, const Vec3& at,
+                               const Vec3& push) {
+    const Vec3 reach = push * size.radius;
+    const BodyHit wall = world.sweep(size, at, at + reach);
+    if (wall.startsInside || wall.fraction >= 1 || walkable(rules, wall)) return std::nullopt;
+    const Vec3 rise{0, 0, rules.mantleHeight};
+    const BodyHit up = world.sweep(size, at, at + rise);
+    if (up.startsInside) return std::nullopt;
+    const Vec3 raised = at + rise * up.fraction;
+    const BodyHit over = world.sweep(size, raised, raised + reach);
+    if (over.startsInside || over.fraction < 1) return std::nullopt;
+    const Vec3 ahead = raised + reach;
+    const Vec3 drop{0, 0, at.z - ahead.z};
+    const BodyHit down = world.sweep(size, ahead, ahead + drop);
+    if (!walkable(rules, down)) return std::nullopt;
+    const Vec3 top = ahead + drop * down.fraction;
+    if (top.z <= at.z) return std::nullopt; // already above it: falling lands there
+    return top;
+}
+
+/// UTA-0022: one tick of a climb, mantleSpeed * dt along it: straight up to
+/// mantleTo's height, then level onto it, landing there. Anything in the way
+/// stops the climb, and the body falls from where it stopped.
+MoveState mantle(const BodyWorld& world, const BodySize& size, const MoveRules& rules, MoveState s, double dt) {
+    s.velocity = {};
+    double left = rules.mantleSpeed * dt;
+    const Vec3 above{s.location.x, s.location.y, s.mantleTo.z};
+    for (const Vec3& to : {above, s.mantleTo}) {
+        const Vec3 way = to - s.location;
+        const double distance = length(way);
+        if (distance == 0) continue;
+        const double part = std::min(1.0, left / distance);
+        const BodyHit hit = world.sweep(size, s.location, s.location + way * part);
+        if (hit.startsInside || hit.fraction < 1) {
+            if (!hit.startsInside) s.location = s.location + way * (part * hit.fraction);
+            s.physics = Physics::Falling;
+            return s;
+        }
+        s.location = s.location + way * part;
+        if (part < 1) return s;
+        left -= distance;
+    }
+    land(rules, s);
+    return s;
+}
+
 /// Falling for one tick from `s`, whose velocity already holds any jump or
 /// dodge. Moves by the mean of the old and new velocity, as the original does.
 MoveState fall(const BodyWorld& world, const BodySize& size, const MoveRules& rules, MoveState s,
@@ -105,15 +169,7 @@ MoveState fall(const BodyWorld& world, const BodySize& size, const MoveRules& ru
     }
     s.location = move.end;
     s.velocity = v;
-    if (landed) {
-        s.physics = Physics::Walking;
-        s.airJumpsUsed = 0;
-        if (s.dodge == DodgeState::Active) {
-            s.velocity = s.velocity * rules.dodgeLandingKeep;
-            s.dodge = DodgeState::Done;
-            s.dodgeDoneTime = 0;
-        }
-    }
+    if (landed) land(rules, s);
     return s;
 }
 
@@ -136,7 +192,7 @@ MoveState walk(const BodyWorld& world, const BodySize& size, const MoveRules& ru
     if (blocked) {
         // A step: rise, move, and come back down. Meeting nothing on the way
         // down, the floor probe below finds the floor, or starts a fall.
-        const Vec3 rise{0, 0, rules.maxStepHeight};
+        const Vec3 rise{0, 0, rules.maxStepHeight + rules.extraStepHeight};
         const Vec3 raised = start + rise * world.sweep(size, start, start + rise).fraction;
         const BodyMove high = world.slide(size, raised, delta);
         const Vec3 drop = Vec3{0, 0, start.z - raised.z};
@@ -168,6 +224,7 @@ MoveState walk(const BodyWorld& world, const BodySize& size, const MoveRules& ru
         s.location = end + reach * floor.fraction;
     } else if (!floor.startsInside) {
         s.physics = Physics::Falling;
+        s.coyoteLeft = rules.coyoteTime;
     }
     return s;
 }
@@ -185,6 +242,8 @@ MoveState tick(const BodyWorld& world, const BodySize& size, const MoveRules& ru
         if (s.dodgeDoneTime > rules.dodgeDoneTime) s.dodge = DodgeState::None;
     }
 
+    if (s.physics == Physics::Mantling) return mantle(world, size, rules, s, dt);
+
     const Vec3 push = pushOf(command);
     if (s.physics == Physics::Walking) {
         if (command.dodge != DodgeDir::None && !command.duck && s.dodge == DodgeState::None) {
@@ -196,12 +255,29 @@ MoveState tick(const BodyWorld& world, const BodySize& size, const MoveRules& ru
             s.velocity.z = rules.jumpZ;
             s.physics = Physics::Falling;
         }
-    } else if (jumpPressed && s.airJumpsUsed < rules.airJumps) {
-        // The same rise as a jump from the floor, whatever the fall's speed.
-        s.velocity.z = rules.jumpZ;
-        ++s.airJumpsUsed;
+    } else {
+        if (jumpPressed && s.coyoteLeft > 0) {
+            // UTA-0022: just off a ledge, a jump as from the floor.
+            s.velocity.z = rules.jumpZ;
+            s.coyoteLeft = 0;
+        } else if (jumpPressed && s.airJumpsUsed < rules.airJumps) {
+            // The same rise as a jump from the floor, whatever the fall's speed.
+            s.velocity.z = rules.jumpZ;
+            ++s.airJumpsUsed;
+        }
+        s.coyoteLeft = std::max(0.0, s.coyoteLeft - dt);
     }
-    if (s.physics == Physics::Falling) return fall(world, size, rules, s, push, dt);
+    if (s.physics == Physics::Falling) {
+        if (rules.mantleHeight > 0 && command.jump && push != Vec3{}) {
+            if (const std::optional<Vec3> top = ledgeAhead(world, size, rules, s.location, push)) {
+                s.physics = Physics::Mantling;
+                s.mantleTo = *top;
+                s.coyoteLeft = 0;
+                return mantle(world, size, rules, s, dt);
+            }
+        }
+        return fall(world, size, rules, s, push, dt);
+    }
     return walk(world, size, rules, s, push, command.walk || command.duck, dt);
 }
 
@@ -211,7 +287,8 @@ MoveState push(const MoveState& state, const Vec3& velocity) {
     // Pawn.AddVelocity: a body already rising fast gains half the lift.
     if (s.velocity.z > PUSH_FAST_RISE && added.z > 0) added.z *= 0.5;
     s.velocity = s.velocity + added;
-    if (s.physics == Physics::Walking) s.physics = Physics::Falling;
+    s.physics = Physics::Falling;
+    s.coyoteLeft = 0;
     return s;
 }
 
