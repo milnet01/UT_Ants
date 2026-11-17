@@ -18946,13 +18946,18 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: design-2026-09-03.
   Lanes: ugame.
 
-- 📋 [UTA-0020] **The weapon wheel, and whether it pauses or slows time.**
+- 🚧 [UTA-0020] **The weapon wheel, and whether it pauses or slows time.**
   ugame owns what is in the wheel; uui owns how it is drawn (rule 13).
   The pause-or-slow-time question is settled at the START of this release,
   against a prototype, and before the tick is finished -- a time scale the server
   must agree on is an input to the fixed tick, and adding one later would cross
   rules 9 and 12. It becomes an ADR when settled.
   Blocked-by: the core weapon set.
+  2026-11-17: needs a spec (uinput, ugame, the new uui, and uworld if
+  time changes; MoveCommand becomes the wire schema). Order: throwaway
+  prototype in a worktree (run, slow, stop), the user plays it, ADR, then
+  the spec, then the build. Online play cannot slow time for everyone, so
+  the question is what the wheel does alone or against bots.
   **Layman:** Pick a gun from a wheel instead of scrolling through them one at a time.
   Kind: implement.
   Source: design-2026-09-03.
