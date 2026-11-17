@@ -18974,6 +18974,8 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   to the user: whether the wheel feels right on a pad (spec § 10). The
   prototype worktree is removed; branch wheel-proto is kept pending the
   user's say, as it holds the only copy.
+  2026-11-17: the user keeps branch wheel-proto (the only copy of the
+  prototype played; the spec cites it). Do not delete it.
   **Layman:** Pick a gun from a wheel instead of scrolling through them one at a time.
   Kind: implement.
   Source: design-2026-09-03.
