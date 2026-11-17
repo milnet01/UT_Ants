@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=475 -->
+<!-- ants-roadmap-id-high-water: UTA=476 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -24223,6 +24223,25 @@ docs/standards/versioning-overrides.md. Closes S8.
   Kind: chore.
   Source: in-session-2026-11-17.
   Lanes: ut-bench.
+
+- 📋 [UTA-0476] **Export a baked map to ExperiRays' glTF scene and camera-path files.**
+  The UT_Ants exporter that ExperiRays' EXRAY-0001 spec binds
+  (/mnt/Games/Scripts/Linux/ExperiRays/docs/specs/EXRAY-0001-gltf-extras.md,
+  reviewed by UT_Ants 2026-11-17, folded in ExperiRays c894826). It
+  writes glTF 2.0 binary: s = 50 units a metre, (X, Z, Y) / s, each
+  triangle wound so its cross product follows GeometryVertex::normal;
+  _XR_ZONE per vertex; triangle_chart per triangle; the SMSK pairs as
+  chart, light, mover_reach and all_lit; every LITE and LAMP light as
+  a KHR_lights_punctual node with ut_index; movers as moving nodes;
+  scene_key ut:<sha256 of the .unr>:<baker revision>. And a camera-path
+  file for H5's actor positions. Output goes under content/, read by
+  path (ADR-0005). Proven by loading through the lab's reader.
+  Waits for EXRAY-0001 to close (all three engines agreed).
+  ExperiRays' EXRAY-0001, 0012, 0018 and 0025 name this item.
+  **Layman:** Write a map out in the shared scene format another project's lighting lab reads, so it can test lighting ideas on our maps.
+  Kind: feature.
+  Source: peer-experirays-2026-11-17.
+  Lanes: tools.
 
 ## After 1.0.0
 
