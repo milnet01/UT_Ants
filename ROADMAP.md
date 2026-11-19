@@ -21579,6 +21579,15 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   which are quiet and which loaded, the commit, GPU and resolution.
   Needs the machine to itself: warn the user before starting. No date;
   FLED-0072 blocks nothing of theirs. Help for another session.
+  2026-11-19: the run files need UTA-0437, the writer, which is not
+  built. Asked frameledger whether it wants percentiles now or files
+  after UTA-0437; recommended files.
+  frameledger chose percentiles, 2026-11-19: per run the 25th, 50th,
+  75th and 99th percentile of frame time from ut-bench frame as it is,
+  with quiet or loaded, commit, GPU and resolution. Say whether warm-up
+  frames are in the figures, and whether ut-bench's frame time is the
+  span UTA-0437 will write as frame/wall. Does not wait for UTA-0437.
+  Run when the machine is quiet.
   **Layman:** Run our benchmark several times on a quiet and on a busy machine, so the sister tool can learn how much frame times wobble by themselves.
   Kind: perf.
   Source: frameledger-request-2026-11-19.
@@ -24209,6 +24218,11 @@ docs/standards/versioning-overrides.md. Closes S8.
   archive frameledger-v0.5.0.zip, SHA256
   0dbe624c4b26bb5d986461973a6df040b3d539412ffcdbb8ec02efa864b09ae3.
   Pin this one when the writer is built, in place of 0.2.0.
+  frameledger 0.7.0 is out (2026-11-19):
+  https://github.com/milnet01/frameledger/releases/tag/v0.7.0, archive
+  frameledger-v0.7.0.zip, SHA256
+  e03ce95e1bf6fe81dbee7e0787c5c370edde98fb8acfe638c0d15c01f89ef1a2.
+  Pin this one in place of 0.5.0.
   **Layman:** Save every frame's timings in the format shared with Vestige and DOOM Ants, so one analyser can find stutters and compare builds for all three games.
   Kind: feature.
   Source: user-request-2026-10-24.
