@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=478 -->
+<!-- ants-roadmap-id-high-water: UTA=479 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -21533,6 +21533,21 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: implement.
   Source: in-session-2026-11-17 UTA-0056 spec.
   Lanes: ubake, ubundle, uaudio.
+
+- 📋 [UTA-0479] **umove: one landing projection on DM-Deck16][ costs four times the average full horizon.**
+  Measured 2026-11-19 at load average 2 to 4, three runs of
+  uta_real_asset_tests "[timing]". A full horizon averages 0.38 to
+  0.41 ms. Projection number 3 of the test's grid, a full horizon of
+  170 ticks, took 1.6 to 1.75 ms every run: about 10 us a tick against
+  2.3 on average. It is not the first call, so not a cold cache. While
+  the body is in the air this is paid every update that runs a tick.
+  Find what makes those ticks slow (the test prints the projection's
+  number; its grid gives the start point) before choosing a fix.
+  docs/specs/UTA-0021-landing-marker.md SS 13 records the figures.
+  **Layman:** In one spot on one map, working out where a jump will land takes four times longer than usual, which could cost frame rate while the player is in the air there.
+  Kind: perf.
+  Source: in-session-2026-11-19 UTA-0021 timing re-run.
+  Lanes: umove.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 

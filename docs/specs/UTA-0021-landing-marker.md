@@ -339,9 +339,11 @@ reviews). Building it is the reviewer. Record:
 While the body is in the air, each update that runs a tick runs up to
 `LANDING_HORIZON_TICKS` movement ticks for the projection.
 
-Measured 2026-11-17 on DM-Deck16][, with every core busy (load
-average 12 on 12 cores), so likely high: 2.5 µs a tick, 0.43 ms for a
-full horizon. A fall that finds a floor stops early. Re-run on a quiet
-machine with `uta_real_asset_tests "[timing]"` (the real-asset tier).
+Measured 2026-11-19 on DM-Deck16][ over three runs, at a load average
+of 2 to 4 on 12 cores: 2.2 to 2.4 µs a tick, so 0.38 to 0.41 ms for a
+full horizon on average. A fall that finds a floor stops early. The
+slowest single projection, a full horizon and the same one each run,
+took 1.6 to 1.75 ms (`UTA-0479`). Measure with
+`uta_real_asset_tests "[timing]"` (the real-asset tier).
 Projecting every other tick, the fallback this section first named,
 was not taken: it halves the average but not the slowest frame.

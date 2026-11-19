@@ -314,7 +314,8 @@ TEST_CASE("UTA-0021: projectLanding's cost a tick on DM-Deck16][", "[.][real][ti
     MoveCommand forward;
     forward.forward = 1;
     std::int64_t ticks = 0;
-    int projections = 0, full = 0;
+    int projections = 0, full = 0, worstAt = 0;
+    std::int64_t worstTicks = 0;
     double seconds = 0, worst = 0;
     constexpr int GRID = 24;
     for (int i = 0; i < GRID; ++i)
@@ -330,9 +331,14 @@ TEST_CASE("UTA-0021: projectLanding's cost a tick on DM-Deck16][", "[.][real][ti
                 const auto start = std::chrono::steady_clock::now();
                 const auto landing = projectLanding(*built, size, rules, s, forward, dt);
                 const double took = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+                const std::int64_t ran = landing ? landing->ticks : LANDING_HORIZON_TICKS;
                 seconds += took;
-                worst = std::max(worst, took);
-                ticks += landing ? landing->ticks : LANDING_HORIZON_TICKS;
+                if (took > worst) {
+                    worst = took;
+                    worstAt = projections;
+                    worstTicks = ran;
+                }
+                ticks += ran;
                 full += landing ? 0 : 1;
                 ++projections;
             }
@@ -340,5 +346,6 @@ TEST_CASE("UTA-0021: projectLanding's cost a tick on DM-Deck16][", "[.][real][ti
     std::cout << "UTA-0021 projectLanding on DM-Deck16][: " << projections << " projections (" << full
               << " ran the whole horizon), " << ticks << " ticks, " << seconds / ticks * 1e6
               << " us a tick, so " << seconds / ticks * LANDING_HORIZON_TICKS * 1e3
-              << " ms for a full horizon; slowest projection " << worst * 1e3 << " ms\n";
+              << " ms for a full horizon; slowest projection " << worst * 1e3 << " ms (number " << worstAt << ", "
+              << worstTicks << " ticks)\n";
 }
