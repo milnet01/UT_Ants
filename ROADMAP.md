@@ -23153,7 +23153,7 @@ to.
   Source: user-request-2026-10-15.
   Lanes: tools.
 
-- 🚧 [UTA-0481] **ut-dump: give each actor its level slot, for UT_MonsterHunt's GAME-0032.**
+- ✅ [UTA-0481] **ut-dump: give each actor its level slot, for UT_MonsterHunt's GAME-0032.**
   UT_MonsterHunt's vote-list map size is "first PlayerStart to first
   exit", with "first" taken from a T3D export, which lists actors in
   level-slot order. ut-dump --brushes lists brushes.actors, playerStarts
@@ -23172,12 +23172,14 @@ to.
   Built 2026-11-19: `slot` is on every entry of exits, playerStarts and
   brushes' list, blockers and actors, after the export index. Spec:
   docs/specs/UTA-0012-ut-dump-output-shape.md § 4.7a.
+  Shipped 2026-11-19 at aee6f2f, green on GitHub's matrix (run
+  44559689868). UT_MonsterHunt told.
   **Layman:** Tell the sister project where each actor sits in the map's own actor list, so its "first player start" matches the editor's.
   Kind: feature.
   Source: ut-monsterhunt-request-2026-11-19.
   Lanes: tools.
 
-- 🚧 [UTA-0483] **ut-dump: give each exit its collision radius and height, for UT_MonsterHunt's GAME-0063.**
+- ✅ [UTA-0483] **ut-dump: give each exit its collision radius and height, for UT_MonsterHunt's GAME-0063.**
   UT_MonsterHunt's ask of 2026-11-19 (GAME-0063): collisionRadius and
   collisionHeight on each entry of ut-dump's exits, resolved through
   the class defaults as brushes.blockers does. They measured 147 maps
@@ -23187,6 +23189,9 @@ to.
   /mnt/Games/Scripts/Linux/UT_MonsterHunt/work/g0063/cyl.tsv.
   Additive. Amends docs/specs/UTA-0012-ut-dump-output-shape.md § 4.7a.
   Help for another session, built beside UTA-0481.
+  Shipped 2026-11-19 at a61df3f, green on GitHub's matrix (run
+  44559689868). `collisionRadius` and `collisionHeight` are last on
+  each exits entry. UT_MonsterHunt told.
   **Layman:** Tell the sister project how big each map exit's touch area is, so it can tell when a route already ends inside it.
   Kind: feature.
   Source: ut-monsterhunt-request-2026-11-19.
