@@ -24319,7 +24319,7 @@ docs/standards/versioning-overrides.md. Closes S8.
   Source: in-session-2026-11-17.
   Lanes: ut-bench.
 
-- 🚧 [UTA-0476] **Export a baked map to ExperiRays' glTF scene and camera-path files.**
+- ✅ [UTA-0476] **Export a baked map to ExperiRays' glTF scene and camera-path files.**
   The UT_Ants exporter that ExperiRays' EXRAY-0001 spec binds
   (/mnt/Games/Scripts/Linux/ExperiRays/docs/specs/EXRAY-0001-gltf-extras.md,
   reviewed by UT_Ants 2026-11-17, folded in ExperiRays c894826). It
@@ -24379,6 +24379,9 @@ docs/standards/versioning-overrides.md. Closes S8.
   Stalwart, Fractal, Morpheus, Turbine, Codex, CTF-Face, CTF-Command,
   AS-Frigate, DOM-Sesmar. AS-Frigate alone loses turns: 3 movers in
   world space, 2390 frame entries.
+  Shipped 2026-11-19 at 7021514: GitHub's matrix green (run 44550631933),
+  GCC 14, Clang 19 and MSVC. The thirteen maps also load in ExperiRays'
+  reader built from its 5298393 in our scratch.
   **Layman:** Write a map out in the shared scene format another project's lighting lab reads, so it can test lighting ideas on our maps.
   Kind: feature.
   Source: peer-experirays-2026-11-17.
