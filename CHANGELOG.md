@@ -19,6 +19,10 @@ The `[Unreleased]` block stays at the top, always, even when empty.
   place in the level's actor list. That is the order the editor exports
   actors in, so UT_MonsterHunt's "first player start" can match the
   editor's.
+- **ut-dump says how big each map exit's touch area is** (UTA-0483)
+  Each exit now carries `collisionRadius` and `collisionHeight`. Some
+  Monster Hunt maps make the exit far wider than it looks, and
+  UT_MonsterHunt's route check needs the real size.
 
 - **Baked maps carry their sounds, and the weapon sounds get a file of their own** (UTA-0478)
   Baking a map now copies every sound the map uses into its baked file:

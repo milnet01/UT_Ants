@@ -692,6 +692,9 @@ struct WiringFields {
     // on `exits` only. nullopt: neither the actor nor its class sets one.
     std::optional<int> triggerType;
     std::optional<float> damageThreshold;
+    // UTA-0483: the cylinder a player touches to win. Emitted on `exits` only.
+    std::optional<float> collisionRadius;
+    std::optional<float> collisionHeight;
     // UTA-0336: a LiftCenter's or LiftExit's LiftTag, and a mover's travel.
     // keyPos holds only the indices stored; one stored nowhere is UT99's zero.
     std::string liftTag;
@@ -741,6 +744,14 @@ void takeWiringProperty(WiringFields& fields, const uta::upkg::Package& origin,
     }
     if (folded == "damagethreshold") {
         if (const auto* set = std::get_if<float>(&property.value)) fields.damageThreshold = *set;
+        return;
+    }
+    if (folded == "collisionradius") {
+        if (const auto* set = std::get_if<float>(&property.value)) fields.collisionRadius = *set;
+        return;
+    }
+    if (folded == "collisionheight") {
+        if (const auto* set = std::get_if<float>(&property.value)) fields.collisionHeight = *set;
         return;
     }
     if (folded == "numkeys") {
@@ -1000,6 +1011,16 @@ void writeExits(std::ostream& out, const uta::upkg::Package& map, std::string_vi
         out << ", \"propertiesRead\": " << (properties.has_value() ? "true" : "false");
         out << ", \"chainEnd\": ";
         writeJsonString(out, family.end);
+        // UTA-0483: a player wins by touching this cylinder, and some maps
+        // make it far wider than the actor looks.
+        const auto number = [&out](const std::optional<float>& value) {
+            if (value.has_value() && std::isfinite(*value)) out << std::format("{}", *value);
+            else out << "null";
+        };
+        out << ", \"collisionRadius\": ";
+        number(fields.collisionRadius);
+        out << ", \"collisionHeight\": ";
+        number(fields.collisionHeight);
         out << "}";
     }
     out << "]";

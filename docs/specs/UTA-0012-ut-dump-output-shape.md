@@ -261,7 +261,8 @@ both. This document restates neither.
 
 Added by `UTA-0189`. A map's element carries `exits` after `wiring`, with no
 flag. It is `[{export, slot, name, class, location, tag, triggerType,
-damageThreshold, bInitiallyActive, propertiesRead, chainEnd}]`, in ascending `export`
+damageThreshold, bInitiallyActive, propertiesRead, chainEnd, collisionRadius,
+collisionHeight}]`, in ascending `export`
 order: every level actor whose own class name is `MonsterEnd`,
 `MonsterEndSB` or `MonsterArenaEnd`, compared case-insensitively. `class`
 keeps the stored case: MH-MayhemCastleV2 stores `monsterend`, so a consumer
@@ -289,10 +290,16 @@ its class family sets one. MonsterEndSB's `TakeDamage` wins the map only when
 actor's own property block does not read. The exit is still listed, and its
 fields are then its class family's defaults, not its own.
 
-`chainEnd` (a string) was added by `UTA-0409`, last in each element. It is
+`chainEnd` (a string) was added by `UTA-0409`. It is
 `wiring.actors`' `chainEnd` for the exit's class: anything but `root` means
 the class defaults were read in part or not at all, so a `""` tag or a `null`
 field is not an answer.
+
+`collisionRadius` and `collisionHeight` (numbers) were added by `UTA-0483`,
+last in each element, resolved as `triggerType` is, and `null` when neither
+the actor nor its class family sets one. A player wins by touching this
+cylinder, and some maps make it far wider than the actor. The UTA-0189
+case in `tests/unit/DumpCliTest.cpp` asserts both.
 
 ### 4.7b `waypoints`
 
@@ -439,6 +446,7 @@ them on 2026-09-25, checked by them against § 4 and UTA-0172 § 4.3 to § 4.4.
 | GAME-0208, the waypoints check | `waypoints`' `class`, `name`, `position` and `location` | It finds a gap or repeat in a map's waypoint numbers. The UTA-0332 case in `tests/unit/DumpCliTest.cpp` asserts these fields' exact text |
 | GAME-0207 | `playerStarts`' `name`, `class`, `location`, `zone`, `zoneActor` and `waterZone`; `playerStartsError` | It needs the BSP zone each PlayerStart lands in (UTA-0335) |
 | GAME-0032, the vote list's map size | `slot` in `playerStarts`, `exits` and `brushes`' three arrays | "First" PlayerStart and exit are taken in slot order, as its T3D exports gave them (UTA-0481) |
+| GAME-0063, the route check | `exits`' `collisionRadius` and `collisionHeight` | A reached node inside the exit's cylinder counts as a route (UTA-0483) |
 | GAME-0210 | `wiring.actors`' `liftTag`, and `mover`'s `numKeys`, `basePos` and `keyPos` | It needs each lift's tag and its mover's keyframes (UTA-0336) |
 | `analysis/mapcheck` checks | `nodeList`'s `name`, `class`; `edgeList`'s `from`, `to`, `reachFlags`, `collisionRadius`, `collisionHeight` (the route check); `classCounts` (paths, starts); `importedPackages` (load) | Per-map checks |
 | `analysis/pathtriage.py` | `nav.nodes`, `nav.edges`, `nav.nodesWithNoExit`; `classCounts`; `wiring.dangling` | Path triage |

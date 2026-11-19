@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=482 -->
+<!-- ants-roadmap-id-high-water: UTA=483 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -23167,6 +23167,20 @@ to.
   Kind: feature.
   Source: ut-monsterhunt-request-2026-11-19.
   Lanes: tools.
+
+- 🚧 [UTA-0483] **ut-dump: give each exit its collision radius and height, for UT_MonsterHunt's GAME-0063.**
+  UT_MonsterHunt's ask of 2026-11-19 (GAME-0063): collisionRadius and
+  collisionHeight on each entry of ut-dump's exits, resolved through
+  the class defaults as brushes.blockers does. They measured 147 maps
+  with a MonsterEnd of radius 512 or more; on 13 their route rule says
+  NOROUTE although a reached node lies inside the exit's cylinder. The
+  only source today is the T3D export they are moving off. Their data:
+  /mnt/Games/Scripts/Linux/UT_MonsterHunt/work/g0063/cyl.tsv.
+  Additive. Amends docs/specs/UTA-0012-ut-dump-output-shape.md § 4.7a.
+  Help for another session, built beside UTA-0481.
+  **Layman:** Tell the sister project how big each map exit's touch area is, so it can tell when a route already ends inside it.
+  Kind: feature.
+  Source: ut-monsterhunt-request-2026-11-19.
 
 ## 0.5.0 — Map editor
 

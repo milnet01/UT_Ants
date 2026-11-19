@@ -1233,7 +1233,7 @@ TEST_CASE("UTA-0189: exits lists each MonsterEnd-family actor with its location 
     map.addActorOfClass("MonsterHunt", "MonsterEnd",
                         {vectorProperty("Location", -400, 0, 0), nameProperty("Tag", "finalexit"),
                          byteProperty("TriggerType", 4), floatProperty("DamageThreshold", 50.5F),
-                         boolProperty("bInitiallyActive", false)})
+                         boolProperty("bInitiallyActive", false), floatProperty("CollisionRadius", 512.5F)})
         .addActorOfClass("Engine", "PathNode", {vectorProperty("Location", 0, 0, 0)})
         .addActorOfClass("MonsterHunt", "MonsterArenaEnd", {vectorProperty("Location", 1.5F, 2, 3)});
     const fs::path mapPath = writeMap(dir, map);
@@ -1251,6 +1251,10 @@ TEST_CASE("UTA-0189: exits lists each MonsterEnd-family actor with its location 
     CHECK(result.out.find("\"name\": \"MonsterArenaEnd2\", \"class\": \"MonsterArenaEnd\", "
                           "\"location\": [1.5, 2, 3], \"tag\": ")
           != std::string::npos);
+    // UTA-0483: the exit's own radius over its class family's, the family's
+    // height, and null for the arena end, whose class the fixture lacks.
+    CHECK(result.out.find("\"collisionRadius\": 512.5, \"collisionHeight\": 40}") != std::string::npos);
+    CHECK(result.out.find("\"collisionRadius\": null, \"collisionHeight\": null}") != std::string::npos);
     // The PathNode is not an exit.
     const std::size_t exits = result.out.find("\"exits\": [");
     REQUIRE(exits != std::string::npos);
