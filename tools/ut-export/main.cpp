@@ -94,12 +94,14 @@ int main(int argc, char** argv) {
     if (const int status = write(out + ".glb", uta::tools::exporter::writeGlb(*scene)); status != 0) return status;
 
     uta::tools::exporter::PathReport report;
-    auto path = uta::tools::exporter::writeCameraPath(*bundle, key, pathOptions, report);
+    auto path = uta::tools::exporter::writeCameraPath(*bundle, *scene, pathOptions, report);
     if (!path) {
         std::cerr << "ut-export: no camera path: " << path.error().message() << "\n";
         return 1;
     }
     std::cerr << "ut-export: " << report.walkers << " walkers over " << report.locatedNodes
-              << " placed navigation points, " << report.tourStops << " tour stops, " << report.frames << " frames\n";
+              << " placed navigation points, " << report.tourStops << " tour stops, " << report.frames << " frames\n"
+              << "ut-export: " << report.movingMovers << " movers move, in " << report.moverEntries
+              << " frame entries; " << report.unturnedEntries << " lose a turn (the mover is in world space)\n";
     return write(out + ".xrpath.json", std::as_bytes(std::span(*path)));
 }

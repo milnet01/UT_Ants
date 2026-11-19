@@ -3,8 +3,8 @@
 // tools/ut-export/Scene.cpp and Path.cpp are compiled into this binary. Each
 // case builds a small bundle by hand and reads buildScene's answer, so the
 // rules are checked without parsing glTF; one case checks writeGlb's framing.
-// The file's last proof, loading through ExperiRays' own reader, waits on its
-// EXRAY-0012.
+// The file's last proof is run by hand: ExperiRays' own reader loads it
+// (`experirays load <stem>.glb <stem>.xrpath.json`, exit 0).
 //
 // NO TEST NAME CONTAINS A COMMA, AND NONE STARTS WITH A DASH -- BakeCliTest.cpp
 // says why.
@@ -18,7 +18,9 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 
+#include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <numbers>
 #include <string>
@@ -206,6 +208,30 @@ TEST_CASE("ut-export writes a mover that can move as a moving node at its place"
     CHECK(node.rotation[1] == Approx(-std::sqrt(0.5)));
 }
 
+TEST_CASE("ut-export keeps no mesh without a vertex", "[export]") {
+    // ExperiRays' reader refuses one. Nothing sways here, and the first mover
+    // has no shape, so the second's mesh takes a lower number.
+    ub::Geometry g;
+    addTriangle(g, {vertex(0, 0, 0), vertex(100, 0, 0), vertex(0, 100, 0)});
+    ub::Bundle b = levelWith(g);
+    ub::MoverShape shapeless, shaped;
+    shapeless.exportIndex = 7;
+    shaped.exportIndex = 42;
+    addTriangle(shaped.geometry, {vertex(0, 0, 0), vertex(10, 0, 0), vertex(0, 20, 0)});
+    b.movers = {shapeless, shaped};
+    const ex::Scene s = build(b);
+    REQUIRE(s.meshes.size() == 2);
+    for (const ex::Mesh& mesh : s.meshes) CHECK(!mesh.positions.empty());
+    for (const ex::Node& node : s.nodes) {
+        CHECK(node.id != "mover:7");
+        if (node.mesh) CHECK(*node.mesh < s.meshes.size());
+    }
+    const ex::Mesh& moved = s.meshes[*nodeWithId(s, "mover:42").mesh];
+    REQUIRE(moved.positions.size() == 3);
+    // The mover's own shape: its far corner is UT's Y of 20, where the level's is 100.
+    CHECK(std::max({moved.positions[0][2], moved.positions[1][2], moved.positions[2][2]}) == Approx(0.4));
+}
+
 TEST_CASE("ut-export keys a scene by both files' hashes", "[export]") {
     const std::array<std::byte, 0> unr{};
     const std::array<std::byte, 3> utab{std::byte{'a'}, std::byte{'b'}, std::byte{'c'}};
@@ -238,8 +264,11 @@ TEST_CASE("ut-export frames a glTF binary file", "[export]") {
     CHECK(20 + jsonLength + 8 + u32(20 + jsonLength) == glb.size());
 }
 
-TEST_CASE("ut-export's walkers tour the navigation graph and walk back", "[export]") {
-    // Three points in a row, A - B - C, joined both ways; A is a PlayerStart.
+namespace {
+
+/// Three navigation points in a row, A - B - C, joined both ways; A is a
+/// PlayerStart. Exports 10, 11 and 12, of class 0.
+ub::Bundle threePointsInARow() {
     ub::Bundle b;
     b.placements.emplace();
     b.placements->classes = {ub::ActorClass{"engine.pathnode", true, {}, ub::AncestryEnd::Root, {}, {}}};
@@ -259,11 +288,137 @@ TEST_CASE("ut-export's walkers tour the navigation graph and walk back", "[expor
         b.nav->nodes[i].edgeCount = count;
         at += count;
     }
+    return b;
+}
+
+/// `b`'s only mover, export 42, placed at (500 0 100) with one triangle. It
+/// rises 200 units to its second key in 2 s and stays 1 s at each end.
+ub::MoverShape& addRisingMover(ub::Bundle& b) {
+    addTriangle(b.geometry.emplace(), {vertex(0, 0, 0), vertex(100, 0, 0), vertex(0, 100, 0)});
+    ub::MoverShape mover;
+    mover.exportIndex = 42;
+    mover.location = {500, 0, 100};
+    addTriangle(mover.geometry, {vertex(0, 0, 0), vertex(10, 0, 0), vertex(0, 10, 0)});
+    b.movers = {mover};
+    b.placements->actors.push_back(
+        {42, "Mover0", 0,
+         {ub::PropertyRecord{"KeyPos", 1, ub::ValueKind::Vector, std::array<float, 3>{0, 0, 200}},
+          ub::PropertyRecord{"MoveTime", 0, ub::ValueKind::Float, 2.0f},
+          ub::PropertyRecord{"StayOpenTime", 0, ub::ValueKind::Float, 1.0f}}});
+    return b.movers->front();
+}
+
+/// The path of `b`'s scene: a frame each half second, from 0 to `seconds`.
+std::string pathOf(const ub::Bundle& b, ex::PathReport& report, double seconds = 4) {
+    ex::PathOptions options;
+    options.seconds = seconds;
+    options.framesPerSecond = 2;
+    const auto path = ex::writeCameraPath(b, build(b), options, report);
+    REQUIRE(path.has_value());
+    return *path;
+}
+
+} // namespace
+
+TEST_CASE("ut-export moves a mover through the frames it is away from rest", "[export]") {
+    ub::Bundle b = threePointsInARow();
+    addRisingMover(b);
+    ex::PathReport report;
+    const std::string path = pathOf(b, report);
+    CHECK(report.movingMovers == 1);
+    // At rest until 1 s, then away in every frame: rising to 3 s, and open to 4 s.
+    CHECK(report.moverEntries == 6);
+    CHECK(report.unturnedEntries == 0);
+    // A quarter of the way at 1.5 s, which the glide eases to 5/32: 31.25 units up.
+    CHECK_THAT(path, Catch::Matchers::ContainsSubstring("\"mover:42\":{\"translation\":[10,2.625,0],"));
+    CHECK_THAT(path, Catch::Matchers::ContainsSubstring(
+                         "\"nodes\":{\"mover:42\":{\"translation\":[10,4,0],\"rotation\":[0,0,0,1]}},"));
+    CHECK_THAT(path, Catch::Matchers::ContainsSubstring("\"mover:42\":{\"translation\":[10,6,0],"));
+    CHECK_THAT(path, !Catch::Matchers::ContainsSubstring("\"scale\""));
+
+    // It comes back the way it went, and is at rest again when its loop ends at 6 s.
+    ex::PathReport whole;
+    const std::string loop = pathOf(b, whole, 6);
+    CHECK(whole.moverEntries == 9);
+    const std::string quarter = "\"mover:42\":{\"translation\":[10,2.625,0],";
+    const auto rising = loop.find(quarter);
+    REQUIRE(rising != std::string::npos);
+    CHECK(loop.find(quarter, rising + 1) != std::string::npos);
+}
+
+TEST_CASE("ut-export turns a mover by its keys and eases only a glider", "[export]") {
+    ub::Bundle b = threePointsInARow();
+    addRisingMover(b);
+    auto& properties = b.placements->actors.back().properties;
+    properties.push_back({"KeyRot", 1, ub::ValueKind::Rotator, std::array<std::int32_t, 3>{0, 32768, 0}});
+    properties.push_back({"MoverGlideType", 0, ub::ValueKind::Byte, std::uint8_t{0}});
+    properties.front().value = std::array<float, 3>{0, 0, 400}; // its KeyPos[1]
+    ex::PathReport report;
+    const std::string path = pathOf(b, report);
+    // No glide to ease it: a quarter of the way at 1.5 s is 100 units up, where
+    // a glide would give 62.5. Half way at 2 s is 200 units up and a quarter turn.
+    CHECK_THAT(path, Catch::Matchers::ContainsSubstring("\"mover:42\":{\"translation\":[10,4,0],"));
+    const std::string before = "\"mover:42\":{\"translation\":[10,6,0],\"rotation\":[";
+    const auto at = path.find(before);
+    REQUIRE(at != std::string::npos);
+    double x = 9, y = 9, z = 9, w = 9;
+    REQUIRE(std::sscanf(path.c_str() + at + before.size(), "%lf,%lf,%lf,%lf]", &x, &y, &z, &w) == 4);
+    // A quarter turn of yaw, as "turns a UT yaw into glTF's mirrored rotation" has it.
+    CHECK(x == Approx(0).margin(1e-9));
+    CHECK(y == Approx(-std::sqrt(0.5)));
+    CHECK(z == Approx(0).margin(1e-9));
+    CHECK(w == Approx(std::sqrt(0.5)));
+}
+
+TEST_CASE("ut-export moves a mover in world space by its displacement and counts its lost turns", "[export]") {
+    ub::Bundle b = threePointsInARow();
+    ub::MoverShape& mover = addRisingMover(b);
+    mover.rotation = {0, 16384, 0};
+    mover.postScale = {1, 2, 1}; // glTF's TRS cannot say a scale after a turn
+    b.placements->actors.back().properties.push_back(
+        {"KeyRot", 1, ub::ValueKind::Rotator, std::array<std::int32_t, 3>{0, 8192, 0}});
+    ex::PathReport report;
+    const std::string path = pathOf(b, report);
+    CHECK(report.moverEntries == 6);
+    CHECK(report.unturnedEntries == 6);
+    CHECK_THAT(path, Catch::Matchers::ContainsSubstring("\"nodes\":{\"mover:42\":{\"translation\":[0,4,0]}},"));
+}
+
+TEST_CASE("ut-export takes a mover's rest as the key the map placed it at", "[export]") {
+    ub::Bundle b = threePointsInARow();
+    addRisingMover(b);
+    b.placements->actors.back().properties.push_back({"KeyNum", 0, ub::ValueKind::Byte, std::uint8_t{1}});
+    ex::PathReport report;
+    const std::string path = pathOf(b, report);
+    // Placed open, so closed is 200 units below: away from rest until it has risen, at 3 s.
+    CHECK(report.moverEntries == 6);
+    CHECK_THAT(path, Catch::Matchers::ContainsSubstring("{\"time\":0,"));
+    CHECK_THAT(path, Catch::Matchers::ContainsSubstring("\"mover:42\":{\"translation\":[10,-2,0],"));
+    CHECK_THAT(path, !Catch::Matchers::ContainsSubstring("\"mover:42\":{\"translation\":[10,6,0],"));
+}
+
+TEST_CASE("ut-export lists no mover the scene does not hold or that has nowhere to go", "[export]") {
+    ub::Bundle b = threePointsInARow();
+    addRisingMover(b).still = 1; // in the level's mesh instead
+    ex::PathReport report;
+    CHECK_THAT(pathOf(b, report), !Catch::Matchers::ContainsSubstring("\"nodes\""));
+    CHECK(report.movingMovers == 0);
+
+    b.movers->front().still = 0;
+    b.placements->actors.back().properties.erase(b.placements->actors.back().properties.begin()); // its KeyPos[1]
+    CHECK_THAT(pathOf(b, report), !Catch::Matchers::ContainsSubstring("\"nodes\""));
+    CHECK(report.movingMovers == 0);
+}
+
+TEST_CASE("ut-export's walkers tour the navigation graph and walk back", "[export]") {
+    const ub::Bundle b = threePointsInARow();
+    ex::Scene scene;
+    scene.sceneKey = "ut:a:b";
 
     ex::PathReport report;
     ex::PathOptions options;
     options.seconds = 2;
-    const auto path = ex::writeCameraPath(b, "ut:a:b", options, report);
+    const auto path = ex::writeCameraPath(b, scene, options, report);
     REQUIRE(path.has_value());
     CHECK(report.walkers == 1);          // one PlayerStart
     CHECK(report.locatedNodes == 3);

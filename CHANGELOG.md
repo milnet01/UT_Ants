@@ -40,8 +40,10 @@ The `[Unreleased]` block stays at the top, always, even when empty.
   fixes. The scene holds the level's surfaces with their zones and
   shadow-mask charts, every light, the light-to-polygon pairs and the
   movers. The camera path walks four player-sized walkers through the
-  map's navigation graph, with a camera following the first. Materials
-  are plain white for now; textures are not exported.
+  map's navigation graph, with a camera following the first. Each mover
+  that can move opens and closes on a loop along its own keys, since the
+  game does not play movers yet. Materials are plain white for now;
+  textures are not exported.
 
 - **Try the guns in the viewer** (UTA-0472, UTA-0019)
   Walking in a map, you now carry every stock weapon with full ammo. The

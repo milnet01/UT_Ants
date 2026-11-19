@@ -24367,6 +24367,18 @@ docs/standards/versioning-overrides.md. Closes S8.
   mover in every frame it is away from rest. A mover baked into world
   space takes a displacement and cannot rotate: report those frames. A
   moving node may have no children (EXRAY-0039).
+  2026-11-19: both built. buildScene drops every mesh with no vertex and
+  renumbers the nodes' meshes. writeCameraPath takes the scene and writes
+  frames[i].nodes: UT_Ants plays no mover yet, so each mover with a second
+  key loops closed, out through its keys, open and back, timed by its
+  MoveTime and StayOpenTime and eased where MoverGlideType says. A mover
+  in world space takes its displacement; a frame where it should also
+  turn is counted and reported by ut-export. Thirteen maps baked at
+  format 37 export and load with exit 0 in ExperiRays' reader as built
+  that morning (its build/gate): DM-Deck16][, Pressure, Liandri, Conveyor,
+  Stalwart, Fractal, Morpheus, Turbine, Codex, CTF-Face, CTF-Command,
+  AS-Frigate, DOM-Sesmar. AS-Frigate alone loses turns: 3 movers in
+  world space, 2390 frame entries.
   **Layman:** Write a map out in the shared scene format another project's lighting lab reads, so it can test lighting ideas on our maps.
   Kind: feature.
   Source: peer-experirays-2026-11-17.

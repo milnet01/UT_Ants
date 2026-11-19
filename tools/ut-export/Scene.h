@@ -125,11 +125,19 @@ struct Scene {
     Report report;
 };
 
+/// Whether glTF's T * R * S says what UT's T * S * R does for `mover`: its
+/// scale is uniform, or there is no rotation for it to come before. Where it
+/// does not, buildScene puts the mover's mesh in world space under a node at
+/// the origin.
+[[nodiscard]] bool trsCarries(const ubundle::MoverShape& mover) noexcept;
+
 /// `bundle` laid out as SS 4 says. With `addedLamps`, the scene the game draws
 /// by default: LITE, and the recipe's added lamps with their fittings.
 /// Without, LITE and the map's own lights the recipe switched off. Pairs naming
 /// the other state's lamps are dropped, so no pair names a missing light. A
 /// recipe's sun is a directional light either way.
+///
+/// No mesh is left without a vertex: ExperiRays' reader refuses one.
 ///
 /// Refuses a bundle with no GEOM, and any non-finite position, normal or uv.
 [[nodiscard]] Result<Scene> buildScene(const ubundle::Bundle& bundle, std::string sceneKey, bool addedLamps);

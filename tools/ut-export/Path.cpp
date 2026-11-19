@@ -3,9 +3,9 @@
 #include "Path.h"
 
 #include "JsonNumbers.h"
-#include "Scene.h"
 #include "common/Json.h"
 #include "ubake/Actors.h"
+#include "ubake/Install.h"
 #include "unav/Reach.h"
 
 #include <algorithm>
@@ -13,6 +13,7 @@
 #include <numbers>
 #include <optional>
 #include <sstream>
+#include <string_view>
 #include <vector>
 
 namespace uta::tools::exporter {
@@ -35,16 +36,21 @@ struct Stop {
 
 double horizontalLength(const Vec3& v) { return std::sqrt(v[0] * v[0] + v[1] * v[1]); }
 
+/// The actor PLAC holds for an export, or null.
+const ubundle::ActorPlacement* placementOf(const ubundle::Bundle& bundle, std::uint32_t exportIndex) {
+    const auto& actors = bundle.placements->actors;
+    const auto at = std::lower_bound(actors.begin(), actors.end(), exportIndex,
+                                     [](const ubundle::ActorPlacement& a, std::uint32_t e) { return a.exportIndex < e; });
+    return at != actors.end() && at->exportIndex == exportIndex ? &*at : nullptr;
+}
+
 /// Each navigation point's stored Location, by node position; none where the
 /// actor has no placement or the value is not finite.
 std::vector<std::optional<Vec3>> nodeLocations(const ubundle::Bundle& bundle) {
-    const auto& actors = bundle.placements->actors;
     std::vector<std::optional<Vec3>> out;
     for (const unav::NavNode& node : bundle.nav->nodes) {
-        const auto at = std::lower_bound(actors.begin(), actors.end(), node.exportIndex,
-                                         [](const ubundle::ActorPlacement& a, std::uint32_t e) { return a.exportIndex < e; });
         std::optional<Vec3> location;
-        if (at != actors.end() && at->exportIndex == node.exportIndex) {
+        if (const ubundle::ActorPlacement* at = placementOf(bundle, node.exportIndex)) {
             const auto& defaults = bundle.placements->classes[at->classIndex].defaults;
             if (const auto* record =
                     ubake::detail::resolvedRecord("location", ubundle::ValueKind::Vector, at->properties, defaults)) {
@@ -169,9 +175,136 @@ Vec3 chaseEye(const std::vector<Stop>& stops, double time) {
     return eye;
 }
 
+// ---------------------------------------------------------------- movers
+
+/// UT99's Mover defaults, for a placement and class that say nothing, and the
+/// length of its KeyPos and KeyRot arrays.
+constexpr double MOVE_TIME = 1, STAY_OPEN_TIME = 4;
+constexpr std::uint8_t NUM_KEYS = 2, MAX_KEYS = 8;
+
+/// A mover's pose as a difference from where the scene file has it.
+struct Shift {
+    Vec3 move{}; ///< UT units
+    Vec3 turn{}; ///< pitch, yaw, roll; 65536 to a turn
+
+    [[nodiscard]] bool none() const { return move == Vec3{} && turn == Vec3{}; }
+};
+
+/// One of the scene's moving nodes and the keys it moves between.
+struct MoverTrack {
+    const ubundle::MoverShape* shape = nullptr;
+    bool inWorldSpace = false;  ///< buildScene's node is at the origin: it moves, and cannot turn
+    std::vector<Shift> keys;    ///< each less the key the map placed it at
+    double moveTime = 0;        ///< seconds between two keys
+    double stayTime = 0;        ///< seconds at each end
+    bool glides = true;         ///< MV_GlideByTime: eased at both ends of a move
+};
+
+/// The movers `scene` holds as nodes that have a second key to go to.
+std::vector<MoverTrack> moverTracks(const ubundle::Bundle& bundle, const Scene& scene) {
+    std::vector<MoverTrack> out;
+    if (!bundle.movers) return out;
+    for (const ubundle::MoverShape& mover : *bundle.movers) {
+        const std::string id = "mover:" + std::to_string(mover.exportIndex);
+        if (std::ranges::none_of(scene.nodes, [&](const Node& n) { return n.id == id && n.motion == "moving"; }))
+            continue;
+        const ubundle::ActorPlacement* actor = placementOf(bundle, mover.exportIndex);
+        if (actor == nullptr) continue;
+        const auto& defaults = bundle.placements->classes[actor->classIndex].defaults;
+        const auto seconds = [&](std::string_view name, double fallback) {
+            const auto* record =
+                ubake::detail::resolvedRecord(name, ubundle::ValueKind::Float, actor->properties, defaults);
+            const double value = record != nullptr ? std::get<float>(record->value) : fallback;
+            return std::isfinite(value) && value > 0 ? value : 0.0;
+        };
+        const auto byte = [&](std::string_view name, std::uint8_t fallback) {
+            const auto* record =
+                ubake::detail::resolvedRecord(name, ubundle::ValueKind::Byte, actor->properties, defaults);
+            return record != nullptr ? std::get<std::uint8_t>(record->value) : fallback;
+        };
+        MoverTrack track{&mover, !trsCarries(mover), {}, seconds("movetime", MOVE_TIME),
+                         seconds("stayopentime", STAY_OPEN_TIME), byte("moverglidetype", 1) != 0};
+        track.keys.resize(std::clamp<std::uint8_t>(byte("numkeys", NUM_KEYS), 1, MAX_KEYS));
+        for (const ubundle::PropertyRecord& record : actor->properties) {
+            if (record.arrayIndex >= track.keys.size()) continue;
+            const std::string name = ubake::detail::fold(record.name);
+            if (name == "keypos" && record.kind == ubundle::ValueKind::Vector) {
+                const auto& v = std::get<std::array<float, 3>>(record.value);
+                if (std::isfinite(v[0]) && std::isfinite(v[1]) && std::isfinite(v[2]))
+                    track.keys[record.arrayIndex].move = {v[0], v[1], v[2]};
+            } else if (name == "keyrot" && record.kind == ubundle::ValueKind::Rotator) {
+                const auto& r = std::get<std::array<std::int32_t, 3>>(record.value);
+                track.keys[record.arrayIndex].turn = {double(r[0]), double(r[1]), double(r[2])};
+            }
+        }
+        // UT99's Mover.PostBeginPlay: the map placed it at key KeyNum.
+        const std::uint8_t placedAt = byte("keynum", 0);
+        const Shift placed = placedAt < track.keys.size() ? track.keys[placedAt] : Shift{};
+        for (Shift& key : track.keys)
+            for (int k = 0; k < 3; ++k) key.move[k] -= placed.move[k], key.turn[k] -= placed.turn[k];
+        if (std::ranges::all_of(track.keys, &Shift::none)) continue;
+        out.push_back(std::move(track));
+    }
+    return out;
+}
+
+/// Where `track` is at `time` on its loop: closed for stayTime, out through
+/// its keys at moveTime each, open for stayTime, and back the same way.
+Shift shiftAt(const MoverTrack& track, double time) {
+    const double steps = static_cast<double>(track.keys.size() - 1);
+    const double travel = steps * track.moveTime, loop = 2 * (travel + track.stayTime);
+    if (!(loop > 0)) return {};
+    const double phase = std::fmod(time, loop);
+    double along = 0; // in keys: 0 closed, `steps` open
+    if (phase < track.stayTime) along = 0;
+    else if (phase < track.stayTime + travel) along = (phase - track.stayTime) / track.moveTime;
+    else if (phase < 2 * track.stayTime + travel) along = steps;
+    else along = steps - (phase - 2 * track.stayTime - travel) / track.moveTime;
+    along = std::clamp(along, 0.0, steps);
+    const std::size_t from = std::min(static_cast<std::size_t>(along), track.keys.size() - 2);
+    double share = along - static_cast<double>(from);
+    if (track.glides) share = share * share * (3 - 2 * share);
+    Shift out;
+    for (int k = 0; k < 3; ++k) {
+        out.move[k] = track.keys[from].move[k] + share * (track.keys[from + 1].move[k] - track.keys[from].move[k]);
+        out.turn[k] = track.keys[from].turn[k] + share * (track.keys[from + 1].turn[k] - track.keys[from].turn[k]);
+    }
+    return out;
+}
+
+/// SS 4.6's "nodes" member for one frame, with its comma, or nothing where
+/// every mover is at rest. An entry replaces the node's world value, so a
+/// mover in world space takes its move alone.
+std::string moverEntries(const std::vector<MoverTrack>& tracks, double time, PathReport& report) {
+    std::string entries;
+    for (const MoverTrack& track : tracks) {
+        const Shift shift = shiftAt(track, time);
+        if (shift.none()) continue;
+        const ubundle::MoverShape& mover = *track.shape;
+        std::string entry;
+        if (track.inWorldSpace) {
+            if (shift.turn != Vec3{}) ++report.unturnedEntries;
+            if (shift.move == Vec3{}) continue;
+            entry = "\"translation\":" + list(toGltf(shift.move));
+        } else {
+            std::array<std::int32_t, 3> rotation{};
+            Vec3 location{};
+            for (std::size_t k = 0; k < 3; ++k) {
+                location[k] = mover.location[k] + shift.move[k];
+                rotation[k] = mover.rotation[k] + static_cast<std::int32_t>(std::llround(shift.turn[k]));
+            }
+            entry = "\"translation\":" + list(toGltf(location)) +
+                    ",\"rotation\":" + list(quaternionOf(toGltf(rotationOf(rotation))));
+        }
+        entries += (entries.empty() ? "" : ",") + ("\"mover:" + std::to_string(mover.exportIndex) + "\":{" + entry + "}");
+        ++report.moverEntries;
+    }
+    return entries.empty() ? entries : "\"nodes\":{" + entries + "},";
+}
+
 } // namespace
 
-Result<std::string> writeCameraPath(const ubundle::Bundle& bundle, std::string_view sceneKey,
+Result<std::string> writeCameraPath(const ubundle::Bundle& bundle, const Scene& scene,
                                     const PathOptions& options, PathReport& report) {
     if (!bundle.nav || !bundle.placements)
         return fail(ErrorCode::InvalidArgument, "the bundle has no NAVG or no PLAC section");
@@ -195,10 +328,13 @@ Result<std::string> writeCameraPath(const ubundle::Bundle& bundle, std::string_v
     report.walkers = walkers;
     report.frames = static_cast<std::size_t>(std::floor(options.seconds * options.framesPerSecond)) + 1;
 
+    const std::vector<MoverTrack> movers = moverTracks(bundle, scene);
+    report.movingMovers = movers.size();
+
     const auto id = [](std::size_t k) { return "walker:" + std::to_string(k); };
     std::ostringstream o;
     o << "{\"xr_camera_path\":1,\"scene_keys\":[";
-    writeJsonString(o, sceneKey);
+    writeJsonString(o, scene.sceneKey);
     o << "],\"camera\":{\"xfov\":" << number(XFOV) << ",\"znear\":" << number(ZNEAR) << "},\"actors\":[";
     const Vec3 half = toGltf(Vec3{PLAYER_RADIUS, PLAYER_RADIUS, PLAYER_HALF_HEIGHT});
     const Vec3 low{-half[0], -half[1], -half[2]};
@@ -212,7 +348,8 @@ Result<std::string> writeCameraPath(const ubundle::Bundle& bundle, std::string_v
         const Vec3 target = toGltf(poseAt(tours[0], time).at);
         const Vec3 eye = toGltf(chaseEye(tours[0], time));
         o << (f ? "," : "") << "\n{\"time\":" << number(time) << ",\"camera\":{\"translation\":" << list(eye)
-          << ",\"rotation\":" << list(lookAt(eye, target)) << "},\"actors\":{";
+          << ",\"rotation\":" << list(lookAt(eye, target)) << "}," << moverEntries(movers, time, report)
+          << "\"actors\":{";
         for (std::size_t k = 0; k < walkers; ++k) {
             const Pose pose = poseAt(tours[k], time);
             o << (k ? "," : "") << '"' << id(k) << "\":{\"translation\":" << list(toGltf(pose.at))

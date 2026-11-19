@@ -69,13 +69,6 @@ Place placeOf(const ubundle::MoverShape& mover) {
     return {rotationOf(mover.rotation), widen(mover.location), widen(mover.postScale)};
 }
 
-/// Whether glTF's T * R * S says what UT's T * S * R does: the scale is
-/// uniform, or there is no rotation for it to come before.
-bool trsCarries(const ubundle::MoverShape& mover) {
-    const auto& s = mover.postScale;
-    return (s[0] == s[1] && s[1] == s[2]) || mover.rotation == std::array<std::int32_t, 3>{};
-}
-
 Material::Alpha alphaOf(std::uint32_t polyFlags) {
     using namespace ubake; // the PF_ constants' one home
     if ((polyFlags & (PF_TRANSLUCENT | PF_MODULATED)) != 0) return Material::Alpha::Blend;
@@ -258,7 +251,28 @@ std::uint32_t newMesh(Scene& scene) {
     return static_cast<std::uint32_t>(scene.meshes.size() - 1);
 }
 
+/// Removes each mesh with no vertex, which ExperiRays' reader refuses, and
+/// moves the nodes' mesh numbers down to match. No node names an empty one.
+void dropEmptyMeshes(Scene& scene) {
+    std::vector<std::uint32_t> movedTo(scene.meshes.size());
+    std::uint32_t kept = 0;
+    for (std::size_t i = 0; i < scene.meshes.size(); ++i) {
+        movedTo[i] = kept;
+        if (scene.meshes[i].positions.empty()) continue;
+        if (kept != i) scene.meshes[kept] = std::move(scene.meshes[i]);
+        ++kept;
+    }
+    scene.meshes.resize(kept);
+    for (Node& node : scene.nodes)
+        if (node.mesh) node.mesh = movedTo[*node.mesh];
+}
+
 } // namespace
+
+bool trsCarries(const ubundle::MoverShape& mover) noexcept {
+    const auto& s = mover.postScale;
+    return (s[0] == s[1] && s[1] == s[2]) || mover.rotation == std::array<std::int32_t, 3>{};
+}
 
 Vec3 toGltf(const Vec3& ut) noexcept {
     return {ut[0] / UNITS_PER_METRE, ut[2] / UNITS_PER_METRE, ut[1] / UNITS_PER_METRE};
@@ -382,6 +396,7 @@ Result<Scene> buildScene(const ubundle::Bundle& bundle, std::string sceneKey, bo
             if (scene.meshes[*node.mesh].positions.empty()) node.mesh.reset();
             if (node.mesh) scene.nodes.push_back(std::move(node));
         }
+    dropEmptyMeshes(scene);
 
     // SS 4.4 and 4.5: every light a pair can name, numbered as MaskPair::light.
     const std::size_t liteCount = bundle.lights ? bundle.lights->size() : 0;
@@ -617,8 +632,8 @@ std::vector<std::byte> writeGlb(const Scene& scene) {
     if (!lights.empty())
         json << ",\"extensionsUsed\":[\"KHR_lights_punctual\"],\"extensions\":{\"KHR_lights_punctual\":{\"lights\":"
              << joined(lights) << "}}";
-    json << ",\"scene\":0,\"scenes\":[{\"nodes\":" << joined(roots) << "}],\"nodes\":" << joined(nodes)
-         << ",\"meshes\":" << joined(meshes);
+    json << ",\"scene\":0,\"scenes\":[{\"nodes\":" << joined(roots) << "}],\"nodes\":" << joined(nodes);
+    if (!meshes.empty()) json << ",\"meshes\":" << joined(meshes); // glTF 2.0 allows no empty array
     if (!materials.empty()) json << ",\"materials\":" << joined(materials);
     json << ",\"accessors\":" << joined(glb.accessors_) << ",\"bufferViews\":" << joined(glb.views_);
     if (!glb.bin_.empty()) json << ",\"buffers\":[{\"byteLength\":" << ((glb.bin_.size() + 3) & ~std::size_t{3}) << "}]";
