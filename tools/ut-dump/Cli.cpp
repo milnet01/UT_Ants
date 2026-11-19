@@ -933,11 +933,27 @@ long long writeActorWiring(std::ostream& out, const uta::upkg::Package& map,
 /// UTA-0189: every actor of a MonsterEnd-family class, which a map is won by
 /// triggering. These are Triggers, not NavigationPoints, so `nodeList` never
 /// holds them. Matched on the actor's own class name, case-insensitively.
+/// Each actor's slot in the level's actor array, by export index. The null
+/// slots are skipped and the rest keep their number, so ascending `slot` is
+/// the order a T3D export lists the actors in, which export order is not
+/// (UTA-0481). An actor named in two slots (UTA-0124) has its first.
+std::map<std::uint32_t, std::uint32_t> levelActorSlots(const uta::upkg::Package& map,
+                                                       const uta::upkg::Level& level) {
+    std::map<std::uint32_t, std::uint32_t> slots;
+    for (std::size_t i = 0; i < level.actors.size(); ++i) {
+        const uta::upkg::ObjectReference actor = level.actors[i];
+        if (actor.kind() == uta::upkg::ObjectReferenceKind::Export && actor.index() < map.exports().size())
+            slots.try_emplace(actor.index(), level.actorSlots[i]);
+    }
+    return slots;
+}
+
 /// `tag` is resolved through the class family's defaults, as `wiring.actors`
 /// resolves it: a Tag is usually the class default and stored on no actor.
 void writeExits(std::ostream& out, const uta::upkg::Package& map, std::string_view mapName,
                 const uta::upkg::Level& level, const uta::upkg::PackageResolver& resolver) {
     static const std::set<std::string> EXIT_CLASSES{"monsterend", "monsterendsb", "monsterarenaend"};
+    const std::map<std::uint32_t, std::uint32_t> slots = levelActorSlots(map, level);
     out << ",\n  \"exits\": [";
     bool first = true;
     for (const std::uint32_t exportIndex : levelActorExports(map, level)) {
@@ -958,7 +974,8 @@ void writeExits(std::ostream& out, const uta::upkg::Package& map, std::string_vi
 
         std::string actorName = "?";
         if (const auto found = map.name(entry.objectName); found.has_value()) actorName = std::string{*found};
-        out << (first ? "" : ", ") << "{\"export\": " << exportIndex << ", \"name\": ";
+        out << (first ? "" : ", ") << "{\"export\": " << exportIndex << ", \"slot\": " << slots.at(exportIndex)
+            << ", \"name\": ";
         first = false;
         writeJsonString(out, actorName);
         out << ", \"class\": ";
@@ -1140,6 +1157,7 @@ void writePlayerStarts(std::ostream& out, const uta::upkg::Package& map, std::st
     const std::vector<uta::ubundle::Zone> zones = uta::ubake::buildZones(*model, actors->placements);
 
     constexpr std::string_view PLAYER_START = "engine.playerstart";
+    const std::map<std::uint32_t, std::uint32_t> slots = levelActorSlots(map, level);
     out << ",\n  \"playerStarts\": [";
     bool first = true;
     for (const uta::ubundle::ActorPlacement& actor : actors->placements.actors) {
@@ -1161,7 +1179,11 @@ void writePlayerStarts(std::ostream& out, const uta::upkg::Package& map, std::st
 
         std::string actorName = "?";
         if (const auto found = map.name(entry.objectName); found.has_value()) actorName = std::string{*found};
-        out << (first ? "" : ", ") << "{\"export\": " << actor.exportIndex << ", \"name\": ";
+        out << (first ? "" : ", ") << "{\"export\": " << actor.exportIndex << ", \"slot\": ";
+        // buildActors lists the level's own actors, so each has a slot.
+        if (const auto slot = slots.find(actor.exportIndex); slot != slots.end()) out << slot->second;
+        else out << "null";
+        out << ", \"name\": ";
         first = false;
         writeJsonString(out, actorName);
         out << ", \"class\": ";
@@ -1325,6 +1347,7 @@ void writeBrushes(std::ostream& out, const uta::upkg::Package& map, std::string_
         return classes.emplace(entry.objectClass.raw(), std::move(built)).first->second;
     };
 
+    const std::map<std::uint32_t, std::uint32_t> slots = levelActorSlots(map, level);
     std::ostringstream list, blockers, others;
     bool firstList = true, firstBlocker = true, firstOther = true;
     for (const std::uint32_t exportIndex : levelActorExports(map, level)) {
@@ -1346,7 +1369,7 @@ void writeBrushes(std::ostream& out, const uta::upkg::Package& map, std::string_
                     props[{asciiFolded(*name), property.arrayIndex}] = {&map, &property};
 
         std::ostringstream head;
-        head << "{\"index\": " << exportIndex << ", \"name\": ";
+        head << "{\"index\": " << exportIndex << ", \"slot\": " << slots.at(exportIndex) << ", \"name\": ";
         const auto actorName = map.name(entry.objectName);
         writeJsonString(head, actorName.has_value() ? std::string{*actorName} : std::string{"?"});
         head << ", \"class\": ";

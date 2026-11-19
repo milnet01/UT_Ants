@@ -1558,6 +1558,39 @@ TEST_CASE("UTA-0361: --brushes gives each brush its own polygons and transform, 
     CHECK(result.out.find(R"("name": "Brush1", )", others) == std::string::npos);
 }
 
+TEST_CASE("UTA-0481: exits, playerStarts and brushes give each actor its slot in the level's actor array",
+          "[dump]") {
+    // GAME-0032: a T3D export lists actors in slot order, and UT_MonsterHunt's
+    // map size is measured from the first PlayerStart by that order.
+    const TempDir dir;
+    MapBuilder map;
+    const std::int32_t brush = map.addClass("Brush");
+    map.leadWithNullSlots(2) // null slots are skipped and renumber nothing
+        .addActorOfClass("MonsterHunt", "MonsterEnd")
+        .addActorOfClass("Engine", "PlayerStart")
+        .addActorOfClass("Engine", "PathNode")
+        .addActor("Brush3", brush)
+        .repeatActorSlot(0); // a second slot for the exit: it keeps its first
+    const fs::path mapPath = writeMap(dir, map);
+    const Run result = run({"--system", (dir.path() / "System").string(), "--brushes", mapPath.string()});
+    INFO(result.out);
+    REQUIRE(result.code == 0);
+
+    const std::size_t exits = result.out.find("\"exits\": [");
+    REQUIRE(exits != std::string::npos);
+    CHECK(result.out.find(R"("slot": 2, "name": "MonsterEnd0")", exits) < result.out.find("\"waypoints\""));
+    const std::size_t starts = result.out.find("\"playerStarts\": [");
+    REQUIRE(starts != std::string::npos);
+    CHECK(result.out.find(R"("slot": 3, "name": "PlayerStart1")", starts) < result.out.find("\"brushes\""));
+    const std::size_t brushes = result.out.find("\"brushes\"");
+    REQUIRE(brushes != std::string::npos);
+    CHECK(result.out.find(R"("slot": 5, "name": "Brush3")", brushes) != std::string::npos);
+    const std::size_t others = result.out.find(R"("actors": [)", brushes);
+    REQUIRE(others != std::string::npos);
+    CHECK(result.out.find(R"("slot": 2, "name": "MonsterEnd0")", others) != std::string::npos);
+    CHECK(result.out.find(R"("slot": 4, "name": "PathNode2")", others) != std::string::npos);
+}
+
 TEST_CASE("UTA-0224: an actor whose properties do not read is kept, flagged and counted", "[dump]") {
     // UTA-0172 INV-8 wins over its SS 6: an exit stays in the list, since
     // dropping one shrinks a consumer's denominator, but its class defaults

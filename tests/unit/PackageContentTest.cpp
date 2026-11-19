@@ -1148,6 +1148,8 @@ TEST_CASE("a Level reads back its actors, its slot count and its reach specs", "
     CHECK(level->actors[0].raw() == 1);
     CHECK(level->actors[1].raw() == 2);
     CHECK(level->actors[2].raw() == 3);
+    // UTA-0481: each keeps the slot the file gave it; the nulls renumber nothing.
+    CHECK(level->actorSlots == std::vector<std::uint32_t>{0, 2, 5});
 
     // INV-1: file order and file indexing, nothing dropped or renumbered. The
     // positions checked are spread across the array, so a reader that lost or

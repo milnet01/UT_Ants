@@ -117,6 +117,7 @@ Result<Level> readLevel(const Package& package, const ExportEntry& entry) {
         // INV-9. A stock map's array is largely holes.
         if (actor.kind() != ObjectReferenceKind::Null) {
             level.actors.push_back(actor);
+            level.actorSlots.push_back(static_cast<std::uint32_t>(slot));
         }
     }
 

@@ -260,7 +260,7 @@ both. This document restates neither.
 ### 4.7a `exits`
 
 Added by `UTA-0189`. A map's element carries `exits` after `wiring`, with no
-flag. It is `[{export, name, class, location, tag, triggerType,
+flag. It is `[{export, slot, name, class, location, tag, triggerType,
 damageThreshold, bInitiallyActive, propertiesRead, chainEnd}]`, in ascending `export`
 order: every level actor whose own class name is `MonsterEnd`,
 `MonsterEndSB` or `MonsterArenaEnd`, compared case-insensitively. `class`
@@ -270,6 +270,13 @@ Triggers, so `nodeList` never holds them. `location` is as in `nodeList`.
 `tag` is resolved through the class family's defaults, as `wiring.actors`
 resolves it: a Tag is usually the class default and stored on no actor. It
 is `""` when neither sets one.
+
+`slot` (an integer) was added by `UTA-0481`, after `export`. It is the
+actor's index in the level's actor array. Null slots are skipped and the
+rest keep their number, so ascending `slot` is the order a T3D export lists
+the actors in, which `export` order is not. An actor named in two slots
+has its first. The UTA-0481 case in `tests/unit/DumpCliTest.cpp`
+asserts it here, in `playerStarts` and in `brushes`.
 
 `triggerType` (an integer, `ETriggerType`: 4 is `TT_Shoot`),
 `damageThreshold` (a number) and `bInitiallyActive` (a boolean) were added by
@@ -305,10 +312,10 @@ last they reached, so a gap or a repeat in `position` strands them.
 ### 4.7c `playerStarts`
 
 Added by `UTA-0335`. A map's element carries `playerStarts` after
-`waypoints`, with no flag. It is `[{export, name, class, location, zone,
+`waypoints`, with no flag. It is `[{export, slot, name, class, location, zone,
 zoneActor, waterZone}]`, in ascending `export` order: every level actor of
 `Engine.PlayerStart` or a class descending from it, by ancestry rather than by
-name. `class` and `location` are as in `exits`.
+name. `slot`, `class` and `location` are as in `exits`.
 
 `zone` is the zone index the BSP walk lands `location` in — `umap::roomAt`,
 which the baker and the renderer share. `zoneActor` is `{export, name,
@@ -350,14 +357,15 @@ does not read or its actors do not build.
 Added by `UTA-0361`, under `--brushes` only, after `lighting`. It holds what
 UT_MonsterHunt's wall, lift and blocker tools read from a T3D export
 (GAME-0032). It is `{list, blockers, actors}`. Each element of the three
-arrays opens `{index, name, class, location}`: the actor's export index,
-its name, its class's name, and `[x, y, z]`. Values come
+arrays opens `{index, slot, name, class, location}`: the actor's export
+index, its `slot` as in `exits` (`UTA-0481`), its name, its class's name,
+and `[x, y, z]`. Values come
 from the actor, else its class family's defaults. Where neither stores a
 `Location`, `Rotation`, `PrePivot`, `CsgOper` or `PolyFlags`, UT99's zero
 applies; where neither stores a scale, it is unit with no shear.
 
 - `list` holds every actor whose class chain reaches `Brush`, movers
-  included. After the four keys: `objectFlags` (the export's object flags,
+  included. After the opening keys: `objectFlags` (the export's object flags,
   raw), `mover` (the chain reaches `Mover`),
   `csgOper` and `polyFlags` (the brush's own integers; `CsgOper` 0 is the
   editor's builder brush), `rotation` as `[pitch, yaw, roll]`, `mainScale`
@@ -375,8 +383,8 @@ applies; where neither stores a scale, it is unit with no shear.
   `BlockPlayer` or `BlockMonsters`, with `collisionRadius`,
   `collisionHeight`, `bBlockActors` and `bBlockPlayers`, each `null` where
   neither the actor nor its class stores it.
-- `actors` holds every actor not in `list`, blockers included, with the four
-  keys alone.
+- `actors` holds every actor not in `list`, blockers included, with the
+  opening keys alone.
 
 ### 4.8 Counting what was dropped
 
@@ -430,6 +438,7 @@ them on 2026-09-25, checked by them against § 4 and UTA-0172 § 4.3 to § 4.4.
 | GAME-0160, the route check's placement (`analysis/mapcheck/facts.py`, `placed()`) | `exits`' `class` (compared case-insensitively) and `location`; `nodeList`'s `location`, `paths` and `upstreamPaths` | It places nav points and the exit without a T3D export. The UTA-0189 and UTA-0198 cases in `tests/unit/DumpCliTest.cpp` assert these fields' exact text, so a rename or drop fails them (UTA-0214) |
 | GAME-0208, the waypoints check | `waypoints`' `class`, `name`, `position` and `location` | It finds a gap or repeat in a map's waypoint numbers. The UTA-0332 case in `tests/unit/DumpCliTest.cpp` asserts these fields' exact text |
 | GAME-0207 | `playerStarts`' `name`, `class`, `location`, `zone`, `zoneActor` and `waterZone`; `playerStartsError` | It needs the BSP zone each PlayerStart lands in (UTA-0335) |
+| GAME-0032, the vote list's map size | `slot` in `playerStarts`, `exits` and `brushes`' three arrays | "First" PlayerStart and exit are taken in slot order, as its T3D exports gave them (UTA-0481) |
 | GAME-0210 | `wiring.actors`' `liftTag`, and `mover`'s `numKeys`, `basePos` and `keyPos` | It needs each lift's tag and its mover's keyframes (UTA-0336) |
 | `analysis/mapcheck` checks | `nodeList`'s `name`, `class`; `edgeList`'s `from`, `to`, `reachFlags`, `collisionRadius`, `collisionHeight` (the route check); `classCounts` (paths, starts); `importedPackages` (load) | Per-map checks |
 | `analysis/pathtriage.py` | `nav.nodes`, `nav.edges`, `nav.nodesWithNoExit`; `classCounts`; `wiring.dangling` | Path triage |

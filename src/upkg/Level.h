@@ -52,6 +52,10 @@ struct Level {
     std::vector<ObjectReference> actors;
     /// Slots the file declared, including the null ones. UTA-0004 INV-9.
     std::uint32_t rawSlotCount = 0;
+    /// Each actor's slot in the file's array, parallel to `actors`: the null
+    /// slots are skipped and the rest keep their number, which is the order
+    /// the editor lists the actors in (UTA-0481).
+    std::vector<std::uint32_t> actorSlots;
     /// The level's world BSP, unresolved for Geometry.h's reason. Returned
     /// since UTA-0011 SS 4.5, whose baker builds rooms from the export this
     /// names rather than guessing at the largest `Model`; UTA-0057 consumed

@@ -14,6 +14,12 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **ut-dump says where each actor sits in the map's own actor list** (UTA-0481)
+  Each exit, player start and `--brushes` entry now carries `slot`, its
+  place in the level's actor list. That is the order the editor exports
+  actors in, so UT_MonsterHunt's "first player start" can match the
+  editor's.
+
 - **Baked maps carry their sounds, and the weapon sounds get a file of their own** (UTA-0478)
   Baking a map now copies every sound the map uses into its baked file:
   machine hums, doors, lifts, pickups. The weapon sounds go into one

@@ -326,6 +326,9 @@ public:
     /// One more slot in the level's actor list naming actor `actor`, by its
     /// position among the actors, after every actor's own slot -- UTA-0124.
     MapBuilder& repeatActorSlot(std::size_t actor);
+    /// Null slots ahead of the first actor's, so no actor's slot is its
+    /// position among the actors -- UTA-0481.
+    MapBuilder& leadWithNullSlots(std::size_t count);
 
     /// A Model export holding `brush`'s square, for an actor to name through
     /// its Brush property; its reference.
@@ -398,6 +401,7 @@ private:
     };
     std::vector<Reach> reaches_;
     std::vector<std::size_t> repeatedSlots_;
+    std::size_t leadingNullSlots_ = 0;
     int brushes_ = 0;
     int levelCount_ = 1;
     bool decoy_ = false;

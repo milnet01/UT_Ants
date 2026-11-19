@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=481 -->
+<!-- ants-roadmap-id-high-water: UTA=482 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -21568,6 +21568,21 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Lanes: uaudio, ugame.
   Blocked-by: UTA-0478.
 
+- 📋 [UTA-0482] **Quiet and loaded benchmark runs for frameledger's FLED-0072 noise limit.**
+  frameledger's ask of 2026-11-19, for one number: the limit above
+  which a run is called noisy. One benchmark map and camera path we
+  already use, camera moving; the same on a still view if cheap. 5
+  quiet runs then 3 loaded, same build and settings, vsync off, back to
+  back in one cc-job. Quiet: nothing else heavy running. Loaded: a
+  compile on all cores for the whole run. At least 2000 frames a run,
+  warm-up left in. Send back the path of each run's frameledger CSV,
+  which are quiet and which loaded, the commit, GPU and resolution.
+  Needs the machine to itself: warn the user before starting. No date;
+  FLED-0072 blocks nothing of theirs. Help for another session.
+  **Layman:** Run our benchmark several times on a quiet and on a busy machine, so the sister tool can learn how much frame times wobble by themselves.
+  Kind: perf.
+  Source: frameledger-request-2026-11-19.
+
 ## 0.3.0 — Monsters, bots and Deathmatch
 
 Monsters resolved by ancestry, combat bots on the maps' own waypoints, and
@@ -23129,7 +23144,7 @@ to.
   Source: user-request-2026-10-15.
   Lanes: tools.
 
-- 📋 [UTA-0481] **ut-dump: give each actor its level slot, for UT_MonsterHunt's GAME-0032.**
+- 🚧 [UTA-0481] **ut-dump: give each actor its level slot, for UT_MonsterHunt's GAME-0032.**
   UT_MonsterHunt's vote-list map size is "first PlayerStart to first
   exit", with "first" taken from a T3D export, which lists actors in
   level-slot order. ut-dump --brushes lists brushes.actors, playerStarts
@@ -23145,6 +23160,9 @@ to.
   /mnt/Emulators/.claude/Scratchpad/UT_MonsterHunt/g0032/order_one.py
   (run from their repo root). No rush: GAME-0032 waits on it, nothing
   live does. Taken ahead of 0.2.0 as help for another session.
+  Built 2026-11-19: `slot` is on every entry of exits, playerStarts and
+  brushes' list, blockers and actors, after the export index. Spec:
+  docs/specs/UTA-0012-ut-dump-output-shape.md § 4.7a.
   **Layman:** Tell the sister project where each actor sits in the map's own actor list, so its "first player start" matches the editor's.
   Kind: feature.
   Source: ut-monsterhunt-request-2026-11-19.

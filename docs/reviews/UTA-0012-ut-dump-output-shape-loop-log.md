@@ -9,3 +9,4 @@ edited.
 
 | Loop | Date | Lanes | Q1 | Q2 | Q3 | Q4 | Outcome |
 |------|------|-------|----|----|----|----|---------|
+| amend-0481 | 2026-11-19 | none | - | - | - | - | Amendment, not a review: no reviewer dispatched. UTA-0481 adds `slot` to § 4.7a, § 4.7c and § 4.7e, and a § 4.10 consumer row. |

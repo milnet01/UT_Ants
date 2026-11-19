@@ -665,6 +665,11 @@ MapBuilder& MapBuilder::repeatActorSlot(std::size_t actor) {
     return *this;
 }
 
+MapBuilder& MapBuilder::leadWithNullSlots(std::size_t count) {
+    leadingNullSlots_ = count;
+    return *this;
+}
+
 MapBuilder& MapBuilder::setModelTarget(ModelTarget target) {
     target_ = target;
     return *this;
@@ -787,6 +792,7 @@ std::vector<std::uint8_t> MapBuilder::build() const {
     for (int index = 0; index < levelCount_; ++index) {
         LevelExportWriter level;
         level.setProperties(emptyProperties());
+        for (std::size_t null = 0; null < leadingNullSlots_; ++null) level.addActor(0);
         for (const std::int32_t actor : actors) level.addActor(actor);
         for (const std::size_t repeat : repeatedSlots_) level.addActor(actors.at(repeat));
         level.addActor(0); // a null slot, as a stock map's array is full of

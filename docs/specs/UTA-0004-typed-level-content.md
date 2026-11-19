@@ -214,6 +214,7 @@ struct Sound {
 struct Level {
     std::vector<ObjectReference> actors;   // non-null only, in file order
     std::uint32_t rawSlotCount = 0;        // including the nulls (INV-9)
+    std::vector<std::uint32_t> actorSlots; // each actor's slot in the file (UTA-0481)
     std::vector<ReachSpec> reachSpecs;     // UTA-0057, in file order
 };
 ```
