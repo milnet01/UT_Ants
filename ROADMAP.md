@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=479 -->
+<!-- ants-roadmap-id-high-water: UTA=480 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -21520,12 +21520,13 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: review-code-2026-11-17.
   Lanes: build.
 
-- 📋 [UTA-0478] **ubake: bake the sounds a map and the weapon set use into the bundle, so the game can play them.**
+- 🚧 [UTA-0478] **ubake: bake the sounds a map and the weapon set use into the bundle, so the game can play them.**
   Found writing UTA-0056 (2026-11-17). docs/design.md rule 2 keeps upkg
   out of the runtime programs, so the client cannot read a .uax package.
   A sound must reach it through the bundle, as textures and meshes do: a
-  new bundle section, a format bump and a re-bake (shapeOf samples the new
-  section). The mixer's decodeWav (UTA-0056 § 4.2) takes the RIFF bytes
+  new bundle section, a format bump and a re-bake. Spec: docs/specs/UTA-0478-baked-sounds.md. The weapon set's
+  sounds go in one shared bundle of their own (user, 2026-11-19). The mixer's
+  decodeWav (UTA-0056 § 4.2) takes the RIFF bytes
   the bundle would carry. Covers the map's own sounds (ambient sounds,
   movers, triggers) and the weapon set's, which UTA-0467 then plays.
   Blocker for UTA-0467.
@@ -21548,6 +21549,20 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: perf.
   Source: in-session-2026-11-19 UTA-0021 timing re-run.
   Lanes: umove.
+
+- 📋 [UTA-0480] **Play a map's own sounds: ambient hums, movers, triggers and pickups, placed in the world.**
+  UTA-0478 bakes these sounds into the map's bundle and loads them
+  into the client's sound bank; nothing plays them. This item reads each
+  actor's sound properties from PLAC (AmbientSound with SoundRadius and
+  SoundVolume, a mover's opening and closing sounds, and the rest) and
+  plays them through the mixer. The mixer has no positional sound yet
+  (src/uaudio/Mixer.h), so distance and left-right placement are part
+  of this. Blocked by UTA-0478.
+  **Layman:** Maps get their own sounds back: machinery hums, doors and lifts make noise, and each sound comes from where the thing is.
+  Kind: implement.
+  Source: in-session-2026-11-19 UTA-0478 spec.
+  Lanes: uaudio, ugame.
+  Blocked-by: UTA-0478.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
