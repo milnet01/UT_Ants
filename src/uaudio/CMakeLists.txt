@@ -3,7 +3,7 @@
 # as uinput: the client opens the device and hands the mixer a buffer to
 # fill, so the unit tests build on the leg that has no SDL.
 
-add_library(uta_uaudio STATIC Mixer.cpp SoundBank.cpp Wav.cpp)
+add_library(uta_uaudio STATIC Mixer.cpp SoundBank.cpp Spatial.cpp Wav.cpp)
 target_include_directories(uta_uaudio PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
 target_link_libraries(uta_uaudio PUBLIC uta_core)
 

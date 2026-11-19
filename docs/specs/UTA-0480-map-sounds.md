@@ -84,8 +84,10 @@ void stop(VoiceId voice) noexcept;
   the 64 and is stolen by § 4.5 item 3 like any voice.
 - A loop starts from gain 0. Every change of its gain or pan, the start
   and `stop` included, is a straight ramp across one `Mixer::BLOCK` of
-  output, so no change clicks. A stopped voice frees its slot when its
-  ramp ends.
+  output, so no change clicks. A stopped loop frees its slot when its
+  ramp ends. A stopped one-shot stops at once, as a stolen voice does.
+- The frame after a loop's last is its first, so a clip played off its
+  own rate has no seam.
 - `play` and one-shot voices behave as before. `mix` still allocates
   nothing.
 
@@ -237,7 +239,7 @@ first two's cases to loops.
 - `tests/unit/ClientMapSoundsTest.cpp`, new, carries INV-6, INV-7 and
   INV-8.
 - All are label `unit`. Each is seen to fail before its code exists.
-- `scripts/mutations/`' `uaudio` file gains one mutation per INV-1 to
+- `scripts/mutations/uaudio-loops.py` holds the mutations for INV-1 to
   INV-5.
 - By ear, once: start `ut-ants` on a map the stderr line says has
   emitters, walk to one and past it.
@@ -280,8 +282,7 @@ first two's cases to loops.
 ## 11. Cross-doc impact
 
 - `docs/specs/UTA-0056-audio-mixer.md`: § 3 item 8 and § 9 point here for
-  positional sound; § 4.5 says loops skip its items 1 and 2. Amended when
-  this is built.
+  positional sound; § 4.5 says loops skip its items 1 and 2.
 - `apps/ut-ants/Audio.h`'s "Nothing plays yet" comment.
 - `CHANGELOG.md`: an entry under Added.
 - `CLAUDE.md` § Where this project is: `Next:` moves on.

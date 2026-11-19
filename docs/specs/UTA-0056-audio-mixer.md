@@ -64,9 +64,10 @@ Settled by this spec (the session's call, cheap to redo):
    (`src/uinput/CMakeLists.txt`): the client owns the device and hands the
    library a buffer to fill. The unit tests then build on the leg with no
    SDL.
-8. **No positional sound yet.** A voice takes a gain and a left-right pan
-   from its caller. Distance falloff and direction from the listener come
-   with the first caller that needs them (UTA-0467).
+8. **No positional sound in the mixer.** A voice takes a gain and a
+   left-right pan from its caller. Distance falloff and direction from the
+   listener are `uaudio::place`, in `docs/specs/UTA-0480-map-sounds.md`
+   § 4.2.
 9. **The game plays nothing yet.** `docs/design.md` rule 2 keeps `upkg`
    out of the runtime programs, so the client cannot read a sound package.
    Getting sounds into a map's bundle is a format change, filed as
@@ -170,6 +171,9 @@ A play request goes through three checks, in this order:
    world, then weapons, then speech), then lowest priority, then oldest.
    It never steals from a higher group than the request's own. If no voice
    can be stolen, the request is dropped and returns an invalid `VoiceId`.
+
+A looping voice (`docs/specs/UTA-0480-map-sounds.md` § 4.1) skips items 1
+and 2, and is not counted by them. Item 3 applies to it as to any voice.
 
 A stolen voice stops at once. A cut mid-waveform clicks; a short fade is
 the first thing to add if that is heard.
@@ -317,7 +321,8 @@ allows for a tool.
 - Baking sounds into a map's bundle, and any runtime path from a map to a
   clip: UTA-0478.
 - Which UT sound plays in which group, and weapon sounds: UTA-0467.
-- Positional sound: distance falloff, direction, Doppler (§ 3 item 8).
+- Positional sound: distance falloff and direction are UTA-0480's
+  (§ 3 item 8); Doppler is not queued.
 - Music playback. UT's music is tracker modules in `Music/*.umx`; the
   music group exists here so they have a place.
 - A settings menu and saved settings. `Settings` lives in memory with its

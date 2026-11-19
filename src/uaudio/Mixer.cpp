@@ -28,6 +28,17 @@ float gainOf(float db) noexcept { return std::pow(10.0f, db / 20.0f); }
 
 std::size_t indexOf(Group group) noexcept { return static_cast<std::size_t>(group); }
 
+struct Sides {
+    float left = 0;
+    float right = 0;
+};
+
+// Constant power: the centre gives each side cos(pi/4).
+Sides panned(float pan) noexcept {
+    const float angle = (std::clamp(pan, -1.0f, 1.0f) + 1.0f) * std::numbers::pi_v<float> / 4.0f;
+    return {std::cos(angle), std::sin(angle)};
+}
+
 } // namespace
 
 void Mixer::setSettings(const Settings& settings) {
@@ -38,7 +49,7 @@ void Mixer::setSettings(const Settings& settings) {
 Mixer::Voice* Mixer::collapseTarget(const Clip& clip) noexcept {
     Voice* newest = nullptr;
     for (Voice& voice : voices_) {
-        if (voice.clip != &clip || frame_ - voice.start > COLLAPSE_FRAMES) continue;
+        if (voice.clip != &clip || voice.loop || frame_ - voice.start > COLLAPSE_FRAMES) continue;
         if (newest == nullptr || voice.order > newest->order) newest = &voice;
     }
     return newest;
@@ -51,12 +62,17 @@ Mixer::Voice* Mixer::slotFor(const Clip& clip, Group group) noexcept {
     Voice* oldestOfClip = nullptr;
     int ofClip = 0;
     for (Voice& voice : voices_) {
-        if (voice.clip != &clip) continue;
+        if (voice.clip != &clip || voice.loop) continue;
         ++ofClip;
         if (oldestOfClip == nullptr || voice.order < oldestOfClip->order) oldestOfClip = &voice;
     }
     if (ofClip >= cap) return oldestOfClip;
+    return freeOrStolen(group);
+}
 
+// SS 4.5 item 3: a free slot, else the voice the total cap steals; null to
+// drop.
+Mixer::Voice* Mixer::freeOrStolen(Group group) noexcept {
     Voice* victim = nullptr;
     for (Voice& voice : voices_) {
         if (voice.clip == nullptr) return &voice;
@@ -78,14 +94,13 @@ VoiceId Mixer::play(const Clip& clip, PlayRequest request) {
         ++dropped_;
         return {};
     }
-    // Constant power: the centre gives each side cos(pi/4).
-    const float angle = (std::clamp(request.pan, -1.0f, 1.0f) + 1.0f) * std::numbers::pi_v<float> / 4.0f;
+    const Sides sides = panned(request.pan);
     *slot = Voice{.clip = &clip,
                   .position = 0,
                   .step = static_cast<double>(clip.rate) / RATE,
                   .gain = request.gain,
-                  .left = std::cos(angle),
-                  .right = std::sin(angle),
+                  .left = sides.left,
+                  .right = sides.right,
                   .group = request.group,
                   .priority = request.priority,
                   .start = frame_,
@@ -93,6 +108,66 @@ VoiceId Mixer::play(const Clip& clip, PlayRequest request) {
                   .id = nextId_++};
     if (nextId_ == 0) nextId_ = 1; // zero is no voice
     return VoiceId{slot->id};
+}
+
+VoiceId Mixer::startLoop(const Clip& clip, LoopRequest request) {
+    if (clip.frames() == 0) return {};
+    Voice* const slot = freeOrStolen(request.group);
+    if (slot == nullptr) {
+        ++dropped_;
+        return {};
+    }
+    *slot = Voice{.clip = &clip,
+                  .position = 0,
+                  .step = static_cast<double>(clip.rate) / RATE * std::clamp(request.pitch, 0.5f, 2.0f),
+                  .group = request.group,
+                  .priority = request.priority,
+                  .start = frame_,
+                  .order = nextOrder_++,
+                  .id = nextId_++,
+                  .loop = true};
+    if (nextId_ == 0) nextId_ = 1; // zero is no voice
+    const VoiceId id{slot->id};
+    setLoop(id, request.gain, request.pan);
+    return id;
+}
+
+Mixer::Voice* Mixer::loopOf(VoiceId voice) noexcept {
+    if (!voice.valid()) return nullptr;
+    for (Voice& candidate : voices_)
+        if (candidate.clip != nullptr && candidate.loop && candidate.id == voice.value) return &candidate;
+    return nullptr;
+}
+
+bool Mixer::setLoop(VoiceId voice, float gain, float pan) noexcept {
+    Voice* const loop = loopOf(voice);
+    if (loop == nullptr || loop->stopping) return false;
+    const Sides sides = panned(pan);
+    loop->gain = gain;
+    loop->left = sides.left;
+    loop->right = sides.right;
+    // One BLOCK from wherever the last ramp had got to.
+    loop->leftStep = (sides.left * gain - loop->leftNow) / static_cast<float>(BLOCK);
+    loop->rightStep = (sides.right * gain - loop->rightNow) / static_cast<float>(BLOCK);
+    loop->ramp = static_cast<std::uint32_t>(BLOCK);
+    return true;
+}
+
+void Mixer::stop(VoiceId voice) noexcept {
+    if (!voice.valid()) return;
+    for (Voice& candidate : voices_) {
+        if (candidate.clip == nullptr || candidate.id != voice.value) continue;
+        if (!candidate.loop) {
+            candidate.clip = nullptr;
+        } else if (!candidate.stopping) {
+            setLoop(voice, 0.0f, 0.0f);
+            // Keep the sides it had: a stop fades where the sound is.
+            candidate.leftStep = -candidate.leftNow / static_cast<float>(BLOCK);
+            candidate.rightStep = -candidate.rightNow / static_cast<float>(BLOCK);
+            candidate.stopping = true;
+        }
+        return;
+    }
 }
 
 void Mixer::stopAll() noexcept {
@@ -125,6 +200,45 @@ std::size_t Mixer::render(Voice& voice, float* into, std::size_t frames) noexcep
     return played;
 }
 
+void Mixer::renderLoop(Voice& voice, float* into, std::size_t frames) noexcept {
+    const Clip& clip = *voice.clip;
+    const float* const samples = clip.samples.data();
+    const std::size_t length = clip.frames();
+    const auto end = static_cast<double>(length);
+    const bool stereo = clip.channels == 2;
+    for (std::size_t i = 0; i < frames; ++i) {
+        if (voice.ramp > 0) {
+            voice.leftNow += voice.leftStep;
+            voice.rightNow += voice.rightStep;
+            if (--voice.ramp == 0) {
+                if (voice.stopping) {
+                    voice.clip = nullptr;
+                    return;
+                }
+                // Land on the target exactly, whatever the steps rounded to.
+                voice.leftNow = voice.left * voice.gain;
+                voice.rightNow = voice.right * voice.gain;
+            }
+        }
+        const auto at = static_cast<std::size_t>(voice.position);
+        // The frame after the last is the first: the loop has no seam.
+        const std::size_t next = at + 1 < length ? at + 1 : 0;
+        const auto t = static_cast<float>(voice.position - static_cast<double>(at));
+        float left = 0;
+        float right = 0;
+        if (stereo) {
+            left = samples[at * 2] + (samples[next * 2] - samples[at * 2]) * t;
+            right = samples[at * 2 + 1] + (samples[next * 2 + 1] - samples[at * 2 + 1]) * t;
+        } else {
+            left = right = samples[at] + (samples[next] - samples[at]) * t;
+        }
+        into[i * 2] += left * voice.leftNow;
+        into[i * 2 + 1] += right * voice.rightNow;
+        voice.position += voice.step;
+        while (voice.position >= end) voice.position -= end;
+    }
+}
+
 void Mixer::mixBlock(float* out, std::size_t frames, const GroupTaps* taps, std::size_t tapAt) noexcept {
     for (auto& buffer : scratch_) std::fill_n(buffer.data(), frames * 2, 0.0f);
 
@@ -134,6 +248,11 @@ void Mixer::mixBlock(float* out, std::size_t frames, const GroupTaps* taps, std:
     for (Voice& voice : voices_) {
         if (voice.clip == nullptr) continue;
         const Group group = voice.group;
+        if (voice.loop) {
+            renderLoop(voice, scratch_[indexOf(group)].data(), frames);
+            if (group == Group::Speech) speechUntil = frames;
+            continue;
+        }
         const std::size_t played = render(voice, scratch_[indexOf(group)].data(), frames);
         if (group == Group::Speech) speechUntil = std::max(speechUntil, played);
     }

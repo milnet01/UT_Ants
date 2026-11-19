@@ -21554,7 +21554,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: in-session-2026-11-19 UTA-0021 timing re-run.
   Lanes: umove.
 
-- 📋 [UTA-0480] **Play a map's own sounds: ambient hums, movers, triggers and pickups, placed in the world.**
+- 🚧 [UTA-0480] **Play a map's own sounds: ambient hums, movers, triggers and pickups, placed in the world.**
   UTA-0478 bakes these sounds into the map's bundle and loads them
   into the client's sound bank; nothing plays them. This item reads each
   actor's sound properties from PLAC (AmbientSound with SoundRadius and
@@ -21562,6 +21562,12 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   plays them through the mixer. The mixer has no positional sound yet
   (src/uaudio/Mixer.h), so distance and left-right placement are part
   of this. Blocked by UTA-0478.
+  2026-11-19: spec at docs/specs/UTA-0480-map-sounds.md, which amends
+  docs/specs/UTA-0056-audio-mixer.md. Built so far: the mixer's looping
+  voices and uaudio::place (INV-1 to INV-5). Left: the map's emitters
+  and the per-frame update (INV-6 to INV-8), and wiring into the
+  client. Open with the user: whether mover, trigger and pickup sounds
+  wait for the code that moves, fires and takes them (spec § 3 item 1).
   **Layman:** Maps get their own sounds back: machinery hums, doors and lifts make noise, and each sound comes from where the thing is.
   Kind: implement.
   Source: in-session-2026-11-19 UTA-0478 spec.

@@ -56,6 +56,19 @@ struct PlayRequest {
     int priority = 0;
 };
 
+/// A voice that plays its clip round and round until stop() --
+/// docs/specs/UTA-0480-map-sounds.md SS 4.1. It starts from silence, and
+/// every change of its gain or pan is a ramp across one Mixer::BLOCK.
+struct LoopRequest {
+    Group group = Group::World;
+    float gain = 0.0f;
+    /// -1 left to 1 right.
+    float pan = 0.0f;
+    /// The clip's rate is multiplied by it; clamped to 0.5..2.
+    float pitch = 1.0f;
+    int priority = 0;
+};
+
 /// A playing voice. Zero is no voice: a dropped request returns it.
 struct VoiceId {
     std::uint32_t value = 0;
@@ -84,6 +97,8 @@ class Mixer {
 public:
     static constexpr std::uint32_t RATE = 48000;
     static constexpr std::size_t MAX_VOICES = 64;
+    /// Output frames mixed per pass, and the length of a loop's ramp.
+    static constexpr std::size_t BLOCK = 256;
 
     void setSettings(const Settings& settings);
     [[nodiscard]] const Settings& settings() const noexcept { return settings_; }
@@ -91,6 +106,17 @@ public:
     /// Start `clip` at the next mix(), after SS 4.5's three checks. An invalid
     /// id when the request was dropped.
     VoiceId play(const Clip& clip, PlayRequest request);
+    /// Start `clip` as a loop. It skips SS 4.5's collapse and per-clip cap --
+    /// its caller budgets it -- and counts toward MAX_VOICES, where it is
+    /// stolen like any voice. An invalid id when no voice could be had.
+    VoiceId startLoop(const Clip& clip, LoopRequest request);
+    /// A playing loop's gain and pan, ramped in from the next mix(). False:
+    /// no such loop, as after it was stolen.
+    bool setLoop(VoiceId voice, float gain, float pan) noexcept;
+    /// Stop one voice. A loop ramps out across one BLOCK and then frees its
+    /// slot; a one-shot stops at once, as a stolen voice does. No such
+    /// voice: nothing happens.
+    void stop(VoiceId voice) noexcept;
     void stopAll() noexcept;
 
     /// Fill interleaved left-right frames; `out.size()` must be even. With
@@ -115,12 +141,22 @@ private:
         std::uint64_t start = 0;    ///< the output frame it started at
         std::uint64_t order = 0;    ///< start order, for "oldest"
         std::uint32_t id = 0;
+        // A loop alone uses the rest: each side's gain now, where it is
+        // heading, its step a frame and the frames the ramp has left.
+        bool loop = false;
+        bool stopping = false;      ///< the slot frees when the ramp ends
+        float leftNow = 0;
+        float rightNow = 0;
+        float leftStep = 0;
+        float rightStep = 0;
+        std::uint32_t ramp = 0;
     };
-    /// Output frames mixed per pass; the group scratch buffers' length.
-    static constexpr std::size_t BLOCK = 256;
-
     Voice* collapseTarget(const Clip& clip) noexcept;
     Voice* slotFor(const Clip& clip, Group group) noexcept;
+    Voice* freeOrStolen(Group group) noexcept;
+    Voice* loopOf(VoiceId voice) noexcept;
+    /// Render a loop: as render(), wrapping at the clip's end and ramping.
+    void renderLoop(Voice& voice, float* into, std::size_t frames) noexcept;
     /// Render `voice` into `into` (interleaved, `frames` long), adding;
     /// returns the frames it played before it ended.
     std::size_t render(Voice& voice, float* into, std::size_t frames) noexcept;

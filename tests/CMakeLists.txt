@@ -156,6 +156,7 @@ add_executable(uta_unit_tests
     unit/WavTest.cpp
     unit/MixerTest.cpp
     unit/SoundBankTest.cpp
+    unit/SpatialTest.cpp
     unit/WeaponSetTest.cpp
     unit/WiringGraphTest.cpp)
 target_link_libraries(uta_unit_tests PRIVATE uta_core uta_upkg uta_unav uta_unav_build

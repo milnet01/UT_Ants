@@ -1,5 +1,6 @@
 // UTA-0056 INV-2 to INV-9: the mixer, on clips made here
-// (docs/specs/UTA-0056-audio-mixer.md SS 4.3 to 4.6).
+// (docs/specs/UTA-0056-audio-mixer.md SS 4.3 to 4.6), and UTA-0480 INV-1 to
+// INV-4: its looping voices (docs/specs/UTA-0480-map-sounds.md SS 4.1).
 //
 // INV-9 counts allocations by replacing the global operator new and delete
 // for this whole binary. They pass through to malloc and free, and count only
@@ -14,6 +15,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -29,6 +31,7 @@ using uta::uaudio::Group;
 using uta::uaudio::GroupTaps;
 using uta::uaudio::Mixer;
 using uta::uaudio::Settings;
+using uta::uaudio::VoiceId;
 
 #if defined(__SANITIZE_THREAD__) || defined(__SANITIZE_ADDRESS__)
 #define UTA_COUNTS_ALLOCATIONS 0
@@ -338,4 +341,170 @@ TEST_CASE("UTA-0056 INV-9: mix allocates nothing", "[uaudio]") {
     g_counting = false;
     CHECK(g_allocations == 0);
     CHECK(out[0] != 0.0f); // it mixed something
+}
+
+namespace {
+
+/// The largest step between neighbouring frames of either channel.
+float largestStep(const std::vector<float>& out) {
+    float largest = 0;
+    for (std::size_t i = 2; i < out.size(); ++i) largest = std::max(largest, std::abs(out[i] - out[i - 2]));
+    return largest;
+}
+
+} // namespace
+
+TEST_CASE("UTA-0480 INV-1: a loop repeats its clip exactly past its end", "[uaudio]") {
+    Clip clip;
+    clip.rate = Mixer::RATE;
+    clip.channels = 1;
+    for (int i = 0; i < 100; ++i) clip.samples.push_back(static_cast<float>(i + 1) / 200.0f);
+    Mixer mixer;
+    mixer.setSettings(noDuck());
+    REQUIRE(mixer.startLoop(clip, {.gain = 1.0f}).valid());
+    const std::vector<float> out = run(mixer, 2000);
+    CHECK(mixer.voicesOf(clip) == 1); // still playing, twenty times its length on
+    // Past the start ramp, frame n is frame n + 100, on both sides.
+    for (std::size_t n = Mixer::BLOCK; n + 100 < 2000; ++n) {
+        REQUIRE(out[n * 2] == out[(n + 100) * 2]);
+        REQUIRE(out[n * 2 + 1] == out[(n + 100) * 2 + 1]);
+    }
+    // And it is the clip: frame 300 is the clip's frame 0.
+    CHECK_THAT(out[300 * 2], WithinAbs(clip.samples[0] * CENTRE, 1e-6));
+    CHECK_THAT(out[399 * 2], WithinAbs(clip.samples[99] * CENTRE, 1e-6));
+
+    // At half the mixer's rate every other output frame lies between two of
+    // the clip's, and the one after its last frame lies between the last and
+    // the FIRST: the loop has no seam.
+    Clip slow;
+    slow.rate = Mixer::RATE / 2;
+    slow.channels = 1;
+    slow.samples = {0.0f, 0.8f};
+    Mixer second;
+    second.setSettings(noDuck());
+    REQUIRE(second.startLoop(slow, {.gain = 1.0f}).valid());
+    const std::vector<float> seam = run(second, Mixer::BLOCK + 8);
+    const std::size_t at = Mixer::BLOCK; // a multiple of 4, so the clip's frame 0
+    CHECK_THAT(seam[at * 2], WithinAbs(0.0, 1e-6));
+    CHECK_THAT(seam[(at + 1) * 2], WithinAbs(0.4f * CENTRE, 1e-6));
+    CHECK_THAT(seam[(at + 2) * 2], WithinAbs(0.8f * CENTRE, 1e-6));
+    CHECK_THAT(seam[(at + 3) * 2], WithinAbs(0.4f * CENTRE, 1e-6));
+}
+
+TEST_CASE("UTA-0480 INV-2: a loop's start and its changes and its stop ramp across one block", "[uaudio]") {
+    const Clip clip = constant(1.0f, 64);
+    const float limit = 2.0f / static_cast<float>(Mixer::BLOCK);
+    Mixer mixer;
+    mixer.setSettings(noDuck());
+    const VoiceId loop = mixer.startLoop(clip, {.gain = 0.0f});
+    REQUIRE(loop.valid());
+    run(mixer, Mixer::BLOCK);
+
+    REQUIRE(mixer.setLoop(loop, 1.0f, 0.0f));
+    std::vector<float> out = run(mixer, Mixer::BLOCK * 2);
+    CHECK(largestStep(out) <= limit);
+    CHECK(largestStep(out) > 0.0f); // it did move
+    // The target is reached within the block, exactly.
+    CHECK_THAT(out[(Mixer::BLOCK - 1) * 2], WithinAbs(CENTRE, 1e-6));
+    CHECK_THAT(out[(Mixer::BLOCK * 2 - 1) * 2], WithinAbs(CENTRE, 1e-6));
+
+    // Hard right: the left side falls to nothing and the right rises to 1.
+    REQUIRE(mixer.setLoop(loop, 1.0f, 1.0f));
+    out = run(mixer, Mixer::BLOCK);
+    CHECK(largestStep(out) <= limit);
+    CHECK_THAT(out[(Mixer::BLOCK - 1) * 2], WithinAbs(0.0, 1e-6));
+    CHECK_THAT(out[(Mixer::BLOCK - 1) * 2 + 1], WithinAbs(1.0, 1e-6));
+
+    mixer.stop(loop);
+    out = run(mixer, Mixer::BLOCK * 2);
+    CHECK(largestStep(out) <= limit);
+    CHECK(out[1] > 0.5f);                     // not cut at once
+    CHECK(out[(Mixer::BLOCK * 2 - 1) * 2 + 1] == 0.0f);
+    CHECK(mixer.voicesOf(clip) == 0);
+    CHECK_FALSE(mixer.setLoop(loop, 1.0f, 0.0f));
+}
+
+TEST_CASE("UTA-0480 INV-3: stop ends one voice and no other", "[uaudio]") {
+    const Clip first = constant(0.25f, 64);
+    const Clip second = constant(0.5f, 64);
+    Mixer mixer;
+    mixer.setSettings(noDuck());
+    const VoiceId a = mixer.startLoop(first, {.gain = 1.0f});
+    const VoiceId b = mixer.startLoop(second, {.gain = 1.0f});
+    REQUIRE((a.valid() && b.valid()));
+    run(mixer, Mixer::BLOCK);
+
+    // The second, so a stop that took the first voice it met is seen.
+    mixer.stop(b);
+    const std::vector<float> out = run(mixer, Mixer::BLOCK * 2);
+    CHECK(mixer.voicesOf(second) == 0);
+    CHECK(mixer.voicesOf(first) == 1);
+    // What is left is the first loop alone, untouched.
+    CHECK_THAT(out[(Mixer::BLOCK * 2 - 1) * 2], WithinAbs(0.25f * CENTRE, 1e-6));
+
+    // A second stop, and a stop of an id never given, change nothing.
+    mixer.stop(b);
+    mixer.stop(VoiceId{9999});
+    mixer.stop(VoiceId{});
+    run(mixer, Mixer::BLOCK);
+    CHECK(mixer.voicesOf(first) == 1);
+
+    // A one-shot stops too, at once.
+    const Clip shot = constant(0.1f, ms(500));
+    const VoiceId once = mixer.play(shot, {});
+    mixer.stop(once);
+    CHECK(mixer.voicesOf(shot) == 0);
+}
+
+TEST_CASE("UTA-0480 INV-4: loops skip the collapse and the clip cap and are still stolen", "[uaudio]") {
+    const Clip hum = constant(0.01f, 64);
+    Mixer mixer;
+    // Six of one clip between two mixes: no collapse, and past the cap of 4.
+    std::vector<VoiceId> loops;
+    for (int i = 0; i < 6; ++i) loops.push_back(mixer.startLoop(hum, {.gain = 1.0f}));
+    run(mixer, 16);
+    CHECK(mixer.voicesOf(hum) == 6);
+    // A one-shot of the same clip neither joins a loop nor steals one.
+    mixer.play(hum, {});
+    CHECK(mixer.voicesOf(hum) == 7);
+
+    // Fill the mixer with loops; a weapons shot then steals the oldest world
+    // voice, which is the first loop.
+    mixer.stopAll();
+    loops.clear();
+    for (std::size_t i = 0; i < Mixer::MAX_VOICES; ++i) loops.push_back(mixer.startLoop(hum, {.gain = 1.0f}));
+    CHECK(mixer.voicesOf(hum) == static_cast<int>(Mixer::MAX_VOICES));
+    const Clip shot = constant(0.01f, ms(100));
+    CHECK(mixer.play(shot, {.group = Group::Weapons}).valid());
+    CHECK(mixer.voicesOf(shot) == 1);
+    CHECK_FALSE(mixer.setLoop(loops.front(), 1.0f, 0.0f));
+    CHECK(mixer.setLoop(loops.back(), 1.0f, 0.0f));
+    // A full mixer of weapons voices drops a world loop: nothing lower to take.
+    mixer.stopAll();
+    std::deque<Clip> shots;
+    for (std::size_t i = 0; i < Mixer::MAX_VOICES; ++i)
+        mixer.play(shots.emplace_back(constant(0.01f, ms(100))), {.group = Group::Weapons});
+    CHECK_FALSE(mixer.startLoop(hum, {.gain = 1.0f}).valid());
+}
+
+TEST_CASE("UTA-0480: loops keep UTA-0056 INV-8 and INV-9", "[uaudio]") {
+    std::deque<Clip> clips;
+    Mixer mixer;
+    for (int v = 0; v < 64; ++v) {
+        Clip& clip = clips.emplace_back();
+        clip.rate = Mixer::RATE;
+        clip.channels = 1;
+        for (int i = 0; i < 48; ++i) clip.samples.push_back(i < 24 ? 1.0f : -1.0f);
+        mixer.startLoop(clip, {.gain = 1.0f, .pan = v % 2 == 0 ? -1.0f : 1.0f});
+    }
+    std::vector<float> out(ms(100) * 2);
+    g_allocations = 0;
+    g_counting = true;
+    mixer.mix(out);
+    g_counting = false;
+    if (UTA_COUNTS_ALLOCATIONS) CHECK(g_allocations == 0);
+    float peak = 0;
+    for (const float sample : out) peak = std::max(peak, std::abs(sample));
+    CHECK(peak <= 1.0f);
+    CHECK(peak > 0.5f); // 64 full-scale loops did reach the limiter
 }
