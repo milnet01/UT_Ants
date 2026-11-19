@@ -24348,6 +24348,21 @@ docs/standards/versioning-overrides.md. Closes S8.
   its xr.id; the scene holds only its rest transform. writeCameraPath
   emits actors only, so movers would sit at rest. Add per-frame mover
   entries before running EXRAY-0012's load command.
+  2026-11-19: ExperiRays' reader exists (EXRAY-0012, their 6d729bc), so this
+  no longer waits. Check an export with
+  <build>/src/experirays load <stem>.glb <stem>.xrpath.json: exit 0 is
+  accepted, 3 refused. DM-Bishop loads. Two things owed here, from our
+  review of that reader the same day:
+  1. Never write a mesh with no positions. buildScene always makes
+  "level" and "level:sway", and writeGlb writes both; an empty one is
+  refused by the reader. Renumber the nodes' mesh indices.
+  2. The movers' per-frame entries: frames[i].nodes keyed
+  "mover:<exportIndex>", for non-still movers that kept a mesh, with
+  translation (metres, glTF axes, (X, Z, Y)/50) and rotation (x, y, z, w,
+  unit length); no scale. Each replaces the node's world value, so list a
+  mover in every frame it is away from rest. A mover baked into world
+  space takes a displacement and cannot rotate: report those frames. A
+  moving node may have no children (EXRAY-0039).
   **Layman:** Write a map out in the shared scene format another project's lighting lab reads, so it can test lighting ideas on our maps.
   Kind: feature.
   Source: peer-experirays-2026-11-17.

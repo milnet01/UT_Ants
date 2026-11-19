@@ -477,8 +477,12 @@ ut-bake --check <install>
 ut-bake --game-types <install>
 ut-bake --install <install> --out <dir> [--force] [--fit-budget] [--texture-cache <dir>]
         [--full-budget] [--recipe <file>] [--light-materials <file>] <map>
+ut-bake --install <install> --out <dir> [--force] --weapon-sounds <weapons file>
 ut-bake --help
 ```
+
+**`--weapon-sounds` was added by `UTA-0478`**, whose § 4.4 owns the form
+and its report. A map bake's report gains `"sounds"` (that item's § 4.3).
 
 **`--recipe` was added by `UTA-0113`.** It names the map's recipe; without
 it the bake looks for one as `UTA-0113` § 4.3 orders. A bake's report gains

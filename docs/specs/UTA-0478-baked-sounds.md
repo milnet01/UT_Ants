@@ -41,7 +41,8 @@ content. `uaudio::decodeWav` (`src/uaudio/Wav.h`) takes those bytes.
    (user, 2026-11-19). A map's bundle keeps depending on the map, its
    recipe and the baker alone. Changing the weapon set re-bakes one small
    file. Measured the same day with a scratch script over the export table:
-   `Botpack.u` holds 113 `Sound` exports, 4.8 MB in all.
+   `Botpack.u` holds 113 `Sound` exports, 4.8 MB in all. § 13 has what the
+   stock set came to once built.
 2. **The bundle carries each sound's bytes as the package holds them**
    (session, from the roadmap body). The baker does not decode or convert.
    `ubake` links no `uaudio`, and `decodeWav` already refuses what it
@@ -132,7 +133,8 @@ A step of `detail::bake` in `src/ubake/Bake.cpp`, in a new
    name textures, meshes and classes.
 3. `upkg::readSound` the export. A sound that fails to read, or whose
    payload is empty, is left out and listed in
-   `BakeResult::skippedSounds` with its path and the reason.
+   `BakeResult::skippedSounds` with its path and the reason. So is each
+   sound past `SOUND_LIMIT`, in path order.
 4. The rest, sorted by path, are the bundle's `sounds`. A map with none
    carries an empty `SNDS`.
 
@@ -141,8 +143,9 @@ reference is an import of the map, and a class default's is an import of
 that class's package. UTA-0011's INV-2 stands unchanged.
 
 `BAKER_REVISION` becomes 79. `ut-bake`'s report gains, on `written` and
-`over-budget`, `"sounds": {"count": N, "bytes": N}` and
-`"skippedSounds": [{"path": "...", "reason": "..."}]`.
+`over-budget`,
+`"sounds": {"count": N, "bytes": N, "skipped": [{"path": "...", "why": "..."}]}`,
+shaped as its `props` member is.
 
 ### 4.4 The weapon set's sound bundle
 
@@ -207,8 +210,10 @@ ut-bake --install <install> --out <dir> [--force] --weapon-sounds <weapons file>
 `ut-bake` reads the file with `ugame::load` and passes each
 `Weapon::className`. `tools/ut-bake` links `uta_ugame` for it; `uta_ubake`
 does not. The report is one JSON object with `schema`, `verdict`, `name`,
-`path` and `bakerVersion` as a map bake's report spells them, then
-`"sounds": {"count": N, "bytes": N}`, `"unresolved"` and `"skippedSounds"`.
+`path` and `bakerVersion` as a map bake's report spells them, and
+`"weapons"`, the file as given. A `written` report adds `"sounds"`, as
+§ 4.3's, and `"unresolved"`. A weapons file that does not read is
+`refused`, exit 1.
 
 ### 4.5 The sound bank
 
@@ -243,25 +248,27 @@ ut-ants ... [--sounds <bundle>] <install> <bundle>
 ```
 
 1. `ut-ants` adds the map bundle's `sounds` to a `SoundBank`, then the
-   `--sounds` bundle's. It refuses to start when `--sounds` names a file
-   whose kind is not `Sounds`, and applies `--baker-version` to it as to
-   the map's.
+   `--sounds` bundle's, and drops the stored bytes. It refuses to start
+   when `--sounds` names a file that does not read or whose kind is not
+   `Sounds`. A bundle from an older format is refused by `read`.
 2. It prints one line to standard error: how many sounds are ready, and
    the path of each one refused.
 3. The bank is destroyed after the `Audio` that plays from it, since a
    voice holds a pointer to its clip (`src/uaudio/Mixer.h`).
 4. The launcher runs `ut-bake --weapon-sounds` on
-   `ugame::shippedDirectory() / "stock.weapons"` before it opens a map,
-   into the same directory as the map bakes, and passes the result as
-   `--sounds`. A failure there is shown as a map bake's is, and the map
-   still opens, without the weapon sounds.
+   `ugame::shippedDirectory() / "stock.weapons"` once, as it starts, into
+   the same directory as the map bakes, and passes the result as
+   `--sounds` to each map it opens. A failure there is said on standard
+   error, and maps still open, without the weapon sounds. The bundle
+   carries `BAKR`, so the launcher's sweep of older bakers' files
+   (`unreachableBakes`) keeps today's and removes the rest.
 
 ## 5. Invariants
 
 - **INV-1** — `read(write(bundle))` returns `bundle.sounds` unchanged, path and bytes, for a map bundle and for a `Sounds` bundle. *Test:* `tests/unit/SoundSectionTest.cpp`, three sounds, one of a single byte.
   *Breaks when:* the codec writes the byte count as the vector's count, or drops a sound's last byte.
 - **INV-2** — `read` refuses with `MalformedData`, and `write` with `InvalidArgument`, a `SNDS` that breaks any of § 4.1's three rules, and `read` refuses a sound whose byte count passes its section. *Test:* `tests/unit/SoundSectionTest.cpp`, one fixture per rule, each valid but for that rule: two equal paths; two paths descending; an empty path; an empty payload; one sound past `SOUND_LIMIT`; a byte count one past the section's end.
-  *Breaks when:* the order check is `<=` in place of `<`, or the limit is checked after the vector is built.
+  *Breaks when:* the order check is `<=` in place of `<`, or the limit check is dropped.
 - **INV-3** — A bundle of kind `Sounds` with any section but `BAKR` and `SNDS` is refused by `read` and by `write`, and a kind byte of 3 is refused by `read`. *Test:* `tests/unit/SoundSectionTest.cpp`, a `Sounds` bundle with an empty `LITE`, and a valid bundle with its kind byte patched.
   *Breaks when:* the kind check still stops at `Character`, or `write` checks the kind and `read` does not.
 - **INV-4** — A map's `SNDS` holds exactly the sounds § 4.3 names, each once, with `readSound`'s bytes. *Test:* `tests/unit/BakeSoundsTest.cpp`, on a fixture map whose actors name: one sound of another package in an own property; the same sound again in a second actor; a sound only a class default names; a null reference; a texture. Expects the two sounds, ascending.
@@ -355,8 +362,10 @@ hash is re-recorded with the revision. The tests that pin
 | INV-10 | `tests/real/RealSoundsTest.cpp`, run by hand: nothing runs the real tier automatically |
 | INV-11 | Partial: the two tests it names; **nothing** checks that the client decodes only through `decodeWav` |
 | § 4.3, the bake opens nothing outside the closure | UTA-0011 INV-2's test in `tests/unit/BakeTest.cpp` |
+| § 4.4, the command line | `tests/unit/BakeCliTest.cpp`, the `--weapon-sounds` case |
+| § 4.6, `--sounds` is parsed | `tests/unit/ClientCliTest.cpp`, the `--sounds` case |
 | § 4.6, the client's bank and its one line | **nothing** automatic; run by hand on a baked map |
-| § 4.6 item 4, the launcher bakes and passes the sound set | **nothing** automatic; run by hand |
+| § 4.6 item 4, the launcher bakes and passes the sound set | **nothing** automatic; the bake was run by hand, the pass to the viewer was not |
 
 ## 11. Cross-doc impact
 
@@ -381,10 +390,17 @@ Rows live in `../reviews/UTA-0478-baked-sounds-loop-log.md`.
 A map's bundle grows by its sounds' stored bytes, and the client holds
 each decoded as `float` samples, four bytes a sample: four times an
 8-bit sound's stored size and twice a 16-bit one's. `SOUND_LIMIT` caps
-the count. INV-10's test prints the stored and decoded bytes for
-DM-Deck16][ and the stock weapon set; this section gains those figures
-when it has run. The upper bound known today is § 3 decision 1's 4.8 MB
-stored for all of `Botpack.u`.
+the count.
+
+Measured 2026-11-19 by INV-10's test, which prints these:
+
+| Bundle | Sounds | Stored bytes | Decoded bytes | Refused |
+|---|---|---|---|---|
+| DM-Deck16][ | 51 | 1,842,810 | 4,966,120 | 0 |
+| The stock weapon set | 40 | 1,508,648 | 4,315,336 | 0 |
+
+The client run on both held 62 sounds: the map and the weapon set share
+the rest, since the map places weapons.
 
 No new dependency. One new build target per test file.
 

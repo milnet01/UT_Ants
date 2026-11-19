@@ -22,6 +22,7 @@
 #include "ubake/Name.h"
 #include "ubake/Panes.h"
 #include "ubake/Props.h"
+#include "ubake/Sounds.h"
 #include "ubake/Strips.h"
 #include "ubake/SurfaceRays.h"
 #include "ubake/Zones.h"
@@ -1155,9 +1156,10 @@ std::vector<TileQuestion> judgeTileKinds(Materials& materials,
 
 // ------------------------------------------------------------------ SS 4.7
 
-/// A file at `path` whose first sixteen bytes ubundle::readHeader accepts.
-/// Only the header is read: a whole bundle can be most of a gigabyte, and
-/// the loader validates the rest anyway (SS 8).
+} // namespace
+
+namespace detail {
+
 bool isCachedBake(const std::filesystem::path& path) {
     std::ifstream file(path, std::ios::binary);
     if (!file) return false;
@@ -1167,7 +1169,7 @@ bool isCachedBake(const std::filesystem::path& path) {
     return ubundle::readHeader(std::as_bytes(std::span<const char>(header))).has_value();
 }
 
-} // namespace
+} // namespace detail
 
 Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName, Install& install,
                         JobSystem& jobs) {
@@ -1658,6 +1660,15 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     }
     result.grassSpacing = planted.spacing;
 
+    // 11f. SNDS -- UTA-0478 SS 4.3: every sound an actor or its class names.
+    // A map naming none carries an empty section.
+    phase.emplace(&times, "sounds");
+    {
+        UTA_TRY(FoundSounds sounds, mapSounds(*result.bundle.placements, map, mapName, resolver));
+        result.bundle.sounds = std::move(sounds.sounds);
+        result.skippedSounds = std::move(sounds.skipped);
+    }
+
     // 12. The budget, over every map of every material.
     phase.emplace(&times, "budget");
     result.budget = umat::measure(*result.bundle.textures, budgetBytes);
@@ -1802,7 +1813,7 @@ Result<BakeOutcome> bakeToDirectory(const BakeRequest& request, JobSystem& jobs)
 
     // 2. A cached bake is the outcome unless forced. A file there that
     // readHeader refuses is baked over.
-    if (!request.force && isCachedBake(outcome.path)) {
+    if (!request.force && detail::isCachedBake(outcome.path)) {
         outcome.verdict = Verdict::Cached;
         finished();
         return outcome;
@@ -1810,7 +1821,7 @@ Result<BakeOutcome> bakeToDirectory(const BakeRequest& request, JobSystem& jobs)
     // UTA-0245: one asking to fit takes a fitted bake already there too.
     const std::string fitted = detail::fittedName(outcome.name, request.budgetBytes);
     const std::filesystem::path fittedPath = request.outDir / (fitted + ".utab");
-    if (request.fitBudget && !request.force && isCachedBake(fittedPath)) {
+    if (request.fitBudget && !request.force && detail::isCachedBake(fittedPath)) {
         outcome.verdict = Verdict::Cached;
         outcome.name = fitted;
         outcome.path = fittedPath;

@@ -10,8 +10,8 @@
 // around the callback, so the two never overlap. Keep each call short; a
 // long hold underruns the device.
 //
-// Nothing plays yet: the runtime has no sounds until UTA-0478 bakes them into
-// the bundle.
+// Nothing plays yet: main.cpp loads the bundles' sounds into a bank
+// (UTA-0478), and UTA-0467 and UTA-0480 play from it.
 
 #pragma once
 

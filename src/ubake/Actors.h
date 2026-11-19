@@ -54,6 +54,18 @@ namespace detail {
                                                             const std::vector<ubundle::PropertyRecord>& own,
                                                             const std::vector<ubundle::PropertyRecord>& defaults);
 
+/// UTA-0478 SS 4.4: the class a folded `<package>.<class>` path names, with
+/// its ancestry and merged defaults, as buildActors makes one for a placed
+/// actor's class. A package or class that is not there comes back with
+/// `resolved` false, and is not a refusal.
+[[nodiscard]] Result<ubundle::ActorClass> classRecord(const std::string& path,
+                                                      const upkg::PackageResolver& resolver);
+
+/// UTA-0110 SS 4.3's path of one export of `package`, which goes by
+/// `packageName` -- the spelling PLAC gives a reference to it.
+[[nodiscard]] Result<std::string> pathOfExport(const upkg::Package& package, std::string_view packageName,
+                                               const upkg::ExportEntry& entry);
+
 } // namespace detail
 
 } // namespace uta::ubake

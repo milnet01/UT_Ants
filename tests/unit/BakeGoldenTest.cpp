@@ -184,9 +184,12 @@ namespace {
 // it writes no PROP; the header's format and BAKR's revision moved it.
 // 78: UTA-0450 bakes props of the older Mesh class. The fixture places no
 // decoration; BAKR's revision moved it.
-constexpr std::uint32_t RECORDED_UNDER = 78;
+// 79, format 37: UTA-0478 bakes each map's sounds. The fixture names none,
+// so it writes an empty SNDS; that, the header's format and BAKR's revision
+// moved it.
+constexpr std::uint32_t RECORDED_UNDER = 79;
 constexpr std::string_view GOLDEN =
-    "8ef3e2383b0911be8984b69a05071d34a23db9f0151728b43e4aca59537b13de";
+    "2194de119370bfb1523ddda85f1cb6986f1789f05f702ad721b1fd1436a6dbb5";
 
 } // namespace
 

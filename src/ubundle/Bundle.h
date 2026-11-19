@@ -81,7 +81,8 @@ namespace uta::ubundle {
 /// 34 since UTA-0272 gave each MATS material its pane byte.
 /// 35 since UTA-0293 added VEGE, the grass.
 /// 36 since UTA-0341 added PROP, the props a map places as models.
-inline constexpr std::uint32_t FORMAT_VERSION = 36;
+/// 37 since UTA-0478 added SNDS and the Sounds kind.
+inline constexpr std::uint32_t FORMAT_VERSION = 37;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -110,8 +111,9 @@ enum class Origin : std::uint8_t {
 /// What the container holds. `Character` names no sections in this version;
 /// the byte is present now because adding it later would bump the format
 /// version, and docs/standards/versioning-overrides.md SS Breaking surfaces
-/// records what that costs -- SS 4.3.
-enum class BundleKind : std::uint8_t { Map = 0, Character = 1 };
+/// records what that costs -- SS 4.3. `Sounds` holds BAKR and SNDS and no
+/// other section -- UTA-0478 SS 4.2.
+enum class BundleKind : std::uint8_t { Map = 0, Character = 1, Sounds = 2 };
 
 struct BundleHeader {
     std::uint32_t formatVersion = FORMAT_VERSION;
@@ -706,6 +708,15 @@ struct GrassCell {
     std::array<float, 3> low{}, high{};           ///< the run's bounds, blades included
 };
 
+/// One baked sound -- UTA-0478 SS 4.1.
+struct BakedSound {
+    std::string path;             ///< folded "package.group.name", as PLAC spells a reference
+    std::vector<std::byte> data;  ///< the Sound export's payload, verbatim; never empty
+};
+
+/// The most sounds SNDS holds -- UTA-0478 SS 4.1.
+inline constexpr std::size_t SOUND_LIMIT = 4096;
+
 /// The grass a bake planted -- UTA-0293 SS 4.3. Absent from a map with none.
 struct Grass {
     std::vector<GrassClump> clumps; ///< at most GRASS_CLUMP_LIMIT, in cell order
@@ -768,6 +779,9 @@ struct Bundle {
     /// UTA-0341 SS 4.5: every prop the map places as a model, in world space,
     /// under GEOM's rules. Absent from a map with none.
     std::optional<Geometry> props;
+    /// UTA-0478 SS 4.1: the sounds the map's actors name, or the weapon set's
+    /// in a Sounds bundle. Absent from a bundle with none.
+    std::optional<std::vector<BakedSound>> sounds;
 };
 
 /// UTA-0256 SS 4.4 and SS 4.8: folds LAMP into the sections the renderer

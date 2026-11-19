@@ -73,6 +73,9 @@ struct Options {
     /// docs/design.md rule 2 keeps uta_ubake out of this program's link
     /// closure -- so the launcher passes on what the report told it.
     std::string bakerVersion;
+    /// UTA-0478 SS 4.6: the weapon set's sound bundle, as ut-bake
+    /// --weapon-sounds wrote it. Empty: the map's own sounds alone.
+    std::filesystem::path sounds;
 };
 
 /// The usage text, for `err`.
@@ -86,7 +89,7 @@ void usage(std::ostream& err);
 /// UTA-0422: the options a viewer started by the launcher inherits, as
 /// arguments parseArguments reads back: the ones both modes take, each only
 /// where it differs from its default. Launcher.cpp's finishChild adds the
-/// map's own: --notes, --baker-version, the install and the bundle.
+/// map's own: --notes, --baker-version, --sounds, the install and the bundle.
 [[nodiscard]] std::vector<std::string> inheritedArguments(const Options& options);
 
 } // namespace uta::client

@@ -66,7 +66,9 @@ add_executable(uta_unit_tests
     unit/GrassBakeTest.cpp
     unit/LodMeshTest.cpp
     unit/BakePropsTest.cpp
+    unit/BakeSoundsTest.cpp
     unit/PropSectionTest.cpp
+    unit/SoundSectionTest.cpp
     unit/BundleMoversTest.cpp
     unit/BundleOcclusionTest.cpp
     unit/BundleShadowMaskTest.cpp
@@ -153,6 +155,7 @@ add_executable(uta_unit_tests
     unit/ToolsJsonTest.cpp
     unit/WavTest.cpp
     unit/MixerTest.cpp
+    unit/SoundBankTest.cpp
     unit/WeaponSetTest.cpp
     unit/WiringGraphTest.cpp)
 target_link_libraries(uta_unit_tests PRIVATE uta_core uta_upkg uta_unav uta_unav_build
@@ -334,7 +337,7 @@ if(UTA_REAL_ASSET_TESTS)
                                         real/RealLiquidsTest.cpp real/RealClothTest.cpp
                                         real/RealMeshTest.cpp real/RealBodyCollisionTest.cpp
                                         real/RealMovementTest.cpp real/RealWeaponTest.cpp
-                                        real/RealMixTest.cpp)
+                                        real/RealMixTest.cpp real/RealSoundsTest.cpp)
     target_link_libraries(uta_real_asset_tests PRIVATE uta_upkg uta_umap uta_umap_build uta_unav_build
                                                        uta_umat uta_ubake uta_uworld uta_ugame uta_test_support
                                                        Catch2::Catch2WithMain)
@@ -343,6 +346,8 @@ if(UTA_REAL_ASSET_TESTS)
     # ut-paths, as built once (UTA-0433); the tests use all but its command
     # line -- UTA-0121 SS 7.
     target_link_libraries(uta_real_asset_tests PRIVATE uta_paths)
+    # decodeWav, for UTA-0478 INV-10's check that each stored sound decodes.
+    target_link_libraries(uta_real_asset_tests PRIVATE uta_uaudio)
     # ut-mix's scenario, as built once -- UTA-0056 SS 7.
     include("${PROJECT_SOURCE_DIR}/tools/ut-mix/Library.cmake")
     target_link_libraries(uta_real_asset_tests PRIVATE uta_mix)

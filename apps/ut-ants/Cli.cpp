@@ -19,7 +19,7 @@ void usage(std::ostream& err) {
            "               [--show-missing] [--no-added-lamps] [--fov <degrees>] [--notes <file>]\n"
            "               [--no-landing-marker] [--no-take-off-pitch]\n"
            "               [--coyote-time] [--mantle] [--high-step]\n"
-           "               [--baker-version <text>] <install> <bundle>\n"
+           "               [--baker-version <text>] [--sounds <bundle>] <install> <bundle>\n"
            "       ut-ants [--tier <low|medium|high|ultra>] [--validation] [--windowed] [--show-missing]\n"
            "               [--no-added-lamps] [--fov <degrees>] [--no-landing-marker]\n"
            "               [--no-take-off-pitch] [--coyote-time] [--mantle] [--high-step] <install>\n"
@@ -71,6 +71,8 @@ void usage(std::ostream& err) {
            "draws the second image.\n"
            "--baker-version records which baker made the bundle; the launcher passes\n"
            "what ut-bake reported.\n"
+           "--sounds loads the weapon set's sounds from the bundle ut-bake\n"
+           "--weapon-sounds wrote, beside the map's own; the launcher passes it.\n"
            "--frames draws that many frames and exits 0 if every one drew.\n"
            "--validation asks for the Vulkan validation layer.\n"
            "--show-missing draws a texture the bake could not convert in magenta\n"
@@ -190,6 +192,16 @@ std::optional<Options> parseArguments(std::span<const std::string_view> args, st
                 return std::nullopt;
             }
             options.bakerVersion = std::string(args[++i]);
+        } else if (arg == "--sounds") {
+            if (!options.sounds.empty()) {
+                err << "ut-ants: --sounds is given twice\n";
+                return std::nullopt;
+            }
+            if (i + 1 >= args.size() || args[i + 1].empty()) {
+                err << "ut-ants: --sounds needs a file\n";
+                return std::nullopt;
+            }
+            options.sounds = std::filesystem::path(std::string(args[++i]));
         } else if (arg.starts_with("-")) {
             err << "ut-ants: unknown option " << arg << "\n";
             return std::nullopt;
@@ -217,6 +229,10 @@ std::optional<Options> parseArguments(std::span<const std::string_view> args, st
     } else if (!options.bakerVersion.empty()) {
         // UTA-0191: it describes one bundle, and the launcher opens many.
         err << "ut-ants: --baker-version needs a bundle; it describes the one being opened\n";
+        return std::nullopt;
+    } else if (!options.sounds.empty()) {
+        // UTA-0478: the launcher bakes the weapon set's sounds itself.
+        err << "ut-ants: --sounds needs a bundle; the launcher passes its own\n";
         return std::nullopt;
     }
     return options;

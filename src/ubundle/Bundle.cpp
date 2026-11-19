@@ -62,9 +62,9 @@ struct RawHeader {
     raw.header.origin = static_cast<Origin>(origin);
 
     UTA_TRY(const std::uint8_t kind, cursor.readU8());
-    if (kind > static_cast<std::uint8_t>(BundleKind::Character))
+    if (kind > static_cast<std::uint8_t>(BundleKind::Sounds))
         return fail(ErrorCode::MalformedData,
-                    "kind byte " + std::to_string(kind) + " is not 0 or 1");
+                    "kind byte " + std::to_string(kind) + " is not 0, 1 or 2");
     raw.header.kind = static_cast<BundleKind>(kind);
 
     // Refusing a non-zero reserved field is the only thing that makes a
@@ -87,7 +87,7 @@ struct Descriptor {
 /// dispatch in `read` and the order in `write`.
 constexpr std::array KNOWN_IDS = {ID_ROOM, ID_NAVG, ID_WIRG, ID_TEXS, ID_MATS, ID_GEOM, ID_PLAC,
                                   ID_LITE, ID_MOVR, ID_COLL, ID_LPRB, ID_ZONE, ID_AOCC, ID_FLAM,
-                                  ID_SMSK, ID_LAMP, ID_SUN,  ID_PSKY, ID_VEGE, ID_PROP, ID_BAKR};
+                                  ID_SMSK, ID_LAMP, ID_SUN,  ID_PSKY, ID_VEGE, ID_PROP, ID_SNDS, ID_BAKR};
 
 [[nodiscard]] bool knownId(const SectionId& id) noexcept {
     return std::ranges::find(KNOWN_IDS, id) != KNOWN_IDS.end();
@@ -99,6 +99,19 @@ constexpr std::size_t KNOWN_SECTIONS = KNOWN_IDS.size();
 static_assert(HEADER_SIZE + KNOWN_SECTIONS * SECTION_DESCRIPTOR_SIZE + 4 + MAX_BAKER_LENGTH
                   <= BAKER_PREFIX_SIZE,
               "readBaker's prefix must hold the header, a full table and the longest BAKR");
+
+/// UTA-0478 SS 4.2: a Sounds bundle holds BAKR and SNDS and no other section.
+/// One rule for `read`, over the table's ids, and `write`, over the sections it
+/// is about to emit; `code` blames the file or the caller as elsewhere.
+template <class Ids>
+[[nodiscard]] Result<void> checkKindSections(BundleKind kind, const Ids& ids, ErrorCode code) {
+    if (kind != BundleKind::Sounds) return {};
+    for (const SectionId& id : ids)
+        if (id != ID_BAKR && id != ID_SNDS)
+            return fail(code, "a Sounds bundle holds only BAKR and SNDS, and this one holds "
+                                  + std::string(id.begin(), id.end()));
+    return {};
+}
 
 /// One descriptor, with its own fields checked -- SS 4.4. What it says about
 /// the rest of the table is the caller's to check.
@@ -194,6 +207,12 @@ Result<Bundle> read(std::span<const std::byte> bytes) {
     if (expected != fileSize)
         return fail(ErrorCode::MalformedData, "bytes trail the last section");
 
+    {
+        std::vector<SectionId> ids;
+        for (const Descriptor& descriptor : descriptors) ids.push_back(descriptor.id);
+        UTA_CHECK(checkKindSections(raw.header.kind, ids, ErrorCode::MalformedData));
+    }
+
     Bundle bundle;
     bundle.header = raw.header;
 
@@ -263,6 +282,9 @@ Result<Bundle> read(std::span<const std::byte> bytes) {
         } else if (descriptor.id == ID_PROP) {
             UTA_TRY(bundle.props, readGeometry(payload));
             UTA_CHECK(validateProps(*bundle.props, ErrorCode::MalformedData));
+        } else if (descriptor.id == ID_SNDS) {
+            UTA_TRY(bundle.sounds, readSounds(payload));
+            UTA_CHECK(validateSounds(*bundle.sounds, ErrorCode::MalformedData));
         } else if (descriptor.id == ID_BAKR) {
             UTA_TRY(bundle.baker, readBakerSection(payload));
             UTA_CHECK(validateBaker(*bundle.baker, ErrorCode::MalformedData));
@@ -332,8 +354,8 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
     // its last value (UTA-0223).
     if (static_cast<std::uint8_t>(bundle.header.origin) > static_cast<std::uint8_t>(Origin::Authored))
         return fail(ErrorCode::InvalidArgument, "the header's origin is not Derived or Authored");
-    if (static_cast<std::uint8_t>(bundle.header.kind) > static_cast<std::uint8_t>(BundleKind::Character))
-        return fail(ErrorCode::InvalidArgument, "the header's kind is not Map or Character");
+    if (static_cast<std::uint8_t>(bundle.header.kind) > static_cast<std::uint8_t>(BundleKind::Sounds))
+        return fail(ErrorCode::InvalidArgument, "the header's kind is not Map, Character or Sounds");
     if (bundle.rooms) UTA_CHECK(validateRoomMap(*bundle.rooms, ErrorCode::InvalidArgument));
     if (bundle.nav) UTA_CHECK(validateNavGraph(*bundle.nav, ErrorCode::InvalidArgument));
     if (bundle.wiring) UTA_CHECK(validateWiringGraph(*bundle.wiring, ErrorCode::InvalidArgument));
@@ -362,9 +384,10 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
     UTA_CHECK(validateGrass(bundle, ErrorCode::InvalidArgument));
     if (bundle.paintedSky) UTA_CHECK(validatePaintedSky(*bundle.paintedSky, ErrorCode::InvalidArgument));
     if (bundle.props) UTA_CHECK(validateProps(*bundle.props, ErrorCode::InvalidArgument));
+    if (bundle.sounds) UTA_CHECK(validateSounds(*bundle.sounds, ErrorCode::InvalidArgument));
     if (bundle.baker) UTA_CHECK(validateBaker(*bundle.baker, ErrorCode::InvalidArgument));
 
-    // The fixed order BAKR, ROOM, NAVG, WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, LPRB, ZONE, AOCC, FLAM, SMSK, LAMP, SUN, PSKY, VEGE, PROP. Fixed rather than incidental because
+    // The fixed order BAKR, ROOM, NAVG, WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, LPRB, ZONE, AOCC, FLAM, SMSK, LAMP, SUN, PSKY, VEGE, PROP, SNDS. Fixed rather than incidental because
     // docs/design.md SS Close calls names a bundle written by any tool other
     // than ubake by the hash of its own contents, and a hash over an
     // incidentally-ordered file names one world two things.
@@ -429,6 +452,14 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
     if (bundle.grass) encoded(ID_VEGE, encodeGrass(*bundle.grass));
     // PROP is appended after VEGE -- UTA-0341 SS 4.5.
     if (bundle.props) encoded(ID_PROP, encodeGeometry(*bundle.props));
+    // SNDS is appended after PROP -- UTA-0478 SS 4.1.
+    if (bundle.sounds) encoded(ID_SNDS, encodeSounds(*bundle.sounds));
+
+    {
+        std::vector<SectionId> ids;
+        for (const Section& section : sections) ids.push_back(section.id);
+        UTA_CHECK(checkKindSections(bundle.header.kind, ids, ErrorCode::InvalidArgument));
+    }
 
     if (refused) return std::unexpected(*std::move(refused));
     // The file's size is known before a byte is written, so the buffer grows

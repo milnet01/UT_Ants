@@ -23,6 +23,7 @@
 #include "core/Log.h"
 #include "ubundle/Bundle.h"
 #include "ubundle/TileAnswers.h"
+#include "uaudio/SoundBank.h"
 #include "ugame/WeaponSet.h"
 #include "uinput/Input.h"
 #include "urender/Renderer.h"
@@ -56,6 +57,47 @@ using namespace uta::client;
 /// a refusal explains itself. Its standard output, one JSON object, is read and
 /// dropped: the exit code decides, as docs/specs/UTA-0011-map-baker.md SS 4.8
 /// lets a caller.
+/// UTA-0478 SS 4.6: decodes `map`'s sounds into `bank`, then those of the
+/// weapon set's bundle at `soundsBundle`, where one is named; the map's win a
+/// shared path, being added first. Says on standard error how many are ready
+/// and which were refused. The stored bytes are dropped once decoded. False,
+/// having said why, when `soundsBundle` does not read or is not a sound
+/// bundle.
+bool loadSounds(uta::uaudio::SoundBank& bank, uta::ubundle::Bundle& map, const std::filesystem::path& soundsBundle) {
+    std::vector<std::string> refused;
+    const auto add = [&](std::optional<std::vector<uta::ubundle::BakedSound>>& sounds) {
+        if (!sounds) return;
+        for (uta::ubundle::BakedSound& sound : *sounds)
+            if (const auto added = bank.add(sound.path, sound.data); !added)
+                refused.push_back(sound.path + " (" + std::string(added.error().message()) + ")");
+        sounds.reset();
+    };
+    add(map.sounds);
+    if (!soundsBundle.empty()) {
+        const std::string shown = uta::sanitised(soundsBundle.string());
+        const auto bytes = uta::fs::readFile(soundsBundle);
+        if (!bytes) {
+            std::cerr << "ut-ants: " << bytes.error().message() << "\n";
+            return false;
+        }
+        auto bundle = uta::ubundle::read(*bytes);
+        if (!bundle) {
+            std::cerr << "ut-ants: " << shown << " did not read: " << bundle.error().message() << "\n";
+            return false;
+        }
+        if (bundle->header.kind != uta::ubundle::BundleKind::Sounds) {
+            std::cerr << "ut-ants: " << shown << " is not a sound bundle; --sounds takes what ut-bake --weapon-sounds wrote\n";
+            return false;
+        }
+        add(bundle->sounds);
+    }
+    std::cerr << "ut-ants: " << bank.size() << " sounds ready";
+    if (!refused.empty()) std::cerr << ", " << refused.size() << " refused:";
+    for (const std::string& path : refused) std::cerr << "\n  " << uta::sanitised(path);
+    std::cerr << "\n";
+    return true;
+}
+
 bool installIsUsable(const std::filesystem::path& install) {
     const std::string bakerText = besideThisProgram("ut-bake");
     const std::string installText = uta::fs::utf8(install);
@@ -662,6 +704,10 @@ int main(int argc, char** argv) {
     uta::ubundle::applyAddedLamps(*bundle, options->addedLamps);
     uta::ubundle::applySun(*bundle); // UTA-0338 SS 4.2
     uta::ubundle::applyProps(*bundle); // UTA-0341 SS 4.6
+    // UTA-0478 SS 4.6: the map's sounds, then the weapon set's. Declared
+    // ahead of the Audio below, so it outlives every voice playing from it.
+    uta::uaudio::SoundBank sounds;
+    if (!loadSounds(sounds, *bundle, options->sounds)) return EXIT_FAILED;
     // UTA-0191: the bundle's identity, taken before the bytes go. A capture
     // records it so a frame can be tied to the exact bundle that drew it.
     const std::string bundleHash = uta::client::bundleHashHex(*bytes);
@@ -698,8 +744,9 @@ int main(int argc, char** argv) {
     }
     int status = EXIT_OK;
     {
-        // UTA-0056 SS 4.8: open for the whole run and silent until UTA-0478
-        // gives it sounds; closed before SDL_Quit.
+        // UTA-0056 SS 4.8: open for the whole run, and closed before
+        // SDL_Quit. Silent until something plays from `sounds` (UTA-0467,
+        // UTA-0480).
         const uta::client::Audio audio;
         status = run(window, *bundle, *options, bundleHash);
     }

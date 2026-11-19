@@ -196,7 +196,7 @@ Sixteen bytes, at offset 0.
 | 0 | 4 | `magic` | the bytes `U`, `T`, `A`, `B` — `0x55 0x54 0x41 0x42` |
 | 4 | 4 | `formatVersion` | `u32`. `FORMAT_VERSION` in `src/ubundle/Bundle.h` is the authority; each spec that adds or widens a section raises it and says so |
 | 8 | 1 | `origin` | `u8`, § 4.5 |
-| 9 | 1 | `kind` | `u8`, `0` = map, `1` = character |
+| 9 | 1 | `kind` | `u8`, `0` = map, `1` = character, `2` = sounds (`UTA-0478` § 4.2) |
 | 10 | 2 | `reserved` | `u16`, must be `0` |
 | 12 | 4 | `sectionCount` | `u32` |
 
@@ -784,7 +784,7 @@ the same defect one layer along.
 | `magic` wrong | `MalformedData`, before anything else is read (INV-4) |
 | `formatVersion` != `FORMAT_VERSION` | `UnsupportedVersion`, before the table is read (INV-4) |
 | `origin` not 0 or 1 | `MalformedData` (INV-5); callers treat it as not authored (§ 4.5) |
-| `kind` not 0 or 1 | `MalformedData` — an undefined kind names sections this version cannot know |
+| `kind` not 0, 1 or 2 | `MalformedData` — an undefined kind names sections this version cannot know |
 | Either `reserved` non-zero | `MalformedData`; it is the only thing that makes a reserved field a contract |
 | `sectionCount` overruns the file | `MalformedData`, checked before the table is read |
 | Table not in ascending offset order | `MalformedData` |

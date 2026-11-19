@@ -13,6 +13,7 @@
 #include "core/FileSystem.h"
 #include "ubake/MaterialLight.h"
 #include "ubake/Name.h"
+#include "ugame/WeaponSet.h"
 #include "ubundle/Bundle.h"
 #include "umat/Material.h"
 #include "ut-bake/Cli.h"
@@ -577,4 +578,38 @@ TEST_CASE("UTA-0367: a fitted bake's name carries its budget unless it is the de
           == "0a7c317b4aac83aaeb72340b35c08b3232a48c40fc5f7481658e135b8a9debca");
     CHECK(fittedName("abc", 512ull * 1024ull * 1024ull) != fittedName("abc", uta::umat::TEXTURE_BUDGET_BYTES));
     CHECK(fittedName("abc", 512ull * 1024ull * 1024ull) != fittedName("abc", 256ull * 1024ull * 1024ull));
+}
+
+TEST_CASE("UTA-0478 SS 4.4: --weapon-sounds bakes a weapon file's classes and reports them", "[ubake][cli]") {
+    TempDir dir;
+    const std::filesystem::path install = dir.path() / "install";
+    writeInstall(install, standardFixture());
+    const std::filesystem::path weapons = dir.path() / "one.weapons";
+    {
+        // The stock set, whose classes the fixture install does not hold: the
+        // bake still writes, and names each as unresolved.
+        std::ifstream stock(uta::ugame::shippedDirectory() / "stock.weapons", std::ios::binary);
+        REQUIRE(stock.good());
+        std::ofstream(weapons, std::ios::binary) << stock.rdbuf();
+    }
+    const std::vector<std::string> args{"--install", install.string(), "--out", (dir.path() / "out").string(),
+                                        "--weapon-sounds", weapons.string()};
+    const Run written = run(args);
+    CHECK(written.code == 0);
+    CHECK(written.out.find("\"verdict\": \"written\"") != std::string::npos);
+    CHECK(written.out.find("\"sounds\": {\"count\": 0, \"bytes\": 0, \"skipped\": []}") != std::string::npos);
+    CHECK(written.out.find("\"unresolved\": [\"botpack.") != std::string::npos);
+    const Run cached = run(args);
+    CHECK(cached.code == 0);
+    CHECK(cached.out.find("\"verdict\": \"cached\"") != std::string::npos);
+
+    // A map, or a map bake's own switch, beside it is a usage error.
+    CHECK(run({"--install", install.string(), "--out", "o", "--weapon-sounds", weapons.string(), "map.unr"}).code == 2);
+    CHECK(run({"--install", install.string(), "--out", "o", "--weapon-sounds", weapons.string(), "--fit-budget"}).code == 2);
+    CHECK(run({"--out", "o", "--weapon-sounds", weapons.string()}).code == 2);
+    CHECK(run({"--check", install.string(), "--weapon-sounds", weapons.string()}).code == 2);
+    // A weapons file that is not there is a refusal, as a bake's is.
+    const Run missing = run({"--install", install.string(), "--out", "o", "--weapon-sounds", "nothere.weapons"});
+    CHECK(missing.code == 1);
+    CHECK(missing.out.find("\"verdict\": \"refused\"") != std::string::npos);
 }

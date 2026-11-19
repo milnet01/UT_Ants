@@ -70,6 +70,13 @@ struct TileQuestion {
     double clear = 0;
 };
 
+/// A sound left out of SNDS, and why -- the bake report's `skippedSounds`
+/// (UTA-0478 SS 4.3). Here and not in Sounds.h, which includes this file.
+struct SkippedSound {
+    std::string path;
+    std::string reason;
+};
+
 struct BakeResult {
     ubundle::Bundle bundle; ///< origin Derived, kind Map
     umap::RoomBuildReport rooms;
@@ -109,6 +116,8 @@ struct BakeResult {
     double grassSpacing = 0;
     /// UTA-0341 SS 4.1: props left out, and why.
     std::vector<SkippedProp> skippedProps;
+    /// UTA-0478 SS 4.3: sounds left out, and why.
+    std::vector<SkippedSound> skippedSounds;
 };
 
 /// Build a bundle from one map. Writes nothing and enforces no budget.
@@ -201,6 +210,11 @@ using FlameLookup = std::function<bool(std::uint64_t fingerprint)>;
                                       const FlameLookup& isFlame = umat::isFlame,
                                       const urecipe::Recipe* recipe = nullptr,
                                       const TileLimits& tileLimits = {});
+
+/// SS 4.7 item 2: a file at `path` whose first sixteen bytes
+/// ubundle::readHeader accepts. Only the header is read: a whole bundle can
+/// be most of a gigabyte, and the loader validates the rest anyway (SS 8).
+[[nodiscard]] bool isCachedBake(const std::filesystem::path& path);
 
 /// SS 4.5 step 1: the map's one Level export. MalformedData, naming the map,
 /// when it has none or more than one. ut-paths reads a map's level the bake's

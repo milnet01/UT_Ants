@@ -12,6 +12,7 @@
 #include "MapList.h"
 #include "core/FileSystem.h"
 #include "core/Log.h"
+#include "ugame/WeaponSet.h"
 
 #include <SDL3/SDL.h>
 
@@ -190,6 +191,33 @@ std::vector<MapFile> offeredMaps(const std::filesystem::path& install, std::stri
     return playableMaps(std::move(maps), *prefixes);
 }
 
+/// UTA-0478 SS 4.6 item 4: the weapon set's sound bundle, baked into `bakes`
+/// or found already there, for the viewer's --sounds. Empty, having said why
+/// on standard error, when ut-bake gives none: a map then opens with its own
+/// sounds alone.
+std::filesystem::path weaponSounds(const std::filesystem::path& install, const std::filesystem::path& bakes) {
+    const std::string baker = besideThisProgram("ut-bake");
+    const std::string installText = fs::utf8(install);
+    const std::string bakesText = fs::utf8(bakes);
+    const std::string weapons = fs::utf8(uta::ugame::shippedDirectory() / "stock.weapons");
+    const char* const argv[] = {baker.c_str(), "--install", installText.c_str(), "--out", bakesText.c_str(),
+                                "--weapon-sounds", weapons.c_str(), nullptr};
+    BakeAnswer answer;
+    answer.failure = "could not run ut-bake";
+    if (SDL_Process* const process = SDL_CreateProcess(argv, true)) {
+        std::size_t size = 0;
+        int exitCode = -1;
+        if (void* const bytes = SDL_ReadProcess(process, &size, &exitCode)) {
+            answer = readBakeAnswer(std::string_view(static_cast<const char*>(bytes), size), exitCode);
+            SDL_free(bytes);
+        }
+        SDL_DestroyProcess(process);
+    }
+    if (answer.baked) return answer.path;
+    std::cerr << "ut-ants: the weapon sounds did not bake: " << uta::sanitised(answer.failure) << "\n";
+    return {};
+}
+
 enum class Focus { List, Name, Duplicate, Notes }; // Tab's order; UTA-0386 added the middle two
 /// How many stops Tab cycles through: Notes is the last. Shift+Tab steps
 /// FOCUS_STOPS - 1 forward, which is one back.
@@ -209,6 +237,7 @@ public:
             if (std::filesystem::remove(bake, ec)) ++removed;
         }
         if (removed != 0) note += "Baked maps from an older baker removed: " + std::to_string(removed) + ". ";
+        soundsBundle_ = weaponSounds(options.install, paths_.bakes);
         results_.reserve(maps_.size());
         for (const MapFile& map : maps_) results_.push_back(readResult(paths_.results, map.name));
         // UTA-0386: every map's marks, so the list can show them. One that
@@ -410,6 +439,10 @@ private:
             if (!answer.bakerVersion.empty()) {
                 args.emplace_back("--baker-version");
                 args.push_back(answer.bakerVersion);
+            }
+            if (!soundsBundle_.empty()) {
+                args.emplace_back("--sounds"); // UTA-0478
+                args.push_back(fs::utf8(soundsBundle_));
             }
             args.push_back(fs::utf8(options_.install));
             args.push_back(fs::utf8(answer.path));
@@ -762,6 +795,7 @@ private:
 
     std::vector<MapFile> maps_; // set once, by the constructor
     std::vector<std::optional<MapResult>> results_;
+    std::filesystem::path soundsBundle_; ///< UTA-0478: the viewer's --sounds; empty when it did not bake
     std::string bakerVersion_; ///< UTA-0208: today's baker; empty when ut-bake gave none
     std::vector<std::size_t> shown_;
     std::size_t selection_ = 0;

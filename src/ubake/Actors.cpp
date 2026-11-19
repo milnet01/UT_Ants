@@ -276,6 +276,29 @@ const PropertyRecord* resolvedRecord(std::string_view name, ValueKind kind, cons
     return resolvedRecord(name, own, defaults, [kind](const PropertyRecord& record) { return record.kind == kind; });
 }
 
+Result<ubundle::ActorClass> classRecord(const std::string& path, const upkg::PackageResolver& resolver) {
+    PackageNames names;
+    const upkg::PackageResolver recorder = recording(resolver, names);
+    const auto dot = path.find('.');
+    upkg::ClassSite site;
+    site.package = path.substr(0, dot);
+    site.name = dot == std::string::npos ? std::string{} : path.substr(dot + 1);
+    UTA_TRY(const upkg::Package* const package, recorder(site.package));
+    if (package == nullptr) {
+        site.end = upkg::AncestryEnd::PackageMissing;
+    } else if (const upkg::ExportEntry* const entry = upkg::findClassExport(*package, site.name)) {
+        site.resolved = {package, entry};
+    } else {
+        site.end = upkg::AncestryEnd::ClassMissing;
+    }
+    return classEntry(path, site, recorder, names);
+}
+
+Result<std::string> pathOfExport(const upkg::Package& package, std::string_view packageName,
+                                 const upkg::ExportEntry& entry) {
+    return objectPath(package, packageName, referenceTo(package, entry));
+}
+
 } // namespace detail
 
 Result<Actors> buildActors(const upkg::Package& map, std::string_view mapName,

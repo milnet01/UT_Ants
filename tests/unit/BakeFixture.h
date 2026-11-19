@@ -89,7 +89,7 @@ struct TextureSpec {
 /// One tagged property an actor or a class default carries -- UTA-0110 SS 7.
 /// Built with the functions below rather than by hand.
 struct PropertySpec {
-    enum class Type { Byte, Int, Bool, Vector, Rotator, Object, Name, Scale, Float, Str };
+    enum class Type { Byte, Int, Bool, Vector, Rotator, Object, Name, Scale, Float, Str, Class };
     std::string name;
     Type type = Type::Byte;
     std::int32_t value = 0;                ///< Byte, Int, Bool, an Object's reference, a Scale's SheerAxis
@@ -110,6 +110,8 @@ struct PropertySpec {
                                            std::int32_t roll);
 /// `reference` comes from the builder the property is added to; 0 is null.
 [[nodiscard]] PropertySpec objectProperty(std::string name, std::int32_t reference);
+/// A class-valued property, as a weapon's ProjectileClass -- UTA-0478.
+[[nodiscard]] PropertySpec classProperty(std::string name, std::int32_t reference);
 [[nodiscard]] PropertySpec nameProperty(std::string name, std::string text);
 /// A Name at `arrayIndex` -- UTA-0172's `OutEvents(1)`.
 [[nodiscard]] PropertySpec nameAtProperty(std::string name, std::uint32_t arrayIndex,
@@ -124,6 +126,17 @@ struct PropertySpec {
 /// SheerAxis as a byte, seventeen bytes the reader carries undecoded.
 [[nodiscard]] PropertySpec scaleProperty(std::string name, float x, float y, float z,
                                          float rate = 0, std::int32_t axis = 0);
+
+/// A Sound export -- UTA-0478 SS 7: its format name, then `payload` as the
+/// package holds it.
+struct SoundSpec {
+    std::string name;
+    std::string group; ///< empty: the sound sits at the package's top level
+    std::vector<std::uint8_t> payload;
+    /// The export declares one byte more than it holds, so upkg::readSound
+    /// refuses it -- INV-5.
+    bool damaged = false;
+};
 
 /// A LodMesh export's content -- UTA-0341 SS 7: one frame, its faces, wedges
 /// and materials, written in docs/specs/UTA-0341-mesh-decorations.md SS 4.2's
@@ -205,6 +218,9 @@ public:
     /// A palette export and a texture export using it; the texture's reference.
     std::int32_t addTexture(const TextureSpec& texture);
 
+    /// An `Engine.Sound` export; its reference.
+    std::int32_t addSound(const SoundSpec& sound);
+
     /// A class export named `className`, whose parent is `super` (0: a root
     /// class) and whose own defaults are `defaults`.
     std::int32_t addClass(std::string_view className, std::int32_t super = 0,
@@ -262,6 +278,12 @@ public:
     /// which the bake matches, as UT99's linker does (UTA-0176).
     std::int32_t importTexture(std::string_view package, std::string_view group,
                                std::string_view name, std::string_view className = "Texture");
+
+    /// A sound the map imports as `<package>.<group>.<name>`, or as
+    /// `<package>.<name>` when `group` is empty -- UTA-0478.
+    std::int32_t importSound(std::string_view package, std::string_view group, std::string_view name);
+    /// A sound the map itself holds.
+    std::int32_t addSound(const SoundSpec& sound);
 
     /// `drawn` false gives the surface a node of NO vertices, so it sits in
     /// the file with nothing drawing it -- UTA-0201's `drawnNodes` of 0, and
@@ -388,6 +410,9 @@ private:
 
 /// A texture package: each texture and its palette.
 [[nodiscard]] std::vector<std::uint8_t> texturePackage(const std::vector<TextureSpec>& textures);
+
+/// UTA-0478: a package holding `sounds`.
+[[nodiscard]] std::vector<std::uint8_t> soundPackage(const std::vector<SoundSpec>& sounds);
 
 /// UTA-0155: a package holding only palettes, `<name>Pal` for each texture at
 /// its top level, as a texture whose `paletteFrom` names this package imports.

@@ -92,6 +92,12 @@ PropertySpec objectProperty(std::string name, std::int32_t reference) {
     return spec;
 }
 
+PropertySpec classProperty(std::string name, std::int32_t reference) {
+    PropertySpec spec{std::move(name), PropertySpec::Type::Class};
+    spec.value = reference;
+    return spec;
+}
+
 PropertySpec nameProperty(std::string name, std::string text) {
     PropertySpec spec{std::move(name), PropertySpec::Type::Name};
     spec.text = std::move(text);
@@ -252,6 +258,20 @@ std::int32_t Packer::addTexture(const TextureSpec& texture) {
     return reference;
 }
 
+std::int32_t Packer::addSound(const SoundSpec& sound) {
+    const std::int32_t outer = sound.group.empty() ? 0 : group(sound.group);
+    std::vector<std::uint8_t> data = emptyProperties();
+    appendIndex(data, name("WAV"));
+    const std::size_t fieldAt = data.size();
+    appendU32(data, 0); // NextOffset, fixed up by build() as a mip's WidthOffset is
+    appendIndex(data, static_cast<std::int32_t>(sound.payload.size()) + (sound.damaged ? 1 : 0));
+    data.insert(data.end(), sound.payload.begin(), sound.payload.end());
+    const std::size_t dataEnd = data.size();
+    const std::int32_t reference = addExport(importClass("Engine", "Sound"), outer, sound.name, std::move(data));
+    fixups_.push_back(MipFixup{exports_.size() - 1, fieldAt, dataEnd});
+    return reference;
+}
+
 std::int32_t Packer::addClass(std::string_view className, std::int32_t super,
                               const std::vector<PropertySpec>& defaults) {
     ClassExportWriter writer;
@@ -282,6 +302,7 @@ std::vector<std::uint8_t> Packer::properties(const std::vector<PropertySpec>& sp
             writer.addRotator(key, spec.rotator[0], spec.rotator[1], spec.rotator[2]);
             break;
         case PropertySpec::Type::Object: writer.addObject(key, spec.value); break;
+        case PropertySpec::Type::Class: writer.addClass(key, spec.value); break;
         case PropertySpec::Type::Name:
             if (spec.arrayIndex != 0) writer.addNameAt(key, spec.arrayIndex, name(spec.text));
             else writer.addName(key, name(spec.text));
@@ -355,6 +376,14 @@ std::int32_t MapBuilder::importTexture(std::string_view package, std::string_vie
     if (!group.empty()) outer = packer_.importObject("Core", "Package", outer, group);
     return packer_.importObject(className == "Texture" ? "Engine" : "Fire", className, outer, name);
 }
+
+std::int32_t MapBuilder::importSound(std::string_view package, std::string_view group, std::string_view name) {
+    std::int32_t outer = packer_.importPackage(package);
+    if (!group.empty()) outer = packer_.importObject("Core", "Package", outer, group);
+    return packer_.importObject("Engine", "Sound", outer, name);
+}
+
+std::int32_t MapBuilder::addSound(const SoundSpec& sound) { return packer_.addSound(sound); }
 
 MapBuilder& MapBuilder::addSurface(std::int32_t texture, std::uint32_t polyFlags, bool drawn) {
     surfaces_.push_back(Surface{texture, polyFlags, drawn});
@@ -796,6 +825,12 @@ std::vector<std::uint8_t> classPackage(std::string_view className) {
         packer.addClass(std::string(className) + "Base", 0,
                         {byteProperty("LightType", 1), byteProperty("LightBrightness", 64)});
     packer.addClass(className, base);
+    return packer.build();
+}
+
+std::vector<std::uint8_t> soundPackage(const std::vector<SoundSpec>& sounds) {
+    Packer packer;
+    for (const SoundSpec& sound : sounds) packer.addSound(sound);
     return packer.build();
 }
 

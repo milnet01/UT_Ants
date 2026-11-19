@@ -52,7 +52,7 @@ TEST_CASE("UTA-0129 INV-3: a bake lists its steps in order and a cached one stop
                                            {"wiring", 1},       {"actors", 1},   {"movers", 1},       {"props", 1},        {"materials", 1},
                                            {"geometry", 1},     {"strips", 1},   {"mover-shapes", 1}, {"collision", 1},
                                            {"light-probes", 1}, {"occlusion", 1}, {"shadow-mask", 1}, {"grass", 1},
-                                           {"prop-merge", 1},   {"budget", 1},
+                                           {"prop-merge", 1},   {"sounds", 1},       {"budget", 1},
                                            {"encode", 0},       {"write-file", 0}})
         whole.push_back(row);
     CHECK(rowsOf(written->phases) == whole);
@@ -63,7 +63,7 @@ TEST_CASE("UTA-0129 INV-3: a bake lists its steps in order and a cached one stop
     }
     // detail::bake's own list is the same steps, one shallower.
     REQUIRE(written->result.has_value());
-    REQUIRE(written->result->phases.size() == 18);
+    REQUIRE(written->result->phases.size() == 19);
     CHECK(written->result->phases.front().name == "level");
     CHECK(written->result->phases.front().depth == 0);
 

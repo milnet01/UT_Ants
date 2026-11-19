@@ -28,6 +28,7 @@ add_library(uta_ubake STATIC
     Flames.cpp
     Grass.cpp
     Props.cpp
+    Sounds.cpp
     Hide.cpp
     Lamps.cpp
     Liquids.cpp

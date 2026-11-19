@@ -14,12 +14,22 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **Baked maps carry their sounds, and the weapon sounds get a file of their own** (UTA-0478)
+  Baking a map now copies every sound the map uses into its baked file:
+  machine hums, doors, lifts, pickups. The weapon sounds go into one
+  small shared file, which the launcher bakes once and hands to each map
+  it opens. The game loads both when it starts and says how many sounds
+  are ready. Nothing is heard yet: weapon sounds play with UTA-0467 and
+  a map's own with UTA-0480. Every map is baked again the next time it
+  is opened, because the baked file format changed.
+
 - **A sound mixer that keeps the announcer audible** (UTA-0056)
   The game now opens your sound device and has a mixer behind it. While
   the announcer or a warning speaks, every other sound dips by 12 dB
   and comes back over half a second. A burst of flak shrapnel plays as
   one hit instead of eight sounds piling up. Nothing plays in the game
-  yet: map sounds arrive with UTA-0478. Until then the developer tool
+  yet: the sounds are loaded since UTA-0478, and playing them is
+  UTA-0467's and UTA-0480's. Until then the developer tool
   `ut-mix` renders a flak-cannon-and-announcer test to a WAV file from
   your install's sounds, so the mix can be heard. If no sound device
   opens, the game says "sound is off" once and carries on silent.

@@ -22,7 +22,8 @@
 // docs/specs/UTA-0338-baked-sun.md SS 4.2 for SUN, and
 // docs/specs/UTA-0350-painted-skies.md SS 4.3 for PSKY, and
 // docs/specs/UTA-0293-grass.md SS 4.3 for VEGE, and BakerSection.cpp's
-// own header for BAKR (UTA-0349).
+// own header for BAKR (UTA-0349), and docs/specs/UTA-0478-baked-sounds.md
+// SS 4.1 for SNDS.
 
 #pragma once
 
@@ -58,6 +59,8 @@ constexpr SectionId ID_VEGE = {'V', 'E', 'G', 'E'};
 /// UTA-0341 SS 4.5: a Geometry under GEOM's rules, read and checked by GEOM's
 /// own codec.
 constexpr SectionId ID_PROP = {'P', 'R', 'O', 'P'};
+/// UTA-0478 SS 4.1.
+constexpr SectionId ID_SNDS = {'S', 'N', 'D', 'S'};
 constexpr SectionId ID_BAKR = {'B', 'A', 'K', 'R'};
 
 // Structural validation -- SS 4.9.
@@ -229,6 +232,12 @@ void putFlame(Sink& sink, const Flame& flame);
 // PROP -- PropSection.cpp, UTA-0341 SS 4.5: GEOM's codec and rules, its
 // refusals named PROP. Its zones are checked with GEOM's (validateVertexZones).
 [[nodiscard]] Result<void> validateProps(const Geometry& props, ErrorCode code);
+
+// SNDS -- SoundSection.cpp, UTA-0478 SS 4.1. Every rule is the validator's, on
+// both paths; a byte count past the section is readBytes' refusal.
+[[nodiscard]] Result<std::vector<BakedSound>> readSounds(Cursor& cursor);
+[[nodiscard]] Result<std::vector<std::byte>> encodeSounds(const std::vector<BakedSound>& sounds);
+[[nodiscard]] Result<void> validateSounds(const std::vector<BakedSound>& sounds, ErrorCode code);
 
 // BAKR -- BakerSection.cpp, UTA-0349.
 [[nodiscard]] Result<std::string> readBakerSection(Cursor& cursor);

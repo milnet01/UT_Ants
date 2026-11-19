@@ -204,3 +204,15 @@ TEST_CASE("UTA-0422: the launcher's viewer inherits every option it is given", "
     // Defaults pass nothing, so the viewer chooses as it would alone.
     CHECK(uta::client::inheritedArguments(Options{}).empty());
 }
+
+TEST_CASE("UTA-0478: --sounds names the weapon set's bundle and needs a map bundle", "[client]") {
+    const auto parsed = parse({"--sounds", "/cache/sounds.utab", "/games/UT", "map.utab"});
+    REQUIRE(parsed.options.has_value());
+    CHECK(parsed.options->sounds == std::filesystem::path("/cache/sounds.utab"));
+    CHECK(parse({"/games/UT", "map.utab"}).options->sounds.empty());
+
+    CHECK_FALSE(parse({"/games/UT", "map.utab", "--sounds"}).options.has_value());
+    CHECK_FALSE(parse({"--sounds", "", "/games/UT", "map.utab"}).options.has_value());
+    CHECK_FALSE(parse({"--sounds", "a.utab", "--sounds", "b.utab", "/games/UT", "map.utab"}).options.has_value());
+    CHECK_FALSE(parse({"--sounds", "a.utab", "/games/UT"}).options.has_value()); // the launcher passes its own
+}

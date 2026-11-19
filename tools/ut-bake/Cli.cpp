@@ -10,6 +10,8 @@
 #include "ubake/GameTypes.h"
 #include "ubake/Install.h"
 #include "ubake/Name.h"
+#include "ubake/Sounds.h"
+#include "ugame/WeaponSet.h"
 #include "umat/Material.h"
 #include "urecipe/Lookup.h"
 
@@ -58,6 +60,7 @@ void usage(std::ostream& err) {
            "       ut-bake --install <install> --out <dir> [--force] [--fit-budget]\n"
            "               [--texture-cache <dir>] [--full-budget] [--recipe <file>]\n"
            "               [--light-materials <file>] <map>\n"
+           "       ut-bake --install <install> --out <dir> [--force] --weapon-sounds <weapons file>\n"
            "       ut-bake --help\n"
            "\n"
            "--check says whether a directory is a usable Unreal Tournament install,\n"
@@ -78,6 +81,8 @@ void usage(std::ostream& err) {
            "--light-materials writes <file>: each material's albedo and emission as\n"
            "the light probes took them, for ut-ref. It bakes afresh, as --force does,\n"
            "since a bake found already there computed none (UTA-0292).\n"
+           "--weapon-sounds bakes the sounds a weapon set's classes use into one\n"
+           "bundle of their own in <dir>, which ut-ants takes as --sounds (UTA-0478).\n"
            "--game-types lists the game types the install's\n"
            ".int files register, each with the MapPrefix its maps' names start with\n"
            "(UTA-0179). Standard output is one JSON object.\n";
@@ -91,6 +96,7 @@ struct Arguments {
     std::optional<std::string_view> textureCache;
     std::optional<std::string_view> recipe;
     std::optional<std::string_view> lightMaterials; ///< UTA-0292
+    std::optional<std::string_view> weaponSounds;   ///< UTA-0478 SS 4.4
     std::optional<std::string_view> check;
     std::optional<std::string_view> gameTypes;
     std::optional<std::string_view> install;
@@ -118,6 +124,8 @@ std::optional<Arguments> parse(std::span<const std::string_view> args, std::ostr
             if (!(parsed.recipe = values.take(i))) return std::nullopt;
         } else if (arg == "--light-materials") {
             if (!(parsed.lightMaterials = values.take(i))) return std::nullopt;
+        } else if (arg == "--weapon-sounds") {
+            if (!(parsed.weaponSounds = values.take(i))) return std::nullopt;
         } else if (arg == "--check") {
             if (!(parsed.check = values.take(i))) return std::nullopt;
         } else if (arg == "--game-types") {
@@ -141,9 +149,17 @@ std::optional<Arguments> parse(std::span<const std::string_view> args, std::ostr
     if (parsed.check.has_value() || parsed.gameTypes.has_value()) {
         if ((parsed.check && parsed.gameTypes) || parsed.install || parsed.out || parsed.map || parsed.force
             || parsed.textureCache || parsed.recipe || parsed.lightMaterials || parsed.fitBudget
-            || parsed.fullBudget) {
+            || parsed.fullBudget || parsed.weaponSounds) {
             err << "ut-bake: " << (parsed.check ? "--check" : "--game-types")
                 << " takes an install and nothing else\n";
+            return std::nullopt;
+        }
+        return parsed;
+    }
+    if (parsed.weaponSounds.has_value()) {
+        if (!parsed.install || !parsed.out || parsed.map || parsed.textureCache || parsed.recipe
+            || parsed.lightMaterials || parsed.fitBudget || parsed.fullBudget) {
+            err << "ut-bake: --weapon-sounds takes --install, --out and --force, and no map\n";
             return std::nullopt;
         }
         return parsed;
@@ -234,6 +250,26 @@ std::string_view verdictName(Verdict verdict) {
 
 /// `listed` caps how many of byTexture's entries are printed; the rest are
 /// counted in byTextureOmitted (UTA-0264).
+std::uint64_t storedBytes(const std::vector<ubundle::BakedSound>& sounds) {
+    std::uint64_t bytes = 0;
+    for (const ubundle::BakedSound& sound : sounds) bytes += sound.data.size();
+    return bytes;
+}
+
+/// UTA-0478: `{"count", "bytes", "skipped": [{"path", "why"}]}`, for a map's
+/// report and the weapon set's.
+void writeSounds(std::ostream& out, std::size_t count, std::uint64_t bytes, const std::vector<SkippedSound>& skipped) {
+    out << "{\"count\": " << count << ", \"bytes\": " << bytes << ", \"skipped\": ";
+    writeArray(out, skipped, [&out](const SkippedSound& sound) {
+        out << "{\"path\": ";
+        writeJsonString(out, sound.path);
+        out << ", \"why\": ";
+        writeJsonString(out, sound.reason);
+        out << '}';
+    });
+    out << '}';
+}
+
 void writeResult(std::ostream& out, const BakeResult& result, std::size_t listed) {
     const auto writeNumber = [&out](std::uint32_t value) { out << value; };
     out << ", \"rooms\": {\"withoutFootprint\": ";
@@ -293,6 +329,10 @@ void writeResult(std::ostream& out, const BakeResult& result, std::size_t listed
         out << '}';
     });
     out << '}';
+    // UTA-0478 SS 4.3: the sounds stored, and each left out with why.
+    out << ", \"sounds\": ";
+    writeSounds(out, result.bundle.sounds ? result.bundle.sounds->size() : 0,
+                result.bundle.sounds ? storedBytes(*result.bundle.sounds) : 0, result.skippedSounds);
     // UTA-0055 SS 4.2: how the swaying surfaces were cut, and what the budget
     // left still.
     out << ", \"sway\": {\"waterSlice\": " << result.sway.waterSlice << ", \"waterStill\": "
@@ -330,6 +370,48 @@ void writeResult(std::ostream& out, const BakeResult& result, std::size_t listed
         out << ", \"extent\": " << detail::jsonNumber(question.extent)
             << ", \"clear\": " << detail::jsonNumber(question.clear) << "}}";
     });
+}
+
+/// UTA-0478 SS 4.4: the weapon set's sounds, as one bundle of kind Sounds.
+int runWeaponSounds(const Arguments& args, std::ostream& out, std::ostream& err) {
+    out << "{\"schema\": " << SCHEMA << ", \"weapons\": ";
+    writeJsonString(out, *args.weaponSounds);
+    out << ", \"bakerVersion\": ";
+    writeJsonString(out, bakerVersion());
+    const auto refuse = [&](std::string_view message) {
+        out << ", \"verdict\": \"refused\", \"error\": ";
+        writeJsonString(out, message);
+        out << "}\n";
+        err << "ut-bake: " << message << "\n";
+        return EXIT_FAILED;
+    };
+
+    const auto weapons = ugame::load(uta::fs::pathFromUtf8(*args.weaponSounds));
+    if (!weapons.has_value()) return refuse(weapons.error().message());
+    SoundSetRequest request;
+    request.install = uta::fs::pathFromUtf8(*args.install);
+    request.outDir = uta::fs::pathFromUtf8(*args.out);
+    request.force = args.force;
+    for (const ugame::Weapon& weapon : weapons->weapons) request.classes.push_back(weapon.className);
+    const auto outcome = bakeSoundSet(request);
+    if (!outcome.has_value()) return refuse(outcome.error().message());
+
+    out << ", \"verdict\": \"" << verdictName(outcome->verdict) << "\", \"name\": ";
+    writeJsonString(out, outcome->name);
+    out << ", \"path\": ";
+    writeJsonString(out, detail::utf8(outcome->path));
+    if (outcome->verdict == Verdict::Written) {
+        out << ", \"sounds\": ";
+        writeSounds(out, outcome->soundCount, outcome->soundBytes, outcome->skippedSounds);
+        out << ", \"unresolved\": ";
+        writeArray(out, outcome->unresolved, [&out](const std::string& path) { writeJsonString(out, path); });
+        for (const std::string& path : outcome->unresolved)
+            err << "ut-bake: warning: the install holds no class " << path << "\n";
+    }
+    out << "}\n";
+    err << "ut-bake: " << (outcome->verdict == Verdict::Written ? "wrote " : "already baked: ")
+        << detail::utf8(outcome->path) << "\n";
+    return EXIT_OK;
 }
 
 int runBake(const Arguments& args, std::ostream& out, std::ostream& err,
@@ -472,6 +554,7 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
     }
     if (parsed->check.has_value()) return runCheck(*parsed->check, out, err);
     if (parsed->gameTypes.has_value()) return runGameTypes(*parsed->gameTypes, out, err);
+    if (parsed->weaponSounds.has_value()) return runWeaponSounds(*parsed, out, err);
     return runBake(*parsed, out, err, budgetBytes);
 }
 

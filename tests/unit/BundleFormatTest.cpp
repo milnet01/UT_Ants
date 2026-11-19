@@ -294,7 +294,7 @@ std::vector<std::byte> goldenBytes() {
 
     Bytes out;
     out.id("UTAB");
-    out.u32(36); // formatVersion -- 36 since UTA-0341 added PROP
+    out.u32(37); // formatVersion -- 37 since UTA-0478 added SNDS
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -513,7 +513,7 @@ TEST_CASE("the header is sixteen little-endian bytes naming the file", "[ubundle
 
     const std::uint8_t expected[16] = {
         'U', 'T', 'A', 'B',    // magic -- a hex dump of a bundle names itself
-        0x24, 0x00, 0x00, 0x00, // formatVersion = 36 -- UTA-0341's PROP
+        0x25, 0x00, 0x00, 0x00, // formatVersion = 37 -- UTA-0478's SNDS
         0x01,                   // origin = Authored
         0x00,                   // kind = Map
         0x00, 0x00,             // reserved
@@ -537,8 +537,8 @@ TEST_CASE("a bad magic and an unsupported version are refused before anything el
     }
 
     SECTION("a later version") {
-        // 37, not 36: 36 is the current version since UTA-0341 added PROP.
-        const std::vector<std::byte> bytes = goldenWithByte(4, 37);
+        // 38, not 37: 37 is the current version since UTA-0478 added SNDS.
+        const std::vector<std::byte> bytes = goldenWithByte(4, 38);
         const auto result = read(bytes);
         REQUIRE_FALSE(result.has_value());
         CHECK(result.error().code() == ErrorCode::UnsupportedVersion);
@@ -602,7 +602,7 @@ TEST_CASE("readHeader reads the first sixteen bytes and stops", "[ubundle]") {
 
     const auto header = readHeader(justTheHeader);
     REQUIRE(header.has_value());
-    CHECK(header->formatVersion == 36);
+    CHECK(header->formatVersion == 37);
     CHECK(header->origin == Origin::Authored);
     CHECK(header->kind == BundleKind::Map);
 
@@ -618,7 +618,7 @@ TEST_CASE("the golden bytes decode field by field to the values they encode", "[
     REQUIRE(result.has_value());
     const Bundle& bundle = *result;
 
-    CHECK(bundle.header.formatVersion == 36);
+    CHECK(bundle.header.formatVersion == 37);
     CHECK(bundle.header.origin == Origin::Authored);
     CHECK(bundle.header.kind == BundleKind::Map);
 
@@ -847,10 +847,10 @@ TEST_CASE("a defined field carrying an undefined value is refused", "[ubundle]")
     // refuses is not a contract.
     SECTION("an unknown kind") {
         // An undefined kind names sections this version cannot know -- SS 6.
-        const auto result = read(goldenWithByte(9, 2));
+        const auto result = read(goldenWithByte(9, 3));
         REQUIRE_FALSE(result.has_value());
         CHECK(result.error().code() == ErrorCode::MalformedData);
-        CHECK_FALSE(readHeader(goldenWithByte(9, 2)).has_value());
+        CHECK_FALSE(readHeader(goldenWithByte(9, 3)).has_value());
     }
 
     SECTION("a non-zero reserved field in the header") {
@@ -929,7 +929,7 @@ TEST_CASE("UTA-0223: the writer refuses an origin or kind the reader would refus
     CHECK(origin.error().code() == ErrorCode::InvalidArgument);
 
     bundle.header.origin = Origin::Authored;
-    bundle.header.kind = static_cast<BundleKind>(2);
+    bundle.header.kind = static_cast<BundleKind>(3);
     const auto kind = write(bundle);
     REQUIRE_FALSE(kind.has_value());
     CHECK(kind.error().code() == ErrorCode::InvalidArgument);
