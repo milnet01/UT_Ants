@@ -154,8 +154,9 @@ its author did.
 | `SoundVolume` | Byte | `volume = value / 255` | 128 |
 | `SoundPitch` | Byte | `pitch = value / 64` | 64 |
 
-The three fallbacks are UT99's `Actor` defaults as the session recalls
-them. An actor whose `AmbientSound` is empty, is not an object
+The three fallbacks are `Actor`'s defaults in the install's own script
+source (`Engine.u`'s `Actor.uc`, `defaultproperties`, read 2026-11-19).
+An actor whose `AmbientSound` is empty, is not an object
 reference, is not in the bank, or whose volume is 0 gives no emitter.
 The client says once, on stderr, how many emitters a map has, how many
 sounds the bank lacked, and how many emitters used a fallback.
@@ -285,7 +286,7 @@ first two's cases to loops.
 | INV-5 | `tests/unit/SpatialTest.cpp`, on every CI leg |
 | INV-6 to INV-8 | `tests/unit/ClientMapSoundsTest.cpp`, on every CI leg |
 | § 3 item 3: the factor 25 matches UT99 | **nothing** — § 14 item 1 |
-| § 4.3: the three fallbacks are UT99's defaults | **nothing** — § 14 item 2; the stderr line says when one is used |
+| § 4.3: the three fallbacks are UT99's defaults | **nothing** — read once from `Actor.uc` (§ 14 item 2); the stderr line says when one is used |
 | § 4.4: no voice outlives its clip | **nothing** — it rests on the order of two declarations in `main.cpp` |
 | § 4.4 item 4: the listener is the drawn camera | **Partial:** INV-8 checks `listenerAt` and that `update` uses what it is given; nothing checks what `main.cpp` passes |
 | How a map sounds | **nothing** — by ear (§ 7) |
@@ -313,8 +314,9 @@ dependency, no new bundle section, no state on disk.
 1. **Is the factor 25 right?** Check by a paired capture of the original
    with UT_MonsterHunt: stand at a known distance from one emitter in
    both and compare loudness. Until then it is a named constant.
-2. **Are 32, 128 and 64 `Actor`'s defaults?** Not read. On DM-Deck16][,
-   DM-Morpheus and DM-Liandri no emitter used a fallback (hidden runs,
-   2026-11-19): each class chain stores all three. The client's stderr
-   line names any map where one does.
+2. **Are 32, 128 and 64 `Actor`'s defaults?** Yes: `Actor.uc`'s
+   `defaultproperties` in the install's `Engine.u` sets `SoundRadius=32`,
+   `SoundVolume=128` and `SoundPitch=64` (read 2026-11-19). On
+   DM-Deck16][, DM-Morpheus and DM-Liandri no emitter needed a fallback
+   (hidden runs, the same day).
 3. **§ 3 item 1**, the user's.

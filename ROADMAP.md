@@ -21574,6 +21574,8 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Not yet heard by a person. Stays in progress until the user answers
   spec § 3 item 1 (mover, trigger and pickup sounds) and GitHub's
   matrix is green.
+  Green on GitHub's matrix at cf1e103 (run 44568552437),
+  2026-11-19. Actor's defaults 32, 128, 64 confirmed from Actor.uc.
   **Layman:** Maps get their own sounds back: machinery hums, doors and lifts make noise, and each sound comes from where the thing is.
   Kind: implement.
   Source: in-session-2026-11-19 UTA-0478 spec.
@@ -23186,6 +23188,10 @@ to.
   docs/specs/UTA-0012-ut-dump-output-shape.md § 4.7a.
   Shipped 2026-11-19 at aee6f2f, green on GitHub's matrix (run
   44559689868). UT_MonsterHunt told.
+  UT_MonsterHunt checked both fields against its T3D data on 10
+  maps, 2026-11-19: slot order equals the export's actor order, and
+  every exit's cylinder matches. It runs build/tools/ut-dump/ut-dump,
+  rebuilt for it the same day.
   **Layman:** Tell the sister project where each actor sits in the map's own actor list, so its "first player start" matches the editor's.
   Kind: feature.
   Source: ut-monsterhunt-request-2026-11-19.
@@ -24466,6 +24472,9 @@ docs/standards/versioning-overrides.md. Closes S8.
   Shipped 2026-11-19 at 7021514: GitHub's matrix green (run 44550631933),
   GCC 14, Clang 19 and MSVC. The thirteen maps also load in ExperiRays'
   reader built from its 5298393 in our scratch.
+  Swept 2026-11-19: all 184 stock DM, CTF, DOM and AS maps bake,
+  export and load in ExperiRays' reader (its commit 5298393) with exit
+  0 at each step. Job uta-export-sweep; its scratch is deleted.
   **Layman:** Write a map out in the shared scene format another project's lighting lab reads, so it can test lighting ideas on our maps.
   Kind: feature.
   Source: peer-experirays-2026-11-17.
