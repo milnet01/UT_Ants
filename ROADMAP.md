@@ -21568,6 +21568,12 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   and the per-frame update (INV-6 to INV-8), and wiring into the
   client. Open with the user: whether mover, trigger and pickup sounds
   wait for the code that moves, fires and takes them (spec § 3 item 1).
+  2026-11-19, later: ambient sounds are built whole (INV-1 to INV-8)
+  and wired into the client. Hidden runs: DM-Deck16][ places 23,
+  DM-Morpheus 14, DM-Liandri 7, CTF-Face none; none used a fallback.
+  Not yet heard by a person. Stays in progress until the user answers
+  spec § 3 item 1 (mover, trigger and pickup sounds) and GitHub's
+  matrix is green.
   **Layman:** Maps get their own sounds back: machinery hums, doors and lifts make noise, and each sound comes from where the thing is.
   Kind: implement.
   Source: in-session-2026-11-19 UTA-0478 spec.

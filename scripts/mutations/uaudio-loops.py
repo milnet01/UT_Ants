@@ -1,5 +1,5 @@
 """UTA-0480's mutations, for scripts/mutation-probe.py -- the mixer's looping
-voices and where a sound is heard from. Their own file, not uaudio.py's,
+voices, where a sound is heard from, and a map's ambient emitters. Their own file, not uaudio.py's,
 because a subject reports against one spec's invariants and UTA-0056's are
 numbered alike.
 
@@ -9,6 +9,7 @@ replacement), as ubundle.py's.
 
 MIXER = "src/uaudio/Mixer.cpp"
 SPATIAL = "src/uaudio/Spatial.cpp"
+SOUNDS = "apps/ut-ants/MapSounds.cpp"
 
 SUBJECT = {
     "spec": "docs/specs/UTA-0480-map-sounds.md",
@@ -70,5 +71,35 @@ SUBJECT = {
          "source[0] - listener.position[0]", "source[0]"),
         ("INV-5", "a radius of nothing is full volume", SPATIAL,
          "|| radius <= 0.0f) return {};", ") return {};"),
+        ("INV-6", "the class's default over the actor's", SOUNDS,
+         "soundOf(placements.classes[actor.classIndex].defaults).under(soundOf(actor.properties))",
+         "soundOf(actor.properties).under(soundOf(placements.classes[actor.classIndex].defaults))"),
+        ("INV-6", "the radius a step short", SOUNDS,
+         "DEFAULT_RADIUS) + 1.0f)", "DEFAULT_RADIUS))"),
+        ("INV-6", "a sound the bank lacks still emits", SOUNDS,
+         "        if (clip == nullptr) {\n            ++scan.missing;\n            continue;\n        }",
+         "        if (clip == nullptr) ++scan.missing;"),
+        ("INV-6", "names matched in the case they were spelled", SOUNDS,
+         "const std::string name = asciiFolded(property.name);", "const std::string name = property.name;"),
+        ("INV-6", "any text property read as a sound", SOUNDS,
+         "if (property.kind == ubundle::ValueKind::Object) sound.path", "sound.path"),
+        ("INV-6", "a silenced actor still emits", SOUNDS,
+         "        if (volume == 0) continue;\n", ""),
+        ("INV-7", "every emitter in earshot plays", SOUNDS,
+         "std::min(VOICES, heard_.size())", "heard_.size()"),
+        ("INV-7", "the quietest play", SOUNDS,
+         "a.rank != b.rank ? a.rank > b.rank", "a.rank != b.rank ? a.rank < b.rank"),
+        ("INV-7", "a playing emitter gets no preference", SOUNDS,
+         "voices_[i].valid() ? gain * KEEP : gain", "gain"),
+        ("INV-7", "a voice out of earshot is never stopped", SOUNDS,
+         "            mixer.stop(voice);\n            voice = {};", "            voice = {};"),
+        ("INV-7", "a stolen voice is never forgotten", SOUNDS,
+         "voice = {}; // the mixer stole it", "(void)0; // the mixer stole it"),
+        ("INV-8", "a hum starts in the centre", SOUNDS,
+         ".pan = heard.pan,", ".pan = 0.0f,"),
+        ("INV-8", "a hum keeps the side it started on", SOUNDS,
+         "mixer.setLoop(voice, heard.gain, heard.pan)", "mixer.setLoop(voice, heard.gain, 0.0f)"),
+        ("INV-8", "the right hand is the world's Y", SOUNDS,
+         "{static_cast<float>(-std::sin(yaw)), static_cast<float>(std::cos(yaw)), 0.0f}", "{0.0f, 1.0f, 0.0f}"),
     ],
 }

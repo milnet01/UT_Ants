@@ -15,6 +15,7 @@
 #include "FrameRate.h"
 #include "Launcher.h"
 #include "MapList.h"
+#include "MapSounds.h"
 #include "StandIns.h"
 #include "Walker.h"
 
@@ -551,7 +552,7 @@ void Viewer::act(const uta::uinput::Frame& frame) {
 }
 
 int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Options& options,
-        const std::string& bundleHash) {
+        const std::string& bundleHash, uta::client::Audio& audio, uta::client::MapSounds& mapSounds) {
     uta::urender::Config config;
     Uint32 count = 0;
     const char* const* const names = SDL_Vulkan_GetInstanceExtensions(&count);
@@ -646,6 +647,11 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
             view = camera.camera(viewer.config.width, viewer.config.height);
         }
         view.flashlight = viewer.flashlight;
+        // UTA-0480 SS 4.4: the map's hums, as heard from where this frame is
+        // drawn. One short hold of the audio lock.
+        audio.withMixer([&](uta::uaudio::Mixer& mixer) {
+            mapSounds.update(uta::client::listenerAt(view.location, view.rotation), mixer);
+        });
         viewer.showOverlay();
         if (const auto result = viewer.renderer.draw(bundle, view); !result) {
             std::cerr << "ut-ants: a frame did not draw: " << result.error().message() << "\n";
@@ -708,6 +714,14 @@ int main(int argc, char** argv) {
     // ahead of the Audio below, so it outlives every voice playing from it.
     uta::uaudio::SoundBank sounds;
     if (!loadSounds(sounds, *bundle, options->sounds)) return EXIT_FAILED;
+    // UTA-0480 SS 4.3: the actors that hum, each with a sound the bank holds.
+    uta::client::EmitterScan humming;
+    if (bundle->placements) humming = uta::client::ambientEmitters(*bundle->placements, sounds);
+    std::cerr << "ut-ants: " << humming.emitters.size() << " ambient sounds placed";
+    if (humming.missing != 0) std::cerr << "; " << humming.missing << " name a sound the bundle lacks";
+    if (humming.guessed != 0) std::cerr << "; " << humming.guessed << " store no radius, volume or pitch";
+    std::cerr << "\n";
+    uta::client::MapSounds mapSounds(std::move(humming.emitters));
     // UTA-0191: the bundle's identity, taken before the bytes go. A capture
     // records it so a frame can be tied to the exact bundle that drew it.
     const std::string bundleHash = uta::client::bundleHashHex(*bytes);
@@ -745,10 +759,10 @@ int main(int argc, char** argv) {
     int status = EXIT_OK;
     {
         // UTA-0056 SS 4.8: open for the whole run, and closed before
-        // SDL_Quit. Silent until something plays from `sounds` (UTA-0467,
-        // UTA-0480).
-        const uta::client::Audio audio;
-        status = run(window, *bundle, *options, bundleHash);
+        // SDL_Quit, so no voice outlives `sounds`. It plays the map's
+        // ambient sounds (UTA-0480); weapon sounds come with UTA-0467.
+        uta::client::Audio audio;
+        status = run(window, *bundle, *options, bundleHash, audio, mapSounds);
     }
     SDL_DestroyWindow(window);
     SDL_Quit();

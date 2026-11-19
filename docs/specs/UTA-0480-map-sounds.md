@@ -131,12 +131,20 @@ struct Emitter {
 };
 inline constexpr float RADIUS_UNITS = 25.0f;
 
-[[nodiscard]] std::vector<Emitter> ambientEmitters(const ubundle::Placements& placements,
-                                                   const uaudio::SoundBank& bank);
+struct EmitterScan {
+    std::vector<Emitter> emitters;
+    std::size_t missing = 0; ///< actors naming a sound the bank lacks
+    std::size_t guessed = 0; ///< emitters that used a fallback below
+};
+
+[[nodiscard]] EmitterScan ambientEmitters(const ubundle::Placements& placements,
+                                          const uaudio::SoundBank& bank);
 ```
 
 For each actor, a property is the actor's own record, else its class's
-effective default, matched by name as spelled and array index 0:
+effective default, at array index 0. Names are matched whatever their
+case, as `main.cpp`'s `playerStarts` matches them: a map spells them as
+its author did.
 
 | Property | Kind read | Becomes | Stored nowhere |
 |---|---|---|---|
@@ -147,10 +155,10 @@ effective default, matched by name as spelled and array index 0:
 | `SoundPitch` | Byte | `pitch = value / 64` | 64 |
 
 The three fallbacks are UT99's `Actor` defaults as the session recalls
-them; § 14 item 2 checks them. An actor whose `AmbientSound` is empty,
-is not in the bank, or whose volume is 0 gives no emitter. The client
-says once, on stderr, how many emitters a map has and how many sounds
-the bank lacked.
+them. An actor whose `AmbientSound` is empty, is not an object
+reference, is not in the bank, or whose volume is 0 gives no emitter.
+The client says once, on stderr, how many emitters a map has, how many
+sounds the bank lacked, and how many emitters used a fallback.
 
 ### 4.4 Each frame
 
@@ -179,8 +187,10 @@ public:
 5. Ambient loops play in `Group::World` at priority 0. Sound keeps the
    wall clock (UTA-0056 § 3 item 5), so slowed time does not slow a hum.
 
-`main.cpp` builds `MapSounds` after `loadSounds`, and stops every voice
-(`Mixer::stopAll`) before a bundle and its bank are replaced.
+`main.cpp` builds `MapSounds` after `loadSounds`. The client opens one
+bundle a run, and its `Audio` closes before the bank is destroyed, so no
+voice outlives its clip. `listenerAt` makes the listener from the
+camera's place and yaw.
 
 ## 5. Invariants
 
@@ -204,17 +214,17 @@ public:
   *Test:* `tests/unit/SpatialTest.cpp`, new.
   *Breaks when:* falloff is not linear, the pan's sign follows the world's axes rather than the listener's, or the near fade is missing.
 
-- **INV-6** — `ambientEmitters` reads the actor's own value over its class's: a class defaulting `SoundRadius` 10 and an actor storing 63 gives radius 1600; an actor storing none gives 275; one storing no `SoundVolume` anywhere gives volume 128/255. An actor naming a sound the bank lacks, one with no `AmbientSound`, and one with `SoundVolume` 0 give no emitter. A property spelled `ambientsound` is not read.
+- **INV-6** — `ambientEmitters` reads the actor's own value over its class's: a class defaulting `SoundRadius` 10 and an actor storing 63 gives radius 1600; an actor storing none gives 275; one storing no `SoundVolume` anywhere gives volume 128/255. An actor naming a sound the bank lacks, one with no `AmbientSound`, one whose `AmbientSound` is a name and not an object, and one with `SoundVolume` 0 give no emitter. A property spelled `ambientsound` is read as `AmbientSound` is.
   *Test:* `tests/unit/ClientMapSoundsTest.cpp`, new, on hand-built `ubundle::Placements`.
-  *Breaks when:* defaults win over the actor, the `+ 1` is dropped, a missing sound yields a null clip, or names are folded.
+  *Breaks when:* defaults win over the actor, the `+ 1` is dropped, a missing sound yields a null clip, or names are matched only in one case.
 
 - **INV-7** — `MapSounds::update` holds the loudest `VOICES` and no more: with 20 emitters of 20 clips in earshot, 16 voices play and they are the 16 loudest; moving the listener beyond every radius leaves none after one block; an emitter 1.05 times as loud as the quietest playing one does not replace it, and one 1.2 times as loud does.
   *Test:* `tests/unit/ClientMapSoundsTest.cpp`, driving a `uaudio::Mixer` with no device and counting `voicesOf` per clip.
   *Breaks when:* voices leak as the listener moves, the budget is unbounded, or near-equal emitters swap each frame.
 
-- **INV-8** — A hum is heard on the side it is on: one emitter 300 units to the listener's right, of a constant clip, gives a right channel louder than the left after mixing; turning the listener round swaps them.
+- **INV-8** — A hum is heard on the side it is on: one emitter 300 units to the listener's right, of a constant clip, gives a right channel louder than the left after mixing; turning the listener round swaps them. Looking up or down leaves the listener's right level.
   *Test:* `tests/unit/ClientMapSoundsTest.cpp`, comparing the two channels' sums.
-  *Breaks when:* `update` passes a world axis for `right`, or drops the pan.
+  *Breaks when:* `listenerAt` gives a world axis for `right`, or `update` drops the pan.
 
 UTA-0056's INV-8 (no sample outside [-1, 1]), INV-9 (`mix` allocates
 nothing) and INV-11 (what links what) hold unchanged; § 7 extends the
@@ -228,7 +238,7 @@ first two's cases to loops.
 | A map with no ambient sound, or a bundle baked before UTA-0478 | No emitters; one stderr line; silence |
 | A sound the bank lacks | That emitter is left out and counted in the stderr line |
 | All 64 voices busy at `startLoop` | The mixer steals or drops (UTA-0056 § 4.5 item 3); the emitter tries again next frame |
-| A clip freed while a loop plays it | Not allowed: `main.cpp` calls `stopAll` first (§ 4.4) |
+| A clip freed while a loop plays it | Cannot happen: `Audio` closes before the bank is destroyed (§ 4.4) |
 | A radius or position that is not finite | `place` returns gain 0 |
 
 ## 7. Tests
@@ -240,9 +250,10 @@ first two's cases to loops.
   INV-8.
 - All are label `unit`. Each is seen to fail before its code exists.
 - `scripts/mutations/uaudio-loops.py` holds the mutations for INV-1 to
-  INV-5.
+  INV-8.
 - By ear, once: start `ut-ants` on a map the stderr line says has
-  emitters, walk to one and past it.
+  emitters, walk to one and past it. DM-Deck16][ has 23, DM-Morpheus 14,
+  DM-Liandri 7 and CTF-Face none (hidden runs, 2026-11-19).
 
 ## 8. Alternatives considered (and rejected)
 
@@ -274,16 +285,16 @@ first two's cases to loops.
 | INV-5 | `tests/unit/SpatialTest.cpp`, on every CI leg |
 | INV-6 to INV-8 | `tests/unit/ClientMapSoundsTest.cpp`, on every CI leg |
 | § 3 item 3: the factor 25 matches UT99 | **nothing** — § 14 item 1 |
-| § 4.3: the three fallbacks are UT99's defaults | **nothing** — § 14 item 2 |
-| § 4.4: `stopAll` before a bank is replaced | **nothing** — read at review of `main.cpp`; the address sanitizer leg would see a use after free only on a map change under test |
-| § 4.4 item 4: the listener is the drawn camera | **Partial:** INV-8 checks `update` uses what it is given; nothing checks what `main.cpp` gives it |
+| § 4.3: the three fallbacks are UT99's defaults | **nothing** — § 14 item 2; the stderr line says when one is used |
+| § 4.4: no voice outlives its clip | **nothing** — it rests on the order of two declarations in `main.cpp` |
+| § 4.4 item 4: the listener is the drawn camera | **Partial:** INV-8 checks `listenerAt` and that `update` uses what it is given; nothing checks what `main.cpp` passes |
 | How a map sounds | **nothing** — by ear (§ 7) |
 
 ## 11. Cross-doc impact
 
 - `docs/specs/UTA-0056-audio-mixer.md`: § 3 item 8 and § 9 point here for
   positional sound; § 4.5 says loops skip its items 1 and 2.
-- `apps/ut-ants/Audio.h`'s "Nothing plays yet" comment.
+- `apps/ut-ants/Audio.h`'s "Nothing plays yet" comment, corrected.
 - `CHANGELOG.md`: an entry under Added.
 - `CLAUDE.md` § Where this project is: `Next:` moves on.
 
@@ -302,7 +313,8 @@ dependency, no new bundle section, no state on disk.
 1. **Is the factor 25 right?** Check by a paired capture of the original
    with UT_MonsterHunt: stand at a known distance from one emitter in
    both and compare loudness. Until then it is a named constant.
-2. **Are 32, 128 and 64 `Actor`'s defaults?** Print `Engine.Actor`'s
-   effective defaults from one baked bundle while building § 4.3. Where
-   the class chain reaches `Actor`, the fallback is never used.
+2. **Are 32, 128 and 64 `Actor`'s defaults?** Not read. On DM-Deck16][,
+   DM-Morpheus and DM-Liandri no emitter used a fallback (hidden runs,
+   2026-11-19): each class chain stores all three. The client's stderr
+   line names any map where one does.
 3. **§ 3 item 1**, the user's.

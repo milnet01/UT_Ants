@@ -10,8 +10,9 @@
 // around the callback, so the two never overlap. Keep each call short; a
 // long hold underruns the device.
 //
-// Nothing plays yet: main.cpp loads the bundles' sounds into a bank
-// (UTA-0478), and UTA-0467 and UTA-0480 play from it.
+// main.cpp loads the bundles' sounds into a bank (UTA-0478) and plays the
+// map's ambient ones through MapSounds (UTA-0480). Weapon sounds come with
+// UTA-0467.
 
 #pragma once
 

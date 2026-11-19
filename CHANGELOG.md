@@ -14,6 +14,12 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **Maps hum again** (UTA-0480)
+  A map's ambient sounds now play: machinery, lava, wind and the like.
+  Each is heard from where it sits, louder as you walk up to it and
+  from the left or the right as you turn. Doors, lifts, triggers and
+  pickups stay silent until the game can open, fire and take them.
+
 - **ut-dump says where each actor sits in the map's own actor list** (UTA-0481)
   Each exit, player start and `--brushes` entry now carries `slot`, its
   place in the level's actor list. That is the order the editor exports
