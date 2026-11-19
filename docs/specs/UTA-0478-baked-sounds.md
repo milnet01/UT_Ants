@@ -1,7 +1,7 @@
 <!-- ants-spec-format: 1 -->
 # UTA-0478 — bake a map's sounds and the weapon set's into bundles
 
-**Status:** accepted (2026-11-19). No review: contract reviews are cancelled for this project (`CLAUDE.md` § Contract reviews); building it is the reviewer.
+**Status:** shipped (2026-11-19), green on the matrix. No review: contract reviews are cancelled for this project (`CLAUDE.md` § Contract reviews); building it was the reviewer.
 **Kind:** implement.
 **Source:** ROADMAP UTA-0478 (in-session-2026-11-17, found writing UTA-0056's spec).
 **Blocker for:** UTA-0467, UTA-0480.  **Pairs with:** UTA-0056.

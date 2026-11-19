@@ -21520,7 +21520,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: review-code-2026-11-17.
   Lanes: build.
 
-- 🚧 [UTA-0478] **ubake: bake the sounds a map and the weapon set use into the bundle, so the game can play them.**
+- ✅ [UTA-0478] **ubake: bake the sounds a map and the weapon set use into the bundle, so the game can play them.**
   Found writing UTA-0056 (2026-11-17). docs/design.md rule 2 keeps upkg
   out of the runtime programs, so the client cannot read a .uax package.
   A sound must reach it through the bundle, as textures and meshes do: a
@@ -21530,6 +21530,10 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   the bundle would carry. Covers the map's own sounds (ambient sounds,
   movers, triggers) and the weapon set's, which UTA-0467 then plays.
   Blocker for UTA-0467.
+  Shipped 2026-11-19 at 8321a2f, green on GitHub's matrix (GCC 14, Clang
+  19, MSVC). Format 37, baker revision 79. Measured on the install:
+  DM-Deck16][ 51 sounds, the stock weapon set 40. Nothing plays yet:
+  UTA-0467 and UTA-0480.
   **Layman:** Copy the sounds each map needs into the game's own map files, because the game is not allowed to read Unreal Tournament's files directly.
   Kind: implement.
   Source: in-session-2026-11-17 UTA-0056 spec.

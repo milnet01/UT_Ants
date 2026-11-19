@@ -10,10 +10,12 @@ item: `UTA-0249` (reconfirmed 2026-10-05; `UTA-0186` closed 2026-10-19). `UTA-00
 `UTA-0100` defer themselves. 0.1.0 released 2026-11-04 (tag `v0.1.0`).
 `UTA-0283` waits on UT_MonsterHunt.
 In 0.2.0, `UTA-0022` (the physical platforming assists) shipped
-2026-11-17, and `UTA-0056`, the audio mixer, the same day. Next is
-`UTA-0478`, baking sounds into the bundle. `UTA-0476`,
-ExperiRays' scene exporter, waits on their reader, `EXRAY-0012`, and
-still owes its movers' per-frame path entries (its body says why).
+2026-11-17, and `UTA-0056`, the audio mixer, the same day. `UTA-0478`,
+baking sounds into bundles, shipped 2026-11-19. Next is `UTA-0476`,
+ExperiRays' scene exporter: their reader exists, so it no longer waits,
+and it owes two things its body lists. After it, in 0.2.0: `UTA-0480`
+plays a map's own sounds, `UTA-0467` the weapons', and `UTA-0479` is a
+slow landing projection to find.
 **In flight:** `roadmap_query status:"in-progress"`. Not kept by hand.
 
 > `State:` is a formula, so no session owes it an edit and it cannot
