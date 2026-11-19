@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=480 -->
+<!-- ants-roadmap-id-high-water: UTA=481 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -23127,6 +23127,27 @@ to.
   **Layman:** A map-reading command also lists the corners of every wall face, so the Monster Hunt project no longer needs to export maps by hand.
   Kind: enhancement.
   Source: user-request-2026-10-15.
+  Lanes: tools.
+
+- 📋 [UTA-0481] **ut-dump: give each actor its level slot, for UT_MonsterHunt's GAME-0032.**
+  UT_MonsterHunt's vote-list map size is "first PlayerStart to first
+  exit", with "first" taken from a T3D export, which lists actors in
+  level-slot order. ut-dump --brushes lists brushes.actors, playerStarts
+  and exits in export-table order, so the first start differs: measured
+  by them on 836 of 1000 maps (MH-dUNYC-UNATCO-IslandFinal: PlayerStart0
+  by slot, PlayerStart18 by export; size 12993 against 6272).
+  Ask: a "slot" integer on each entry of brushes.actors, and of
+  playerStarts and exits: its index in ULevel's Actors array, None
+  slots skipped but not renumbered. Additive, so no other reader of
+  ut-dump changes; the arrays keep their order. Amend
+  docs/specs/UTA-0012-ut-dump-output-shape.md and its consumer table
+  (GAME-0032). Their script showing both orders:
+  /mnt/Emulators/.claude/Scratchpad/UT_MonsterHunt/g0032/order_one.py
+  (run from their repo root). No rush: GAME-0032 waits on it, nothing
+  live does. Taken ahead of 0.2.0 as help for another session.
+  **Layman:** Tell the sister project where each actor sits in the map's own actor list, so its "first player start" matches the editor's.
+  Kind: feature.
+  Source: ut-monsterhunt-request-2026-11-19.
   Lanes: tools.
 
 ## 0.5.0 — Map editor
