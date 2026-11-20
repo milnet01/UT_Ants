@@ -327,7 +327,8 @@ Standard output is one JSON object; standard error carries a table.
  "width": 1920, "height": 1080, "renderScale": 1, "bundle": "<as given>",
  "stillFrames": 60, "moveFrames": 120,
  "views": [{"camera": "<its line>",
-            "milliseconds": {"min": 0.0, "median": 0.0, "p99": 0.0, "max": 0.0},
+            "milliseconds": {"min": 0.0, "p25": 0.0, "median": 0.0, "p75": 0.0,
+                             "p99": 0.0, "max": 0.0},
             "shadowTiles": 0.0,
             "host": {"prepare": 0.0, "record": 0.0, "submitAndWait": 0.0},
             "passes": {"fires": 0.0, "shadows": 0.0, "clusters": 0.0,
@@ -335,7 +336,8 @@ Standard output is one JSON object; standard error carries a table.
                        "grass": 0.0, "translucent": 0.0, "flames": 0.0, "bloom": 0.0,
                        "post": 0.0}}],
  "moves": [{"from": 0, "to": 1,
-            "milliseconds": {"min": 0.0, "median": 0.0, "p99": 0.0, "max": 0.0},
+            "milliseconds": {"min": 0.0, "p25": 0.0, "median": 0.0, "p75": 0.0,
+                             "p99": 0.0, "max": 0.0},
             "shadowTiles": 0.0, "host": {}, "passes": {}}],
  "still": {"milliseconds": {}, "shadowTiles": 0.0, "host": {}, "passes": {}},
  "moving": {"milliseconds": {}, "shadowTiles": 0.0, "host": {}, "passes": {}},
@@ -348,7 +350,8 @@ Standard output is one JSON object; standard error carries a table.
 - `machine` and `build` are § 4.3's.
 - `p99` is the nearest-rank 99th percentile: of `n` sorted values, the one at
   position `ceil(0.99 n)`, counting from 1. Below a hundred frames it is the
-  largest.
+  largest. `p25` and `p75` are the 25th and 75th, found the same way
+  (`UTA-0482`). `schema` stays 2: they add keys and change none.
 - `shadowTiles` is the mean of `FrameStats::renderedShadowTiles` over the
   frames.
 - `passes` (`UTA-0351`) is each step's median GPU time in milliseconds, from
@@ -387,7 +390,7 @@ namespace uta::bench {
                            std::ostream& err, const BuildInfo& build);
 
 namespace detail {
-struct FrameSpread { double min = 0, median = 0, p99 = 0, max = 0; };
+struct FrameSpread { double min = 0, p25 = 0, median = 0, p75 = 0, p99 = 0, max = 0; };
 [[nodiscard]] FrameSpread frameSpreadOf(std::vector<double> milliseconds);
 }
 }
@@ -465,7 +468,7 @@ link (UTA-0433).
 
 - **INV-9** — `ut-bench frame` over a bundle and three cameras, one blank
   line among them, prints one JSON object with `workload` `frame`, the device
-  named, three views and two moves, each with its four figures, and exits `0`.
+  named, three views and two moves, each with its six figures, and exits `0`.
   The table counts `--still` frames a view and `--steps` a move. A
   `--render-scale` below the tier's floor reports the floor as `renderScale`.
   *Test:* `tests/device/BenchFrameTest.cpp`, new. It needs a Vulkan device.
@@ -473,7 +476,8 @@ link (UTA-0433).
   the four settling frames are timed; the device is not named; the scale
   asked is reported in place of the scale drawn.
 
-- **INV-10** — `frameSpreadOf` over 100 down to 1 gives 1, 50.5, 99 and 100.
+- **INV-10** — `frameSpreadOf` over 100 down to 1 gives 1, 50.5, 99 and 100,
+  and 25 and 75 for the 25th and 75th percentiles.
   Wrong `frame` arguments exit `2` and print nothing on standard output, and
   a bundle that is not there exits `1`, both before any device is asked for.
   *Test:* `tests/unit/BenchCliTest.cpp`.

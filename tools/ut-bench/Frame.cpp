@@ -192,8 +192,8 @@ void writeTimed(std::ostream& out, const Timed& timed) {
     const detail::FrameSpread spread = detail::frameSpreadOf(timed.milliseconds);
     const double tiles =
         timed.milliseconds.empty() ? 0 : static_cast<double>(timed.shadowTiles) / static_cast<double>(timed.milliseconds.size());
-    out << "\"milliseconds\": {\"min\": " << threePlaces(spread.min) << ", \"median\": " << threePlaces(spread.median)
-        << ", \"p99\": " << threePlaces(spread.p99) << ", \"max\": " << threePlaces(spread.max) << "}, \"shadowTiles\": "
+    out << "\"milliseconds\": {\"min\": " << threePlaces(spread.min) << ", \"p25\": " << threePlaces(spread.p25)
+        << ", \"median\": " << threePlaces(spread.median) << ", \"p75\": " << threePlaces(spread.p75) << ", \"p99\": " << threePlaces(spread.p99) << ", \"max\": " << threePlaces(spread.max) << "}, \"shadowTiles\": "
         << threePlaces(tiles) << ", \"host\": {\"prepare\": " << threePlaces(medianOf(timed.prepare))
         << ", \"record\": " << threePlaces(medianOf(timed.record)) << ", \"submitAndWait\": "
         << (timed.submitAndWait.empty() ? "null" : threePlaces(medianOf(timed.submitAndWait))) << "}, \"passes\": ";
@@ -272,8 +272,11 @@ FrameSpread frameSpreadOf(std::vector<double> milliseconds) {
     std::ranges::sort(milliseconds);
     const std::size_t n = milliseconds.size();
     const double median = n % 2 == 1 ? milliseconds[n / 2] : (milliseconds[n / 2 - 1] + milliseconds[n / 2]) / 2.0;
-    const auto rank = static_cast<std::size_t>(std::ceil(0.99 * static_cast<double>(n)));
-    return {milliseconds.front(), median, milliseconds[std::clamp<std::size_t>(rank, 1, n) - 1], milliseconds.back()};
+    const auto nearestRank = [&](double share) {
+        const auto rank = static_cast<std::size_t>(std::ceil(share * static_cast<double>(n)));
+        return milliseconds[std::clamp<std::size_t>(rank, 1, n) - 1];
+    };
+    return {milliseconds.front(), nearestRank(0.25), median, nearestRank(0.75), nearestRank(0.99), milliseconds.back()};
 }
 
 } // namespace detail

@@ -98,7 +98,9 @@ TEST_CASE("UTA-0129 INV-9: ut-bench frame draws each view and each move and says
     CHECK(count(json, "\"camera\": \"0 10 0 0 2000 0 90\"") == 1);
     CHECK(count(json, "\"from\": ") == 2);
     CHECK(count(json, "\"from\": 1, \"to\": 2") == 1);
-    // Each view, each move, and the two totals carry the four figures.
+    // Each view, each move, and the two totals carry the six figures.
+    CHECK(count(json, "\"p25\": ") == 3 + 2 + 2);
+    CHECK(count(json, "\"p75\": ") == 3 + 2 + 2);
     CHECK(count(json, "\"p99\": ") == 3 + 2 + 2);
     CHECK(count(json, "\"shadowTiles\": ") == 3 + 2 + 2);
     // UTA-0351: and each step's median, named, on a device that keeps timestamps.

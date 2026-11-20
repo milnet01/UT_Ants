@@ -229,17 +229,21 @@ TEST_CASE("UTA-0129 INV-7: wrong arguments exit 2 and print nothing on standard 
     CHECK(help.out.empty());
 }
 
-TEST_CASE("UTA-0129 INV-10: a frame's spread is its smallest median 99th percentile and largest", "[bench]") {
+TEST_CASE("UTA-0129 INV-10: a frame's spread is its smallest, largest, median and three percentiles", "[bench]") {
     std::vector<double> hundred;
     for (int i = 100; i >= 1; --i) hundred.push_back(i); // 100 down to 1
     const FrameSpread spread = frameSpreadOf(hundred);
     CHECK(spread.min == 1);
+    CHECK(spread.p25 == 25); // nearest rank, as the 99th is
     CHECK(spread.median == 50.5);
+    CHECK(spread.p75 == 75);
     CHECK(spread.p99 == 99); // nearest rank: the 99th of 100
     CHECK(spread.max == 100);
     // Fewer than a hundred frames: the 99th percentile is the slowest.
     const FrameSpread few = frameSpreadOf({3, 9, 1});
+    CHECK(few.p25 == 1); // of three, position ceil(0.75) is the first
     CHECK(few.median == 3);
+    CHECK(few.p75 == 9);
     CHECK(few.p99 == 9);
     CHECK(frameSpreadOf({}).max == 0);
 }
