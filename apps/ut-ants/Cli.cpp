@@ -18,11 +18,12 @@ void usage(std::ostream& err) {
     err << "usage: ut-ants [--tier <low|medium|high|ultra>] [--frames <n>] [--validation] [--windowed]\n"
            "               [--show-missing] [--no-added-lamps] [--fov <degrees>] [--notes <file>]\n"
            "               [--no-landing-marker] [--no-take-off-pitch]\n"
-           "               [--coyote-time] [--mantle] [--high-step]\n"
+           "               [--coyote-time] [--mantle] [--high-step] [--no-gamepad]\n"
            "               [--baker-version <text>] [--sounds <bundle>] <install> <bundle>\n"
            "       ut-ants [--tier <low|medium|high|ultra>] [--validation] [--windowed] [--show-missing]\n"
            "               [--no-added-lamps] [--fov <degrees>] [--no-landing-marker]\n"
-           "               [--no-take-off-pitch] [--coyote-time] [--mantle] [--high-step] <install>\n"
+           "               [--no-take-off-pitch] [--coyote-time] [--mantle] [--high-step]\n"
+           "               [--no-gamepad] <install>\n"
            "       ut-ants --help\n"
            "\n"
            "Given only <install>, opens the map launcher: every playable map in the\n"
@@ -79,6 +80,8 @@ void usage(std::ostream& err) {
            "rather than grey, so it stands out.\n"
            "--no-added-lamps draws the map without the lamps its recipe adds, as\n"
            "the map was made.\n"
+           "--no-gamepad opens no gamepad, so one left connected cannot steer or\n"
+           "fire in a run nobody is watching.\n"
            "--no-landing-marker hides the ring that shows, in the air, where you\n"
            "will land.\n"
            "--no-take-off-pitch keeps the view from tipping down to show it.\n"
@@ -120,6 +123,8 @@ std::optional<Options> parseArguments(std::span<const std::string_view> args, st
             options.highStep = true;
         } else if (arg == "--windowed") {
             options.windowed = true;
+        } else if (arg == "--no-gamepad") {
+            options.gamepads = false;
         } else if (arg == "--tier") {
             if (options.tier.has_value()) {
                 err << "ut-ants: --tier is given twice\n";
@@ -241,6 +246,7 @@ std::optional<Options> parseArguments(std::span<const std::string_view> args, st
 std::vector<std::string> inheritedArguments(const Options& options) {
     std::vector<std::string> args;
     if (options.windowed) args.emplace_back("--windowed");
+    if (!options.gamepads) args.emplace_back("--no-gamepad");
     if (options.validation) args.emplace_back("--validation");
     if (options.showMissing) args.emplace_back("--show-missing");
     if (!options.addedLamps) args.emplace_back("--no-added-lamps");

@@ -769,7 +769,9 @@ int main(int argc, char** argv) {
         return EXIT_FAILED;
     }
     // UTA-0167: without gamepads the keyboard and mouse still fly the camera.
-    if (!SDL_InitSubSystem(SDL_INIT_GAMEPAD))
+    // UTA-0474: --no-gamepad leaves SDL's gamepad subsystem off, so the
+    // launcher and the viewer find none and are told of none.
+    if (options->gamepads && !SDL_InitSubSystem(SDL_INIT_GAMEPAD))
         std::cerr << "ut-ants: gamepads are off: " << SDL_GetError() << "\n";
     // UTA-0153. A fullscreen window with no display mode set is borderless at
     // the desktop's resolution (SDL_SetWindowFullscreenMode's NULL case), and

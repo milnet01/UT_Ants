@@ -54,6 +54,9 @@ struct Options {
     bool highStep = false;
     /// UTA-0153: a resizable window. Unset: borderless fullscreen at the desktop's size.
     bool windowed = false;
+    /// UTA-0474: false opens no gamepad, so a connected one cannot steer an
+    /// unattended run.
+    bool gamepads = true;
     /// UTA-0051: the quality tier. Unset: urender chooses from the device.
     std::optional<urender::Tier> tier;
     /// UTA-0357: the field of view to open at, in UT99's degrees (FlyCamera's

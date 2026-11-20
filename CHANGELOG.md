@@ -14,6 +14,10 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **`ut-ants --no-gamepad` opens no gamepad** (UTA-0474)
+  A controller left plugged in can no longer steer or fire in a run
+  nobody is watching. The map launcher passes the option on to the map
+  it opens.
 - **`ut-bench frame` says how much of a run another program disturbed** (UTA-0491)
   Each still view reports the share of its frames that took over twice
   its median, and its timings without them. The desktop's compositor or

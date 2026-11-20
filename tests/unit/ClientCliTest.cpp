@@ -43,6 +43,13 @@ TEST_CASE("UTA-0016: ut-ants takes an install and then a bundle", "[client]") {
     CHECK_FALSE(parsed.options->windowed);
     CHECK_FALSE(parsed.options->showMissing);
     CHECK_FALSE(parsed.options->help);
+    CHECK(parsed.options->gamepads);
+}
+
+TEST_CASE("UTA-0474: --no-gamepad asks for a run that opens no gamepad", "[client]") {
+    const Parsed parsed = parse({"/games/UT", "map.utab", "--no-gamepad"});
+    REQUIRE(parsed.options.has_value());
+    CHECK_FALSE(parsed.options->gamepads);
 }
 
 TEST_CASE("UTA-0177: --show-missing draws a material the bake could not make in magenta", "[client]") {
@@ -180,6 +187,7 @@ TEST_CASE("UTA-0422: the launcher's viewer inherits every option it is given", "
     given.mantle = true;
     given.highStep = true;
     given.windowed = true;
+    given.gamepads = false; // UTA-0474
     given.tier = uta::urender::Tier::Medium;
     given.fov = 72.5;
 
@@ -198,6 +206,7 @@ TEST_CASE("UTA-0422: the launcher's viewer inherits every option it is given", "
     CHECK(parsed.options->mantle);
     CHECK(parsed.options->highStep);
     CHECK(parsed.options->windowed);
+    CHECK_FALSE(parsed.options->gamepads);
     CHECK(parsed.options->tier == uta::urender::Tier::Medium);
     CHECK(parsed.options->fov == 72.5);
 

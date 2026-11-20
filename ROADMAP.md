@@ -21519,7 +21519,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-11-13.
   Lanes: ugame, apps.
 
-- 📋 [UTA-0474] **Headless viewer runs ignore any real gamepad.**
+- 🚧 [UTA-0474] **Headless viewer runs ignore any real gamepad.**
   The viewer opens every connected gamepad (apps/ut-ants/main.cpp's
   open, Launcher.cpp's handle), and headless checks run that same
   viewer (under Xvfb or a hidden Weston). A controller left connected
@@ -21529,6 +21529,12 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Shape to settle when picked up: a switch the headless runs pass (a
   flag or an environment variable) that skips SDL_INIT_GAMEPAD, with a
   check that a run so started opens none.
+  Built 2026-11-20: ut-ants --no-gamepad leaves SDL's gamepad subsystem
+  off, and the launcher passes it to the map it opens. Seen under a
+  hidden Weston with a controller at /dev/input/js0, 30 frames each: the
+  run's closing line read "1 gamepads open" without the option and "0
+  gamepads open" with it. No script in the repository starts the viewer
+  headless; sessions do, by hand, and pass the option themselves.
   **Layman:** A game controller left plugged in should not be able to steer or fire inside an automated check of the viewer.
   Kind: test.
   Source: user-request-2026-11-16.
