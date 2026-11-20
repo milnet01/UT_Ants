@@ -21428,10 +21428,15 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-11-11.
   Lanes: ugame.
 
-- 📋 [UTA-0467] **Weapon models in hand, muzzle flashes and weapon sounds.**
+- 🚧 [UTA-0467] **Weapon models in hand, muzzle flashes and weapon sounds.**
   UTA-0019 ships stand-in shapes and no sound (user, 2026-11-11).
   Needs animated meshes and the mixer (UTA-0056) first.
   (docs/specs/UTA-0019-weapon-set.md § 9).
+  2026-11-20: started on the sound part only. Models and muzzle
+  flashes still need animated meshes, which do not exist.
+  2026-11-20: spec for the sounds at
+  docs/specs/UTA-0467-weapon-sounds.md. It amends UTA-0019, UTA-0478 and
+  UTA-0480 where its § 11 says.
   **Layman:** Real guns on screen and the sounds they make, in place of the simple stand-in shapes.
   Kind: implement.
   Source: user-request-2026-11-11.
@@ -24283,6 +24288,15 @@ docs/standards/versioning-overrides.md. Closes S8.
   frameledger-v0.7.0.zip, SHA256
   e03ce95e1bf6fe81dbee7e0787c5c370edde98fb8acfe638c0d15c01f89ef1a2.
   Pin this one in place of 0.5.0.
+  frameledger, 2026-11-20 (its FLED-0040, the format promise, agreed
+  here): schema 1 freezes at its 0.8.0 and a writer is never made to
+  move. `resolution` is the size of the image handed on for display
+  after our own upscale, 3840x2160, and an offscreen run writes the
+  same; `render_scale` is compared as a number, so print one fixed text
+  for 2/3. Segment kinds are open. Our own header fields go in `extra`.
+  A UTF-8 byte-order mark is never written. frameledger wants one real
+  ut-bench file for its frozen set once this is built. The user keeps
+  this item behind UTA-0467 and UTA-0479 (2026-11-20).
   **Layman:** Save every frame's timings in the format shared with Vestige and DOOM Ants, so one analyser can find stutters and compare builds for all three games.
   Kind: feature.
   Source: user-request-2026-10-24.
