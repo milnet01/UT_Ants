@@ -12,13 +12,14 @@ item: `UTA-0249` (reconfirmed 2026-10-05; `UTA-0186` closed 2026-10-19). `UTA-00
 In 0.2.0, `UTA-0022` (the physical platforming assists) shipped
 2026-11-17, and `UTA-0056`, the audio mixer, the same day. `UTA-0478`,
 baking sounds into bundles, shipped 2026-11-19, as did `UTA-0476`,
-ExperiRays' scene exporter. `UTA-0480`'s ambient sounds were built the
-same day and it stays 🚧: whether its mover, trigger and pickup sounds
-wait for the code that moves, fires and takes them is the user's
-(`docs/specs/UTA-0480-map-sounds.md` § 3 item 1). Next, in 0.2.0:
-`UTA-0467` plays the weapons' sounds, and `UTA-0479` is a slow landing
-projection to find. `UTA-0482`, runs for frameledger, waits for a quiet
-machine.
+ExperiRays' scene exporter. `UTA-0480`, a map's ambient sounds, shipped
+2026-11-20. Mover, trigger and pickup sounds wait for the code that
+drives them (`UTA-0484`, `UTA-0485`, `UTA-0486`; user, 2026-11-20).
+Next, in 0.2.0: `UTA-0467` plays the weapons' sounds, and `UTA-0479` is
+a slow landing projection to find. `UTA-0482`, runs for frameledger,
+waits for the user to say the machine is free (2026-11-20). `UTA-0437`
+stays behind those although frameledger freezes its file format in its
+0.8.0 (user, 2026-11-20).
 **In flight:** `roadmap_query status:"in-progress"`. Not kept by hand.
 
 > `State:` is a formula, so no session owes it an edit and it cannot

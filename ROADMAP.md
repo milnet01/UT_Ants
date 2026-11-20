@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=483 -->
+<!-- ants-roadmap-id-high-water: UTA=486 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -21554,7 +21554,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: in-session-2026-11-19 UTA-0021 timing re-run.
   Lanes: umove.
 
-- 🚧 [UTA-0480] **Play a map's own sounds: ambient hums, movers, triggers and pickups, placed in the world.**
+- ✅ [UTA-0480] **Play a map's own sounds: ambient hums, placed in the world.**
   UTA-0478 bakes these sounds into the map's bundle and loads them
   into the client's sound bank; nothing plays them. This item reads each
   actor's sound properties from PLAC (AmbientSound with SoundRadius and
@@ -21576,7 +21576,11 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   matrix is green.
   Green on GitHub's matrix at cf1e103 (run 44568552437),
   2026-11-19. Actor's defaults 32, 128, 64 confirmed from Actor.uc.
-  **Layman:** Maps get their own sounds back: machinery hums, doors and lifts make noise, and each sound comes from where the thing is.
+  2026-11-20: the user answered spec § 3 item 1: mover, trigger and
+  pickup sounds wait for the code that drives them. Split to UTA-0484,
+  UTA-0485 and UTA-0486. This item is ambient sounds only, green on
+  GitHub's matrix at cf1e103. Still not heard by a person.
+  **Layman:** Maps get their background sounds back: machinery hums and the like, each heard from where the thing is.
   Kind: implement.
   Source: in-session-2026-11-19 UTA-0478 spec.
   Lanes: uaudio, ugame.
@@ -22204,6 +22208,39 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   Kind: feature.
   Source: user-request-2026-11-12.
   Lanes: ugame.
+
+- 📋 [UTA-0484] **Movers play their opening, moving and closing sounds.**
+  Split from UTA-0480 by the user, 2026-11-20
+  (docs/specs/UTA-0480-map-sounds.md § 3 item 1). Built with the code
+  that moves a mover, never before it: no item for that code exists on
+  2026-11-20. The sounds are already baked (UTA-0478), and uaudio::place
+  and the mixer's loops are there to use (UTA-0480).
+  **Layman:** Doors and lifts make their noises when they move, heard from where they are.
+  Kind: implement.
+  Source: user-request-2026-11-20.
+  Lanes: uaudio, ugame.
+
+- 📋 [UTA-0485] **Triggers and the actors they fire play their sounds.**
+  Split from UTA-0480 by the user, 2026-11-20
+  (docs/specs/UTA-0480-map-sounds.md § 3 item 1). Built with the code
+  that fires a trigger, never before it: no item for that code exists on
+  2026-11-20. The sounds are already baked (UTA-0478), and uaudio::place
+  is there to use (UTA-0480).
+  **Layman:** Switches, alarms and other triggered things make their sounds when set off.
+  Kind: implement.
+  Source: user-request-2026-11-20.
+  Lanes: uaudio, ugame.
+
+- 📋 [UTA-0486] **Pickups play their pickup and respawn sounds.**
+  Split from UTA-0480 by the user, 2026-11-20
+  (docs/specs/UTA-0480-map-sounds.md § 3 item 1). Built with the code
+  that takes a pickup, never before it: no item for that code exists on
+  2026-11-20. The sounds are already baked (UTA-0478), and uaudio::place
+  is there to use (UTA-0480).
+  **Layman:** Picking up a weapon, armour or health makes its sound, and so does its return.
+  Kind: implement.
+  Source: user-request-2026-11-20.
+  Lanes: uaudio, ugame.
 
 ## 0.4.0 — Monster Hunt
 

@@ -1,7 +1,7 @@
 <!-- ants-spec-format: 1 -->
 # UTA-0480 — play a map's ambient sounds, placed in the world
 
-**Status:** spec draft (2026-11-19). § 3 item 1 awaits the user. No review: contract reviews are cancelled for this project (`CLAUDE.md` § Contract reviews); building it is the reviewer.
+**Status:** built (2026-11-19); § 3 item 1 agreed with the user 2026-11-20. No review: contract reviews are cancelled for this project (`CLAUDE.md` § Contract reviews); building it is the reviewer.
 **Kind:** implement.
 **Source:** ROADMAP UTA-0480 (in-session-2026-11-19, UTA-0478's spec).
 **Blocked by:** UTA-0478 (shipped).  **Blocker for:** UTA-0467.  **Pairs with:** UTA-0056.
@@ -32,10 +32,9 @@ side, for this item and for UTA-0467.
    has no code that opens a door, fires a trigger or takes a pickup, and
    no roadmap item builds one, so nothing can say when those sounds start.
 
-## 3. Scope decisions
+## 3. Scope decisions (agreed with the user)
 
-1. **Proposed, awaiting the user (2026-11-19):** this item plays ambient
-   sounds only. A mover's, a trigger's and a pickup's sounds wait for the
+1. **This item plays ambient sounds only** (user, 2026-11-20). A mover's, a trigger's and a pickup's sounds wait for the
    code that moves, fires and takes them, and are built with it.
 2. **Loudness falls in a straight line with distance and is silent at the
    radius.** Epic's own note on Unreal's audio says sounds "diminish
@@ -273,7 +272,7 @@ first two's cases to loops.
 
 ## 9. Out of scope
 
-- A mover's, a trigger's and a pickup's sounds (§ 3 item 1) — deferred; not yet queued.
+- A mover's, a trigger's and a pickup's sounds (§ 3 item 1) — tracked by UTA-0484, UTA-0485 and UTA-0486.
 - One-shot sounds placed in the world, such as another player's shot — tracked by UTA-0467, which uses `place`.
 - Walls muffling sound, Doppler, reverb by zone — deferred; not yet queued.
 - Volume sliders — tracked by UTA-0120.
@@ -319,4 +318,4 @@ dependency, no new bundle section, no state on disk.
    `SoundVolume=128` and `SoundPitch=64` (read 2026-11-19). On
    DM-Deck16][, DM-Morpheus and DM-Liandri no emitter needed a fallback
    (hidden runs, the same day).
-3. **§ 3 item 1**, the user's.
+3. **§ 3 item 1.** Answered by the user, 2026-11-20: they wait.
