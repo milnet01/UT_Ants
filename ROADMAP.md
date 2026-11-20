@@ -21444,6 +21444,9 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   flashes, which need animated meshes that no item builds. Not built,
   by the spec's § 3 item 3: loading and cocking sounds, lock-on tones,
   a charge's tone, an empty click, flight sounds, bullet impacts.
+  The sounds are green on GitHub's matrix at 4867da2 (run
+  44692719671), 2026-11-20. Open with the user: whether the models and
+  muzzle flashes move to an item of their own so this one can close.
   **Layman:** Real guns on screen and the sounds they make, in place of the simple stand-in shapes.
   Kind: implement.
   Source: user-request-2026-11-11.
@@ -21551,7 +21554,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: in-session-2026-11-17 UTA-0056 spec.
   Lanes: ubake, ubundle, uaudio.
 
-- 🚧 [UTA-0479] **umove: one landing projection on DM-Deck16][ costs four times the average full horizon.**
+- ✅ [UTA-0479] **umove: one landing projection on DM-Deck16][ costs four times the average full horizon.**
   Measured 2026-11-19 at load average 2 to 4, three runs of
   uta_real_asset_tests "[timing]". A full horizon averages 0.38 to
   0.41 ms. Projection number 3 of the test's grid, a full horizon of
@@ -21577,6 +21580,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   there, and nothing else; no cast passes over a touching surface. All
   198 jumps land and none runs the whole horizon. 1.2 to 1.4 us a
   tick, slowest projection 0.54 to 0.58 ms. UTA-0487 is dropped.
+  Green on GitHub's matrix at 67d9278 (run 44700965781), 2026-11-20.
   **Layman:** In one spot on one map, working out where a jump will land takes four times longer than usual, which could cost frame rate while the player is in the air there.
   Kind: perf.
   Source: in-session-2026-11-19 UTA-0021 timing re-run.
