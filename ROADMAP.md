@@ -21621,7 +21621,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Lanes: uaudio, ugame.
   Blocked-by: UTA-0478.
 
-- 📋 [UTA-0482] **Quiet and loaded benchmark runs for frameledger's FLED-0072 noise limit.**
+- ✅ [UTA-0482] **Quiet and loaded benchmark runs for frameledger's FLED-0072 noise limit.**
   frameledger's ask of 2026-11-19, for one number: the limit above
   which a run is called noisy. One benchmark map and camera path we
   already use, camera moving; the same on a still view if cheap. 5
@@ -21649,6 +21649,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   shows the hitch filed as UTA-0490. Run files:
   /mnt/Emulators/.claude/Scratchpad/UT_Ants/u482/runs/, kept until
   frameledger has what it needs.
+  Green on GitHub's matrix at fb37cb6 (run 44723850893), 2026-11-20.
   **Layman:** Run our benchmark several times on a quiet and on a busy machine, so the sister tool can learn how much frame times wobble by themselves.
   Kind: perf.
   Source: frameledger-request-2026-11-19.
@@ -21679,7 +21680,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: in-session-2026-11-20 UTA-0479.
   Lanes: uworld.
 
-- 📋 [UTA-0488] **Two real-asset label lists name Monster Hunt maps the install no longer holds.**
+- ✅ [UTA-0488] **Two real-asset label lists name Monster Hunt maps the install no longer holds.**
   Found 2026-11-20 by an unfiltered uta_real_asset_tests run: 31 of 34
   cases passed. RealClothTest.cpp fails on tests/real/cloth-labels.txt's
   `MH-FNB-AllGoodThingsV0 rapBanner500-V`, and RealFlamesTest.cpp on
@@ -21697,6 +21698,8 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   above, and MH-UM-CastleArrggh and MH-Cityv4, both now -BP, which the
   first failure of each case had hidden. `uta_real_asset_tests
   "[cloth],[flames]"` failed 2 of 2 before and passes after.
+  Green on GitHub's matrix at f90e599 (run 44724425932), 2026-11-20. The
+  real-asset tier does not run there; its two cases passed here.
   **Layman:** Two test lists mention maps that are no longer in the game folder, so two checks fail until the lists are brought up to date.
   Kind: fix.
   Source: in-session-2026-11-20 real-asset tier run.
