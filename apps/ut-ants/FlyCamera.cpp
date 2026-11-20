@@ -22,6 +22,26 @@ constexpr int SLIDES = 3;
 /// may not settle both.
 constexpr int EASE_PASSES = 2;
 
+/// What stops the camera: the level's tree alone, or a world with its movers.
+/// Each answers the two questions a move asks.
+struct LevelWalls {
+    const ubundle::CollisionTree& level;
+    [[nodiscard]] uworld::Hit trace(const uworld::Vec3& a, const uworld::Vec3& b) const {
+        return uworld::trace(level, a, b);
+    }
+    [[nodiscard]] bool isEmpty(const uworld::Vec3& p) const { return uworld::isEmpty(level, p); }
+};
+
+struct WorldWalls {
+    const uworld::BodyWorld& world;
+    [[nodiscard]] uworld::Hit trace(const uworld::Vec3& a, const uworld::Vec3& b) const {
+        const uworld::BodyHit hit = world.trace(a, b);
+        return {hit.fraction, hit.normal};
+    }
+    /// A segment starting in solid says so, whatever its length.
+    [[nodiscard]] bool isEmpty(const uworld::Vec3& p) const { return !world.trace(p, p).startsInside; }
+};
+
 /// Where the camera goes to keep WALL_MARGIN from every surface near it, not
 /// only from the one its move ran into: a move gliding past a corner hits
 /// nothing, and ended beside the corner's face, close enough for the near
@@ -29,7 +49,8 @@ constexpr int EASE_PASSES = 2;
 /// plane; each pushes the camera out along its normal to WALL_MARGIN, one push
 /// per plane however many rays saw it. The push is traced, so easing out never
 /// enters solid either.
-uworld::Vec3 easedOut(const ubundle::CollisionTree& level, uworld::Vec3 at) noexcept {
+template <typename Walls>
+uworld::Vec3 easedOut(const Walls& walls, uworld::Vec3 at) noexcept {
     for (int pass = 0; pass < EASE_PASSES; ++pass) {
         struct Push {
             uworld::Vec3 normal;
@@ -43,7 +64,7 @@ uworld::Vec3 easedOut(const ubundle::CollisionTree& level, uworld::Vec3 at) noex
                     if (x == 0 && y == 0 && z == 0) continue;
                     uworld::Vec3 direction{double(x), double(y), double(z)};
                     direction = direction * (1 / uworld::length(direction));
-                    const uworld::Hit hit = uworld::trace(level, at, at + direction * FlyCamera::WALL_MARGIN);
+                    const uworld::Hit hit = walls.trace(at, at + direction * FlyCamera::WALL_MARGIN);
                     if (hit.fraction >= 1) continue;
                     // The gap to the plane square to it; `normal` faces the camera.
                     const double gap = hit.fraction * FlyCamera::WALL_MARGIN * -uworld::dot(direction, hit.normal);
@@ -67,10 +88,42 @@ uworld::Vec3 easedOut(const ubundle::CollisionTree& level, uworld::Vec3 at) noex
         // point on a plane can round to its solid side. That happens in
         // pockets narrower than twice WALL_MARGIN, where the pushes cannot all
         // be met.
-        const uworld::Hit blocked = uworld::trace(level, at, at + push);
+        const uworld::Hit blocked = walls.trace(at, at + push);
         at = at + push * (blocked.fraction >= 1 ? 1.0 : 0.5 * blocked.fraction);
     }
     return at;
+}
+
+/// `at` moved by `remaining` among `walls`: stopped WALL_MARGIN short of what
+/// it meets and slid along it, then eased out (UTA-0174). From inside solid
+/// the camera flies free, so it can leave (UTA-0158).
+template <typename Walls>
+uworld::Vec3 moved(const Walls& walls, uworld::Vec3 at, uworld::Vec3 remaining) noexcept {
+    if (!walls.isEmpty(at)) return at + remaining;
+    const uworld::Vec3 start = at;
+    for (int slide = 0; slide < SLIDES; ++slide) {
+        const double along = uworld::length(remaining);
+        if (along == 0) break;
+        const uworld::Hit hit = walls.trace(at, at + remaining);
+        if (hit.fraction >= 1) {
+            at = at + remaining;
+            break;
+        }
+        // Stop WALL_MARGIN short of the wall's plane, measured square to
+        // it, so a move meeting the wall at a shallow angle stops further
+        // back along itself. `normal` faces the camera.
+        const double approach = -uworld::dot(hit.normal, remaining) / along;
+        const double travel =
+            approach > 0 ? std::max(0.0, hit.fraction * along - FlyCamera::WALL_MARGIN / approach) : 0.0;
+        at = at + remaining * (travel / along);
+        // What is left of the move slides on, less its part into the wall.
+        const uworld::Vec3 left = remaining * (1 - hit.fraction);
+        remaining = left - hit.normal * uworld::dot(left, hit.normal);
+    }
+    at = easedOut(walls, at);
+    // UTA-0174: a move from empty space never ends in solid. Rounding on a
+    // plane could put it there, and a camera in solid flies free.
+    return walls.isEmpty(at) ? at : start;
 }
 
 } // namespace
@@ -84,7 +137,7 @@ FlyCamera::FlyCamera(std::array<float, 3> location, std::int32_t pitch, std::int
                         PITCH_LIMIT)),
       yaw_(yaw) {}
 
-void FlyCamera::update(const uinput::Frame& input, double seconds, const ubundle::CollisionTree* level) noexcept {
+uworld::Vec3 FlyCamera::turned(const uinput::Frame& input, double seconds) noexcept {
     // Wrapped so a long session's yaw stays a small number.
     yaw_ = std::fmod(yaw_ + input.lookRight, 65536.0);
     pitch_ = std::clamp(pitch_ + input.lookUp, -double(PITCH_LIMIT),
@@ -106,37 +159,21 @@ void FlyCamera::update(const uinput::Frame& input, double seconds, const ubundle
     }
 
     const double distance = SPEED * (input.walk ? FAST : 1) * seconds;
-    uworld::Vec3 at{location_[0], location_[1], location_[2]};
-    uworld::Vec3 remaining = uworld::Vec3{move[0], move[1], move[2]} * distance;
-    // UTA-0158: without a level, or from inside solid, the camera flies free.
-    if (level == nullptr || !uworld::isEmpty(*level, at)) {
-        at = at + remaining;
-    } else {
-        const uworld::Vec3 start = at;
-        for (int slide = 0; slide < SLIDES; ++slide) {
-            const double along = uworld::length(remaining);
-            if (along == 0) break;
-            const uworld::Hit hit = uworld::trace(*level, at, at + remaining);
-            if (hit.fraction >= 1) {
-                at = at + remaining;
-                break;
-            }
-            // Stop WALL_MARGIN short of the wall's plane, measured square to
-            // it, so a move meeting the wall at a shallow angle stops further
-            // back along itself. `normal` faces the camera.
-            const double approach = -uworld::dot(hit.normal, remaining) / along;
-            const double travel = approach > 0 ? std::max(0.0, hit.fraction * along - WALL_MARGIN / approach) : 0.0;
-            at = at + remaining * (travel / along);
-            // What is left of the move slides on, less its part into the wall.
-            const uworld::Vec3 left = remaining * (1 - hit.fraction);
-            remaining = left - hit.normal * uworld::dot(left, hit.normal);
-        }
-        at = easedOut(*level, at);
-        // UTA-0174: a move from empty space never ends in solid. Rounding on a
-        // plane could put it there, and a camera in solid flies free.
-        if (!uworld::isEmpty(*level, at)) at = start;
-    }
-    location_ = {at.x, at.y, at.z};
+    return uworld::Vec3{move[0], move[1], move[2]} * distance;
+}
+
+void FlyCamera::update(const uinput::Frame& input, double seconds, const ubundle::CollisionTree* level) noexcept {
+    const uworld::Vec3 wish = turned(input, seconds);
+    const uworld::Vec3 at{location_[0], location_[1], location_[2]};
+    // UTA-0158: without a level the camera flies through anything.
+    const uworld::Vec3 end = level == nullptr ? at + wish : moved(LevelWalls{*level}, at, wish);
+    location_ = {end.x, end.y, end.z};
+}
+
+void FlyCamera::update(const uinput::Frame& input, double seconds, const uworld::BodyWorld& world) noexcept {
+    const uworld::Vec3 end =
+        moved(WorldWalls{world}, {location_[0], location_[1], location_[2]}, turned(input, seconds));
+    location_ = {end.x, end.y, end.z};
 }
 
 void FlyCamera::setFov(double fov) noexcept {

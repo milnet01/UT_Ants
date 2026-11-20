@@ -306,8 +306,8 @@ struct Viewer {
     std::string mapName =
         !options.notes.empty() ? options.notes.stem().string() : options.bundle.stem().string();
 
-    // UTA-0017: walking, toggled with G; the level's bodies are built on the
-    // first walk.
+    // UTA-0017: walking, toggled with G. The level's bodies are built when
+    // the viewer opens, since the flying camera stops at them too (UTA-0342).
     std::optional<uta::uworld::BodyWorld> bodies;
     std::optional<Walker> walker;
     // UTA-0019 SS 4.8: the walker carries the stock weapons, read on the first
@@ -327,6 +327,9 @@ struct Viewer {
     /// UTA-0017: from flying to walking at the camera's place, or back to
     /// flying at the walker's eye.
     void toggleWalking();
+    /// Builds `bodies` from the bundle's collision, which it must have. False,
+    /// with the reason printed, where the bundle's collision refuses.
+    bool buildBodies();
 
     enum class After { Next, Quit, Failed };
     /// One event: a device's goes to `input`, a window's is handled here.
@@ -429,6 +432,18 @@ void Viewer::showOverlay() {
     overlayShown = std::move(text);
 }
 
+bool Viewer::buildBodies() {
+    // The level and its movers where the map places them; nothing moves them yet.
+    static const std::vector<uta::ubundle::MoverShape> none;
+    auto built = uta::uworld::BodyWorld::build(*bundle.collision, bundle.movers ? *bundle.movers : none);
+    if (!built) {
+        std::cerr << "ut-ants: no walking, and the camera stops at walls only: " << built.error().message() << "\n";
+        return false;
+    }
+    bodies = std::move(*built);
+    return true;
+}
+
 void Viewer::toggleWalking() {
     if (walker) {
         const uta::urender::Camera eye = walker->eye(start.camera.fov()).camera(config.width, config.height);
@@ -451,14 +466,7 @@ void Viewer::toggleWalking() {
             std::cerr << "ut-ants: this bundle has no collision to walk on\n";
             return;
         }
-        // The level and its movers where the map places them; nothing moves them yet.
-        static const std::vector<uta::ubundle::MoverShape> none;
-        auto built = uta::uworld::BodyWorld::build(*bundle.collision, bundle.movers ? *bundle.movers : none);
-        if (!built) {
-            std::cerr << "ut-ants: cannot walk here: " << built.error().message() << "\n";
-            return;
-        }
-        bodies = std::move(*built);
+        if (!buildBodies()) return;
     }
     const uta::urender::Camera view = start.camera.camera(config.width, config.height);
     if (!weapons) {
@@ -595,8 +603,11 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
     std::optional<uta::client::WeaponSounds> weaponSounds;
     FlyCamera& camera = viewer.start.camera;
     if (options.fov.has_value()) camera.setFov(*options.fov); // UTA-0357
-    // UTA-0158: the camera stops at the level's walls, as UT99's spectator does.
+    // UTA-0158: the camera stops at the level's walls, as UT99's spectator
+    // does; UTA-0342: and at its movers, which need the bodies' world. Where
+    // that cannot be built, the walls alone stop it.
     const uta::ubundle::CollisionTree* const level = bundle.collision ? &bundle.collision->level : nullptr;
+    if (bundle.collision) (void)viewer.buildBodies();
 
     std::uint64_t drawn = 0;
     Uint64 last = SDL_GetTicksNS();
@@ -647,7 +658,10 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
             }
             viewer.renderer.setShapes(shapes);
         } else {
-            camera.update(input, seconds, level);
+            if (viewer.bodies)
+                camera.update(input, seconds, *viewer.bodies);
+            else
+                camera.update(input, seconds, level);
             view = camera.camera(viewer.config.width, viewer.config.height);
         }
         view.flashlight = viewer.flashlight;

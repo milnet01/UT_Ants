@@ -6,6 +6,7 @@
 
 #include "ut-ants/FlyCamera.h"
 
+#include "BlockFixture.h"
 #include "PathFixture.h"
 #include "urender/Placement.h"
 
@@ -15,6 +16,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <vector>
 
 using Catch::Matchers::WithinAbs;
 using uta::client::FlyCamera;
@@ -172,6 +174,35 @@ TEST_CASE("UTA-0158: without a level the camera flies through walls as before", 
     free.update(Frame{.forward = 1}, 1);
     CHECK_THAT(free.camera(1920, 1080).location[0], WithinAbs(FlyCamera::SPEED, 1e-2));
     CHECK(walled.camera(1920, 1080).location[0] < free.camera(1920, 1080).location[0]);
+}
+
+TEST_CASE("UTA-0342: the camera stops at a mover as it does at a wall", "[client]") {
+    // The room, and a door across it at x = 300: 16 thick, wider and taller
+    // than the room, in its own pivot space.
+    uta::ubundle::Collision collision;
+    collision.level = room();
+    collision.movers.push_back(
+        {7, uta::test::blocks::solidBlocks({uta::test::blocks::box({-8, -600, -600}, {8, 600, 600})})});
+    uta::ubundle::MoverShape door;
+    door.exportIndex = 7;
+    door.location = {300, 0, 0};
+    const std::vector<uta::ubundle::MoverShape> movers{door};
+    auto world = uta::uworld::BodyWorld::build(collision, movers);
+    REQUIRE(world.has_value());
+
+    FlyCamera fly({0, 0, 0}, 0, 0); // facing +X, toward the door's face at 292
+    fly.update(Frame{.forward = 1}, 1, *world);
+    CHECK_THAT(fly.camera(1920, 1080).location[0], WithinAbs(292 - FlyCamera::WALL_MARGIN, 0.5));
+
+    // The level's tree alone does not hold the door: the wall at 500 stops it.
+    FlyCamera past({0, 0, 0}, 0, 0);
+    past.update(Frame{.forward = 1}, 1, &collision.level);
+    CHECK_THAT(past.camera(1920, 1080).location[0], WithinAbs(500 - FlyCamera::WALL_MARGIN, 0.5));
+
+    // Inside the door the camera flies free, as it does inside a wall.
+    FlyCamera inside({300, 0, 0}, 0, 0);
+    inside.update(Frame{.forward = 1}, 0.125, *world);
+    CHECK_THAT(inside.camera(1920, 1080).location[0], WithinAbs(400, 1e-2));
 }
 
 TEST_CASE("UTA-0016: pitch stops short of straight up and straight down", "[client]") {

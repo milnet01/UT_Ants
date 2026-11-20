@@ -1,7 +1,8 @@
 // A free-flying camera -- UTA-0016. The mouse looks and the keys fly, with no
 // gravity. Given the level's collision tree it stops at walls and slides along
-// them, as UT99's pre-match spectator does (UTA-0158); matching UT99's movement
-// is 0.2.0's.
+// them, as UT99's pre-match spectator does (UTA-0158). Given the bodies' world
+// it stops at doors and lifts too, which that spectator flies through
+// (UTA-0342).
 //
 // No SDL here, so the unit tests grade it against urender's own view.
 
@@ -10,6 +11,7 @@
 #include "ubundle/Bundle.h"
 #include "uinput/Input.h"
 #include "urender/Renderer.h"
+#include "uworld/BodyCollision.h"
 
 #include <array>
 #include <cstdint>
@@ -49,11 +51,18 @@ public:
     /// flies free, so it can leave. Without, it flies through anything.
     void update(const uinput::Frame& input, double seconds, const ubundle::CollisionTree* level = nullptr) noexcept;
 
+    /// UTA-0342: the same against `world`, so the camera also stops at a
+    /// mover -- a door, a lift -- where the world holds it.
+    void update(const uinput::Frame& input, double seconds, const uworld::BodyWorld& world) noexcept;
+
     /// The camera for a `width` by `height` view, which the field of view
     /// spans across; a view with no pixels is taken as 4:3.
     [[nodiscard]] urender::Camera camera(std::uint32_t width, std::uint32_t height) const noexcept;
 
 private:
+    /// Turns the view by `input`, and returns the move it asks for over `seconds`.
+    [[nodiscard]] uworld::Vec3 turned(const uinput::Frame& input, double seconds) noexcept;
+
     std::array<double, 3> location_{};
     double pitch_ = 0, yaw_ = 0; ///< UT angle units
     double fov_ = DEFAULT_FOV;

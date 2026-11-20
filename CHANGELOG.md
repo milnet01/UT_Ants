@@ -154,6 +154,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **The flying camera stops at doors and lifts** (UTA-0342)
+  In the map viewer the camera stopped at walls and flew straight
+  through a closed door or a lift. It now stops at them as it does at a
+  wall. On AS-Frigate a door it used to cross now holds it on both
+  sides.
 - **A jump against an edge no longer leaves the player hanging in the air** (UTA-0479)
   A body that brushed an edge while jumping could creep to within a
   hair of it and then stop for good, neither falling nor landing. It
