@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=487 -->
+<!-- ants-roadmap-id-high-water: UTA=488 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -21667,6 +21667,24 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: fix.
   Source: in-session-2026-11-20 UTA-0479.
   Lanes: uworld.
+
+- 📋 [UTA-0488] **Two real-asset label lists name Monster Hunt maps the install no longer holds.**
+  Found 2026-11-20 by an unfiltered uta_real_asset_tests run: 31 of 34
+  cases passed. RealClothTest.cpp fails on tests/real/cloth-labels.txt's
+  `MH-FNB-AllGoodThingsV0 rapBanner500-V`, and RealFlamesTest.cpp on
+  tests/real/flame-labels.txt's `MH-TheFifthVortexV31 EmeraldFire1`:
+  neither package is in the install's Maps now. Its neighbours are:
+  MH-FNB-AllGoodThingsV0-WALL, MH-TheFifthVortexV31-LIFT and
+  MH-TheFifthVortexV33. So the install changed under the lists; no code
+  of that day touches cloth or flames. Ask UT_MonsterHunt whether it
+  removed or renamed the two maps, then drop or rename the two lines.
+  The third failure of that run was the weapon case with no
+  UTA_WEAPON_RECORDINGS; it passes against
+  Scratchpad/UT_Ants/weapons/r3.
+  **Layman:** Two test lists mention maps that are no longer in the game folder, so two checks fail until the lists are brought up to date.
+  Kind: fix.
+  Source: in-session-2026-11-20 real-asset tier run.
+  Lanes: tests.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
