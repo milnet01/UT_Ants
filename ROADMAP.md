@@ -21692,6 +21692,11 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   The third failure of that run was the weapon case with no
   UTA_WEAPON_RECORDINGS; it passes against
   Scratchpad/UT_Ants/weapons/r3.
+  2026-11-20, later: fixed in 7d091da without UT_MonsterHunt's answer,
+  from the install itself. Four maps, not two, were renamed: the two
+  above, and MH-UM-CastleArrggh and MH-Cityv4, both now -BP, which the
+  first failure of each case had hidden. `uta_real_asset_tests
+  "[cloth],[flames]"` failed 2 of 2 before and passes after.
   **Layman:** Two test lists mention maps that are no longer in the game folder, so two checks fail until the lists are brought up to date.
   Kind: fix.
   Source: in-session-2026-11-20 real-asset tier run.
