@@ -21714,7 +21714,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-11-11.
   Lanes: ugame, urender.
 
-- 📋 [UTA-0490] **ut-bench frame: about one frame in a hundred takes 50 to 57 ms where the rest take 6 to 7.**
+- ✅ [UTA-0490] **ut-bench frame: about one frame in a hundred takes 50 to 57 ms where the rest take 6 to 7.**
   Seen 2026-11-20 in UTA-0482's eight runs: CTF-Command, High,
   3840x2160 at render scale 2/3, RX 6600. Each run's 99th percentile is
   51 to 57 ms and its slowest frame 84 to 106 ms, against a median of
@@ -21740,7 +21740,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   magnifier off. Probe patch and scripts:
   /mnt/Emulators/.claude/Scratchpad/UT_Ants/u482/u490/ (probe.diff,
   watch.py, match.py, kwin.py).
-  2026-11-20, 16:20: the magnifier effect was found unloaded (not by
+  2026-11-20, about 16:00: the magnifier effect was found unloaded (not by
   this session). gpu_busy_percent fell to a mean of 7 over 5 s, and a
   run then had no frame over 15.2 ms in 4100 (99th 10.0 still, 10.6
   moving; machine load 2.7). Confound: the load was low too, and the
@@ -21749,12 +21749,14 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   come when windows change, which busy sessions' terminals cause.
   ut-bench reporting a run's disturbed share is UTA-0491. How to see
   who holds the GPU: know_how topic timed-gpu-run-disturbers.
+  Closed 2026-11-20: cause found, no renderer defect. Which KWin effect
+  costs most stays untested.
   **Layman:** Every so often one frame takes eight times as long as the others, even standing still; find out why.
   Kind: investigate.
   Source: in-session-2026-11-20.
   Lanes: urender, ut-bench.
 
-- 🚧 [UTA-0491] **ut-bench frame says what share of a run's still frames another program disturbed, and their timings without them.**
+- ✅ [UTA-0491] **ut-bench frame says what share of a run's still frames another program disturbed, and their timings without them.**
   From UTA-0490: KWin and other GPU users stretch a share of frames to
   20 to 60 ms, and a run's 99th percentile then reads as a renderer
   fault. A still view draws one frame over and over, so a frame taking
@@ -21762,6 +21764,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   and each still view's spread without those frames. Moving frames keep
   their whole figures: a real spike there must stay visible. Amend
   UTA-0129.
+  Shipped 2026-11-20 at a30d7da, green on GitHub's matrix.
   **Layman:** The benchmark tells you when the desktop or another program got in its way, so a slow reading is not mistaken for a fault in the game.
   Kind: enhancement.
   Source: user-request-2026-11-20.
