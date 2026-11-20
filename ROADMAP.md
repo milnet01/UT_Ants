@@ -20927,7 +20927,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: feature.
   Source: in-session-2026-10-09.
 
-- 🚧 [UTA-0342] **ut-ants: the viewer's fly camera passes through some objects, on AS-Frigate a stone block and a steel arch.**
+- ✅ [UTA-0342] **ut-ants: the viewer's fly camera passes through some objects, on AS-Frigate a stone block and a steel arch.**
   The user, 2026-10-10, from a viewer F12 capture: "the camera going
   through objects". Capture: ~/.local/state/ut-ants/map-captures/
   AS-Frigate-20261010-163531 (camera 218.91 -38.52 952.00 1433 -27415
@@ -20953,6 +20953,8 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Not covered: props and added lamps have no collision (UTA-0377), and a
   camera that starts inside solid still flies free, by UTA-0158.
   Probes: /mnt/Emulators/.claude/Scratchpad/UT_Ants/u342/.
+  Shipped 2026-11-20 at 1411fa9; GitHub's matrix green (run 44774672671:
+  GCC 14, Clang 19, MSVC).
   **Layman:** In the map viewer the camera can float through some solid-looking objects instead of stopping at them.
   Kind: investigate.
   Source: user-request-2026-10-10.
