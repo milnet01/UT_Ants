@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=491 -->
+<!-- ants-roadmap-id-high-water: UTA=492 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -21769,6 +21769,40 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: enhancement.
   Source: user-request-2026-11-20.
   Lanes: ut-bench.
+
+- 📋 [UTA-0492] **The game stutters while the desktop magnifier is on; find which KWin effect costs it and what the game can do.**
+  UTA-0490 found the cause is KWin on the GPU, not the renderer, and left
+  open which effect costs most. On 2026-11-20 the user switched the
+  magnifier off for over an hour for this test; that session took one run
+  (no frame over 15.2 ms in 4100, machine load 2.7) and did not separate
+  the effects, so the hour was not used.
+  Owed, in one cc-job at equal machine load, other sessions paused
+  (know_how timed-gpu-run-disturbers): ut-bench frame with magnifier on
+  and off, each with blur on and off; read each run's disturbed: line.
+  Then: can the game avoid the cost, such as by a direct-scanout
+  fullscreen surface that KWin does not composite or magnify.
+  The magnifier is the user's to switch; never switch it without asking.
+  Scripts: /mnt/Emulators/.claude/Scratchpad/UT_Ants/u482/u490/.
+  User, 2026-11-20: with the magnifier off they cannot use the PC, so
+  the magnifier stays on. Test blur on against blur off with the
+  magnifier on; a magnifier-off run needs the user to offer it.
+  Measured 2026-11-20, 18:02, magnifier on throughout, blur switched
+  off and on in turn in one job (CTF-Command, High, 3840x2160 at scale
+  0.6667, 2000 still and 2100 moving frames a run, ut-bench at 33cb5de,
+  four other sessions paused). Share of still frames disturbed, with the
+  machine load at each run's start: blur off 9.2% (11.6), 1.7% (8.9),
+  0.1% (5.5); blur on 7.0% (12.7), 15.8% (8.7), 3.3% (3.5). The load
+  fell through the job and the shares overlap, so blur shows no clear
+  effect. With no benchmark running, gpu_busy_percent over 10 s read a
+  mean of 73 and 89 with blur off, 88 and 83 with blur on (load 2.1 to
+  2.4): the card stays busy with blur off. UTA-0490 read a mean of 7
+  with the magnifier unloaded. Reading: the magnifier is the cost, blur
+  is not. Not yet measured: magnifier on against off in one job.
+  Run script and outputs: /mnt/Emulators/.claude/Scratchpad/UT_Ants/u492/.
+  **Layman:** The game hitches when the screen magnifier is switched on; find out exactly why and whether the game can avoid it.
+  Kind: investigate.
+  Source: user-request-2026-11-20.
+  Lanes: urender, ut-bench.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
