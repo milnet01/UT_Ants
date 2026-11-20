@@ -14,6 +14,9 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **`ut-bench frame` reports the 25th and 75th percentiles of frame time** (UTA-0482)
+  Its JSON carries them beside the median and the 99th percentile, for
+  each view, each move and both totals.
 - **Weapons make their sounds** (UTA-0467)
   Each stock weapon is now heard: its shot, the sound of bringing it up,
   a hum while the pulse gun, the minigun or the chainsaw is held, the

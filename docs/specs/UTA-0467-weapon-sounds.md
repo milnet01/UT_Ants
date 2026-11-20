@@ -389,7 +389,7 @@ public:
 | INV-11 | Partial: `tests/unit/WeaponSetTest.cpp` holds the census; `tests/real/RealSoundsTest.cpp` holds the paths and runs only with the install, so GitHub's matrix does not run it |
 | § 3 item 5: 1600 units matches UT99 | **nothing** — § 15 item 1 |
 | § 4.2: each stock sound is the one the original plays for that event | **nothing** — each line cites its class default or script; a wrong but existing path passes INV-11 |
-| § 4.5: a sound is heard by a person | **nothing** — § 7's recipe, by ear; not yet done |
+| § 4.5: a sound is heard by a person | **nothing** — § 7's recipe, by ear; the user did it 2026-11-20 and found the sounds good |
 | § 4.5: `main.cpp` passes the cues and bodies each frame | **nothing** — one hidden run walked, fired and switched without a fault (2026-11-20); it cannot hear |
 
 ## 11. Cross-doc impact

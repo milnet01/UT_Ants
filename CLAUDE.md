@@ -15,13 +15,12 @@ baking sounds into bundles, shipped 2026-11-19, as did `UTA-0476`,
 ExperiRays' scene exporter. `UTA-0480`, a map's ambient sounds, shipped
 2026-11-20. Mover, trigger and pickup sounds wait for the code that
 drives them (`UTA-0484`, `UTA-0485`, `UTA-0486`; user, 2026-11-20).
-`UTA-0467`'s weapon sounds were built 2026-11-20 and no person has
-heard them yet; its models and muzzle flashes need animated meshes,
-which no item builds. `UTA-0479`, a body hanging in the air against
-an edge, was fixed 2026-11-20. `UTA-0482`, runs for frameledger,
-waits for the user to say the machine is free (2026-11-20). `UTA-0437`
-stays behind those although frameledger freezes its file format in its
-0.8.0 (user, 2026-11-20).
+`UTA-0467`, weapon sounds, shipped 2026-11-20; the user heard them.
+Weapon models and muzzle flashes are `UTA-0489`, which needs animated
+meshes that no item builds. `UTA-0479`, a body hanging in the air
+against an edge, was fixed 2026-11-20. `UTA-0482`'s runs went to
+frameledger 2026-11-20. `UTA-0437` stays behind those although
+frameledger freezes its file format in its 0.8.0 (user, 2026-11-20).
 **In flight:** `roadmap_query status:"in-progress"`. Not kept by hand.
 
 > `State:` is a formula, so no session owes it an edit and it cannot

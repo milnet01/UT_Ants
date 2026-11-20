@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=488 -->
+<!-- ants-roadmap-id-high-water: UTA=490 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -21428,7 +21428,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-11-11.
   Lanes: ugame.
 
-- 🚧 [UTA-0467] **Weapon models in hand, muzzle flashes and weapon sounds.**
+- ✅ [UTA-0467] **Weapon sounds.**
   UTA-0019 ships stand-in shapes and no sound (user, 2026-11-11).
   Needs animated meshes and the mixer (UTA-0056) first.
   (docs/specs/UTA-0019-weapon-set.md § 9).
@@ -21447,10 +21447,13 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   The sounds are green on GitHub's matrix at 4867da2 (run
   44692719671), 2026-11-20. Open with the user: whether the models and
   muzzle flashes move to an item of their own so this one can close.
-  **Layman:** Real guns on screen and the sounds they make, in place of the simple stand-in shapes.
+  2026-11-20: the user listened to the weapon sounds and found them
+  good (spec § 7's by-ear check). Models and muzzle flashes moved to
+  UTA-0489 (user). Shipped on the matrix run recorded above (4867da2).
+  **Layman:** The sounds the guns make: firing, bringing one up, a hum while held, and the blast where a shot lands.
   Kind: implement.
   Source: user-request-2026-11-11.
-  Lanes: ugame, urender, uaudio.
+  Lanes: ugame, uaudio.
 
 - 📋 [UTA-0468] **The stock weapons' remaining behaviours: rocket lock-on, double Enforcers, the hammer turning projectiles away.**
   Left out of UTA-0019 to keep that item one size
@@ -21638,6 +21641,14 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   frames are in the figures, and whether ut-bench's frame time is the
   span UTA-0437 will write as frame/wall. Does not wait for UTA-0437.
   Run when the machine is quiet.
+  2026-11-20: run and sent to frameledger. 5 quiet and 3 loaded runs on
+  CTF-Command, High, 3840x2160 at render scale 2/3. Moving median 6.8
+  to 7.2 ms quiet and 8.0 to 9.7 ms loaded. ut-bench gained p25 and p75
+  for it (b7ee2eb; UTA-0129 amended). The quiet runs began at a load of
+  2.5 to 6, and another session compiled during the third. Every run
+  shows the hitch filed as UTA-0490. Run files:
+  /mnt/Emulators/.claude/Scratchpad/UT_Ants/u482/runs/, kept until
+  frameledger has what it needs.
   **Layman:** Run our benchmark several times on a quiet and on a busy machine, so the sister tool can learn how much frame times wobble by themselves.
   Kind: perf.
   Source: frameledger-request-2026-11-19.
@@ -21685,6 +21696,29 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: fix.
   Source: in-session-2026-11-20 real-asset tier run.
   Lanes: tests.
+
+- 📋 [UTA-0489] **Weapon models in hand and muzzle flashes.**
+  Split from UTA-0467 on 2026-11-20 (user), so its sounds could close.
+  UTA-0019 ships stand-in shapes (docs/specs/UTA-0019-weapon-set.md § 9).
+  Needs animated meshes first, which no item builds yet.
+  **Layman:** Real guns on screen and a flash when they fire, in place of the simple stand-in shapes.
+  Kind: implement.
+  Source: user-request-2026-11-11.
+  Lanes: ugame, urender.
+
+- 📋 [UTA-0490] **ut-bench frame: about one frame in a hundred takes 50 to 57 ms where the rest take 6 to 7.**
+  Seen 2026-11-20 in UTA-0482's eight runs: CTF-Command, High,
+  3840x2160 at render scale 2/3, RX 6600. Each run's 99th percentile is
+  51 to 57 ms and its slowest frame 84 to 106 ms, against a median of
+  6.4 to 7.2 ms quiet. Still views show it as much as moves, with no
+  shadow tiles redrawn, and quiet runs as much as loaded ones. Cause
+  unknown. The desktop shared the GPU throughout, which is untested as a
+  cause. Per-view figures:
+  /mnt/Emulators/.claude/Scratchpad/UT_Ants/u482/runs/*.json.
+  **Layman:** Every so often one frame takes eight times as long as the others, even standing still; find out why.
+  Kind: investigate.
+  Source: in-session-2026-11-20.
+  Lanes: urender, ut-bench.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
