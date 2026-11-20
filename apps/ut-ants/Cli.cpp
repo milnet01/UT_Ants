@@ -19,11 +19,12 @@ void usage(std::ostream& err) {
            "               [--show-missing] [--no-added-lamps] [--fov <degrees>] [--notes <file>]\n"
            "               [--no-landing-marker] [--no-take-off-pitch]\n"
            "               [--coyote-time] [--mantle] [--high-step] [--no-gamepad]\n"
+           "               [--no-landing-damage]\n"
            "               [--baker-version <text>] [--sounds <bundle>] <install> <bundle>\n"
            "       ut-ants [--tier <low|medium|high|ultra>] [--validation] [--windowed] [--show-missing]\n"
            "               [--no-added-lamps] [--fov <degrees>] [--no-landing-marker]\n"
            "               [--no-take-off-pitch] [--coyote-time] [--mantle] [--high-step]\n"
-           "               [--no-gamepad] <install>\n"
+           "               [--no-gamepad] [--no-landing-damage] <install>\n"
            "       ut-ants --help\n"
            "\n"
            "Given only <install>, opens the map launcher: every playable map in the\n"
@@ -89,6 +90,8 @@ void usage(std::ostream& err) {
            "on: --coyote-time lets a jump start just after walking off a ledge;\n"
            "--mantle climbs onto a ledge in reach while you hold jump and push into\n"
            "it; --high-step walks up steps higher than UT99's.\n"
+           "--no-landing-damage lets you land from any height unhurt; UT99 hurts\n"
+           "you for a hard landing, and kills you for a very hard one.\n"
            "--tier picks the quality tier; without it the game picks one from the\n"
            "graphics card.\n"
            "--fov opens at that field of view, in degrees across the screen, as\n"
@@ -121,6 +124,8 @@ std::optional<Options> parseArguments(std::span<const std::string_view> args, st
             options.mantle = true;
         } else if (arg == "--high-step") {
             options.highStep = true;
+        } else if (arg == "--no-landing-damage") {
+            options.landingDamage = false;
         } else if (arg == "--windowed") {
             options.windowed = true;
         } else if (arg == "--no-gamepad") {
@@ -255,6 +260,7 @@ std::vector<std::string> inheritedArguments(const Options& options) {
     if (options.coyoteTime) args.emplace_back("--coyote-time");
     if (options.mantle) args.emplace_back("--mantle");
     if (options.highStep) args.emplace_back("--high-step");
+    if (!options.landingDamage) args.emplace_back("--no-landing-damage");
     if (options.fov.has_value()) {
         args.emplace_back("--fov");
         args.push_back(std::format("{}", *options.fov)); // the shortest text that reads back exactly

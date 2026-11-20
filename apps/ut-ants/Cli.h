@@ -52,6 +52,8 @@ struct Options {
     bool coyoteTime = false;
     bool mantle = false;
     bool highStep = false;
+    /// UTA-0108: a hard landing hurts, as in UT99, unless turned off.
+    bool landingDamage = true;
     /// UTA-0153: a resizable window. Unset: borderless fullscreen at the desktop's size.
     bool windowed = false;
     /// UTA-0474: false opens no gamepad, so a connected one cannot steer an

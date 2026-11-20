@@ -122,6 +122,9 @@ public:
         bool highStep = false;
     };
     void setPhysicalAssists(PhysicalAssists assists) noexcept;
+    /// UTA-0108: whether a hard landing hurts; on by default, and a server's
+    /// setting as the assists are.
+    void setLandingDamage(bool on) noexcept { rules_.landingDamage = on; }
     [[nodiscard]] const uworld::MoveRules& rules() const noexcept { return rules_; }
     /// The drawn view's horizontal field of view and width over height,
     /// which the take-off pitch frames the landing in.

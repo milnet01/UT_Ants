@@ -1531,7 +1531,7 @@ TEST_CASE("INV-5: a scripted fight is the same at every frame rate and on every 
     }
     INFO("final hash " << reference.back());
     // UTA-0020: the script opens the wheel. UTA-0022: the hash covers coyoteLeft and mantleTo.
-    CHECK(reference.back() == 10514489237897718501u);
+    CHECK(reference.back() == 10680685210560859493u);
 }
 
 // UTA-0020: the weapon wheel's time scale, and what it lists and picks.
@@ -1991,4 +1991,72 @@ TEST_CASE("UTA-0467 INV-6: a mode fired shot after shot loops from its first sho
     Game alt = duel(set, "pulse-gun", 600);
     hold(world, set, alt, 5, true);
     CHECK(loopingMode(set, alt.bodies[0]) == 1);
+}
+
+namespace {
+
+/// A lone body dropped from `height` above the arena's floor and ticked
+/// until it lands: the vertical velocity it landed with.
+double dropped(const BodyWorld& world, const MoveRules& rules, Game& game, double height) {
+    game.bodies.push_back(bodyAt(stock(), {0, 0, STANDING + height}, 0));
+    game.bodies[0].move.physics = uta::uworld::Physics::Falling;
+    const std::vector<MoveCommand> idle(1);
+    for (int k = 0; k < 1000; ++k) {
+        tick(world, stock(), rules, game, idle, DT);
+        if (game.bodies[0].move.landedZ != 0) return game.bodies[0].move.landedZ;
+    }
+    FAIL("the body never landed");
+    return 0;
+}
+
+} // namespace
+
+TEST_CASE("UTA-0108: a landing costs what Pawn.TakeFallingDamage takes", "[ugame][game]") {
+    const double jumpZ = 357.5; // so nothing down to 1107.5, and death past 2007.5
+    CHECK(landingDamage(0, jumpZ) == 0);
+    CHECK(landingDamage(300, jumpZ) == 0);
+    CHECK(landingDamage(-1107.4, jumpZ) == 0);
+    CHECK(landingDamage(-1107.5, jumpZ) == 7); // 0.15 of 50, whole
+    CHECK(landingDamage(-2007.5, jumpZ) == 142);
+    CHECK(landingDamage(-2007.6, jumpZ) == LANDING_DEATH_DAMAGE);
+    CHECK(landingDamage(-1000, 200) == 15); // the thresholds move with the jump
+}
+
+TEST_CASE("UTA-0108: a hard landing hurts once, and not at all with the rule off", "[ugame][game]") {
+    const BodyWorld world = arena();
+    Game hurt;
+    const double landedZ = dropped(world, RULES, hurt, 1000);
+    const double cost = landingDamage(landedZ, RULES.jumpZ);
+    REQUIRE(cost > 0);
+    REQUIRE(cost < START_HEALTH);
+    CHECK(hurt.bodies[0].health == START_HEALTH - cost);
+    const std::vector<MoveCommand> idle(1);
+    tick(world, stock(), RULES, hurt, idle, DT);
+    CHECK(hurt.bodies[0].health == START_HEALTH - cost);
+
+    MoveRules spared = RULES;
+    spared.landingDamage = false;
+    Game unhurt;
+    CHECK(dropped(world, spared, unhurt, 1000) == landedZ);
+    CHECK(unhurt.bodies[0].health == START_HEALTH);
+}
+
+TEST_CASE("UTA-0108: a very hard landing kills, and the rule off spares it", "[ugame][game]") {
+    const BodyWorld world = arena();
+    Game game;
+    REQUIRE(dropped(world, RULES, game, 2600) < -1650 - RULES.jumpZ);
+    CHECK_FALSE(game.bodies[0].alive());
+
+    MoveRules spared = RULES;
+    spared.landingDamage = false;
+    Game other;
+    (void)dropped(world, spared, other, 2600);
+    CHECK(other.bodies[0].health == START_HEALTH);
+}
+
+TEST_CASE("UTA-0108: a soft landing costs nothing", "[ugame][game]") {
+    const BodyWorld world = arena();
+    Game game;
+    REQUIRE(dropped(world, RULES, game, 300) < 0);
+    CHECK(game.bodies[0].health == START_HEALTH);
 }

@@ -60,6 +60,9 @@ struct MoveState {
     /// may still jump as if from the floor.
     double coyoteLeft = 0;
     Vec3 mantleTo{}; ///< UTA-0022: where a Mantling body stands when the climb ends
+    /// UTA-0108: the vertical velocity a fall ended with, on the tick it
+    /// landed; 0 on every other tick. Taken before a dodge's landing slows it.
+    double landedZ = 0;
 };
 
 /// The movement constants. The defaults are the player's, each from the
@@ -94,6 +97,9 @@ struct MoveRules {
     /// Added to maxStepHeight when walking up a step. maxStepHeight is the
     /// original's own, always on; stepping down keeps it.
     double extraStepHeight = 0;
+    /// UTA-0108: whether a hard landing hurts (ugame::landingDamage). On, as
+    /// in the original, by default; a server turns it off.
+    bool landingDamage = true;
 };
 
 /// UTA-0022: the values the assists are turned on at.

@@ -462,3 +462,25 @@ TEST_CASE("UTA-0017 INV-7: a fixed script over a level with a turning mover hash
     // crept right up to now steps back to SKIN and slides on.
     CHECK(hash == 4271611235578567045ULL);
 }
+
+TEST_CASE("UTA-0108: landedZ is the fall's last vertical velocity, on the landing tick only") {
+    const BodyWorld world = levelOf({});
+    MoveState s = standingAt(0, 0);
+    s.location.z += 400;
+    s.physics = Physics::Falling;
+    s.dodge = DodgeState::Active; // so the landing slows it; landedZ is taken first
+    for (int k = 0; k < 200 && s.physics == Physics::Falling; ++k) {
+        const double before = s.velocity.z;
+        s = tick(world, BODY, RULES, s, {}, DT);
+        if (s.physics == Physics::Falling) {
+            CHECK(s.landedZ == 0);
+        } else {
+            CHECK(s.landedZ == before + RULES.gravityZ * DT);
+            CHECK(s.velocity.z == s.landedZ * RULES.dodgeLandingKeep);
+        }
+    }
+    REQUIRE(s.physics == Physics::Walking);
+    REQUIRE(s.landedZ < 0);
+    s = tick(world, BODY, RULES, s, {}, DT);
+    CHECK(s.landedZ == 0);
+}

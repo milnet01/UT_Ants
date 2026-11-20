@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=492 -->
+<!-- ants-roadmap-id-high-water: UTA=493 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -19127,7 +19127,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-09-10.
   Lanes: tools.
 
-- 📋 [UTA-0108] **A rule setting that turns off landing damage, while leaving the world still kills.**
+- 🚧 [UTA-0108] **A rule setting that turns off landing damage, while leaving the world still kills.**
   The user's requirement (2026-09-10): a setting that turns off landing
   damage, the harm from hitting the ground too fast. Falling off the edge
   of the world must still kill.
@@ -21823,10 +21823,53 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   with the magnifier unloaded. Reading: the magnifier is the cost, blur
   is not. Not yet measured: magnifier on against off in one job.
   Run script and outputs: /mnt/Emulators/.claude/Scratchpad/UT_Ants/u492/.
+  Measured 2026-11-20, 19:22, on the user's "go": magnifier unloaded
+  and loaded in turn in one job, off, on, off, on (same map, tier, size,
+  scale and frame counts as the 18:02 job; quiet-machine hold, settled
+  to load 2.8, GPU lock held). The magnifier and blur were both already
+  unloaded when the job started, and were left so. Loaded, the
+  magnifier was listed in activeEffects; its zoom level was not read.
+  Share of still frames disturbed, with the load at each run's start:
+  off 0.0% (2.7), on 0.1% (3.6), off 0.0% (2.7), on 0.1% (2.2). The
+  four views' 99th percentiles, ms: off 11.1 8.8 9.6 10.9 and 11.1 8.8
+  9.6 10.9; on 12.6 10.0 10.5 11.9 and 12.3 9.9 10.7 11.9. With no
+  benchmark running, gpu_busy_percent over 5 s read 14 and 8 unloaded,
+  10 and 9 loaded.
+  Reading: on a still, untouched desktop the loaded magnifier costs
+  about 1.2 ms at the 99th percentile and disturbs almost no frame. It
+  did not reproduce the busy card (73 to 89) of 18:02, when the user
+  was at the machine. So the magnifier alone is not the cost. Untested:
+  the magnifier at the user's 2.85 times with the screen being
+  redrawn (pointer moving, windows updating), which is what the 18:02
+  readings had and this run lacked.
+  Run script and outputs: u492/run-mag.sh, u492/mag-*.json.
   **Layman:** The game hitches when the screen magnifier is switched on; find out exactly why and whether the game can avoid it.
   Kind: investigate.
   Source: user-request-2026-11-20.
   Lanes: urender, ut-bench.
+
+- 📋 [UTA-0493] **Leaving the world kills: a body outside the level dies, and a kill zone hurts.**
+  Found building UTA-0108 (2026-11-20): nothing in src/ kills a body
+  that leaves the level, and no zone hurts one. A body that falls
+  through a hole falls for ever.
+  UTA-0108's requirement binds this item: its setting,
+  MoveRules::landingDamage, is read at one place, the landing in
+  ugame's tick. A death here must not pass through that place or read
+  that flag, and a test must show a body out of the world dying with
+  the flag off.
+  UTA-0108's body holds UT_MonsterHunt's survey: UT99 kills a pawn
+  outside every zone by Pawn.FellOutOfWorld, about 5 s on, through no
+  damage hook; a kill zone seen there (LavaZone) killed by its own burn
+  damage, not at once.
+  Needs deciding first: what the bundle holds of zones (the zone a
+  point is in, a zone's damage), since BodyWorld has no such query.
+  Also from UTA-0108: monsters keep landing damage while players and
+  bots are spared. ugame::tick takes one MoveRules for every body, so
+  the first monster needs rules per body kind.
+  **Layman:** Falling out of the map, or into lava, kills you, whatever the fall-damage setting says.
+  Kind: feature.
+  Source: in-session-2026-11-20.
+  Lanes: uworld, ugame, ubundle.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 

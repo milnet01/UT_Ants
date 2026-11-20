@@ -499,6 +499,12 @@ void land(Tick& tick) {
 
 } // namespace
 
+double landingDamage(double landedZ, double jumpZ) {
+    if (landedZ > -750 - jumpZ) return 0;
+    if (landedZ < -1650 - jumpZ) return LANDING_DEATH_DAMAGE;
+    return std::trunc(-0.15 * (landedZ + 700 + jumpZ));
+}
+
 Body bodyAt(const WeaponSet& set, const Vec3& location, std::int32_t yaw) {
     Body body;
     body.move.location = location;
@@ -537,6 +543,7 @@ void tick(const uworld::BodyWorld& world, const WeaponSet& set, const uworld::Mo
         if (!body.alive()) continue;
         switchWeapon(set, game, static_cast<int>(i), commands[i], dt);
         body.move = uworld::tick(world, body.size, rules, body.move, commands[i], dt);
+        if (rules.landingDamage) body.health -= landingDamage(body.move.landedZ, rules.jumpZ);
         body.yaw = commands[i].yaw;
         body.pitch = commands[i].pitch;
     }
@@ -641,6 +648,7 @@ std::uint64_t stateHash(const Game& game) {
         add(static_cast<std::uint64_t>(body.move.airJumpsUsed));
         addDouble(body.move.coyoteLeft);
         addVec(body.move.mantleTo);
+        addDouble(body.move.landedZ);
         addDouble(body.health);
         for (const Carried& carried : body.weapons) {
             add(carried.has ? 1 : 0);

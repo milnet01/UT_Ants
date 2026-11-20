@@ -490,6 +490,7 @@ void Viewer::toggleWalking() {
     walker->setAssists({.landingMarker = options.landingMarker, .takeOffPitch = options.takeOffPitch});
     walker->setPhysicalAssists(
         {.coyoteTime = options.coyoteTime, .mantle = options.mantle, .highStep = options.highStep});
+    walker->setLandingDamage(options.landingDamage);
     renderer.setCrosshair(true);
     // Walking, the triggers fire; the bottom face button and the shoulders
     // still jump and duck.

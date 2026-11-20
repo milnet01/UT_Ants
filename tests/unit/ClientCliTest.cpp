@@ -186,6 +186,7 @@ TEST_CASE("UTA-0422: the launcher's viewer inherits every option it is given", "
     given.coyoteTime = true; // UTA-0022
     given.mantle = true;
     given.highStep = true;
+    given.landingDamage = false; // UTA-0108
     given.windowed = true;
     given.gamepads = false; // UTA-0474
     given.tier = uta::urender::Tier::Medium;
@@ -205,6 +206,7 @@ TEST_CASE("UTA-0422: the launcher's viewer inherits every option it is given", "
     CHECK(parsed.options->coyoteTime);
     CHECK(parsed.options->mantle);
     CHECK(parsed.options->highStep);
+    CHECK_FALSE(parsed.options->landingDamage);
     CHECK(parsed.options->windowed);
     CHECK_FALSE(parsed.options->gamepads);
     CHECK(parsed.options->tier == uta::urender::Tier::Medium);

@@ -23,6 +23,13 @@ using uworld::Vec3;
 inline constexpr double EYE_HEIGHT = 27;
 /// A body's starting health: TournamentPlayer.Health.
 inline constexpr double START_HEALTH = 100;
+/// UTA-0108: what a landing too hard to live through costs.
+inline constexpr double LANDING_DEATH_DAMAGE = 1000;
+/// UTA-0108: what landing at vertical velocity `landedZ` costs a body whose
+/// jump is `jumpZ`, a whole number: Pawn.TakeFallingDamage in the original's
+/// Engine.u. Nothing down to 750 + jumpZ; then 0.15 of the speed past
+/// 700 + jumpZ; past 1650 + jumpZ, LANDING_DEATH_DAMAGE.
+[[nodiscard]] double landingDamage(double landedZ, double jumpZ);
 /// Game seconds per wall second while a lone human's weapon wheel is open
 /// (docs/decisions/ADR-0009-weapon-wheel-slows-time-for-a-lone-player.md).
 inline constexpr double WHEEL_TIME_SCALE = 0.2;
@@ -147,7 +154,8 @@ void giveAll(const WeaponSet& set, Body& body);
 [[nodiscard]] Vec3 aimOf(std::int32_t yaw, std::int32_t pitch);
 
 /// SS 4.5: one tick. `commands` holds one per body, in order; a dead body's
-/// is ignored. Each body switches weapon and moves, then each fires; then
+/// is ignored. Each body switches weapon and moves, and a hard landing hurts
+/// it at once where `rules.landingDamage` is on (UTA-0108); then each fires; then
 /// the shots fly; then damage and momentum land, so no body's order changes
 /// what another's shot hits. Last, `game.timeScale` is set: WHEEL_TIME_SCALE
 /// where exactly one body is human, it is alive and its command has the

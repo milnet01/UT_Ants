@@ -14,6 +14,10 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **Hard landings hurt, and `ut-ants --no-landing-damage` turns that off** (UTA-0108)
+  Landing from a long fall now costs health, and from a very long one
+  kills, by UT99's own rule. With the option, any landing is free. The
+  map launcher passes the option on to the map it opens.
 - **`ut-ants --no-gamepad` opens no gamepad** (UTA-0474)
   A controller left plugged in can no longer steer or fire in a run
   nobody is watching. The map launcher passes the option on to the map

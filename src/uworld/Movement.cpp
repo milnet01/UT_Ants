@@ -169,7 +169,10 @@ MoveState fall(const BodyWorld& world, const BodySize& size, const MoveRules& ru
     }
     s.location = move.end;
     s.velocity = v;
-    if (landed) land(rules, s);
+    if (landed) {
+        s.landedZ = v.z;
+        land(rules, s);
+    }
     return s;
 }
 
@@ -234,6 +237,7 @@ MoveState walk(const BodyWorld& world, const BodySize& size, const MoveRules& ru
 MoveState tick(const BodyWorld& world, const BodySize& size, const MoveRules& rules, const MoveState& state,
                const MoveCommand& command, double dt) {
     MoveState s = state;
+    s.landedZ = 0;
     const bool jumpPressed = command.jump && !state.jumpHeld;
     s.jumpHeld = command.jump;
 
