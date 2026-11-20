@@ -42,6 +42,24 @@ bool isClassName(std::string_view name) {
     return dot != std::string_view::npos && word(name.substr(0, dot)) && word(name.substr(dot + 1));
 }
 
+/// A baked sound's path as the bundle spells it: two or three parts of a-z,
+/// 0-9 and _, joined by dots (UTA-0467 SS 4.2).
+bool isSoundPath(std::string_view path) {
+    std::size_t parts = 0;
+    while (true) {
+        const std::size_t dot = path.find('.');
+        const std::string_view part = path.substr(0, dot);
+        const bool word = !part.empty() && std::ranges::all_of(part, [](char character) {
+            return (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9') || character == '_';
+        });
+        if (!word) return false;
+        ++parts;
+        if (dot == std::string_view::npos) break;
+        path.remove_prefix(dot + 1);
+    }
+    return parts == 2 || parts == 3;
+}
+
 /// Forward, right, up: a comma-free name, so it passes through UTA_TRY.
 using Triple = std::array<double, 3>;
 
@@ -110,6 +128,23 @@ public:
             return refuse(entry->line,
                           std::format("'{}' is not a name: 1 to 32 of a-z, 0-9 and -", entry->value));
         return std::optional<std::string>{entry->value};
+    }
+
+    /// An optional sound path, or empty where the key is absent.
+    Result<std::string> sound(std::string_view key) {
+        UTA_TRY(const std::optional<Entry> entry, take(key, false));
+        if (!entry) return std::string{};
+        if (!isSoundPath(entry->value))
+            return refuse(entry->line,
+                          std::format("'{}' is not a sound: package.name or package.group.name, in lower case",
+                                      entry->value));
+        return entry->value;
+    }
+
+    /// The line `key` is on, where the section has it.
+    [[nodiscard]] std::optional<std::size_t> lineOf(std::string_view key) const {
+        const auto found = std::ranges::find(entries_, key, &Entry::key);
+        return found == entries_.end() ? std::nullopt : std::optional{found->line};
     }
 
     /// Refuses the first key nothing took. `owner` says whose keys these are
@@ -184,6 +219,7 @@ Result<void> readWeapon(Weapon& weapon, Keys& keys) {
     UTA_TRY(weapon.ammoStart, ini::numberOf(FORMAT, start->value, weapon.ammoMax, start->line));
     UTA_TRY(const std::optional<double> switchTime, keys.decimal("switch-time", true, 0, TIME_MAX));
     weapon.switchTime = *switchTime;
+    UTA_TRY(weapon.selectSound, keys.sound("select-sound"));
     return keys.finish(std::format("[weapon {}]", weapon.name));
 }
 
@@ -319,6 +355,12 @@ Result<void> readFire(FireMode& mode, Keys& keys) {
         UTA_TRY(const std::optional<double> scale, keys.decimal("distance-scale", false, 0, DISTANCE_MAX));
         mode.distanceScale = scale.value_or(0);
     }
+    UTA_TRY(mode.sound, keys.sound("sound"));
+    UTA_TRY(mode.loopSound, keys.sound("loop-sound"));
+    // Nothing would ever play it: the end sound follows the loop it ends.
+    if (const auto end = keys.lineOf("end-sound"); end && mode.loopSound.empty())
+        return refuse(*end, "end-sound needs a loop-sound on the same fire");
+    UTA_TRY(mode.endSound, keys.sound("end-sound"));
     const std::string_view name = ARCHETYPE_NAMES[which];
     return keys.finish(std::format("{} {} fire", name.front() == 'i' ? "an" : "a", name));
 }
@@ -374,6 +416,7 @@ Result<void> readProjectile(Projectile& projectile, Keys& keys, std::size_t head
     }
     UTA_TRY(const std::optional<std::string> combo, keys.name("combo", false));
     projectile.combo = combo.value_or("");
+    UTA_TRY(projectile.sound, keys.sound("sound"));
 
     UTA_TRY(const std::optional<Entry> strike, keys.take("strike", true));
     UTA_TRY(const std::size_t which, choiceOf(STRIKE_NAMES, *strike));
@@ -416,6 +459,7 @@ Result<void> readCombo(Combo& combo, Keys& keys) {
         UTA_TRY(const std::optional<double> value, keys.decimal(key, true, 0, AMOUNT_MAX));
         *field = *value;
     }
+    UTA_TRY(combo.sound, keys.sound("sound"));
     return keys.finish(std::format("[combo {}]", combo.name));
 }
 
@@ -564,6 +608,11 @@ Result<WeaponSet> parse(std::string_view text) {
 
 namespace {
 
+/// `key = path` and a line end, or nothing for a sound not named.
+std::string soundText(std::string_view key, std::string_view path) {
+    return path.empty() ? std::string{} : std::format("{} = {}\n", key, path);
+}
+
 std::string fireText(std::string_view weapon, std::string_view which, const FireMode& mode) {
     const auto decimal = ini::decimalText;
     const auto archetype = ARCHETYPE_NAMES[static_cast<std::size_t>(mode.archetype)];
@@ -584,6 +633,8 @@ std::string fireText(std::string_view weapon, std::string_view which, const Fire
                            SCALES_NAMES[static_cast<std::size_t>(mode.charge->scales)]);
     if (mode.rule != FireRule::None)
         out += std::format("rule = {}\n", RULE_NAMES[static_cast<std::size_t>(mode.rule)]);
+    out += soundText("sound", mode.sound) + soundText("loop-sound", mode.loopSound) +
+           soundText("end-sound", mode.endSound);
     if (mode.archetype == Archetype::Projectile) {
         out += std::format("projectile = {}\ncount = {}\nspiral-radius = {}\nspiral-turn = {}\n", mode.projectile,
                            mode.count, decimal(mode.spiralRadius), mode.spiralTurn);
@@ -621,6 +672,7 @@ std::string write(const WeaponSet& set) {
         out += std::format("\n[weapon {}]\nclass = {}\nslot = {}\nammo-max = {}\nammo-start = {}\nswitch-time = {}\n",
                            weapon.name, weapon.className, weapon.slot, weapon.ammoMax, weapon.ammoStart,
                            decimal(weapon.switchTime));
+        out += soundText("select-sound", weapon.selectSound);
         out += fireText(weapon.name, "primary", weapon.primary);
         if (weapon.alt) out += fireText(weapon.name, "alt", *weapon.alt);
     }
@@ -658,11 +710,37 @@ std::string write(const WeaponSet& set) {
             break;
         }
         if (!projectile.combo.empty()) out += std::format("combo = {}\n", projectile.combo);
+        out += soundText("sound", projectile.sound);
     }
-    for (const Combo& combo : set.combos)
+    for (const Combo& combo : set.combos) {
         out += std::format("\n[combo {}]\ndamage = {}\nmomentum = {}\nsplash-radius = {}\n", combo.name,
                            decimal(combo.damage), decimal(combo.momentum), decimal(combo.splashRadius));
+        out += soundText("sound", combo.sound);
+    }
     return out;
+}
+
+std::vector<std::string> soundPaths(const WeaponSet& set) {
+    std::vector<std::string> paths;
+    const auto add = [&paths](const std::string& path) {
+        if (!path.empty()) paths.push_back(path);
+    };
+    const auto addMode = [&add](const FireMode& mode) {
+        add(mode.sound);
+        add(mode.loopSound);
+        add(mode.endSound);
+    };
+    for (const Weapon& weapon : set.weapons) {
+        add(weapon.selectSound);
+        addMode(weapon.primary);
+        if (weapon.alt) addMode(*weapon.alt);
+    }
+    for (const Projectile& projectile : set.projectiles) add(projectile.sound);
+    for (const Combo& combo : set.combos) add(combo.sound);
+    std::ranges::sort(paths);
+    const auto repeats = std::ranges::unique(paths);
+    paths.erase(repeats.begin(), repeats.end());
+    return paths;
 }
 
 std::filesystem::path shippedDirectory() { return fs::pathFromUtf8(UTA_SHIPPED_WEAPONS_DIR); }

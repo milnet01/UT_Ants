@@ -57,9 +57,11 @@ int askedWeapon(const WeaponSet& set, const Body& body, const uworld::MoveComman
     return -1;
 }
 
-void switchWeapon(const WeaponSet& set, Body& body, const uworld::MoveCommand& command, double dt) {
+void switchWeapon(const WeaponSet& set, Game& game, int index, const uworld::MoveCommand& command, double dt) {
+    Body& body = game.bodies[static_cast<std::size_t>(index)];
     const int asked = askedWeapon(set, body, command);
     if (asked >= 0 && asked != (body.pending >= 0 ? body.pending : body.weapon)) {
+        game.cues.push_back(Cue{Cue::Kind::Select, index, static_cast<std::uint32_t>(asked), -1, body.move.location});
         body.pending = asked;
         body.switchLeft = set.weapons[static_cast<std::size_t>(asked)].switchTime;
         body.winding = -1;
@@ -91,6 +93,11 @@ double chargeScale(const Charge& charge, double held) {
 
 void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
     Body& body = tick.game.bodies[static_cast<std::size_t>(index)];
+    // UTA-0467: one cue a shot, however many projectiles or pellets it is.
+    const auto cueShot = [&tick, &body, index](int which) {
+        tick.game.cues.push_back(
+            Cue{Cue::Kind::Fire, index, static_cast<std::uint32_t>(body.weapon), which, body.move.location});
+    };
     body.fireHeld = command.fire;
     body.altHeld = command.altFire;
     if (!command.fire && !command.altFire) body.burst = 0;
@@ -154,6 +161,7 @@ void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
         body.windLeft -= tick.dt;
         if (body.windLeft <= 0) {
             detail::fire(tick, index, mode, 1);
+            cueShot(body.winding);
             ++body.burst;
             body.refireLeft = refireOf(mode, body.winding) + body.windLeft;
             body.winding = -1;
@@ -197,6 +205,7 @@ void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
                                      ? static_cast<double>(body.loaded) / mode.count
                                      : chargeScale(charge, body.charged);
             detail::fire(tick, index, mode, scale);
+            cueShot(body.charging);
             body.refireLeft = mode.refire;
             body.charging = -1;
             body.charged = 0;
@@ -225,6 +234,7 @@ void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
             body.loaded = 1;
         } else {
             detail::fire(tick, index, *mode, 1);
+            cueShot(which);
             ++body.burst;
             body.refireLeft += refireOf(*mode, which) + (idle ? mode->refireLead : 0);
             fired = true;
@@ -262,6 +272,7 @@ void explode(Tick& tick, std::size_t index, int struck, const Vec3& away, const 
         tick.owed.push_back(Owed{struck, damage, along * momentum, shot.owner});
     }
     tick.game.events.push_back(Event{Event::Kind::Explosion, shot.location, shot.location, radius});
+    tick.game.cues.push_back(Cue{Cue::Kind::Explode, shot.owner, shot.kind, -1, shot.location});
     if (kind.strike != Strike::Split) return;
     // flakslug.Explode: each piece starts a little off the surface struck and
     // flies on along the shell's own aim, turned by the piece's own draws.
@@ -518,12 +529,13 @@ void giveAll(const WeaponSet& set, Body& body) {
 void tick(const uworld::BodyWorld& world, const WeaponSet& set, const uworld::MoveRules& rules, Game& game,
           std::span<const uworld::MoveCommand> commands, double dt) {
     game.events.clear();
+    game.cues.clear();
     Tick tick{world, set, rules, game, dt, {}, {}, std::vector<bool>(game.shots.size(), false)};
     const std::size_t count = std::min(game.bodies.size(), commands.size());
     for (std::size_t i = 0; i < count; ++i) {
         Body& body = game.bodies[i];
         if (!body.alive()) continue;
-        switchWeapon(set, body, commands[i], dt);
+        switchWeapon(set, game, static_cast<int>(i), commands[i], dt);
         body.move = uworld::tick(world, body.size, rules, body.move, commands[i], dt);
         body.yaw = commands[i].yaw;
         body.pitch = commands[i].pitch;
@@ -559,6 +571,39 @@ void tick(const uworld::BodyWorld& world, const WeaponSet& set, const uworld::Mo
     }
     const bool slowed = humans == 1 && human < count && game.bodies[human].alive() && commands[human].wheelOpen;
     game.timeScale = slowed ? WHEEL_TIME_SCALE : 1;
+}
+
+std::string_view soundOf(const WeaponSet& set, const Cue& cue) {
+    switch (cue.kind) {
+    case Cue::Kind::Fire:
+    case Cue::Kind::Select: {
+        if (cue.index >= set.weapons.size()) return {};
+        const Weapon& weapon = set.weapons[cue.index];
+        if (cue.kind == Cue::Kind::Select) return weapon.selectSound;
+        if (cue.mode == 0) return weapon.primary.sound;
+        return cue.mode == 1 && weapon.alt ? std::string_view{weapon.alt->sound} : std::string_view{};
+    }
+    case Cue::Kind::Explode: return cue.index < set.projectiles.size() ? set.projectiles[cue.index].sound : std::string_view{};
+    case Cue::Kind::Combo: return cue.index < set.combos.size() ? set.combos[cue.index].sound : std::string_view{};
+    }
+    return {};
+}
+
+int loopingMode(const WeaponSet& set, const Body& body) {
+    // A switch needs no test here: switchWeapon ends the hold and the
+    // wind-up, and fireBody drops the beam, in the tick it starts.
+    if (!body.alive() || body.weapon < 0) return -1;
+    const Weapon& weapon = set.weapons[static_cast<std::size_t>(body.weapon)];
+    // fireBody gives the primary trigger the beam where both are down.
+    const int beaming = body.beamFor <= 0 ? -1 : body.fireHeld ? 0 : body.altHeld ? 1 : -1;
+    for (int which = 0; which < 2; ++which) {
+        const FireMode* mode = which == 0 ? &weapon.primary : weapon.alt ? &*weapon.alt : nullptr;
+        if (mode == nullptr || mode->loopSound.empty()) continue;
+        const bool sounds = mode->archetype == Archetype::Beam ? beaming == which
+                                                               : body.winding == which || body.holding == which;
+        if (sounds) return which;
+    }
+    return -1;
 }
 
 std::uint64_t stateHash(const Game& game) {

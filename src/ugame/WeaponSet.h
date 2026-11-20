@@ -115,6 +115,10 @@ struct FireMode {
     double reach = 0;                     ///< melee: no body farther than this from the firer is hurt; 0 any
     double distanceScale = 0;             ///< melee: the effect x the hit's distance / this; 0 none
     FireRule rule = FireRule::None;       ///< `rule`: a named behaviour of the archetype
+    /// UTA-0467 SS 4.2, each a baked sound's path or empty: played once a
+    /// shot; looped while the mode sounds (ugame::loopingMode); played once
+    /// when that loop stops.
+    std::string sound, loopSound, endSound;
     bool operator==(const FireMode&) const = default;
 };
 
@@ -124,6 +128,7 @@ struct Weapon {
     std::uint32_t slot = 0; ///< its number key, 0 to 9; ties order by file order
     std::uint32_t ammoMax = 0, ammoStart = 0;
     double switchTime = 0; ///< seconds to bring it up
+    std::string selectSound; ///< played when a switch to it starts; a baked sound's path or empty
     FireMode primary;
     std::optional<FireMode> alt;
     bool operator==(const Weapon&) const = default;
@@ -170,6 +175,7 @@ struct Projectile {
     std::uint32_t splitCount = 0;
     std::uint32_t splitSpread = 0; ///< split: the pieces' cone, angle units
     std::string combo;         ///< what an instant hit on it sets off; empty for none
+    std::string sound;         ///< played where it explodes; a baked sound's path or empty
     bool operator==(const Projectile&) const = default;
 };
 
@@ -177,6 +183,7 @@ struct Projectile {
 struct Combo {
     std::string name;
     double damage = 0, momentum = 0, splashRadius = 0;
+    std::string sound; ///< played where it goes off; a baked sound's path or empty
     bool operator==(const Combo&) const = default;
 };
 
@@ -195,13 +202,17 @@ struct WeaponSet {
 };
 
 /// SS 4.2: strict. An unknown section or key, a repeated one, an
-/// out-of-range value, a missing required key, another archetype's key and a
-/// reference to a missing name are `MalformedData` naming the line; a newer
+/// out-of-range value, a missing required key, another archetype's key, a
+/// sound that is not a path and a reference to a missing name are `MalformedData` naming the line; a newer
 /// version is `UnsupportedVersion`.
 [[nodiscard]] Result<WeaponSet> parse(std::string_view text);
 
 /// The canonical form; `parse(write(set))` equals `set` (INV-2).
 [[nodiscard]] std::string write(const WeaponSet& set);
+
+/// Every sound path `set` names, sorted, each once (UTA-0467 SS 4.2). The
+/// baker adds these to the weapon set's sound bundle.
+[[nodiscard]] std::vector<std::string> soundPaths(const WeaponSet& set);
 
 /// The directory the game's own sets ship in, `weapons/` (SS 4.2).
 [[nodiscard]] std::filesystem::path shippedDirectory();

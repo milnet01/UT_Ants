@@ -1658,3 +1658,262 @@ TEST_CASE("UTA-0020 INV-6: a pick of a carried weapon wins and any other is refu
     inHand.weaponSlot = 9;
     CHECK(pendingAfter(world, game, inHand) == -1); // the weapon in hand: nothing changes
 }
+
+// docs/specs/UTA-0467-weapon-sounds.md INV-2 to INV-7: the cues a tick raises
+// for a client's sounds, the sound each plays and the mode that loops.
+
+namespace {
+
+int cuesOf(const Game& game, Cue::Kind kind) {
+    return static_cast<int>(std::ranges::count(game.cues, kind, &Cue::kind));
+}
+
+/// The stock set with a loop named on the pulse gun's beam and on the
+/// minigun's wound-up primary, which the stock file need not name.
+WeaponSet loopingSet() {
+    WeaponSet set = stock();
+    set.weapons[static_cast<std::size_t>(weaponNamed(set, "pulse-gun"))].alt->loopSound = "test.beam";
+    set.weapons[static_cast<std::size_t>(weaponNamed(set, "minigun"))].primary.loopSound = "test.spin";
+    return set;
+}
+
+} // namespace
+
+TEST_CASE("UTA-0467 INV-2: a shot raises one Fire cue naming its body, weapon and mode", "[ugame][game][cues]") {
+    const BodyWorld world = arena();
+    const WeaponSet& set = stock();
+
+    // Eight chunks, one shot, one cue.
+    Game flak = duel(set, "flak-cannon", 1900);
+    hold(world, set, flak, 1);
+    REQUIRE(flak.shots.size() == 8);
+    REQUIRE(flak.cues.size() == 1);
+    CHECK(flak.cues[0] == Cue{Cue::Kind::Fire, 0, static_cast<std::uint32_t>(weaponNamed(set, "flak-cannon")), 0,
+                              flak.bodies[0].move.location});
+
+    Game alt = duel(set, "shock-rifle", 1900);
+    hold(world, set, alt, 1, true);
+    REQUIRE(cuesOf(alt, Cue::Kind::Fire) == 1);
+    CHECK(alt.cues[0].mode == 1);
+    CHECK(alt.cues[0].index == static_cast<std::uint32_t>(weaponNamed(set, "shock-rifle")));
+
+    // The same press with no ammo: the fixture differs in ammo alone.
+    Game empty = duel(set, "shock-rifle", 1900);
+    empty.bodies[0].weapons[static_cast<std::size_t>(empty.bodies[0].weapon)].ammo = 0;
+    int heard = 0;
+    for (int k = 0; k < 40; ++k) {
+        hold(world, set, empty, 1);
+        heard += cuesOf(empty, Cue::Kind::Fire);
+    }
+    CHECK(heard == 0);
+}
+
+TEST_CASE("UTA-0467 INV-2: a wound-up shot is cued when it leaves, and a beam never", "[ugame][game][cues]") {
+    const BodyWorld world = arena();
+    const WeaponSet& set = stock();
+
+    // The minigun's press pays and winds up; no bullet leaves that tick.
+    Game minigun = duel(set, "minigun", 600);
+    hold(world, set, minigun, 1);
+    CHECK(minigun.events.empty());
+    CHECK(cuesOf(minigun, Cue::Kind::Fire) == 0);
+    int shots = 0, cues = 0;
+    for (int k = 0; k < 60; ++k) {
+        hold(world, set, minigun, 1);
+        shots += static_cast<int>(std::ranges::count(minigun.events, Event::Kind::InstantHit, &Event::kind));
+        cues += cuesOf(minigun, Cue::Kind::Fire);
+    }
+    CHECK(shots > 1);
+    CHECK(cues == shots);
+
+    Game pulse = duel(set, "pulse-gun", 600);
+    int beams = 0, fired = 0;
+    for (int k = 0; k < 20; ++k) {
+        hold(world, set, pulse, 1, true);
+        beams += static_cast<int>(std::ranges::count(pulse.events, Event::Kind::Beam, &Event::kind));
+        fired += cuesOf(pulse, Cue::Kind::Fire);
+    }
+    CHECK(beams == 20);
+    CHECK(fired == 0);
+}
+
+TEST_CASE("UTA-0467 INV-3: starting a switch raises one Select cue for the weapon asked for", "[ugame][game][cues]") {
+    const BodyWorld world = arena();
+    const WeaponSet& set = stock();
+    Game game = duel(set, "enforcer", 600);
+    const int rockets = weaponNamed(set, "rocket-launcher");
+    REQUIRE(set.weapons[static_cast<std::size_t>(rockets)].switchTime > 2 * DT);
+
+    std::vector<MoveCommand> commands(2);
+    commands[0].weaponPick = static_cast<std::int8_t>(rockets);
+    tick(world, set, RULES, game, commands, DT);
+    REQUIRE(game.cues.size() == 1);
+    CHECK(game.cues[0] == Cue{Cue::Kind::Select, 0, static_cast<std::uint32_t>(rockets), -1,
+                              Vec3{0, 0, STANDING}});
+    REQUIRE(game.bodies[0].pending == rockets);
+
+    // Asking again for the weapon already on its way, and the ticks that
+    // bring it up, raise none.
+    int later = 0;
+    tick(world, set, RULES, game, commands, DT);
+    later += cuesOf(game, Cue::Kind::Select);
+    commands[0].weaponPick = -1;
+    for (int k = 0; k < 200 && game.bodies[0].pending >= 0; ++k) {
+        tick(world, set, RULES, game, commands, DT);
+        later += cuesOf(game, Cue::Kind::Select);
+    }
+    CHECK(game.bodies[0].weapon == rockets);
+    CHECK(later == 0);
+}
+
+TEST_CASE("UTA-0467 INV-4: an explosion and a combo are cued where they happen, by kind", "[ugame][game][cues]") {
+    const BodyWorld world = arena();
+    const WeaponSet& set = stock();
+    const auto kindOf = [&set](std::string_view name) {
+        return static_cast<std::uint32_t>(std::ranges::find(set.projectiles, name, &Projectile::name) -
+                                          set.projectiles.begin());
+    };
+
+    // A flak shell into the wall: the shell explodes and splits into chunks,
+    // which strike later. Every explosion drawn is cued, at its own place,
+    // and the shell's cue carries the shell's kind, a chunk's the chunk's.
+    Game game = duel(set, "flak-cannon", 1900);
+    game.bodies[1].move.location.y = 2500; // out of the way
+    std::vector<std::uint32_t> kinds;
+    for (int k = 0; k < 400; ++k) {
+        hold(world, set, game, 1, k == 0);
+        std::vector<Vec3> drawn, cued;
+        for (const Event& event : game.events)
+            if (event.kind == Event::Kind::Explosion) drawn.push_back(event.from);
+        for (const Cue& cue : game.cues) {
+            if (cue.kind != Cue::Kind::Explode) continue;
+            cued.push_back(cue.at);
+            kinds.push_back(cue.index);
+            CHECK(cue.owner == 0);
+            CHECK(cue.mode == -1);
+        }
+        CHECK(drawn == cued);
+        if (k > 0 && game.shots.empty()) break;
+    }
+    REQUIRE(!kinds.empty());
+    CHECK(kinds.front() == kindOf("flak-shell"));
+    CHECK(std::ranges::count(kinds, kindOf("flak-shell")) == 1);
+    CHECK(std::ranges::all_of(kinds, [&](std::uint32_t kind) {
+        return kind == kindOf("flak-shell") || kind == kindOf("flak-chunk");
+    }));
+
+    // INV-8's combo, cued at the ball.
+    Game combo = duel(set, "shock-rifle", 1900);
+    combo.bodies[1].move.location.y = 500;
+    const Vec3 start = levelStart(primaryOf(set, "shock-rifle"));
+    const std::uint32_t ball = kindOf("shock-ball");
+    combo.shots.push_back(Shot{.kind = ball, .owner = 0, .location = {800, start.y, start.z}, .velocity = {},
+                               .lifetime = set.projectiles[ball].lifetime});
+    hold(world, set, combo, 1);
+    REQUIRE(cuesOf(combo, Cue::Kind::Combo) == 1);
+    const Cue& cue = *std::ranges::find(combo.cues, Cue::Kind::Combo, &Cue::kind);
+    REQUIRE(cue.index < set.combos.size());
+    CHECK(set.combos[cue.index].name == set.projectiles[ball].combo);
+    CHECK(cue.at == Vec3{800, start.y, start.z});
+    CHECK(cue.owner == 0);
+}
+
+TEST_CASE("UTA-0467 INV-5: cues are not part of the state's hash", "[ugame][game][cues]") {
+    Game game = duel(stock(), "enforcer", 600);
+    Game cued = game;
+    cued.cues.push_back(Cue{Cue::Kind::Fire, 0, 2, 1, {1, 2, 3}});
+    CHECK(stateHash(cued) == stateHash(game));
+}
+
+TEST_CASE("UTA-0467 INV-6: a beam's loop sounds while the beam is on", "[ugame][game][cues]") {
+    const BodyWorld world = arena();
+    const WeaponSet set = loopingSet();
+    Game game = duel(set, "pulse-gun", 600);
+    CHECK(loopingMode(set, game.bodies[0]) == -1);
+    hold(world, set, game, 5, true);
+    CHECK(loopingMode(set, game.bodies[0]) == 1);
+    // The stock set names no loop: the same beam, silent.
+    CHECK(loopingMode(stock(), game.bodies[0]) == -1);
+
+    Game dead = game;
+    dead.bodies[0].health = 0;
+    CHECK(loopingMode(set, dead.bodies[0]) == -1);
+
+    // A switch asked for while the trigger stays down.
+    Game switching = game;
+    std::vector<MoveCommand> commands(2);
+    commands[0].altFire = true;
+    commands[0].weaponPick = static_cast<std::int8_t>(weaponNamed(set, "rocket-launcher"));
+    tick(world, set, RULES, switching, commands, DT);
+    REQUIRE(switching.bodies[0].pending >= 0);
+    CHECK(loopingMode(set, switching.bodies[0]) == -1);
+
+    // The trigger up: the tick after, it is silent.
+    std::vector<MoveCommand> nothing(2);
+    tick(world, set, RULES, game, nothing, DT);
+    CHECK(loopingMode(set, game.bodies[0]) == -1);
+
+    // The trigger down on an empty gun: no beam, so no hum.
+    Game empty = duel(set, "pulse-gun", 600);
+    empty.bodies[0].weapons[static_cast<std::size_t>(empty.bodies[0].weapon)].ammo = 0;
+    hold(world, set, empty, 5, true);
+    CHECK(loopingMode(set, empty.bodies[0]) == -1);
+}
+
+TEST_CASE("UTA-0467 INV-6: a wound-up mode's loop sounds while its press is held", "[ugame][game][cues]") {
+    const BodyWorld world = arena();
+    const WeaponSet set = loopingSet();
+    Game game = duel(set, "minigun", 600);
+    hold(world, set, game, 1);
+    CHECK(loopingMode(set, game.bodies[0]) == 0); // winding up, before its first bullet
+    hold(world, set, game, 60);
+    CHECK(loopingMode(set, game.bodies[0]) == 0);
+    // The alt trigger held in its place: that mode names no loop.
+    Game alt = duel(set, "minigun", 600);
+    hold(world, set, alt, 30, true);
+    CHECK(loopingMode(set, alt.bodies[0]) == -1);
+    // A switch asked for with the trigger still down ends the hold.
+    Game switching = game;
+    std::vector<MoveCommand> commands(2);
+    commands[0].fire = true;
+    commands[0].weaponPick = static_cast<std::int8_t>(weaponNamed(set, "rocket-launcher"));
+    tick(world, set, RULES, switching, commands, DT);
+    REQUIRE(switching.bodies[0].pending >= 0);
+    CHECK(loopingMode(set, switching.bodies[0]) == -1);
+    std::vector<MoveCommand> nothing(2);
+    for (int k = 0; k < 30; ++k) tick(world, set, RULES, game, nothing, DT);
+    CHECK(loopingMode(set, game.bodies[0]) == -1);
+}
+
+TEST_CASE("UTA-0467 INV-7: soundOf gives the cue's own sound", "[ugame][game][cues]") {
+    WeaponSet set = stock();
+    const auto gun = static_cast<std::uint32_t>(weaponNamed(set, "shock-rifle"));
+    const auto other = static_cast<std::uint32_t>(weaponNamed(set, "sniper-rifle"));
+    REQUIRE(set.weapons[gun].alt.has_value());
+    REQUIRE_FALSE(set.weapons[other].alt.has_value());
+    set.weapons[gun].selectSound = "t.select";
+    set.weapons[gun].primary.sound = "t.primary";
+    set.weapons[gun].alt->sound = "t.alt";
+    set.weapons[other].selectSound = "t.other_select";
+    set.weapons[other].primary.sound = "t.other";
+    REQUIRE(set.projectiles.size() >= 2);
+    set.projectiles[0].sound = "t.first";
+    set.projectiles[1].sound = "t.second";
+    REQUIRE(!set.combos.empty());
+    set.combos[0].sound = "t.combo";
+
+    CHECK(soundOf(set, Cue{Cue::Kind::Fire, 0, gun, 0, {}}) == "t.primary");
+    CHECK(soundOf(set, Cue{Cue::Kind::Fire, 0, gun, 1, {}}) == "t.alt");
+    CHECK(soundOf(set, Cue{Cue::Kind::Fire, 0, other, 0, {}}) == "t.other");
+    CHECK(soundOf(set, Cue{Cue::Kind::Fire, 0, other, 1, {}}).empty()); // it has no alt
+    CHECK(soundOf(set, Cue{Cue::Kind::Select, 0, gun, -1, {}}) == "t.select");
+    CHECK(soundOf(set, Cue{Cue::Kind::Select, 0, other, -1, {}}) == "t.other_select");
+    CHECK(soundOf(set, Cue{Cue::Kind::Explode, 0, 0, -1, {}}) == "t.first");
+    CHECK(soundOf(set, Cue{Cue::Kind::Explode, 0, 1, -1, {}}) == "t.second");
+    CHECK(soundOf(set, Cue{Cue::Kind::Combo, 0, 0, -1, {}}) == "t.combo");
+    // The stock set names none of these yet, and an index past the set is empty, not a read.
+    CHECK(soundOf(set, Cue{Cue::Kind::Explode, 0, 2, -1, {}}).empty());
+    CHECK(soundOf(set, Cue{Cue::Kind::Fire, 0, 999, 0, {}}).empty());
+    CHECK(soundOf(set, Cue{Cue::Kind::Explode, 0, 999, -1, {}}).empty());
+    CHECK(soundOf(set, Cue{Cue::Kind::Combo, 0, 999, -1, {}}).empty());
+}

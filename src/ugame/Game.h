@@ -12,6 +12,7 @@
 
 #include <cstdint>
 #include <span>
+#include <string_view>
 #include <vector>
 
 namespace uta::ugame {
@@ -89,12 +90,26 @@ struct Event {
     bool operator==(const Event&) const = default;
 };
 
+/// What a tick did that a client plays a sound for --
+/// docs/specs/UTA-0467-weapon-sounds.md SS 4.3. One is raised whether or not
+/// the set names a sound for it; soundOf decides.
+struct Cue {
+    enum class Kind : std::uint8_t { Fire, Select, Explode, Combo };
+    Kind kind;
+    int owner = -1;          ///< the body; a shot's firer
+    std::uint32_t index = 0; ///< Fire, Select: the weapon. Explode: the projectile kind. Combo: the combo.
+    int mode = -1;           ///< Fire: 0 primary, 1 alt; else -1
+    Vec3 at{};               ///< where it is heard from
+    bool operator==(const Cue&) const = default;
+};
+
 struct Game {
     std::vector<Body> bodies;
     std::vector<Shot> shots;
     std::uint64_t ticks = 0;
     std::uint64_t random = 0x9E3779B97F4A7C15u; ///< the one generator's state (SS 4.5)
     std::vector<Event> events;                   ///< this tick's; cleared at its start
+    std::vector<Cue> cues;                       ///< this tick's; cleared at its start; not hashed
     /// What the last tick set: game seconds per wall second, over the tick's
     /// own speed. The caller advances its clock at it (UTA-0020 SS 4.3).
     double timeScale = 1;
@@ -103,6 +118,17 @@ struct Game {
 /// INV-5: a hash of every integer in `game` and the bits of every double,
 /// in a fixed order, so two states hash alike only where they are alike.
 [[nodiscard]] std::uint64_t stateHash(const Game& game);
+
+/// The sound path `cue` plays, or empty where its weapon, mode, projectile
+/// or combo names none, or `cue` names nothing in `set`.
+[[nodiscard]] std::string_view soundOf(const WeaponSet& set, const Cue& cue);
+
+/// The fire mode of the weapon in `body`'s hand whose `loop-sound` sounds
+/// now, 0 or 1; else -1. A beam's sounds while the beam is on; a wound-up
+/// mode's while it winds up or the press that wound it up is still held.
+/// Never for a dead body; a switch ends the beam and the hold it reads
+/// (UTA-0467 SS 4.3).
+[[nodiscard]] int loopingMode(const WeaponSet& set, const Body& body);
 
 /// A body standing at `location`, carrying every weapon in `set` with its
 /// starting ammo, the first by slot in hand.

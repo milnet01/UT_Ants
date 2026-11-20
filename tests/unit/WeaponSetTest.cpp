@@ -1,6 +1,7 @@
 // Locks docs/specs/UTA-0019-weapon-set.md INV-1 (a set file is strict),
 // INV-2 (write reads back) and INV-3 (the shipped stock set parses and names
-// each stock class once).
+// each stock class once), and docs/specs/UTA-0467-weapon-sounds.md INV-1 (the
+// sound keys read back, and a path the bank could never hold is refused).
 
 #include "ugame/WeaponSet.h"
 
@@ -28,6 +29,7 @@ slot = 4
 ammo-max = 50
 ammo-start = 20
 switch-time = 0.3
+select-sound = unrealshare.asmd.tazerselect
 
 [fire gun primary]
 archetype = instant-hit
@@ -46,6 +48,7 @@ head-momentum = 35000
 damage-random = 5
 push-chance = 0.2
 push-scale = 5
+sound = unrealshare.asmd.tazerfire
 
 [fire gun alt]
 archetype = projectile
@@ -102,6 +105,8 @@ hit-every = 0.22
 ammo-every = 0.24
 extend = 6259
 first-hit = 0.1
+loop-sound = botpack.pulsegun.pulsebolt
+end-sound = botpack.pulsegun.pulsedown
 
 [projectile ball]
 speed = 1000
@@ -118,6 +123,7 @@ splash-up-max = 0.45
 splash-radius-max = 140
 strike = explode
 combo = boom
+sound = unrealshare.general.expl04
 
 [projectile shell]
 speed = 1200
@@ -166,6 +172,7 @@ fuse = 3
 damage = 165
 momentum = 120000
 splash-radius = 250
+sound = botpack.boom
 )";
 
 /// `SMALL` with `from` replaced by `to`, once; `from` must be in it.
@@ -386,4 +393,70 @@ TEST_CASE("INV-3: the stock set parses and maps each stock class to one weapon",
     const auto again = uta::ugame::parse(uta::ugame::write(*set));
     REQUIRE(again.has_value());
     CHECK(*again == *set);
+}
+
+TEST_CASE("UTA-0467 INV-1: the sound keys parse, read back and are listed", "[ugame][weapons][sounds]") {
+    const auto set = uta::ugame::parse(SMALL);
+    REQUIRE(set.has_value());
+    CHECK(set->weapons[0].selectSound == "unrealshare.asmd.tazerselect");
+    CHECK(set->weapons[0].primary.sound == "unrealshare.asmd.tazerfire");
+    CHECK(set->weapons[0].primary.loopSound.empty());
+    REQUIRE(set->weapons[1].alt.has_value());
+    CHECK(set->weapons[1].alt->loopSound == "botpack.pulsegun.pulsebolt");
+    CHECK(set->weapons[1].alt->endSound == "botpack.pulsegun.pulsedown");
+    CHECK(set->weapons[1].selectSound.empty());
+    REQUIRE(set->projectile("ball") != nullptr);
+    CHECK(set->projectile("ball")->sound == "unrealshare.general.expl04");
+    REQUIRE(set->combo("boom") != nullptr);
+    CHECK(set->combo("boom")->sound == "botpack.boom");
+
+    // write keeps every one of them: the round trip isolates write.
+    const auto again = uta::ugame::parse(uta::ugame::write(*set));
+    REQUIRE(again.has_value());
+    CHECK(*again == *set);
+
+    CHECK(uta::ugame::soundPaths(*set) ==
+          std::vector<std::string>{"botpack.boom", "botpack.pulsegun.pulsebolt", "botpack.pulsegun.pulsedown",
+                                   "unrealshare.asmd.tazerfire", "unrealshare.asmd.tazerselect",
+                                   "unrealshare.general.expl04"});
+}
+
+TEST_CASE("UTA-0467 INV-1: soundPaths lists a path two keys share once", "[ugame][weapons][sounds]") {
+    const auto set = uta::ugame::parse(edited("sound = botpack.boom", "sound = unrealshare.asmd.tazerfire"));
+    REQUIRE(set.has_value());
+    const std::vector<std::string> paths = uta::ugame::soundPaths(*set);
+    CHECK(std::ranges::count(paths, "unrealshare.asmd.tazerfire") == 1);
+    CHECK(paths.size() == 5);
+}
+
+TEST_CASE("UTA-0467 INV-1: a sound path the bank could never hold is refused", "[ugame][weapons][sounds]") {
+    struct Refusal {
+        std::string_view what;
+        std::string text;
+        std::string_view at;
+        std::string_view says;
+    };
+    // Each is SMALL with one fault: mend it and the file parses (the case above).
+    const std::vector<Refusal> refusals{
+        {"an upper-case letter", edited("sound = unrealshare.asmd.tazerfire", "sound = UnrealShare.asmd.tazerfire"),
+         "sound = UnrealShare", "is not a sound"},
+        {"four parts", edited("sound = unrealshare.asmd.tazerfire", "sound = unrealshare.asmd.tazer.fire"),
+         "sound = unrealshare.asmd.tazer.fire", "is not a sound"},
+        {"one part", edited("select-sound = unrealshare.asmd.tazerselect", "select-sound = tazerselect"),
+         "select-sound", "is not a sound"},
+        {"an empty part", edited("sound = botpack.boom", "sound = botpack..boom"), "sound = botpack..boom",
+         "is not a sound"},
+        {"a space inside", edited("sound = unrealshare.general.expl04", "sound = unrealshare.general.expl 04"),
+         "sound = unrealshare.general.expl 04", "is not a sound"},
+        {"an end with no loop", edited("loop-sound = botpack.pulsegun.pulsebolt\n", ""), "end-sound",
+         "end-sound needs a loop-sound"},
+    };
+    for (const Refusal& refusal : refusals) {
+        CAPTURE(refusal.what);
+        const auto set = uta::ugame::parse(refusal.text);
+        REQUIRE_FALSE(set.has_value());
+        CHECK(set.error().code() == uta::ErrorCode::MalformedData);
+        CHECK(set.error().message().contains(refusal.says));
+        CHECK(set.error().message().contains(std::format("line {}", lineOf(refusal.text, refusal.at))));
+    }
 }

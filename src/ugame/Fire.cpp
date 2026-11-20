@@ -172,6 +172,8 @@ void setOffCombo(Tick& tick, int shot, int instigator) {
     tick.shotGone[static_cast<std::size_t>(shot)] = true;
     splash(tick, ball.location, combo.damage, combo.momentum, combo.splashRadius, instigator);
     tick.game.events.push_back(Event{Event::Kind::Combo, ball.location, ball.location, combo.splashRadius});
+    tick.game.cues.push_back(Cue{Cue::Kind::Combo, instigator, static_cast<std::uint32_t>(&combo - tick.set.combos.data()),
+                                 -1, ball.location});
 }
 
 namespace {

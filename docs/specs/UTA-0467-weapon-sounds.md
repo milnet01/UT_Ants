@@ -158,10 +158,11 @@ struct Game { /* … */ std::vector<Cue> cues; }; ///< this tick's; cleared at i
 - **Combo**: one where `Fire.cpp` raises its `Combo` event.
 - A cue is raised whether or not a sound is named. `soundOf` decides.
 - `stateHash` does not read `cues`, as it does not read `events`.
-- **`loopingMode`** is a mode with a `loop-sound`, on a living body
-  that is not switching, while that mode's beam is on or the press that
-  wound it up is still held. It reads `Body` as it stands and adds no
-  field to it.
+- **`loopingMode`** is a mode with a `loop-sound`, on a living body,
+  while that mode's beam is on, or while it winds up or the press that
+  wound it up is still held. A switch ends all three in the tick it
+  starts (`switchWeapon`, `fireBody`), so a switching body has none. It
+  reads `Body` as it stands and adds no field to it.
 
 ### 4.4 The baker
 
@@ -263,8 +264,8 @@ public:
   `loop-sound`, for a dead body and during a switch.
   *Test:* `tests/unit/GameTest.cpp`.
   *Breaks when:* it reads the trigger and not the beam, so an empty
-  beam weapon hums; or it ignores `pending`, so the put-away weapon
-  hums through the switch.
+  beam weapon hums; or a switch stops clearing the hold or the beam, so
+  the put-away weapon hums through the switch.
 
 - **INV-7** — `soundOf` returns the path of the cue's own weapon and
   mode, projectile or combo, and empty where that names none.
