@@ -22,11 +22,11 @@ indus6 rBedHang
 MH-MHMVillage-fixed sail
 indus6 Sail1a
 MH-GiranTownSBFix2 dUEpicflag3
-MH-FNB-AllGoodThingsV0 rapBanner500-V
-MH-FNB-AllGoodThingsV0 rapBanner600-V
-MH-UM-CastleArrggh tapesthunt
-MH-UM-CastleArrggh tapestking
-MH-UM-CastleArrggh tapestwar
+MH-FNB-AllGoodThingsV0-WALL rapBanner500-V
+MH-FNB-AllGoodThingsV0-WALL rapBanner600-V
+MH-UM-CastleArrggh-BP tapesthunt
+MH-UM-CastleArrggh-BP tapestking
+MH-UM-CastleArrggh-BP tapestwar
 botpack JFlag11
 genfx rug-d
 hourpitores_ut Pitoresdecotent1

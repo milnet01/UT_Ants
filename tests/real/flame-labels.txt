@@ -133,7 +133,6 @@ MH-FoT-MothershipV1 SkaarjGeneratorBeamb1 other
 ty_dxeffects Wepn_Prifle_SFX other
 MH-HauntedHalloween Fauntains other
 MH-TheFifthVortexV31-LIFT EmeraldFire1 flame
-MH-TheFifthVortexV31 EmeraldFire1 flame
 MH-TheFifthVortexV33 EmeraldFire1 flame
 MH-XV-HybridV1 PipeSmoke other
 XbpFX smok1 other
@@ -143,7 +142,6 @@ MH-HauntedHalloween PumpkinFlame flame
 ty_dxeffects Fountain_FX other
 ty_dxeffects Toilet_B_FX other
 MH-Cityv4-BP theteleporter other
-MH-Cityv4 theteleporter other
 MH-DrBrain41v2 lightning01 other
 XFX cyberFire other
 AscTex blastorange other
