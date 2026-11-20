@@ -321,3 +321,78 @@ TEST_CASE("UTA-0019 SS 4.1: a segment stops at the level and at a mover where it
     CHECK(inside.startsInside);
     CHECK(inside.fraction == 0);
 }
+
+// UTA-0479: on DM-Deck16][ a jumping body crept to within a hair of an edge,
+// and from there every sweep, even one along the surface or away from it,
+// reported a hit at once. The body hung in the air for good.
+TEST_CASE("UTA-0479: a body touching a wall backs off it and slides along") {
+    const auto world = worldOf({box({0, -200, -200}, {100, 200, 200})});
+    // Touching, and closer than Jolt's own tolerance of 0.0064; not overlapping.
+    for (const double gap : {0.004, 0.001, 0.0}) {
+        CAPTURE(gap);
+        const Vec3 at{-BODY.radius - gap, 0, 0};
+        REQUIRE(world.fits(BODY, at));
+
+        // Away from this flat wall: free, though the cast starts in contact.
+        for (const Vec3 way : {Vec3{-2, 0, 0}, Vec3{-1, 0, 2}, Vec3{-1, 3, -1}}) {
+            CAPTURE(way.x, way.y, way.z);
+            const auto hit = world.sweep(BODY, at, at + way);
+            CHECK(hit.fraction == 1);
+            CHECK_FALSE(hit.startsInside);
+        }
+        // Into it: stopped where it stands, by the wall, and it says how close.
+        const auto into = world.sweep(BODY, at, at + Vec3{2, 0, 0});
+        CHECK(into.fraction == 0);
+        CHECK_FALSE(into.startsInside);
+        CHECK(into.normal.x < -0.99);
+        CHECK(into.gap <= gap + 0.01);
+
+        // A push that leans into the wall, and one along it, both travel
+        // along it, and leave the body resting SKIN off.
+        for (const Vec3 way : {Vec3{0.18, 0, 2.16}, Vec3{0, 0, 2}, Vec3{0, 2, 0}, Vec3{0, 0, -2}, Vec3{0.5, -2, 1}}) {
+            CAPTURE(way.x, way.y, way.z);
+            const auto move = world.slide(BODY, at, way);
+            CHECK(move.end.z - at.z == Catch::Approx(way.z).margin(0.03));
+            CHECK(move.end.y - at.y == Catch::Approx(way.y).margin(0.03));
+            // A move the wall never stopped leaves the gap as it was. One
+            // it stopped steps the body back towards a resting body's gap:
+            // well clear of Jolt's tolerance, where every cast is stopped,
+            // though the normal Jolt gives a touching body is not exact.
+            const double after = -BODY.radius - move.end.x;
+            CHECK(after >= gap - 1e-9);
+            CHECK(after <= SKIN + 0.02);
+            if (way.x > 0) CHECK(after > 0.03);
+            CHECK(world.fits(BODY, move.end));
+        }
+    }
+}
+
+TEST_CASE("UTA-0479: a body resting SKIN off a wall and pushing into it stays put") {
+    // The ordinary case must not start to shake: no backing off from a rest.
+    const auto world = worldOf({box({0, -200, -200}, {100, 200, 200})});
+    Vec3 at{-BODY.radius - 5, 0, 0};
+    at = world.slide(BODY, at, {20, 0, 0}).end;
+    REQUIRE(-BODY.radius - at.x == Catch::Approx(SKIN).margin(0.01));
+    const auto rest = world.sweep(BODY, at, at + Vec3{2, 0, 0});
+    CHECK(rest.fraction == 0);
+    CHECK(rest.gap == Catch::Approx(SKIN).margin(0.01));
+    for (int k = 0; k < 50; ++k) {
+        const Vec3 before = at;
+        at = world.slide(BODY, at, {0.18, 0, 0}).end;
+        CHECK(at.x == before.x);
+    }
+}
+
+TEST_CASE("UTA-0479: a body touching a wall steps back only where it fits") {
+    // A slot a tenth of a unit wider than the body: stepping SKIN back off
+    // one wall would put it in the other. It stays where it is, overlapping
+    // nothing, and the move along the slot is lost as before.
+    const double width = 2 * BODY.radius + 0.1;
+    const auto world = worldOf({box({0, -200, -200}, {100, 200, 200}), box({-width - 100, -200, -200}, {-width, 200, 200})});
+    const Vec3 at{-BODY.radius, 0, 0};
+    REQUIRE(world.fits(BODY, at));
+    REQUIRE_FALSE(world.fits(BODY, at + Vec3{-SKIN, 0, 0}));
+    const auto move = world.slide(BODY, at, {0.18, 0, 2.16});
+    CHECK(world.fits(BODY, move.end));
+    CHECK(move.end.x == at.x);
+}

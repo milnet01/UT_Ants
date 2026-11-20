@@ -458,5 +458,7 @@ TEST_CASE("UTA-0017 INV-7: a fixed script over a level with a turning mover hash
         mix(s.velocity.z);
     }
     INFO("hash " << hash);
-    CHECK(hash == 18099172109730268130ULL);
+    // Moved 2026-11-20 with UTA-0479: a body stopped by a surface it has
+    // crept right up to now steps back to SKIN and slides on.
+    CHECK(hash == 4271611235578567045ULL);
 }

@@ -349,3 +349,55 @@ TEST_CASE("UTA-0021: projectLanding's cost a tick on DM-Deck16][", "[.][real][ti
               << " ms for a full horizon; slowest projection " << worst * 1e3 << " ms (number " << worstAt << ", "
               << worstTicks << " ticks)\n";
 }
+
+// UTA-0479: a running jump from one spot of this grid met an edge, crept to
+// within a hair of it, and then hung in the air: every move was stopped at
+// once, along the edge as much as into it, and gravity only grew its speed.
+// The grid is the timing case's above, where that jump was number 3.
+TEST_CASE("UTA-0479: no jump over DM-Deck16][ is left hanging in the air", "[real][movement]") {
+    uta::ubundle::Collision collision;
+    collision.level = uta::test::real::levelTreeOf(fs::path(UTA_UT_INSTALL_DIR) / "Maps" / "DM-Deck16][.unr");
+    auto built = BodyWorld::build(collision, {});
+    REQUIRE(built.has_value());
+    std::array<double, 3> low{1e30, 1e30, 1e30}, high{-1e30, -1e30, -1e30};
+    for (const auto& p : collision.level.points)
+        for (int a = 0; a < 3; ++a) {
+            low[a] = std::min(low[a], double(p[a]));
+            high[a] = std::max(high[a], double(p[a]));
+        }
+    const BodySize size;
+    const MoveRules rules;
+    const double dt = DEFAULT_GAME_SPEED / TICKS_PER_SECOND;
+    MoveCommand forward;
+    forward.forward = 1;
+    int jumps = 0, hung = 0, landed = 0;
+    constexpr int GRID = 24;
+    for (int i = 0; i < GRID; ++i)
+        for (int j = 0; j < GRID; ++j)
+            for (int k = 1; k < 4; ++k) {
+                const Vec3 at{low[0] + (high[0] - low[0]) * (i + 0.5) / GRID,
+                              low[1] + (high[1] - low[1]) * (j + 0.5) / GRID, low[2] + (high[2] - low[2]) * k / 4};
+                if (!built->fits(size, at)) continue;
+                MoveState s;
+                s.location = at;
+                s.velocity = {300, 0, rules.jumpZ};
+                s.physics = Physics::Falling;
+                // A body that falls stands in the end, or leaves the map
+                // still moving: never one whose place stays while it falls.
+                int still = 0;
+                bool hangs = false;
+                for (int t = 0; t < 4 * LANDING_HORIZON_TICKS && s.physics == Physics::Falling && !hangs; ++t) {
+                    const Vec3 before = s.location;
+                    s = tick(*built, size, rules, s, forward, dt);
+                    still = s.location == before ? still + 1 : 0;
+                    hangs = still >= 5;
+                }
+                if (hangs) std::printf("UTA-0479 jump %d hangs %s at %.3f %.3f %.3f\n", jumps, built->fits(size, s.location) ? "touching" : "overlapping", s.location.x, s.location.y, s.location.z);
+                hung += hangs ? 1 : 0;
+                landed += s.physics == Physics::Walking ? 1 : 0;
+                ++jumps;
+            }
+    WARN(jumps << " jumps: " << landed << " landed, " << hung << " hung");
+    CHECK(jumps > 100);
+    CHECK(hung == 0);
+}

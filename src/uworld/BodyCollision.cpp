@@ -326,7 +326,7 @@ BodyHit BodyWorld::sweep(const BodySize& size, const Vec3& from, const Vec3& to)
     const double contact = hit.mFraction * moveLength;
     const double facing = std::abs(dot(unit(delta), normal));
     const double travel = std::max(0.0, contact - SKIN / std::max(facing, GRAZE));
-    return BodyHit{moveLength > 0 ? travel / moveLength : 0, normal, false};
+    return BodyHit{moveLength > 0 ? travel / moveLength : 0, normal, false, contact * facing};
 }
 
 BodyMove BodyWorld::slide(const BodySize& size, const Vec3& from, const Vec3& delta) const {
@@ -338,6 +338,17 @@ BodyMove BodyWorld::slide(const BodySize& size, const Vec3& from, const Vec3& de
         move.hits.push_back(hit);
         move.end = move.end + remaining * hit.fraction;
         if (hit.fraction >= 1 || hit.startsInside || turn == MAX_SLIDES) break;
+        // UTA-0479: a body that has crept to within a hair of a surface is
+        // stopped by it at once, along it as much as into it: Jolt reports
+        // a touching surface as a hit at the start of any cast. Step back
+        // to where a body rests, so the rest of the move can pass along it.
+        // The step is taken where the body fits there, not swept: a sweep
+        // from here is stopped too. An edge's normal changes with the
+        // approach, which is how a body gets closer than SKIN at all.
+        if (hit.fraction <= 0 && hit.gap < SKIN / 2) {
+            const Vec3 rest = move.end + hit.normal * (SKIN - hit.gap);
+            if (fits(size, rest)) move.end = rest;
+        }
 
         const Vec3 rest = remaining * (1 - hit.fraction);
         const Vec3 crease = cross(firstNormal, hit.normal);

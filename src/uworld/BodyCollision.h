@@ -39,6 +39,10 @@ struct BodyHit {
     double fraction = 1;       ///< of the move travelled; 1 when nothing was hit
     Vec3 normal{};             ///< the hit surface's, a unit vector facing the body
     bool startsInside = false; ///< the body overlapped something before it moved
+    /// How far the surface hit was from the body before it moved, along
+    /// `normal`. SKIN for a body resting against it; less for one that has
+    /// crept closer (UTA-0479). Meaningless when nothing was hit.
+    double gap = 0;
 };
 
 struct BodyMove {

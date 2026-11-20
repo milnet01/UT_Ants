@@ -147,6 +147,14 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **A jump against an edge no longer leaves the player hanging in the air** (UTA-0479)
+  A body that brushed an edge while jumping could creep to within a
+  hair of it and then stop for good, neither falling nor landing. It
+  now steps back and slides on. On DM-Deck16][, 49 of 198 test jumps
+  hung this way; none does now. Working out where a jump will land is
+  about 40% cheaper there as a result, and its worst case a third of
+  what it was.
+
 - **A metal with no roughness setting of its own no longer shines too sharply** (UTA-0455)
   A surface with no roughness map drew at roughness 0.5 rather than the
   material generator's default of 0.75. Since highlights reach only glossy

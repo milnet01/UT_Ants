@@ -343,7 +343,11 @@ Measured 2026-11-19 on DM-Deck16][ over three runs, at a load average
 of 2 to 4 on 12 cores: 2.2 to 2.4 µs a tick, so 0.38 to 0.41 ms for a
 full horizon on average. A fall that finds a floor stops early. The
 slowest single projection, a full horizon and the same one each run,
-took 1.6 to 1.75 ms (`UTA-0479`). Measure with
+took 1.6 to 1.75 ms. `UTA-0479` found why: 49 of the 198 projections
+hung in the air against a surface and ran the whole horizon at about
+10 µs a tick. With that fixed, 2026-11-20, at a load average of 4 to
+10: 1.2 to 1.4 µs a tick, 0.20 to 0.23 ms for a full horizon, and the
+slowest projection 0.54 to 0.58 ms. None runs the whole horizon. Measure with
 `uta_real_asset_tests "[timing]"` (the real-asset tier).
 Projecting every other tick, the fallback this section first named,
 was not taken: it halves the average but not the slowest frame.

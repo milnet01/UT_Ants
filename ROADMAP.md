@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=486 -->
+<!-- ants-roadmap-id-high-water: UTA=487 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -21551,7 +21551,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: in-session-2026-11-17 UTA-0056 spec.
   Lanes: ubake, ubundle, uaudio.
 
-- 📋 [UTA-0479] **umove: one landing projection on DM-Deck16][ costs four times the average full horizon.**
+- 🚧 [UTA-0479] **umove: one landing projection on DM-Deck16][ costs four times the average full horizon.**
   Measured 2026-11-19 at load average 2 to 4, three runs of
   uta_real_asset_tests "[timing]". A full horizon averages 0.38 to
   0.41 ms. Projection number 3 of the test's grid, a full horizon of
@@ -21561,6 +21561,22 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Find what makes those ticks slow (the test prints the projection's
   number; its grid gives the start point) before choosing a fix.
   docs/specs/UTA-0021-landing-marker.md SS 13 records the figures.
+  2026-11-20: the cause was a hang, not slow ticks. The body crept to
+  within a hair of an edge; from there Jolt reports a hit at the start
+  of every cast, along the edge as much as into it, so it never moved
+  again and fall() only grew its speed. 49 of the test grid's 198 jumps
+  hung so. Fix: BodyWorld::slide backs a body stopped at once from
+  closer than half of SKIN off to SKIN, and a cast away from a touching
+  surface passes over it. After: no touching hang; 1.2 to 1.4 us a tick
+  against 2.2 to 2.4; slowest projection 0.58 ms against 1.6. The
+  recorded-movement comparison with the original is unchanged, figure
+  for figure. UTA-0017 INV-7's hash moved. Four jumps still hang,
+  overlapping a wall: UTA-0487.
+  2026-11-20, later, correcting the note above: the fix as kept is a
+  step back to SKIN along the hit's normal, taken where the body fits
+  there, and nothing else; no cast passes over a touching surface. All
+  198 jumps land and none runs the whole horizon. 1.2 to 1.4 us a
+  tick, slowest projection 0.54 to 0.58 ms. UTA-0487 is dropped.
   **Layman:** In one spot on one map, working out where a jump will land takes four times longer than usual, which could cost frame rate while the player is in the air there.
   Kind: perf.
   Source: in-session-2026-11-19 UTA-0021 timing re-run.
@@ -21621,6 +21637,32 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   **Layman:** Run our benchmark several times on a quiet and on a busy machine, so the sister tool can learn how much frame times wobble by themselves.
   Kind: perf.
   Source: frameledger-request-2026-11-19.
+
+- 🚫 [UTA-0487] **uworld: a falling body's own moves can leave it overlapping a wall, where it hangs for good.**
+  Found fixing UTA-0479, 2026-11-20. Of the 198 running jumps
+  tests/real/RealMovementTest.cpp starts over DM-Deck16][ (its
+  "UTA-0479: no jump" case), four end overlapping a wall and never move
+  again: jumps 160, 162, 185 and 188, at x 1391.175, the wall's normal
+  -1 0 0, falling at about 700 with air control pushing into the wall.
+  BodyWorld::fits says no there, sweep says startsInside, and fall()
+  returns without moving (UTA-0457 SS 4.4: an overlapping body does not
+  move). Before UTA-0479's fix those four hung earlier, touching a
+  surface, so this was hidden, not caused by it. Two questions: how a
+  sweep that backs off SKIN lets the body in deeper than OVERLAP, and
+  whether a body overlapping with a known way out should step out
+  (sweep already returns that normal; nothing uses it). The second
+  changes UTA-0457 INV-6. The test counts these four and fails on any
+  other hang; tighten it to none when this is fixed.
+  2026-11-20, the same day: not a defect of any code that was kept.
+  The four overlaps came from a draft of UTA-0479's fix that let a cast
+  pass over a touching surface when the move led away from it; Jolt's
+  axis there is not exact, so some of those moves went in. That part
+  was replaced by a step back taken only where the body fits. With it
+  all 198 jumps land, none hangs and none overlaps.
+  **Layman:** In four spots on one map a falling player can end up stuck slightly inside a wall and hang there.
+  Kind: fix.
+  Source: in-session-2026-11-20 UTA-0479.
+  Lanes: uworld.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 

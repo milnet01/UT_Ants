@@ -17,8 +17,8 @@ ExperiRays' scene exporter. `UTA-0480`, a map's ambient sounds, shipped
 drives them (`UTA-0484`, `UTA-0485`, `UTA-0486`; user, 2026-11-20).
 `UTA-0467`'s weapon sounds were built 2026-11-20 and no person has
 heard them yet; its models and muzzle flashes need animated meshes,
-which no item builds. Next, in 0.2.0: `UTA-0479` is a slow landing
-projection to find. `UTA-0482`, runs for frameledger,
+which no item builds. `UTA-0479`, a body hanging in the air against
+an edge, was fixed 2026-11-20. `UTA-0482`, runs for frameledger,
 waits for the user to say the machine is free (2026-11-20). `UTA-0437`
 stays behind those although frameledger freezes its file format in its
 0.8.0 (user, 2026-11-20).

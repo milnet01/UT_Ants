@@ -141,6 +141,7 @@ struct BodyHit {
     double fraction = 1;   // of the move travelled; 1 when nothing was hit
     Vec3 normal{};         // the hit surface's, facing the body
     bool startsInside = false;
+    double gap = 0;        // how far the hit surface was before the move, along normal (UTA-0479)
 };
 
 struct BodyMove {
@@ -169,6 +170,11 @@ bool     BodyWorld::fits(const BodySize&, const Vec3& at) const;
   component into the surface and sweeps again; on a second hit it moves
   along the crease the two surfaces make; it stops after `MAX_SLIDES`
   (2) slides. Stepping up, the floor and the hover are UTA-0017's.
+  A hit that stops the body at once from closer than half of `SKIN`
+  first steps it back to `SKIN`, along the hit's normal, where the
+  body fits there, before the remainder is swept (UTA-0479). A body
+  that close is stopped by any move, along the surface as much as
+  into it, and would never move again.
 - **`fits`** says whether the body at `at` overlaps nothing: no face by
   more than 0.01 units, and its centre not in solid.
 - **Same results on every machine.** Jolt is built cross-platform
