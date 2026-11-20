@@ -21,7 +21,11 @@ meshes that no item builds. `UTA-0479`, a body hanging in the air
 against an edge, was fixed 2026-11-20. `UTA-0482`'s runs went to
 frameledger 2026-11-20. `UTA-0490` found their slow frames were the
 desktop's compositor on the GPU, not the renderer; `ut-bench frame` now
-prints a `disturbed:` line (`UTA-0491`, 2026-11-20). `UTA-0437` stays behind those although
+prints a `disturbed:` line (`UTA-0491`, 2026-11-20). `UTA-0492` measured
+blur as no part of that cost; the magnifier stays on, and is the user's
+to switch (2026-11-20). `UTA-0342`, the flying camera stopping at doors
+and lifts, and `UTA-0474`, `ut-ants --no-gamepad`, shipped 2026-11-20.
+Pass `--no-gamepad` to every headless viewer run. `UTA-0437` stays behind those although
 frameledger freezes its file format in its 0.8.0 (user, 2026-11-20).
 **In flight:** `roadmap_query status:"in-progress"`. Not kept by hand.
 
