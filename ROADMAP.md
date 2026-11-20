@@ -19127,7 +19127,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-09-10.
   Lanes: tools.
 
-- 🚧 [UTA-0108] **A rule setting that turns off landing damage, while leaving the world still kills.**
+- ✅ [UTA-0108] **A rule setting that turns off landing damage, while leaving the world still kills.**
   The user's requirement (2026-09-10): a setting that turns off landing
   damage, the harm from hitting the ground too fast. Falling off the edge
   of the world must still kill.
@@ -19193,6 +19193,11 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   A second unexplained landing, fatal this time: a bot landed at
   vz=-71022 beside a qZombie, with no push kept in the 12 s before (their
   fell5.log). The landing setting absorbs it; nothing else does yet.
+  Shipped 2026-11-20 at e26b556, green on GitHub's matrix (GCC 14,
+  Clang 19, MSVC). The rule is Pawn.TakeFallingDamage's, read from the
+  install's Engine.u. The setting is MoveRules::landingDamage, and
+  ut-ants --no-landing-damage. Leaving the world, kill zones and
+  monsters keeping the damage are UTA-0493.
   **Layman:** Whoever runs the game can switch off fall damage, but falling out of the map still kills you.
   Kind: feature.
   Source: user-request-2026-09-10.

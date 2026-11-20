@@ -25,7 +25,11 @@ prints a `disturbed:` line (`UTA-0491`, 2026-11-20). `UTA-0492` measured
 blur as no part of that cost; the magnifier stays on, and is the user's
 to switch (2026-11-20). `UTA-0342`, the flying camera stopping at doors
 and lifts, and `UTA-0474`, `ut-ants --no-gamepad`, shipped 2026-11-20.
-Pass `--no-gamepad` to every headless viewer run. `UTA-0437` stays behind those although
+Pass `--no-gamepad` to every headless viewer run. `UTA-0108`, landing
+damage and the rule that turns it off, shipped 2026-11-20; nothing yet
+kills a body that leaves the level (`UTA-0493`). `UTA-0492`'s
+magnifier-off run is done: the magnifier alone, on a still desktop, is
+not the cost. `UTA-0437` stays behind those although
 frameledger freezes its file format in its 0.8.0 (user, 2026-11-20).
 **In flight:** `roadmap_query status:"in-progress"`. Not kept by hand.
 
