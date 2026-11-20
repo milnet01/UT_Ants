@@ -18,6 +18,7 @@
 #include "MapSounds.h"
 #include "StandIns.h"
 #include "Walker.h"
+#include "WeaponSounds.h"
 
 #include "core/Ascii.h"
 #include "core/FileSystem.h"
@@ -552,7 +553,8 @@ void Viewer::act(const uta::uinput::Frame& frame) {
 }
 
 int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Options& options,
-        const std::string& bundleHash, uta::client::Audio& audio, uta::client::MapSounds& mapSounds) {
+        const std::string& bundleHash, uta::client::Audio& audio, uta::client::MapSounds& mapSounds,
+        const uta::uaudio::SoundBank& sounds) {
     uta::urender::Config config;
     Uint32 count = 0;
     const char* const* const names = SDL_Vulkan_GetInstanceExtensions(&count);
@@ -589,6 +591,8 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
                   .config = std::move(config),
                   .renderer = std::move(*created),
                   .start = startingCamera(bundle)};
+    // Declared after the viewer, whose weapon set it reads.
+    std::optional<uta::client::WeaponSounds> weaponSounds;
     FlyCamera& camera = viewer.start.camera;
     if (options.fov.has_value()) camera.setFov(*options.fov); // UTA-0357
     // UTA-0158: the camera stops at the level's walls, as UT99's spectator does.
@@ -649,8 +653,23 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
         view.flashlight = viewer.flashlight;
         // UTA-0480 SS 4.4: the map's hums, as heard from where this frame is
         // drawn. One short hold of the audio lock.
+        // UTA-0467 SS 4.5: the weapons' sounds, once there is a set to name
+        // them. The set is the viewer's, which outlives every walk.
+        if (!weaponSounds && viewer.weapons) {
+            weaponSounds.emplace(*viewer.weapons, sounds);
+            if (weaponSounds->missing() != 0)
+                std::cerr << "ut-ants: " << weaponSounds->missing()
+                          << " weapon sounds are not in the sound bundle and stay silent\n";
+        }
         audio.withMixer([&](uta::uaudio::Mixer& mixer) {
-            mapSounds.update(uta::client::listenerAt(view.location, view.rotation), mixer);
+            const uta::uaudio::Listener listener = uta::client::listenerAt(view.location, view.rotation);
+            mapSounds.update(listener, mixer);
+            if (!weaponSounds) return;
+            // Flying has no bodies: an update with none stops every loop.
+            if (viewer.walker)
+                weaponSounds->update(listener, viewer.walker->cues(), viewer.walker->game().bodies, mixer);
+            else
+                weaponSounds->update(listener, {}, {}, mixer);
         });
         viewer.showOverlay();
         if (const auto result = viewer.renderer.draw(bundle, view); !result) {
@@ -760,9 +779,9 @@ int main(int argc, char** argv) {
     {
         // UTA-0056 SS 4.8: open for the whole run, and closed before
         // SDL_Quit, so no voice outlives `sounds`. It plays the map's
-        // ambient sounds (UTA-0480); weapon sounds come with UTA-0467.
+        // ambient sounds (UTA-0480) and the weapons' (UTA-0467).
         uta::client::Audio audio;
-        status = run(window, *bundle, *options, bundleHash, audio, mapSounds);
+        status = run(window, *bundle, *options, bundleHash, audio, mapSounds, sounds);
     }
     SDL_DestroyWindow(window);
     SDL_Quit();

@@ -1668,10 +1668,23 @@ int cuesOf(const Game& game, Cue::Kind kind) {
     return static_cast<int>(std::ranges::count(game.cues, kind, &Cue::kind));
 }
 
-/// The stock set with a loop named on the pulse gun's beam and on the
-/// minigun's wound-up primary, which the stock file need not name.
-WeaponSet loopingSet() {
+/// The stock set with every loop taken out: what the file names is not
+/// under test here.
+WeaponSet silentSet() {
     WeaponSet set = stock();
+    for (Weapon& weapon : set.weapons) {
+        weapon.primary.loopSound.clear();
+        weapon.primary.endSound.clear();
+        if (weapon.alt) weapon.alt->loopSound.clear(), weapon.alt->endSound.clear();
+    }
+    return set;
+}
+
+/// The silent set with a loop named on the pulse gun's two modes and on the
+/// minigun's wound-up primary, and on no other mode.
+WeaponSet loopingSet() {
+    WeaponSet set = silentSet();
+    set.weapons[static_cast<std::size_t>(weaponNamed(set, "pulse-gun"))].primary.loopSound = "test.plasma";
     set.weapons[static_cast<std::size_t>(weaponNamed(set, "pulse-gun"))].alt->loopSound = "test.beam";
     set.weapons[static_cast<std::size_t>(weaponNamed(set, "minigun"))].primary.loopSound = "test.spin";
     return set;
@@ -1832,8 +1845,8 @@ TEST_CASE("UTA-0467 INV-6: a beam's loop sounds while the beam is on", "[ugame][
     CHECK(loopingMode(set, game.bodies[0]) == -1);
     hold(world, set, game, 5, true);
     CHECK(loopingMode(set, game.bodies[0]) == 1);
-    // The stock set names no loop: the same beam, silent.
-    CHECK(loopingMode(stock(), game.bodies[0]) == -1);
+    // A set naming no loop: the same beam, silent.
+    CHECK(loopingMode(silentSet(), game.bodies[0]) == -1);
 
     Game dead = game;
     dead.bodies[0].health = 0;
@@ -1896,7 +1909,8 @@ TEST_CASE("UTA-0467 INV-7: soundOf gives the cue's own sound", "[ugame][game][cu
     set.weapons[gun].alt->sound = "t.alt";
     set.weapons[other].selectSound = "t.other_select";
     set.weapons[other].primary.sound = "t.other";
-    REQUIRE(set.projectiles.size() >= 2);
+    REQUIRE(set.projectiles.size() >= 3);
+    set.projectiles[2].sound.clear();
     set.projectiles[0].sound = "t.first";
     set.projectiles[1].sound = "t.second";
     REQUIRE(!set.combos.empty());
@@ -1911,9 +1925,70 @@ TEST_CASE("UTA-0467 INV-7: soundOf gives the cue's own sound", "[ugame][game][cu
     CHECK(soundOf(set, Cue{Cue::Kind::Explode, 0, 0, -1, {}}) == "t.first");
     CHECK(soundOf(set, Cue{Cue::Kind::Explode, 0, 1, -1, {}}) == "t.second");
     CHECK(soundOf(set, Cue{Cue::Kind::Combo, 0, 0, -1, {}}) == "t.combo");
-    // The stock set names none of these yet, and an index past the set is empty, not a read.
+    // One that names nothing, and an index past the set, are empty, not a read.
     CHECK(soundOf(set, Cue{Cue::Kind::Explode, 0, 2, -1, {}}).empty());
     CHECK(soundOf(set, Cue{Cue::Kind::Fire, 0, 999, 0, {}}).empty());
     CHECK(soundOf(set, Cue{Cue::Kind::Explode, 0, 999, -1, {}}).empty());
     CHECK(soundOf(set, Cue{Cue::Kind::Combo, 0, 999, -1, {}}).empty());
+}
+
+TEST_CASE("UTA-0467 INV-6: a mode fired shot after shot loops from its first shot of a hold", "[ugame][game][cues]") {
+    const BodyWorld world = arena();
+    const WeaponSet set = loopingSet();
+    // The pulse gun's primary: a projectile mode with no wind-up and no beam.
+    const FireMode& plasma = primaryOf(set, "pulse-gun");
+    REQUIRE(plasma.archetype == Archetype::Projectile);
+    REQUIRE(plasma.windUp == 0);
+    REQUIRE(plasma.ammo > 0);
+
+    Game game = duel(set, "pulse-gun", 600);
+    CHECK(loopingMode(set, game.bodies[0]) == -1);
+    hold(world, set, game, 1);
+    REQUIRE(cuesOf(game, Cue::Kind::Fire) == 1);
+    CHECK(loopingMode(set, game.bodies[0]) == 0);
+    hold(world, set, game, 30);
+    CHECK(loopingMode(set, game.bodies[0]) == 0);
+
+    // The same hold on an empty gun never fired, so it never sounds.
+    Game empty = duel(set, "pulse-gun", 600);
+    empty.bodies[0].weapons[static_cast<std::size_t>(empty.bodies[0].weapon)].ammo = 0;
+    hold(world, set, empty, 30);
+    CHECK(loopingMode(set, empty.bodies[0]) == -1);
+
+    // Ammo running out under a held trigger stops it.
+    Game spent = game;
+    spent.bodies[0].weapons[static_cast<std::size_t>(spent.bodies[0].weapon)].ammo = 0;
+    CHECK(loopingMode(set, spent.bodies[0]) == -1);
+
+    // A switch asked for with the trigger down: the gun in hand is still
+    // the pulse gun and its burst still counts, and it is silent.
+    Game switching = game;
+    std::vector<MoveCommand> commands(2);
+    commands[0].fire = true;
+    commands[0].weaponPick = static_cast<std::int8_t>(weaponNamed(set, "rocket-launcher"));
+    tick(world, set, RULES, switching, commands, DT);
+    REQUIRE(switching.bodies[0].pending >= 0);
+    REQUIRE(switching.bodies[0].weapon == weaponNamed(set, "pulse-gun"));
+    CHECK(loopingMode(set, switching.bodies[0]) == -1);
+
+    // The trigger up.
+    std::vector<MoveCommand> nothing(2);
+    tick(world, set, RULES, game, nothing, DT);
+    CHECK(loopingMode(set, game.bodies[0]) == -1);
+
+    // A tap, then the trigger down again while the gun still cools: held,
+    // loaded, and not yet fired in this hold. Silent until its shot.
+    REQUIRE(plasma.refire > 3 * DT);
+    Game again = duel(set, "pulse-gun", 600);
+    hold(world, set, again, 1);
+    tick(world, set, RULES, again, nothing, DT);
+    hold(world, set, again, 1);
+    REQUIRE(cuesOf(again, Cue::Kind::Fire) == 0);
+    REQUIRE(again.bodies[0].fireHeld);
+    CHECK(loopingMode(set, again.bodies[0]) == -1);
+
+    // The other trigger held: the alt's beam, not the primary's loop.
+    Game alt = duel(set, "pulse-gun", 600);
+    hold(world, set, alt, 5, true);
+    CHECK(loopingMode(set, alt.bodies[0]) == 1);
 }

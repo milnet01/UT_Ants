@@ -93,6 +93,8 @@ public:
     [[nodiscard]] const ugame::WeaponSet& set() const noexcept { return set_; }
     /// What the ticks of the last `update` did, for drawing.
     [[nodiscard]] const std::vector<ugame::Event>& events() const noexcept { return events_; }
+    /// The last update's cues, over all its ticks: what WeaponSounds plays (UTA-0467).
+    [[nodiscard]] const std::vector<ugame::Cue>& cues() const noexcept { return cues_; }
     [[nodiscard]] const std::optional<Hit>& lastHit() const noexcept { return lastHit_; }
     /// The dummies standing.
     [[nodiscard]] std::size_t dummies() const noexcept;
@@ -145,6 +147,7 @@ private:
     ugame::Game game_; ///< bodies[0] is the player; a dead dummy's place is used again
     std::vector<uworld::MoveCommand> commands_; ///< one per body; a dummy's asks for nothing
     std::vector<ugame::Event> events_;
+    std::vector<ugame::Cue> cues_;
     std::vector<Spawn> spawns_;
     std::size_t nextSpawn_ = 0;
     std::optional<Hit> lastHit_;

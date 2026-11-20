@@ -4,7 +4,7 @@
 # need no window,
 # and tests/CMakeLists.txt compiles them into the unit tests. main.cpp, Audio.cpp and
 # Launcher.cpp are the SDL half, run by hand: no CI leg has a display.
-add_executable(ut-ants main.cpp Audio.cpp Cli.cpp FlyCamera.cpp FrameRate.cpp Launcher.cpp MapList.cpp MapSounds.cpp Png.cpp Capture.cpp
+add_executable(ut-ants main.cpp Audio.cpp Cli.cpp FlyCamera.cpp FrameRate.cpp Launcher.cpp MapList.cpp MapSounds.cpp WeaponSounds.cpp Png.cpp Capture.cpp
                StandIns.cpp Walker.cpp)
 target_link_libraries(ut-ants PRIVATE uta_urender uta_uui uta_ugame uta_uworld uta_uinput uta_uaudio uta_ubundle uta_urecipe uta_core SDL3::SDL3)
 

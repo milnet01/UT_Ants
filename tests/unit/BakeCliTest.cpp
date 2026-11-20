@@ -599,6 +599,9 @@ TEST_CASE("UTA-0478 SS 4.4: --weapon-sounds bakes a weapon file's classes and re
     CHECK(written.out.find("\"verdict\": \"written\"") != std::string::npos);
     CHECK(written.out.find("\"sounds\": {\"count\": 0, \"bytes\": 0, \"skipped\": []}") != std::string::npos);
     CHECK(written.out.find("\"unresolved\": [\"botpack.") != std::string::npos);
+    // UTA-0467 SS 4.4: nor does it hold the sounds the file names itself.
+    CHECK(written.out.find("\"missing\": [\"botpack.") != std::string::npos);
+    CHECK(written.err.find("which is no sound in the install") != std::string::npos);
     const Run cached = run(args);
     CHECK(cached.code == 0);
     CHECK(cached.out.find("\"verdict\": \"cached\"") != std::string::npos);

@@ -604,7 +604,9 @@ INV-9.
 ## 9. Out of scope
 
 The Redeemer and the Translocator (own items). Weapon models, hand
-animation, muzzle flashes and sounds (own item, after UTA-0056).
+animation and muzzle flashes (UTA-0467). Sounds are
+`docs/specs/UTA-0467-weapon-sounds.md`: its § 4.2 adds the sound keys to
+this file's format, and its § 4.3 adds `Game::cues` beside the events.
 Modern explosion effects (UTA-0470).
 Placed weapon and ammo pickups (UTA-0027). Rocket lock-on, double
 Enforcers and the hammer's alt-fire turning projectiles away (own item).

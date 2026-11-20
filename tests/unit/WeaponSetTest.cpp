@@ -460,3 +460,14 @@ TEST_CASE("UTA-0467 INV-1: a sound path the bank could never hold is refused", "
         CHECK(set.error().message().contains(std::format("line {}", lineOf(refusal.text, refusal.at))));
     }
 }
+
+TEST_CASE("UTA-0467 INV-11: every stock fire mode and weapon names a sound", "[ugame][weapons][sounds]") {
+    const auto set = uta::ugame::load(uta::ugame::shippedDirectory() / "stock.weapons");
+    REQUIRE(set.has_value());
+    for (const uta::ugame::Weapon& weapon : set->weapons) {
+        CAPTURE(weapon.name);
+        CHECK_FALSE(weapon.selectSound.empty());
+        CHECK((!weapon.primary.sound.empty() || !weapon.primary.loopSound.empty()));
+        if (weapon.alt) CHECK((!weapon.alt->sound.empty() || !weapon.alt->loopSound.empty()));
+    }
+}

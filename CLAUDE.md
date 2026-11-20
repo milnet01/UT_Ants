@@ -15,8 +15,10 @@ baking sounds into bundles, shipped 2026-11-19, as did `UTA-0476`,
 ExperiRays' scene exporter. `UTA-0480`, a map's ambient sounds, shipped
 2026-11-20. Mover, trigger and pickup sounds wait for the code that
 drives them (`UTA-0484`, `UTA-0485`, `UTA-0486`; user, 2026-11-20).
-Next, in 0.2.0: `UTA-0467` plays the weapons' sounds, and `UTA-0479` is
-a slow landing projection to find. `UTA-0482`, runs for frameledger,
+`UTA-0467`'s weapon sounds were built 2026-11-20 and no person has
+heard them yet; its models and muzzle flashes need animated meshes,
+which no item builds. Next, in 0.2.0: `UTA-0479` is a slow landing
+projection to find. `UTA-0482`, runs for frameledger,
 waits for the user to say the machine is free (2026-11-20). `UTA-0437`
 stays behind those although frameledger freezes its file format in its
 0.8.0 (user, 2026-11-20).
@@ -49,7 +51,8 @@ deferred out of that cut.
 
 **A bake goes stale when the baker or the format moves.** Bundles are
 format 37 and the baker revision 79 (`UTA-0478`). Re-bake any
-map baked before either.
+map baked before either. The weapon sound bundle re-bakes by itself
+when the weapons file names another sound (`UTA-0467`).
 
 **The frame-rate target is 60 fps on High on this machine, drawing at
 2560x1440 and upscaled to its 4K screen** (render scale 2/3), with headroom

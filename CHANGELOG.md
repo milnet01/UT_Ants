@@ -14,6 +14,16 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **Weapons make their sounds** (UTA-0467)
+  Each stock weapon is now heard: its shot, the sound of bringing it up,
+  a hum while the pulse gun, the minigun or the chainsaw is held, the
+  spin-down after, and the blast where a rocket, a shell or a shock
+  combo goes off. Each comes from where it happens. Which sound a weapon
+  plays is written in the weapons file, so a custom weapon set can name
+  its own. Loading and cocking sounds, the rocket launcher's lock-on
+  tones and bullet impacts are not in yet. Weapon models and muzzle
+  flashes are still to come.
+
 - **Maps hum again** (UTA-0480)
   A map's ambient sounds now play: machinery, lava, wind and the like.
   Each is heard from where it sits, louder as you walk up to it and

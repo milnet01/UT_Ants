@@ -124,9 +124,10 @@ struct Game {
 [[nodiscard]] std::string_view soundOf(const WeaponSet& set, const Cue& cue);
 
 /// The fire mode of the weapon in `body`'s hand whose `loop-sound` sounds
-/// now, 0 or 1; else -1. A beam's sounds while the beam is on; a wound-up
-/// mode's while it winds up or the press that wound it up is still held.
-/// Never for a dead body; a switch ends the beam and the hold it reads
+/// now, 0 or 1; else -1. A beam's sounds while the beam is on. Another
+/// mode's sounds while it winds up, while the press that wound it up is
+/// still held, and from its first shot of a hold until the trigger is up
+/// or its ammo is short. Never for a dead body or during a switch
 /// (UTA-0467 SS 4.3).
 [[nodiscard]] int loopingMode(const WeaponSet& set, const Body& body);
 

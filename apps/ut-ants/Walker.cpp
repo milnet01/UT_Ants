@@ -183,6 +183,7 @@ void Walker::update(const uinput::Frame& input, double seconds, const uworld::Bo
     if (input.wasPressed(uinput::Action::DropDummy)) dropDummy(world);
     zoomBy(altFire, seconds);
     events_.clear();
+    cues_.clear();
 
     uworld::MoveCommand command;
     command.forward = input.forward;
@@ -225,6 +226,7 @@ void Walker::update(const uinput::Frame& input, double seconds, const uworld::Bo
         previous_ = game_.bodies[0].move;
         ugame::tick(world, set_, rules_, game_, commands_, clock_.dt());
         events_.insert(events_.end(), game_.events.begin(), game_.events.end());
+        cues_.insert(cues_.end(), game_.cues.begin(), game_.cues.end());
         for (std::size_t i = 1; i < game_.bodies.size(); ++i) {
             if (game_.bodies[i].health < healthBefore[i])
                 lastHit_ = Hit{healthBefore[i] - game_.bodies[i].health, game_.bodies[i].health};

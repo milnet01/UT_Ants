@@ -273,7 +273,7 @@ first two's cases to loops.
 ## 9. Out of scope
 
 - A mover's, a trigger's and a pickup's sounds (§ 3 item 1) — tracked by UTA-0484, UTA-0485 and UTA-0486.
-- One-shot sounds placed in the world, such as another player's shot — tracked by UTA-0467, which uses `place`.
+- One-shot sounds placed in the world, such as another player's shot — `docs/specs/UTA-0467-weapon-sounds.md`, which uses `place`.
 - Walls muffling sound, Doppler, reverb by zone — deferred; not yet queued.
 - Volume sliders — tracked by UTA-0120.
 

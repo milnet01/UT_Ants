@@ -184,9 +184,11 @@ goes on.
 **The name** is the lower-case hex SHA-256 of:
 
 ```text
-"uta-sound-set-name-1" LF
+"uta-sound-set-name-2" LF
 bakerVersion() LF
 each class of the request, sorted, each once: the path, LF
+"sounds" LF
+each sound path the request names, sorted, each once: the path, LF
 each package of the closure, sorted: the name, LF, then 0x01 and the
   file's SHA-256, or 0x00 where the resolver returns none
 ```
@@ -277,7 +279,7 @@ ut-ants ... [--sounds <bundle>] <install> <bundle>
   *Breaks when:* `readSound`'s error fails the bake.
 - **INV-6** — `bakeSoundSet` stores the sounds of each listed class's effective defaults and of the classes those name, and of no class further. A class that does not resolve is listed and the rest are baked. *Test:* `tests/unit/BakeSoundsTest.cpp`, a weapon class whose parent sets one sound, naming a projectile class with one sound, which names a third class with one sound; and a class name that is not there. Expects the first two sounds and the name in `unresolved`.
   *Breaks when:* own defaults are read in place of effective ones, the walk does not follow a class-valued default, or it follows two.
-- **INV-7** — The sound set's name changes when a class is added to the request and when any closure package's bytes change, and not when the request's classes are reordered or repeated. *Test:* `tests/unit/BakeSoundsTest.cpp`, five names from one fixture install.
+- **INV-7** — The sound set's name changes when a class is added to the request and when any closure package's bytes change, and not when the request's classes are reordered or repeated. The sounds a request names move it too: UTA-0467 INV-8. *Test:* `tests/unit/BakeSoundsTest.cpp`, five names from one fixture install.
   *Breaks when:* the classes are hashed in request order, or a package the weapon's package imports is left out of the closure.
 - **INV-8** — `SoundBank::find` returns the clip `decodeWav` gives for the bytes added under that path, and null for a path not added. A second `add` under a held path changes nothing. A payload `decodeWav` refuses is not held and `add` returns its error. A pointer `find` returned still reads the same clip after a hundred more sounds are added. *Test:* `tests/unit/SoundBankTest.cpp`, on WAV payloads built in the test.
   *Breaks when:* the clips live in a `std::vector` that grows, or a refused payload leaves an empty clip behind.
@@ -345,8 +347,8 @@ hash is re-recorded with the revision. The tests that pin
 ## 9. Out of scope
 
 - Playing weapon sounds, and naming which sound a weapon event plays —
-  tracked by UTA-0467. A sound only a script names is added to the sound
-  set there, by naming it in the weapons file.
+  `docs/specs/UTA-0467-weapon-sounds.md`. Its § 4.4 adds the sounds the
+  weapons file names to the request, the name and the report here.
 - Playing a map's own sounds, and positional sound — tracked by UTA-0480.
 - Player, monster, announcer and music sounds — deferred; not yet queued.
 - Compressing the stored sounds — deferred; not yet queued.

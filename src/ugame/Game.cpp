@@ -590,17 +590,23 @@ std::string_view soundOf(const WeaponSet& set, const Cue& cue) {
 }
 
 int loopingMode(const WeaponSet& set, const Body& body) {
-    // A switch needs no test here: switchWeapon ends the hold and the
-    // wind-up, and fireBody drops the beam, in the tick it starts.
-    if (!body.alive() || body.weapon < 0) return -1;
+    // During a switch the old weapon is still `weapon`, and `burst` still
+    // counts its shots: fireBody leaves both alone until the new one is up.
+    if (!body.alive() || body.weapon < 0 || body.pending >= 0) return -1;
     const Weapon& weapon = set.weapons[static_cast<std::size_t>(body.weapon)];
     // fireBody gives the primary trigger the beam where both are down.
-    const int beaming = body.beamFor <= 0 ? -1 : body.fireHeld ? 0 : body.altHeld ? 1 : -1;
+    const int held = body.fireHeld ? 0 : body.altHeld ? 1 : -1;
+    const int beaming = body.beamFor > 0 ? held : -1;
+    const std::uint32_t ammo = body.weapons[static_cast<std::size_t>(body.weapon)].ammo;
     for (int which = 0; which < 2; ++which) {
         const FireMode* mode = which == 0 ? &weapon.primary : weapon.alt ? &*weapon.alt : nullptr;
         if (mode == nullptr || mode->loopSound.empty()) continue;
-        const bool sounds = mode->archetype == Archetype::Beam ? beaming == which
-                                                               : body.winding == which || body.holding == which;
+        // A mode fired shot after shot sounds from its first shot of the
+        // hold until the trigger is up or it can no longer pay for one.
+        const bool firing = held == which && body.burst > 0 && ammo >= mode->ammo;
+        const bool sounds = mode->archetype == Archetype::Beam
+                                ? beaming == which
+                                : body.winding == which || body.holding == which || firing;
         if (sounds) return which;
     }
     return -1;

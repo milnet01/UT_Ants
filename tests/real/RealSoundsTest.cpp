@@ -108,3 +108,26 @@ TEST_CASE("UTA-0478 INV-10: the stock weapon set carries a sound for every weapo
     CHECK(set->unresolved.empty());
     CHECK(set->found.skipped.empty());
 }
+
+TEST_CASE("UTA-0467 INV-11: every sound the stock weapon set names is in the install and decodes",
+          "[real][ubake][sounds]") {
+    const auto weapons = uta::ugame::load(uta::ugame::shippedDirectory() / "stock.weapons");
+    REQUIRE(weapons.has_value());
+    auto install = uta::ubake::Install::open(fs::path(UTA_UT_INSTALL_DIR));
+    REQUIRE(install.has_value());
+
+    const std::vector<std::string> named = uta::ugame::soundPaths(*weapons);
+    REQUIRE(!named.empty());
+    // No class listed: only the named paths are looked up, so a misspelt one
+    // cannot hide behind a default that happens to reach the same sound.
+    const auto set = uta::ubake::detail::soundSetOf({}, named, install->resolver());
+    if (!set.has_value()) FAIL(set.error().message());
+    for (const std::string& path : set->missing) UNSCOPED_INFO("no such sound: " << path);
+    CHECK(set->missing.empty());
+    CHECK(set->found.sounds.size() == named.size());
+    CHECK(set->found.skipped.empty());
+    const Figures figures = decodeAll(set->found);
+    CHECK(figures.refused == 0);
+    WARN("stock weapon set names " << named.size() << " sounds: " << figures.storedBytes << " bytes stored, "
+                                   << figures.decodedBytes << " decoded");
+}

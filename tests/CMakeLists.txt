@@ -95,6 +95,7 @@ add_executable(uta_unit_tests
     unit/ClientCaptureTest.cpp
     unit/ClientMapListTest.cpp
     unit/ClientMapSoundsTest.cpp
+    unit/ClientWeaponSoundsTest.cpp
     unit/CompactIndexTest.cpp
     unit/CoreErrorTest.cpp
     unit/CoreFileSystemTest.cpp
@@ -202,6 +203,7 @@ target_sources(uta_unit_tests PRIVATE
     "${PROJECT_SOURCE_DIR}/apps/ut-ants/FrameRate.cpp"
     "${PROJECT_SOURCE_DIR}/apps/ut-ants/MapList.cpp"
     "${PROJECT_SOURCE_DIR}/apps/ut-ants/MapSounds.cpp"
+    "${PROJECT_SOURCE_DIR}/apps/ut-ants/WeaponSounds.cpp"
     "${PROJECT_SOURCE_DIR}/apps/ut-ants/Capture.cpp"
     "${PROJECT_SOURCE_DIR}/apps/ut-ants/Png.cpp"
     "${PROJECT_SOURCE_DIR}/apps/ut-ants/StandIns.cpp"

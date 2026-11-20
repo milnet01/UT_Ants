@@ -1,7 +1,7 @@
 <!-- ants-spec-format: 1 -->
 # UTA-0467 — weapons play their sounds
 
-**Status:** accepted (2026-11-20). No review: contract reviews are cancelled for this project (`CLAUDE.md` § Contract reviews); building it is the reviewer.
+**Status:** built (2026-11-20). No review: contract reviews are cancelled for this project (`CLAUDE.md` § Contract reviews); building it is the reviewer.
 **Kind:** implement.
 **Source:** ROADMAP UTA-0467 (user-request-2026-11-11).
 **Pairs with:** UTA-0019, UTA-0478, UTA-0480, each amended in § 11.
@@ -47,9 +47,9 @@ The user asked for weapon sounds (2026-11-11) and set this item next
 1. **The weapons file names each sound by its path.** No sound is looked
    up from a class's property at run time: the bundle stores paths, not
    which property named them.
-2. **Heard in this item:** a shot, a weapon switch, a loop while a beam
-   or a wound-up mode is held, the sound that ends that loop, a
-   projectile's explosion and a combo's.
+2. **Heard in this item:** a shot, a weapon switch, a loop while a beam,
+   a wound-up mode or a mode fired shot after shot is held, the sound
+   that ends that loop, a projectile's explosion and a combo's.
 3. **Not heard in this item:** loading and cocking sounds, the rocket
    launcher's lock-on tones, a charge's rising tone, an empty weapon's
    click, a projectile's sound in flight, a hit on a body or a wall by an
@@ -158,11 +158,14 @@ struct Game { /* … */ std::vector<Cue> cues; }; ///< this tick's; cleared at i
 - **Combo**: one where `Fire.cpp` raises its `Combo` event.
 - A cue is raised whether or not a sound is named. `soundOf` decides.
 - `stateHash` does not read `cues`, as it does not read `events`.
-- **`loopingMode`** is a mode with a `loop-sound`, on a living body,
-  while that mode's beam is on, or while it winds up or the press that
-  wound it up is still held. A switch ends all three in the tick it
-  starts (`switchWeapon`, `fireBody`), so a switching body has none. It
-  reads `Body` as it stands and adds no field to it.
+- **`loopingMode`** is a mode with a `loop-sound`, on a living body
+  that is not switching. A beam's sounds while the beam is on. Another
+  mode's sounds while it winds up, while the press that wound it up is
+  still held, and from its first shot of a hold until the trigger is up
+  or the weapon cannot pay for a shot. The last is how the chainsaw and
+  the pulse gun's primary hum, as the original sets `AmbientSound`
+  while they fire. It reads `Body` as it stands and adds no field to
+  it.
 
 ### 4.4 The baker
 
@@ -218,7 +221,10 @@ public:
   its `end-sound` plays once where the same weapon is still in hand.
 - `Walker` gathers `Game::cues` over a frame's ticks beside its events,
   and `main.cpp` passes them with `Game::bodies` once a frame. A frame
-  with no tick has no cues and keeps its loops.
+  with no tick has no cues and keeps its loops. A frame spent flying
+  passes no bodies, which stops every loop.
+- A loop out of earshot holds no voice and starts one when it comes
+  near. Leaving earshot is not the loop ending: no `end-sound` plays.
 - `ut-ants` says on stderr, once, how many paths are missing.
 - A headless run with no audio device runs the same code against a
   mixer nothing drains, as `MapSounds` does.
@@ -266,9 +272,9 @@ public:
   tick after its trigger is released; it is -1 for a mode with no
   `loop-sound`, for a dead body and during a switch.
   *Test:* `tests/unit/GameTest.cpp`.
-  *Breaks when:* it reads the trigger and not the beam, so an empty
-  beam weapon hums; or a switch stops clearing the hold or the beam, so
-  the put-away weapon hums through the switch.
+  *Breaks when:* it reads the trigger and not the beam or the shots, so
+  an empty weapon hums; or it ignores `pending`, so the put-away weapon
+  hums through the switch on the strength of its last burst.
 
 - **INV-7** — `soundOf` returns the path of the cue's own weapon and
   mode, projectile or combo, and empty where that names none.
@@ -302,12 +308,15 @@ public:
   *Breaks when:* each update starts another loop, or a loop outlives
   its body's switch.
 
-- **INV-11** — Baked from the real install, `weapons/stock.weapons`
-  gives an empty `missing`, and every stock fire mode names a `sound`
-  or a `loop-sound`.
-  *Test:* `tests/real/RealSoundsTest.cpp`, the real-asset tier.
+- **INV-11** — Looked up in the real install with no class listed,
+  every sound `weapons/stock.weapons` names is found and decodes; and
+  every stock weapon names a `select-sound`, and each of its fire modes
+  a `sound` or a `loop-sound`.
+  *Test:* `tests/real/RealSoundsTest.cpp`, the real-asset tier, for the
+  first half; `tests/unit/WeaponSetTest.cpp` for the second.
   *Breaks when:* a path in the stock file is misspelt, or a weapon is
-  added with no sound.
+  added with no sound. Listing no class keeps a default that reaches
+  the same sound from hiding a misspelt path.
 
 ## 6. Failure modes
 
@@ -331,10 +340,12 @@ public:
 - `tests/unit/BakeSoundsTest.cpp` gains INV-8.
 - `tests/unit/ClientWeaponSoundsTest.cpp`, new, carries INV-9 and
   INV-10.
-- `tests/real/RealSoundsTest.cpp` gains INV-11, run where
-  `UTA_REAL_ASSET_TESTS` is on.
-- The unit tests are label `unit`. Each is seen to fail before its code
-  exists.
+- `tests/real/RealSoundsTest.cpp` gains INV-11's first half, run where
+  `UTA_REAL_ASSET_TESTS` is on; `tests/unit/WeaponSetTest.cpp` its
+  second. `tests/unit/BakeCliTest.cpp` checks the report's `missing`.
+- The unit tests are label `unit`. Each rule was broken by hand and a
+  test seen to fail for it (2026-11-20); no file in
+  `scripts/mutations/` holds those mutations yet.
 - By ear, once: start `ut-ants`, fire each weapon both ways, switch
   through them, hold the pulse gun's beam and release it, and land a
   rocket near and far.
@@ -375,10 +386,11 @@ public:
 | INV-5, replay hashes | `tests/unit/FireReplayTest.cpp` |
 | INV-8 | `tests/unit/BakeSoundsTest.cpp` |
 | INV-9, INV-10 | `tests/unit/ClientWeaponSoundsTest.cpp` |
-| INV-11 | Partial: `tests/real/RealSoundsTest.cpp` runs only with the install, so GitHub's matrix does not run it |
+| INV-11 | Partial: `tests/unit/WeaponSetTest.cpp` holds the census; `tests/real/RealSoundsTest.cpp` holds the paths and runs only with the install, so GitHub's matrix does not run it |
 | § 3 item 5: 1600 units matches UT99 | **nothing** — § 15 item 1 |
 | § 4.2: each stock sound is the one the original plays for that event | **nothing** — each line cites its class default or script; a wrong but existing path passes INV-11 |
-| § 4.5: a sound is heard by a person | **nothing** — § 7's recipe, by ear |
+| § 4.5: a sound is heard by a person | **nothing** — § 7's recipe, by ear; not yet done |
+| § 4.5: `main.cpp` passes the cues and bodies each frame | **nothing** — one hidden run walked, fired and switched without a fault (2026-11-20); it cannot hear |
 
 ## 11. Cross-doc impact
 
@@ -401,9 +413,10 @@ Rows live in `../reviews/UTA-0467-weapon-sounds-loop-log.md`.
 
 `WeaponSounds` holds one voice id per body and a clip pointer per sound
 the set names. The weapon bundle grows by the sounds the file names
-beyond the classes' defaults; the stock set's defaults alone are 40
-sounds and 1 508 648 bytes
-(`ut-bake --weapon-sounds weapons/stock.weapons`, 2026-11-20). No new
+beyond the classes' defaults; the stock set's bundle went from 40 sounds
+and 1 508 648 bytes to 50 and 2 000 664
+(`ut-bake --weapon-sounds weapons/stock.weapons`, before and after the
+file named its sounds, 2026-11-20). No new
 dependency.
 
 ## 15. Open questions

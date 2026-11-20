@@ -21437,6 +21437,13 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   2026-11-20: spec for the sounds at
   docs/specs/UTA-0467-weapon-sounds.md. It amends UTA-0019, UTA-0478 and
   UTA-0480 where its § 11 says.
+  2026-11-20, later: the sounds are built whole (INV-1 to INV-11).
+  The stock file names 50 sounds and the real install holds every one.
+  One hidden run walked, fired and switched without a fault. Not yet
+  heard by a person. Left in this item: weapon models and muzzle
+  flashes, which need animated meshes that no item builds. Not built,
+  by the spec's § 3 item 3: loading and cocking sounds, lock-on tones,
+  a charge's tone, an empty click, flight sounds, bullet impacts.
   **Layman:** Real guns on screen and the sounds they make, in place of the simple stand-in shapes.
   Kind: implement.
   Source: user-request-2026-11-11.

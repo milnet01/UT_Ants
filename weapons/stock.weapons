@@ -22,6 +22,7 @@ slot = 1                   # default: ImpactHammer.InventoryGroup
 ammo-max = 0               # the hammer needs no ammo
 ammo-start = 0
 switch-time = 0.84         # recorded: from the Enforcer, key to first shot
+select-sound = botpack.asmd.impactpickup  # default: ImpactHammer.SelectSound
 
 [fire impact-hammer primary]
 archetype = melee
@@ -39,6 +40,7 @@ reach = 90                 # script: ImpactHammer.ProcessTraceHit, a body farthe
 self-momentum = 69000      # script: ImpactHammer.ProcessTraceHit, x charge, the charge at least 1 (rule)
 self-damage = 36           # script: ImpactHammer.ProcessTraceHit, a surface hurts the firer, whatever the charge
 rule = hammer              # script: ImpactHammer.Firing, a body 25 ahead fires it once the charge passes 1
+sound = botpack.asmd.impactaltfirerelease  # default: ImpactHammer.FireSound; script: ImpactHammer.PlayFiring
 
 [fire impact-hammer alt]
 archetype = melee
@@ -53,6 +55,7 @@ range = 180                # script: ImpactHammer.TraceAltFire
 distance-scale = 180       # script: ImpactHammer.ProcessAltTraceHit
 self-momentum = 40000      # script: ImpactHammer.ProcessAltTraceHit, a surface, x distance / 180
 self-damage = 24           # script: ImpactHammer.ProcessAltTraceHit, a surface, x distance / 180
+sound = botpack.asmd.impactfire  # default: ImpactHammer.AltFireSound; script: ImpactHammer.PlayAltFiring
 
 [weapon chainsaw]
 class = botpack.chainsaw
@@ -60,6 +63,7 @@ slot = 1                   # default: ChainSaw.InventoryGroup
 ammo-max = 0
 ammo-start = 0
 switch-time = 0.77         # recorded: from the Enforcer, key to first shot
+select-sound = botpack.chainsaw.chainpickup  # default: ChainSaw.SelectSound
 
 [fire chainsaw primary]
 archetype = melee
@@ -71,6 +75,7 @@ damage = 20                # recorded
 momentum = -15000          # script: ChainSaw.TraceFire, -15000 along the aim: it pulls; recorded
 range = 100                # script: ChainSaw.TraceFire, 10 + Range (default 90)
 range-from = body          # script: ChainSaw.TraceFire ends its trace that far from the owner's centre
+loop-sound = botpack.chainsaw.sawhit  # default: ChainSaw.HitSound; script: ChainSaw sets AmbientSound to it while it fires
 
 [fire chainsaw alt]
 archetype = melee
@@ -83,6 +88,7 @@ momentum = 0
 momentum-side = -10000     # script: ChainSaw.Slash, -10000 along the right-hand axis; recorded
 range = 90                 # default: ChainSaw.Range
 range-from = body          # script: ChainSaw.Slash ends its trace that far from the owner's centre
+sound = botpack.chainsaw.sawhit  # default: ChainSaw.HitSound; script: ChainSaw.AltFiring.BeginState sets AmbientSound to it; once a slash here
 
 [weapon enforcer]
 class = botpack.enforcer
@@ -90,6 +96,7 @@ slot = 2                   # default: Enforcer.InventoryGroup
 ammo-max = 199             # default: Miniammo.MaxAmmo
 ammo-start = 30            # default: Enforcer.PickupAmmoCount
 switch-time = 1.02         # recorded: from the Shock Rifle, key to first shot
+select-sound = botpack.enforcer.cocking  # default: Enforcer.SelectSound
 
 [fire enforcer primary]
 archetype = instant-hit
@@ -102,6 +109,7 @@ momentum = 3000            # SS 4.9
 push-chance = 0.2          # SS 4.9: one hit in five
 push-scale = 5             # SS 4.9
 range = 10000              # script: Weapon.TraceFire
+sound = botpack.enforcer.e_shot  # default: Enforcer.FireSound; script: Enforcer.PlayFiring
 
 [fire enforcer alt]
 archetype = instant-hit
@@ -117,6 +125,7 @@ momentum = 3000            # SS 4.9
 push-chance = 0.2          # SS 4.9: one hit in five
 push-scale = 5             # SS 4.9
 range = 10000              # script: Weapon.TraceFire
+sound = botpack.enforcer.e_shot  # default: Enforcer.FireSound; script: Enforcer.PlayAltFiring plays FireSound
 
 [weapon bio-rifle]
 class = botpack.ut_biorifle
@@ -124,6 +133,7 @@ slot = 3                   # default: UT_BioRifle.InventoryGroup
 ammo-max = 100             # default: BioAmmo.MaxAmmo
 ammo-start = 25            # default: UT_BioRifle.PickupAmmoCount
 switch-time = 0.77         # recorded: from the Enforcer, key to first shot
+select-sound = unreali.biorifle.gelselect  # default: UT_BioRifle.SelectSound
 
 [fire bio-rifle primary]
 archetype = projectile
@@ -132,6 +142,7 @@ refire = 0.286             # recorded at 30, 85 and 120 fps
 refire-lead = 0.022        # recorded: a hold's first interval is 0.307 to 0.331
 ammo = 1
 projectile = bio-gel
+sound = unreali.biorifle.gelshot  # default: UT_BioRifle.FireSound
 
 [fire bio-rifle alt]
 archetype = projectile
@@ -145,6 +156,7 @@ charge-step = 0.5          # script: UT_BioRifle.AltFiring, a round and the hold
 charge-scales = damage     # the glob's momentum too, and its radius (splash-radius-max)
 projectile = bio-glob
 count = 1
+sound = unreali.biorifle.gelshot  # default: UT_BioRifle.AltFireSound
 
 [weapon shock-rifle]
 class = botpack.shockrifle
@@ -152,6 +164,7 @@ slot = 4                   # default: ShockRifle.InventoryGroup
 ammo-max = 50              # default: ShockCore.MaxAmmo
 ammo-start = 20            # default: ShockRifle.PickupAmmoCount
 switch-time = 0.77         # recorded: from the Enforcer, key to first shot
+select-sound = unrealshare.asmd.tazerselect  # default: ShockRifle.SelectSound
 
 [fire shock-rifle primary]
 archetype = instant-hit
@@ -161,6 +174,7 @@ ammo = 1
 damage = 40                # recorded
 momentum = 60000           # recorded
 range = 10000              # script: ShockRifle.TraceFire
+sound = unrealshare.asmd.tazerfire  # default: ShockRifle.FireSound; script: ShockRifle.PlayFiring
 
 [fire shock-rifle alt]
 archetype = projectile
@@ -168,6 +182,7 @@ offset = 14.4 6.7 -9.6     # SS 4.9: PlayerViewOffset plus the class's FireOffse
 refire = 0.52              # recorded
 ammo = 1
 projectile = shock-ball
+sound = unrealshare.asmd.tazeraltfire  # default: ShockRifle.AltFireSound; script: ShockRifle.PlayAltFiring
 
 [weapon pulse-gun]
 class = botpack.pulsegun
@@ -175,6 +190,7 @@ slot = 5                   # default: PulseGun.InventoryGroup
 ammo-max = 199             # default: PAmmo.MaxAmmo
 ammo-start = 60            # default: PulseGun.PickupAmmoCount
 switch-time = 0.73         # recorded: from the Enforcer, key to first shot
+select-sound = botpack.pulsegun.pulsepickup  # default: PulseGun.SelectSound
 
 [fire pulse-gun primary]
 archetype = projectile
@@ -185,6 +201,8 @@ ammo = 1
 projectile = plasma
 spiral-radius = 4          # script: PulseGun.ProjectileFire, 4 round the offset
 spiral-turn = 18775        # script: 1.8 radians a shot, the first straight up; recorded
+loop-sound = botpack.pulsegun.pulsefire  # default: PulseGun.FireSound; script: PulseGun sets AmbientSound to it while it fires
+end-sound = botpack.pulsegun.pulsedown  # default: PulseGun.DownSound; script: PulseGun.PlaySpinDown
 
 [fire pulse-gun alt]
 archetype = beam
@@ -199,6 +217,7 @@ range = 810                # script: PBolt, ten pieces of 81
 hit-every = 0.22           # SS 4.9: PBolt's stored hits
 extend = 6259              # script: PBolt adds a piece of 81 a tick; here a tick is 1.1 / 85 s
 first-hit = 0.1            # script: PBolt.CheckBeam, a first touch hurts as 0.1 s of hold; recorded
+loop-sound = botpack.pulsegun.pulsebolt  # default: PulseGun.AltFireSound; script: PulseGun sets AmbientSound to it while the beam is on
 
 [weapon ripper]
 class = botpack.ripper
@@ -206,6 +225,7 @@ slot = 6                   # default: Ripper.InventoryGroup
 ammo-max = 75              # default: BladeHopper.MaxAmmo
 ammo-start = 15            # default: Ripper.PickupAmmoCount
 switch-time = 1.03         # recorded: from the Enforcer, key to first shot
+select-sound = unreali.razorjack.beam  # default: Ripper.SelectSound
 
 [fire ripper primary]
 archetype = projectile
@@ -214,6 +234,7 @@ refire = 0.384             # recorded: the mean interval at 30, 85 and 120 fps
 refire-lead = 0.022        # recorded: a hold's first interval is 0.404 to 0.409 at those rates
 ammo = 1
 projectile = razor
+sound = unreali.razorjack.startblade  # script: Ripper.PlayFiring plays Razor2.SpawnSound
 
 [fire ripper alt]
 archetype = projectile
@@ -221,6 +242,7 @@ offset = 3 16.6 -15.4      # SS 4.9: PlayerViewOffset plus the class's FireOffse
 refire = 0.711             # recorded: the mean interval at 30, 85 and 120 fps; its first is no longer
 ammo = 1
 projectile = razor-alt
+sound = botpack.ripper.razoralt  # script: Ripper.PlayAltFiring plays Razor2Alt.SpawnSound
 
 [weapon minigun]
 class = botpack.minigun2
@@ -228,6 +250,7 @@ slot = 7                   # default: Minigun2.InventoryGroup
 ammo-max = 199             # default: Miniammo.MaxAmmo
 ammo-start = 50            # default: Minigun2.PickupAmmoCount
 switch-time = 0.84         # recorded: from the Enforcer, key to first shot
+select-sound = unreali.minigun.miniselect  # default: Minigun2.SelectSound
 
 [fire minigun primary]
 archetype = instant-hit
@@ -242,6 +265,8 @@ damage = 9                 # SS 4.9: Minigun2.TraceFire, 9 + Rand(6); recorded
 damage-random = 5          # SS 4.9
 momentum = 0               # SS 4.9: none with the 469 default NoLockdown=1
 range = 10000              # script: Minigun2.TraceFire
+loop-sound = botpack.minigun2.m2regfire  # default: Minigun2.FireSound; script: Minigun2 sets AmbientSound to it while it fires
+end-sound = botpack.minigun2.m2winddown  # default: Minigun2.Misc1Sound; script: Minigun2, "Finish firing, power down"
 
 [fire minigun alt]
 archetype = instant-hit
@@ -257,6 +282,8 @@ damage = 9                 # SS 4.9: Minigun2.TraceFire, 9 + Rand(6); recorded
 damage-random = 5          # SS 4.9
 momentum = 0               # SS 4.9: none with the 469 default NoLockdown=1
 range = 10000              # script: Minigun2.TraceFire
+loop-sound = botpack.minigun2.m2altfire  # default: Minigun2.AltFireSound; script: Minigun2.AltFiring sets AmbientSound to it
+end-sound = botpack.minigun2.m2winddown  # default: Minigun2.Misc1Sound
 
 [weapon flak-cannon]
 class = botpack.ut_flakcannon
@@ -264,6 +291,7 @@ slot = 8                   # default: UT_FlakCannon.InventoryGroup
 ammo-max = 50              # default: FlakAmmo.MaxAmmo
 ammo-start = 10            # default: UT_FlakCannon.PickupAmmoCount
 switch-time = 1.35         # recorded: from the Enforcer, key to first shot
+select-sound = unreali.flak.pdown  # default: UT_FlakCannon.SelectSound
 
 [fire flak-cannon primary]
 archetype = projectile
@@ -274,6 +302,7 @@ spread = 0                 # script: every chunk takes the aim; flak-chunk's tur
 rule = flak-spread         # script: UT_FlakCannon.Fire, each chunk from its own place up to 2 right and 1 up or down
 projectile = flak-chunk
 count = 8                  # script: UT_FlakCannon.Fire; recorded
+sound = unrealshare.flak.shot1  # default: UT_FlakCannon.FireSound; script: UT_FlakCannon.PlayFiring
 
 [fire flak-cannon alt]
 archetype = projectile
@@ -281,6 +310,7 @@ offset = 11.5 12 -16.65    # SS 4.9: PlayerViewOffset plus the class's FireOffse
 refire = 1.06              # recorded
 ammo = 1
 projectile = flak-shell
+sound = unrealshare.flak.explode1  # default: UT_FlakCannon.AltFireSound; script: UT_FlakCannon.PlayAltFiring
 
 [weapon rocket-launcher]
 class = botpack.ut_eightball
@@ -288,6 +318,7 @@ slot = 9                   # default: UT_Eightball.InventoryGroup
 ammo-max = 48              # default: RocketPack.MaxAmmo
 ammo-start = 6             # default: UT_Eightball.PickupAmmoCount
 switch-time = 0.88         # recorded: from the Enforcer, key to first shot
+select-sound = unrealshare.eightball.selecting  # default: UT_Eightball.SelectSound
 
 [fire rocket-launcher primary]
 archetype = projectile
@@ -303,6 +334,7 @@ charge-step-last = 0.833   # recorded: the sixth's, past 4.431 and by 4.435 s of
 charge-scales = count
 projectile = rocket
 count = 6                  # script: UT_Eightball loads at most six; recorded
+sound = unrealshare.eightball.ignite  # script: UT_Eightball plays RocketMk2.SpawnSound as the rockets leave
 
 [fire rocket-launcher alt]
 archetype = projectile
@@ -318,6 +350,7 @@ charge-step-last = 0.833   # recorded: as the primary
 charge-scales = count
 projectile = grenade
 count = 6                  # script: UT_Eightball; recorded
+sound = unrealshare.eightball.eightaltfire  # default: UT_Eightball.AltFireSound; script: UT_Eightball, as the grenades leave
 
 [weapon sniper-rifle]
 class = botpack.sniperrifle
@@ -325,6 +358,7 @@ slot = 0                   # default: SniperRifle.InventoryGroup is 10, the 0 ke
 ammo-max = 50              # default: BulletBox.MaxAmmo
 ammo-start = 8             # default: SniperRifle.PickupAmmoCount
 switch-time = 0.88         # recorded: from the Enforcer, key to first shot
+select-sound = unreali.rifle.riflepickup  # default: SniperRifle.SelectSound
 
 [fire sniper-rifle primary]
 archetype = instant-hit
@@ -337,6 +371,7 @@ range = 10000              # script: SniperRifle.TraceFire
 head-damage = 100          # SS 4.9; recorded
 head-momentum = 35000      # SS 4.9; recorded
 # No alt fire: the sniper's alt zooms, the client's (SS 3 item 7).
+sound = botpack.sniperrifle.sniperfire  # default: SniperRifle.FireSound; script: SniperRifle.PlayFiring
 
 [projectile bio-gel]
 speed = 840                # default: UT_BioGel.speed
@@ -352,6 +387,7 @@ splash-from = moved        # script: UT_BioGel.Timer, HurtRadius at Location
 strike = stick
 fuse = 3.8                 # script: UT_BioGel.OnSurface, 3.8 s from landing
 lift = 120                 # SS 4.9: UT_BioGel's Flying state
+sound = unrealshare.general.explg02  # default: UT_BioGel.MiscSound; script: UT_BioGel.Explode
 
 [projectile bio-glob]
 speed = 700                # default: BioGlob.speed
@@ -368,6 +404,7 @@ splash-from = moved        # script: UT_BioGel.Timer, as the gel
 strike = stick
 fuse = 3.8                 # script: UT_BioGel, as the gel
 lift = 120                 # SS 4.9: BioGlob extends UT_BioGel
+sound = unrealshare.general.explg02  # default: UT_BioGel.MiscSound, which BioGlob inherits
 
 [projectile shock-ball]
 speed = 1000               # default: ShockProj.speed
@@ -379,6 +416,7 @@ splash-radius = 70         # script: ShockProj.Explode
 splash-from = moved        # script: ShockProj.Explode, HurtRadius at Location
 strike = explode
 combo = shock-combo
+sound = unrealshare.general.expla02  # default: ShockProj.ImpactSound; script: ShockProj.Explode
 
 [projectile plasma]
 speed = 1450               # default: PlasmaSphere.speed
@@ -387,6 +425,7 @@ lifetime = 2               # script: PlasmaSphere sets 2 on spawn; its default r
 damage = 20                # default: PlasmaSphere.Damage; recorded
 momentum = 10000           # default: PlasmaSphere.MomentumTransfer; recorded
 strike = explode
+sound = botpack.pulsegun.pulseexp  # default: PlasmaSphere.EffectSound1; script: PlasmaSphere.Explode
 
 [projectile razor]
 speed = 1300               # default: Razor2.speed
@@ -398,6 +437,7 @@ momentum = 15000           # default: Razor2.MomentumTransfer; recorded
 strike = bounce
 bounces = 6                # script: Razor2.HitWall, gone on the seventh wall
 bounce-keep = 1            # script: Razor2.HitWall, a plain reflection
+sound = unreali.razorjack.bladehit  # default: Razor2.ImpactSound; script: Razor2.HitWall plays it at each bounce, here once where it ends
 
 [projectile razor-alt]
 speed = 1300               # default: Razor2Alt.speed
@@ -410,6 +450,7 @@ splash-radius = 180        # script: Razor2Alt.BlowUp
 body-hit = direct          # script: Razor2Alt.ProcessTouch, TakeDamage along its flight
 splash-up-max = 0.45       # script: Razor2Alt.BlowUp, dir.Z at most 0.45
 strike = explode
+sound = unrealshare.general.expl03  # script: Razor2Alt spawns RipperPulse, whose EffectSound1 this is
 
 [projectile flak-chunk]
 speed = 2500               # default: UTChunk1.speed
@@ -440,6 +481,7 @@ split-into = flak-chunk
 split-count = 5            # script: flakslug.Explode; recorded
 split-spread = 0           # script: each chunk keeps the slug's aim, turned by its own turn-random
 lift = 200                 # SS 4.9: flakslug
+sound = unrealshare.general.explo1  # script: flakslug.Explode spawns its blast; the sound is UT_SpriteBallExplosion.EffectSound1, unconfirmed for this shell
 
 [projectile rocket]
 speed = 900                # default: RocketMk2.speed
@@ -451,6 +493,7 @@ splash-radius = 220        # script: RocketMk2.Explode
 strike = explode
 acceleration = 50          # SS 4.9: RocketMk2
 max-speed = 1600           # default: RocketMk2.MaxSpeed
+sound = unrealshare.general.explo1  # script: RocketMk2.BlowUp spawns UT_SpriteBallExplosion, whose EffectSound1 this is
 
 [projectile grenade]
 speed = 650                # SS 4.9: UT_Grenade, 600 + FRand() * 100
@@ -469,8 +512,10 @@ splash-radius = 200        # script: UT_Grenade.Explosion
 strike = bounce
 bounces = 100              # script: UT_Grenade.HitWall, bounces until its fuse
 bounce-keep = 0.75         # SS 4.9: UT_Grenade.HitWall
+sound = unrealshare.general.explo1  # script: UT_Grenade.Explosion spawns UT_SpriteBallExplosion, whose EffectSound1 this is
 
 [combo shock-combo]
 damage = 165               # script: ShockProj.SuperExplosion, Damage x 3
 momentum = 140000          # script: ShockProj.SuperExplosion, MomentumTransfer x 2
 splash-radius = 250        # script: ShockProj.SuperExplosion
+sound = unrealshare.general.specialexpl  # default: ShockProj.ExploSound; script: ShockProj.SuperExplosion
