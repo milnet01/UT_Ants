@@ -98,10 +98,18 @@ TEST_CASE("UTA-0129 INV-9: ut-bench frame draws each view and each move and says
     CHECK(count(json, "\"camera\": \"0 10 0 0 2000 0 90\"") == 1);
     CHECK(count(json, "\"from\": ") == 2);
     CHECK(count(json, "\"from\": 1, \"to\": 2") == 1);
-    // Each view, each move, and the two totals carry the six figures.
-    CHECK(count(json, "\"p25\": ") == 3 + 2 + 2);
-    CHECK(count(json, "\"p75\": ") == 3 + 2 + 2);
-    CHECK(count(json, "\"p99\": ") == 3 + 2 + 2);
+    // Each view, each move, and the two totals carry the six figures, and
+    // UTA-0491: each view carries them again for its calm frames.
+    CHECK(count(json, "\"p25\": ") == 3 + 2 + 2 + 3);
+    CHECK(count(json, "\"p75\": ") == 3 + 2 + 2 + 3);
+    CHECK(count(json, "\"p99\": ") == 3 + 2 + 2 + 3);
+    CHECK(count(json, "\"milliseconds\": {\"min\": ") == 3 + 2 + 2);
+    CHECK(count(json, ", \"calm\": {\"min\": ") == 3);
+    // The disturbed share: on each view and on the still total, never on a move.
+    CHECK(count(json, ", \"disturbed\": ") == 3 + 1);
+    CHECK(count(json, "}, \"disturbed\": ") == 3 + 1); // after `passes`, inside the view
+    CHECK(count(err.str(), "    calm: 99th ") == 3);
+    CHECK(count(err.str(), "  disturbed: ") == 1);
     CHECK(count(json, "\"shadowTiles\": ") == 3 + 2 + 2);
     // UTA-0351: and each step's median, named, on a device that keeps timestamps.
     // UTA-0352: from the fire upload, with the scene's four passes, and the

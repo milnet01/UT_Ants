@@ -188,13 +188,23 @@ double medianOf(const std::vector<double>& values) { return detail::frameSpreadO
 
 std::string threePlaces(double value) { return std::format("{:.3f}", value); }
 
+void writeSpread(std::ostream& out, const detail::FrameSpread& spread) {
+    out << "{\"min\": " << threePlaces(spread.min) << ", \"p25\": " << threePlaces(spread.p25) << ", \"median\": "
+        << threePlaces(spread.median) << ", \"p75\": " << threePlaces(spread.p75) << ", \"p99\": "
+        << threePlaces(spread.p99) << ", \"max\": " << threePlaces(spread.max) << '}';
+}
+
+/// The share of `frames` that `disturbed` is; 0 of none.
+double shareOf(std::size_t disturbed, std::size_t frames) {
+    return frames == 0 ? 0 : static_cast<double>(disturbed) / static_cast<double>(frames);
+}
+
 void writeTimed(std::ostream& out, const Timed& timed) {
-    const detail::FrameSpread spread = detail::frameSpreadOf(timed.milliseconds);
     const double tiles =
         timed.milliseconds.empty() ? 0 : static_cast<double>(timed.shadowTiles) / static_cast<double>(timed.milliseconds.size());
-    out << "\"milliseconds\": {\"min\": " << threePlaces(spread.min) << ", \"p25\": " << threePlaces(spread.p25)
-        << ", \"median\": " << threePlaces(spread.median) << ", \"p75\": " << threePlaces(spread.p75) << ", \"p99\": " << threePlaces(spread.p99) << ", \"max\": " << threePlaces(spread.max) << "}, \"shadowTiles\": "
-        << threePlaces(tiles) << ", \"host\": {\"prepare\": " << threePlaces(medianOf(timed.prepare))
+    out << "\"milliseconds\": ";
+    writeSpread(out, detail::frameSpreadOf(timed.milliseconds));
+    out << ", \"shadowTiles\": " << threePlaces(tiles) << ", \"host\": {\"prepare\": " << threePlaces(medianOf(timed.prepare))
         << ", \"record\": " << threePlaces(medianOf(timed.record)) << ", \"submitAndWait\": "
         << (timed.submitAndWait.empty() ? "null" : threePlaces(medianOf(timed.submitAndWait))) << "}, \"passes\": ";
     if (timed.passes[0].empty()) {
@@ -279,6 +289,14 @@ FrameSpread frameSpreadOf(std::vector<double> milliseconds) {
     return {milliseconds.front(), nearestRank(0.25), median, nearestRank(0.75), nearestRank(0.99), milliseconds.back()};
 }
 
+Calm calmOf(const std::vector<double>& milliseconds) {
+    const double limit = DISTURBED_OVER_MEDIAN * frameSpreadOf(milliseconds).median;
+    std::vector<double> calm;
+    for (const double frame : milliseconds)
+        if (frame <= limit) calm.push_back(frame);
+    return {milliseconds.size() - calm.size(), frameSpreadOf(std::move(calm))};
+}
+
 } // namespace detail
 
 int runFrame(std::span<const std::string_view> args, std::ostream& out, std::ostream& err, const BuildInfo& build) {
@@ -361,6 +379,11 @@ int runFrame(std::span<const std::string_view> args, std::ostream& out, std::ost
 
     Timed allStill, allMoving;
     for (const Timed& timed : still) allStill.add(timed);
+    // UTA-0491: each view's frames are judged against that view's own median.
+    std::vector<detail::Calm> calm;
+    std::size_t disturbed = 0;
+    for (const Timed& timed : still) disturbed += calm.emplace_back(detail::calmOf(timed.milliseconds)).disturbed;
+    const double disturbedShare = shareOf(disturbed, allStill.milliseconds.size());
     for (const Timed& timed : moving) allMoving.add(timed);
 
     out << "{\"schema\": " << FRAME_SCHEMA << ", \"workload\": \"frame\", ";
@@ -381,6 +404,9 @@ int runFrame(std::span<const std::string_view> args, std::ostream& out, std::ost
         writeJsonString(out, (*views)[v].line);
         out << ", ";
         writeTimed(out, still[v]);
+        out << ", \"disturbed\": " << threePlaces(shareOf(calm[v].disturbed, still[v].milliseconds.size()))
+            << ", \"calm\": ";
+        writeSpread(out, calm[v].spread);
         out << '}';
     }
     out << "], \"moves\": [";
@@ -392,7 +418,7 @@ int runFrame(std::span<const std::string_view> args, std::ostream& out, std::ost
     }
     out << "], \"still\": {";
     writeTimed(out, allStill);
-    out << "}, \"moving\": {";
+    out << ", \"disturbed\": " << threePlaces(disturbedShare) << "}, \"moving\": {";
     writeTimed(out, allMoving);
     out << "}, \"shaders\": ";
     const std::vector<urender::ShaderStatistics> shaders = renderer.shaderStatistics();
@@ -403,10 +429,15 @@ int runFrame(std::span<const std::string_view> args, std::ostream& out, std::ost
         << " at scale " << drawnScale << ", on " << renderer.deviceName() << "\n";
     for (std::size_t v = 0; v < views->size(); ++v) {
         tableRow(err, "still at view " + std::to_string(v), still[v]);
+        err << std::format("    calm: 99th {:.3f}  slowest {:.3f} ms, leaving out {} disturbed frame(s)\n",
+                           calm[v].spread.p99, calm[v].spread.max, calm[v].disturbed);
         if (v + 1 < views->size()) tableRow(err, "moving " + std::to_string(v) + " to " + std::to_string(v + 1), moving[v]);
     }
     tableRow(err, "every still frame", allStill);
     if (!moving.empty()) tableRow(err, "every moving frame", allMoving);
+    err << std::format("  disturbed: {:.1f}% of the still frames took over twice their view's median, held up by "
+                       "another program on the GPU or a busy processor; the moving figures include such frames\n",
+                       100 * disturbedShare);
     shaderRows(err, shaders);
     return EXIT_OK;
 }

@@ -13,3 +13,4 @@ skip the cold read: it is a developer's tool, cheap to change. `CLAUDE.md`
 
 | Loop | Date | Q1 | Q2 | Q3 | Q4 | Outcome | Notes |
 |------|------|----|----|----|----|---------|-------|
+| impl-UTA-0491 | 2026-11-20 | - | - | - | - | amended | No reviewer dispatched. `disturbed` and `calm` added to the frame workload and INV-10; built and tested with the amendment. |

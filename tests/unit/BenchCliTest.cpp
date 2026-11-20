@@ -248,6 +248,19 @@ TEST_CASE("UTA-0129 INV-10: a frame's spread is its smallest, largest, median an
     CHECK(frameSpreadOf({}).max == 0);
 }
 
+TEST_CASE("UTA-0129 INV-10: a still view's frames over twice its median are disturbed, the rest calm", "[bench]") {
+    // Eight frames of 1 ms, one of exactly twice the median, two beyond it.
+    const uta::bench::detail::Calm calm = uta::bench::detail::calmOf({1, 1, 50, 1, 1, 2, 1, 1, 2.01, 1, 1});
+    CHECK(calm.disturbed == 2);
+    CHECK(calm.spread.max == 2); // exactly twice the median is calm
+    CHECK(calm.spread.p99 == 2);
+    CHECK(calm.spread.median == 1);
+    CHECK(calm.spread.min == 1);
+    const uta::bench::detail::Calm none = uta::bench::detail::calmOf({});
+    CHECK(none.disturbed == 0);
+    CHECK(none.spread.max == 0);
+}
+
 TEST_CASE("UTA-0129 INV-10: wrong frame arguments exit 2 and a missing bundle exits 1", "[bench][cli]") {
     // None of these reaches a Vulkan device: the arguments and the bundle are read first.
     const TempDir dir;

@@ -14,6 +14,10 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **`ut-bench frame` says how much of a run another program disturbed** (UTA-0491)
+  Each still view reports the share of its frames that took over twice
+  its median, and its timings without them. The desktop's compositor or
+  another program on the graphics card causes such frames (UTA-0490).
 - **`ut-bench frame` reports the 25th and 75th percentiles of frame time** (UTA-0482)
   Its JSON carries them beside the median and the 99th percentile, for
   each view, each move and both totals.

@@ -36,6 +36,20 @@ struct FrameSpread {
 /// there are none.
 [[nodiscard]] FrameSpread frameSpreadOf(std::vector<double> milliseconds);
 
+/// UTA-0491: a still view draws one frame over and over, so a frame that took
+/// over this many times the view's median was held up by something else: a
+/// program sharing the GPU, or a busy processor.
+inline constexpr double DISTURBED_OVER_MEDIAN = 2.0;
+
+struct Calm {
+    std::size_t disturbed = 0; ///< frames over DISTURBED_OVER_MEDIAN medians
+    FrameSpread spread;        ///< the spread of the frames that were not
+};
+
+/// The frames of one still view, sorted into disturbed and calm. A frame at
+/// exactly DISTURBED_OVER_MEDIAN medians is calm.
+[[nodiscard]] Calm calmOf(const std::vector<double>& milliseconds);
+
 } // namespace detail
 
 } // namespace uta::bench

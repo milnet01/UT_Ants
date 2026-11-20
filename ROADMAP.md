@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=490 -->
+<!-- ants-roadmap-id-high-water: UTA=491 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -21723,10 +21723,49 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   unknown. The desktop shared the GPU throughout, which is untested as a
   cause. Per-view figures:
   /mnt/Emulators/.claude/Scratchpad/UT_Ants/u482/runs/*.json.
+  Found 2026-11-20: not the renderer. One submit per frame; in slow
+  frames the host steps stay under 1 ms and each pass keeps its median
+  (opaque 3.15 against 3.17 ms), while one pass, whichever was running,
+  gains about 13 ms or a multiple, and frames arrive 33 to 50 ms apart.
+  kwin_wayland held the GPU for 20.6 s of a 46.2 s run, and 395 to
+  710 ms per second in four samples with no benchmark running
+  (gpu_busy_percent mean 59 to 80). Its magnifier effect is active at
+  2.85 times, with blur. kwin's fdinfo is readable by root only. A run
+  at 15:44 with machine load 4 had no frame over 27 ms in 4100; runs at
+  load 15 to 29 had 8 to 26 percent of frames over 20 ms, with and
+  without the watcher, so the watcher is not the cause. DOOM Ants'
+  untimed linuxxdoom captures add to it and were not running at 12:47.
+  Untested: which of magnifier, blur or continuous repaint makes kwin
+  cost 8 to 11 ms a redraw, since testing means switching the user's
+  magnifier off. Probe patch and scripts:
+  /mnt/Emulators/.claude/Scratchpad/UT_Ants/u482/u490/ (probe.diff,
+  watch.py, match.py, kwin.py).
+  2026-11-20, 16:20: the magnifier effect was found unloaded (not by
+  this session). gpu_busy_percent fell to a mean of 7 over 5 s, and a
+  run then had no frame over 15.2 ms in 4100 (99th 10.0 still, 10.6
+  moving; machine load 2.7). Confound: the load was low too, and the
+  15:44 run was calm at load 4 with the magnifier's state unrecorded.
+  Reading: the magnifier makes each KWin redraw costly, and the redraws
+  come when windows change, which busy sessions' terminals cause.
+  ut-bench reporting a run's disturbed share is UTA-0491. How to see
+  who holds the GPU: know_how topic timed-gpu-run-disturbers.
   **Layman:** Every so often one frame takes eight times as long as the others, even standing still; find out why.
   Kind: investigate.
   Source: in-session-2026-11-20.
   Lanes: urender, ut-bench.
+
+- 🚧 [UTA-0491] **ut-bench frame says what share of a run's still frames another program disturbed, and their timings without them.**
+  From UTA-0490: KWin and other GPU users stretch a share of frames to
+  20 to 60 ms, and a run's 99th percentile then reads as a renderer
+  fault. A still view draws one frame over and over, so a frame taking
+  over twice its view's median was disturbed. Report that share per run
+  and each still view's spread without those frames. Moving frames keep
+  their whole figures: a real spike there must stay visible. Amend
+  UTA-0129.
+  **Layman:** The benchmark tells you when the desktop or another program got in its way, so a slow reading is not mistaken for a fault in the game.
+  Kind: enhancement.
+  Source: user-request-2026-11-20.
+  Lanes: ut-bench.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 

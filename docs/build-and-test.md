@@ -110,6 +110,15 @@ above; wrap a timed sweep the same way. Other projects time on the same card,
 and two timed runs at once spoil both. Nothing checks it. What it covers is in
 the know_how topic `shared-gpu-timed-run-lock`.
 
+**Read the table's `disturbed:` line before the 99th percentile**
+(`UTA-0491`). The lock does not stop the desktop's compositor or an untimed
+GPU job, and either stretches frames to several times their median
+(`UTA-0490`). A run with a large share measured the machine: compare its
+still views on their `calm` figures, and run the moves again when the
+machine is quiet. Ask the other sessions for a quiet machine first (user,
+2026-11-20). What disturbs a run, and how to see it, is in the know_how
+topic `timed-gpu-run-disturbers`.
+
 **`ut-compare` puts the original game's frame beside ours, from the same
 camera** (`UTA-0306`). It runs the original client headless, then draws ours
 with `ut-shot`:

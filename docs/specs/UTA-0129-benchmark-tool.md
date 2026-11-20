@@ -334,12 +334,16 @@ Standard output is one JSON object; standard error carries a table.
             "passes": {"fires": 0.0, "shadows": 0.0, "clusters": 0.0,
                        "fog": 0.0, "depth": 0.0, "opaque": 0.0,
                        "grass": 0.0, "translucent": 0.0, "flames": 0.0, "bloom": 0.0,
-                       "post": 0.0}}],
+                       "post": 0.0},
+            "disturbed": 0.0,
+            "calm": {"min": 0.0, "p25": 0.0, "median": 0.0, "p75": 0.0,
+                     "p99": 0.0, "max": 0.0}}],
  "moves": [{"from": 0, "to": 1,
             "milliseconds": {"min": 0.0, "p25": 0.0, "median": 0.0, "p75": 0.0,
                              "p99": 0.0, "max": 0.0},
             "shadowTiles": 0.0, "host": {}, "passes": {}}],
- "still": {"milliseconds": {}, "shadowTiles": 0.0, "host": {}, "passes": {}},
+ "still": {"milliseconds": {}, "shadowTiles": 0.0, "host": {}, "passes": {},
+           "disturbed": 0.0},
  "moving": {"milliseconds": {}, "shadowTiles": 0.0, "host": {}, "passes": {}},
  "shaders": [{"pipeline": "scene opaque", "stage": "fragment",
               "statistics": {"VGPRs": 96, "Subgroups per SIMD": 10}}]}
@@ -376,6 +380,19 @@ Standard output is one JSON object; standard error carries a table.
   The table prints the `VGPRs`, `Spilled VGPRs` and `Subgroups per SIMD`
   lines, RADV's names; another driver's are in the JSON only.
 - `still` and `moving` are over every still frame and every moving frame.
+- `disturbed` (`UTA-0491`) is the share, 0 to 1, of a view's still frames
+  that took over twice that view's median. A still view draws one frame
+  over and over, so such a frame was held up by something else: a program
+  sharing the GPU, or a busy processor. `calm` is the spread of the view's
+  other frames; a frame at exactly twice the median is calm. `still`'s
+  `disturbed` counts each view's frames against that view's own median. A
+  move carries neither, and its figures include such frames: a real spike
+  in a move must stay visible. The table prints each view's calm 99th and
+  slowest, and the run's share on a line starting `disturbed:`. `schema`
+  stays 2: they add keys and change none.
+- A run with a large `disturbed` measured the machine, not the renderer.
+  Compare its still views on `calm`, and run the moves again on a quieter
+  machine.
 - Compare frames on the median and the 99th percentile. The smallest says
   little: one fast frame does not make a view smooth.
 
@@ -392,6 +409,9 @@ namespace uta::bench {
 namespace detail {
 struct FrameSpread { double min = 0, p25 = 0, median = 0, p75 = 0, p99 = 0, max = 0; };
 [[nodiscard]] FrameSpread frameSpreadOf(std::vector<double> milliseconds);
+inline constexpr double DISTURBED_OVER_MEDIAN = 2.0;
+struct Calm { std::size_t disturbed = 0; FrameSpread spread; };
+[[nodiscard]] Calm calmOf(const std::vector<double>& milliseconds);
 }
 }
 ```
@@ -478,10 +498,14 @@ link (UTA-0433).
 
 - **INV-10** — `frameSpreadOf` over 100 down to 1 gives 1, 50.5, 99 and 100,
   and 25 and 75 for the 25th and 75th percentiles.
+  `calmOf` over eight frames of 1, one of 2, one of 2.01 and one of 50
+  counts two disturbed and gives a calm spread whose largest is 2.
   Wrong `frame` arguments exit `2` and print nothing on standard output, and
   a bundle that is not there exits `1`, both before any device is asked for.
   *Test:* `tests/unit/BenchCliTest.cpp`.
-  *Breaks when:* the percentile is the largest value; `--still 0` is taken.
+  *Breaks when:* the percentile is the largest value; `--still 0` is taken;
+  a frame at exactly twice the median is counted disturbed; the limit is
+  not twice the median.
 
 ## 6. Failure modes
 
