@@ -93,13 +93,13 @@ TEST_CASE("UTA-0478 INV-10: the stock weapon set carries a sound for every weapo
     for (const uta::ugame::Weapon& weapon : weapons->weapons) {
         classes.push_back(weapon.className);
         // Each class alone, so one silent weapon cannot hide behind the rest.
-        const auto own = uta::ubake::detail::soundSetOf({weapon.className}, install->resolver());
+        const auto own = uta::ubake::detail::soundSetOf({weapon.className}, {}, install->resolver());
         REQUIRE(own.has_value());
         INFO(weapon.className);
         CHECK(own->unresolved.empty());
         CHECK(own->found.sounds.size() >= 1);
     }
-    const auto set = uta::ubake::detail::soundSetOf(classes, install->resolver());
+    const auto set = uta::ubake::detail::soundSetOf(classes, {}, install->resolver());
     if (!set.has_value()) FAIL(set.error().message());
     const Figures figures = decodeAll(set->found);
     WARN("stock weapon set: " << classes.size() << " classes, " << figures.sounds << " sounds, "

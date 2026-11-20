@@ -43,6 +43,9 @@ struct FoundSounds {
 struct SoundSetRequest {
     std::filesystem::path install;
     std::vector<std::string> classes; ///< "package.class", any case, any order
+    /// Sound paths the weapons file names itself, any case, any order: the
+    /// way a sound no class default reaches joins the set (UTA-0467 SS 4.4).
+    std::vector<std::string> sounds;
     std::filesystem::path outDir;
     bool force = false;
 };
@@ -54,6 +57,7 @@ struct SoundSetOutcome {
     std::size_t soundCount = 0;         ///< zero when Cached
     std::uint64_t soundBytes = 0;
     std::vector<std::string> unresolved; ///< listed classes not found, ascending
+    std::vector<std::string> missing;    ///< of the request's `sounds`, those that name no Sound, ascending
     std::vector<SkippedSound> skippedSounds;
 };
 
@@ -65,22 +69,28 @@ namespace detail {
 struct SoundSet {
     FoundSounds found;
     std::vector<std::string> unresolved;
+    std::vector<std::string> missing; ///< named sounds that are not there
 };
 
 /// SS 4.4 "Which sounds": the listed classes' effective defaults, and those
 /// of the classes they name by a class-valued default -- one step, no
-/// further. A test seam: every lookup goes through `resolver`.
+/// further; and each of `sounds`, a path named outright (UTA-0467 SS 4.4).
+/// A test seam: every lookup goes through `resolver`.
 [[nodiscard]] Result<SoundSet> soundSetOf(const std::vector<std::string>& classes,
+                                          const std::vector<std::string>& sounds,
                                           const upkg::PackageResolver& resolver);
 
-/// SS 4.4 "The name", from its parts. `classes` in any order and repeated;
-/// `closure` in any order.
+/// SS 4.4 "The name", from its parts. `classes` and `sounds` in any order
+/// and repeated; `closure` in any order.
 [[nodiscard]] std::string soundSetNameOf(std::string_view bakerVersion, const std::vector<std::string>& classes,
+                                         const std::vector<std::string>& sounds,
                                          const std::vector<ClosureEntry>& closure);
 
-/// The name for `classes` over `install`: the closure is the classes'
-/// packages and everything detail::closure reaches from each.
-[[nodiscard]] Result<std::string> soundSetName(const std::vector<std::string>& classes, Install& install);
+/// The name for `classes` and `sounds` over `install`: the closure is the
+/// classes' and the named sounds' packages, and everything detail::closure
+/// reaches from each.
+[[nodiscard]] Result<std::string> soundSetName(const std::vector<std::string>& classes,
+                                               const std::vector<std::string>& sounds, Install& install);
 
 } // namespace detail
 

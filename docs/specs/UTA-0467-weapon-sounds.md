@@ -174,9 +174,12 @@ struct SoundSetOutcome { /* … */ std::vector<std::string> missing; }; ///< of 
 - Each path of `sounds` is resolved as a default's is (UTA-0478 § 4.3
   items 2 and 3) and joins the set. One that leads to no `Sound` export
   goes in `missing`, and the bake goes on.
-- The name's first line becomes `uta-sound-set-name-2`, and the sorted
-  paths of `sounds`, each once and each followed by LF, follow the
-  classes. `BAKER_REVISION` does not move: no map's bake changes.
+- The name's first line becomes `uta-sound-set-name-2`. After the
+  classes comes the line `sounds`, then the sorted paths of `sounds`,
+  each once and each followed by LF. That line has no dot, so it is
+  neither a class nor a path, and a class cannot pass for a named
+  sound. The closure's roots gain each named path's package.
+  `BAKER_REVISION` does not move: no map's bake changes.
 - `ut-bake --weapon-sounds` passes `ugame::soundPaths` of the file. Its
   `written` report gains `"missing": ["path", …]`.
 

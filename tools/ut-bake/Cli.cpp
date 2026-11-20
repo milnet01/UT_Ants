@@ -393,6 +393,7 @@ int runWeaponSounds(const Arguments& args, std::ostream& out, std::ostream& err)
     request.outDir = uta::fs::pathFromUtf8(*args.out);
     request.force = args.force;
     for (const ugame::Weapon& weapon : weapons->weapons) request.classes.push_back(weapon.className);
+    request.sounds = ugame::soundPaths(*weapons); // UTA-0467 SS 4.4
     const auto outcome = bakeSoundSet(request);
     if (!outcome.has_value()) return refuse(outcome.error().message());
 
@@ -407,6 +408,10 @@ int runWeaponSounds(const Arguments& args, std::ostream& out, std::ostream& err)
         writeArray(out, outcome->unresolved, [&out](const std::string& path) { writeJsonString(out, path); });
         for (const std::string& path : outcome->unresolved)
             err << "ut-bake: warning: the install holds no class " << path << "\n";
+        out << ", \"missing\": ";
+        writeArray(out, outcome->missing, [&out](const std::string& path) { writeJsonString(out, path); });
+        for (const std::string& path : outcome->missing)
+            err << "ut-bake: warning: the weapons file names " << path << ", which is no sound in the install\n";
     }
     out << "}\n";
     err << "ut-bake: " << (outcome->verdict == Verdict::Written ? "wrote " : "already baked: ")

@@ -142,7 +142,8 @@ Result<FoundSounds> mapSounds(const ubundle::Placements& placements, const upkg:
 
 namespace detail {
 
-Result<SoundSet> soundSetOf(const std::vector<std::string>& classes, const upkg::PackageResolver& resolver) {
+Result<SoundSet> soundSetOf(const std::vector<std::string>& classes, const std::vector<std::string>& sounds,
+                            const upkg::PackageResolver& resolver) {
     SoundSet set;
     const std::set<std::string> listed = foldedSet(classes);
     std::set<std::string> paths;
@@ -164,19 +165,35 @@ Result<SoundSet> soundSetOf(const std::vector<std::string>& classes, const upkg:
         if (record.resolved) collect(record.defaults, ValueKind::Object, paths);
     }
     SoundFinder finder(nullptr, {}, resolver);
+    // UTA-0467 SS 4.4: a path the weapons file names outright. One that is
+    // not a sound is reported, where a default's is passed over: a default
+    // may point at anything, and this was written down as a sound.
+    for (const std::string& path : foldedSet(sounds)) {
+        UTA_TRY(const SoundFinder::Site site, finder.find(path));
+        if (site.holder == nullptr) set.missing.push_back(path);
+        else paths.insert(path);
+    }
     UTA_TRY(set.found, soundsAt(paths, finder));
     return set;
 }
 
 std::string soundSetNameOf(std::string_view bakerVersion, const std::vector<std::string>& classes,
-                           const std::vector<ClosureEntry>& closure) {
+                           const std::vector<std::string>& sounds, const std::vector<ClosureEntry>& closure) {
     // Every variable-length field ends in LF, as bakeNameOf's do.
     Sha256 hasher;
-    addText(hasher, "uta-sound-set-name-1");
+    addText(hasher, "uta-sound-set-name-2");
     addByte(hasher, LF);
     addText(hasher, bakerVersion);
     addByte(hasher, LF);
     for (const std::string& path : foldedSet(classes)) {
+        addText(hasher, path);
+        addByte(hasher, LF);
+    }
+    // A class and a sound are both dotted paths. This line has no dot, so
+    // it can be neither, and a class cannot pass for a named sound.
+    addText(hasher, "sounds");
+    addByte(hasher, LF);
+    for (const std::string& path : foldedSet(sounds)) {
         addText(hasher, path);
         addByte(hasher, LF);
     }
@@ -197,10 +214,13 @@ std::string soundSetNameOf(std::string_view bakerVersion, const std::vector<std:
     return hex(hasher.finish());
 }
 
-Result<std::string> soundSetName(const std::vector<std::string>& classes, Install& install) {
+Result<std::string> soundSetName(const std::vector<std::string>& classes, const std::vector<std::string>& sounds,
+                                 Install& install) {
     const upkg::PackageResolver resolver = install.resolver();
     std::set<std::string> packages;
-    for (const std::string& path : foldedSet(classes)) {
+    std::set<std::string> roots = foldedSet(classes);
+    roots.merge(foldedSet(sounds)); // a path's package is its first part, class or sound
+    for (const std::string& path : roots) {
         const std::string root = packageOf(path);
         if (!packages.insert(root).second) continue;
         UTA_TRY(const upkg::Package* const opened, resolver(root));
@@ -215,7 +235,7 @@ Result<std::string> soundSetName(const std::vector<std::string>& classes, Instal
         if (opened != nullptr) entry.digest = sha256(install.bytesOf(name));
         entries.push_back(std::move(entry));
     }
-    return soundSetNameOf(bakerVersion(), classes, entries);
+    return soundSetNameOf(bakerVersion(), classes, sounds, entries);
 }
 
 } // namespace detail
@@ -223,7 +243,7 @@ Result<std::string> soundSetName(const std::vector<std::string>& classes, Instal
 Result<SoundSetOutcome> bakeSoundSet(const SoundSetRequest& request) {
     UTA_TRY(Install install, Install::open(request.install));
     SoundSetOutcome outcome;
-    UTA_TRY(outcome.name, detail::soundSetName(request.classes, install));
+    UTA_TRY(outcome.name, detail::soundSetName(request.classes, request.sounds, install));
     outcome.path = request.outDir / (outcome.name + ".utab");
 
     std::error_code ec;
@@ -236,7 +256,7 @@ Result<SoundSetOutcome> bakeSoundSet(const SoundSetRequest& request) {
         return outcome;
     }
 
-    UTA_TRY(detail::SoundSet set, detail::soundSetOf(request.classes, install.resolver()));
+    UTA_TRY(detail::SoundSet set, detail::soundSetOf(request.classes, request.sounds, install.resolver()));
     ubundle::Bundle bundle;
     bundle.header.origin = ubundle::Origin::Derived;
     bundle.header.kind = ubundle::BundleKind::Sounds;
@@ -245,6 +265,7 @@ Result<SoundSetOutcome> bakeSoundSet(const SoundSetRequest& request) {
     for (const ubundle::BakedSound& sound : set.found.sounds) outcome.soundBytes += sound.data.size();
     bundle.sounds = std::move(set.found.sounds);
     outcome.unresolved = std::move(set.unresolved);
+    outcome.missing = std::move(set.missing);
     outcome.skippedSounds = std::move(set.found.skipped);
 
     UTA_TRY(const std::vector<std::byte> bytes, ubundle::write(bundle));

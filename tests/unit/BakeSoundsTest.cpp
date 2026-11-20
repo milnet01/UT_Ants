@@ -183,7 +183,7 @@ MemoryPackages weaponPackages() {
 
 TEST_CASE("UTA-0478 INV-6: a sound set holds its classes' sounds and those one class further", "[ubake]") {
     MemoryPackages packages = weaponPackages();
-    const auto set = detail::soundSetOf({"Weapons.Gun", "weapons.nothere", "NoPackage.Gun"}, packages.resolver());
+    const auto set = detail::soundSetOf({"Weapons.Gun", "weapons.nothere", "NoPackage.Gun"}, {}, packages.resolver());
     if (!set.has_value()) FAIL("refused: " << set.error().message());
 
     // Fire is GunBase's, so only effective defaults find it. Hit is Shell's,
@@ -199,7 +199,7 @@ TEST_CASE("UTA-0478 INV-6: a sound set holds its classes' sounds and those one c
 
 TEST_CASE("UTA-0478 INV-6: a class listed itself gives its sounds however it was reached", "[ubake]") {
     MemoryPackages packages = weaponPackages();
-    const auto set = detail::soundSetOf({"weapons.gun", "weapons.smoke"}, packages.resolver());
+    const auto set = detail::soundSetOf({"weapons.gun", "weapons.smoke"}, {}, packages.resolver());
     REQUIRE(set.has_value());
     REQUIRE(set->found.sounds.size() == 3);
     CHECK(set->found.sounds[2].path == "weapons.puff");
@@ -211,10 +211,10 @@ TEST_CASE("UTA-0478 INV-7: the sound set's name follows its classes and its pack
     writeInstall(dir.path(), fixture);
     writeFile(dir.path() / "System" / "Weapons.u", weaponsPackage());
 
-    const auto nameOf = [&](const std::vector<std::string>& classes) {
+    const auto nameOf = [&](const std::vector<std::string>& classes, const std::vector<std::string>& sounds = {}) {
         auto install = uta::ubake::Install::open(dir.path());
         REQUIRE(install.has_value());
-        const auto name = detail::soundSetName(classes, *install);
+        const auto name = detail::soundSetName(classes, sounds, *install);
         if (!name.has_value()) FAIL("refused: " << name.error().message());
         return *name;
     };
@@ -240,12 +240,88 @@ TEST_CASE("UTA-0478 INV-7: the sound set's name follows its classes and its pack
     CHECK(nameOf({"weapons.gun"}) != one);
 }
 
+TEST_CASE("UTA-0467 INV-8: a sound the weapons file names joins the set and its name", "[ubake]") {
+    MemoryPackages packages = weaponPackages();
+    // Puff is Smoke's, two classes from Gun: no default the set follows
+    // reaches it (UTA-0478 INV-6 above), so only naming it stores it.
+    const auto set = detail::soundSetOf({"weapons.gun"}, {"Weapons.Puff", "weapons.nosuch", "nopackage.boom", "weapons.gun"},
+                                        packages.resolver());
+    if (!set.has_value()) FAIL("refused: " << set.error().message());
+    REQUIRE(set->found.sounds.size() == 3);
+    CHECK(set->found.sounds[0].path == "weapons.gun.fire");
+    CHECK(set->found.sounds[1].path == "weapons.hit");
+    CHECK(set->found.sounds[2].path == "weapons.puff");
+    CHECK(set->found.sounds[2].data == bytesOf({3}));
+    // A path that names a class, an object that is not there or a package
+    // the install lacks is no sound: reported, and the bake goes on.
+    CHECK(set->missing == std::vector<std::string>{"nopackage.boom", "weapons.gun", "weapons.nosuch"});
+
+    // A sound named and reached by a default too is stored once.
+    const auto twice = detail::soundSetOf({"weapons.gun"}, {"weapons.hit"}, packages.resolver());
+    REQUIRE(twice.has_value());
+    CHECK(twice->found.sounds.size() == 2);
+    CHECK(twice->missing.empty());
+}
+
+TEST_CASE("UTA-0467 INV-8: the sound set's name follows the sounds the file names", "[ubake]") {
+    const std::string version = "r1-f1-l0";
+    const std::string bare = detail::soundSetNameOf(version, {"a.b"}, {}, {});
+    const std::string named = detail::soundSetNameOf(version, {"a.b"}, {"c.d"}, {});
+    CHECK(named != bare);
+    CHECK(detail::soundSetNameOf(version, {"a.b"}, {"C.D", "c.d"}, {}) == named);       // folded, each once
+    CHECK(detail::soundSetNameOf(version, {"a.b"}, {"c.d", "e.f"}, {}) !=
+          detail::soundSetNameOf(version, {"a.b"}, {"c.de.f"}, {}));
+    // A class cannot pass for a named sound, nor a sound for a class.
+    CHECK(detail::soundSetNameOf(version, {"a.b", "c.d"}, {}, {}) != named);
+    CHECK(detail::soundSetNameOf(version, {}, {"a.b", "c.d"}, {}) != named);
+
+    // Over an install: naming a sound moves the name, so a weapons file that
+    // gains one does not find the old bundle.
+    const TempDir dir;
+    const Fixture fixture = standardFixture();
+    writeInstall(dir.path() / "install", fixture);
+    writeFile(dir.path() / "install" / "System" / "Weapons.u", weaponsPackage());
+    uta::ubake::SoundSetRequest request;
+    request.install = dir.path() / "install";
+    request.classes = {"weapons.gun"};
+    request.outDir = dir.path() / "out";
+    const auto before = uta::ubake::bakeSoundSet(request);
+    REQUIRE(before.has_value());
+    CHECK(before->soundCount == 2);
+    request.sounds = {"weapons.puff", "weapons.nosuch"};
+    const auto after = uta::ubake::bakeSoundSet(request);
+    if (!after.has_value()) FAIL("refused: " << after.error().message());
+    CHECK(after->name != before->name);
+    CHECK(after->verdict == uta::ubake::Verdict::Written);
+    CHECK(after->soundCount == 3);
+    CHECK(after->missing == std::vector<std::string>{"weapons.nosuch"});
+
+    // A named sound's package is in the closure though no class names it:
+    // its bytes changing moves the name.
+    const auto nameOfPuff = [&] {
+        auto install = uta::ubake::Install::open(dir.path() / "install");
+        REQUIRE(install.has_value());
+        const auto name = detail::soundSetName({}, {"weapons.puff"}, *install);
+        REQUIRE(name.has_value());
+        return *name;
+    };
+    const std::string puff = nameOfPuff();
+    std::vector<std::uint8_t> grown = weaponsPackage();
+    {
+        Packer packer;
+        packer.addSound(SoundSpec{"Puff", "", {3, 3}});
+        grown = packer.build();
+    }
+    writeFile(dir.path() / "install" / "System" / "Weapons.u", grown);
+    CHECK(nameOfPuff() != puff);
+}
+
 TEST_CASE("UTA-0478 INV-7: the name's parts cannot run into each other", "[ubake]") {
     const std::string version = "r1-f1-l0";
-    CHECK(detail::soundSetNameOf(version, {"ab.c", "d.e"}, {}) != detail::soundSetNameOf(version, {"ab.cd.e"}, {}));
-    CHECK(detail::soundSetNameOf(version, {"a.b"}, {}) != detail::soundSetNameOf("r2-f1-l0", {"a.b"}, {}));
+    CHECK(detail::soundSetNameOf(version, {"ab.c", "d.e"}, {}, {}) != detail::soundSetNameOf(version, {"ab.cd.e"}, {}, {}));
+    CHECK(detail::soundSetNameOf(version, {"a.b"}, {}, {}) != detail::soundSetNameOf("r2-f1-l0", {"a.b"}, {}, {}));
     const uta::ubake::ClosureEntry absent{"weapons", std::nullopt};
-    CHECK(detail::soundSetNameOf(version, {"a.b"}, {absent}) != detail::soundSetNameOf(version, {"a.b"}, {}));
+    CHECK(detail::soundSetNameOf(version, {"a.b"}, {}, {absent}) != detail::soundSetNameOf(version, {"a.b"}, {}, {}));
 }
 
 TEST_CASE("UTA-0478 SS 4.4: bakeSoundSet writes a Sounds bundle and serves it again from the cache", "[ubake]") {
