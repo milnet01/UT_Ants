@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=494 -->
+<!-- ants-roadmap-id-high-water: UTA=495 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -23533,6 +23533,25 @@ to.
   **Layman:** Tell the sister project how big each map exit's touch area is, so it can tell when a route already ends inside it.
   Kind: feature.
   Source: ut-monsterhunt-request-2026-11-19.
+
+- 📋 [UTA-0495] **ut-paths: propose path nodes for one map file named on the command line, with no census.**
+  Asked by UT_MonsterHunt (ut-monsterhunt-6a, 2026-11-21) for its
+  map-repair ladder, GAME-0284 (analysis/autofix.py). Today ut-paths needs
+  --census <tsv>, reads only <install>/Maps (resolveUnder, after
+  review-code 2026-09-26), and takes each map's group (EXIT_OFF_NET or
+  PARTITIONED) from the census; propose() reads it as one flag. A map
+  changed since their saved run of 2026-09-14 is refused on md5.
+  Proposed shape, pending their answer: --map-file <path> --group
+  <EXIT_OFF_NET|PARTITIONED>, with no --census; the path may be outside
+  the install, since the caller names it rather than a census row; the
+  output is the same <map>.json, schema 1. Working the group out in
+  ut-paths itself is new analysis, and UT_MonsterHunt already computes it.
+  Before building: read .claude/rules/routing.md.
+  Record the arrangement in GAME-0284 too.
+  **Layman:** The sister project's automatic map fixer can ask for bot paths on any map, including ones changed since the last full survey.
+  Kind: enhancement.
+  Source: in-session-2026-11-21.
+  Lanes: tools.
 
 ## 0.5.0 — Map editor
 
