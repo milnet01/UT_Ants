@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=493 -->
+<!-- ants-roadmap-id-high-water: UTA=494 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -24807,6 +24807,25 @@ docs/standards/versioning-overrides.md. Closes S8.
   **Layman:** Write a map out in the shared scene format another project's lighting lab reads, so it can test lighting ideas on our maps.
   Kind: feature.
   Source: peer-experirays-2026-11-17.
+  Lanes: tools.
+
+- 📋 [UTA-0494] **ut-export: leave special-lit lights out of KHR_lights_punctual, keeping them in native_light.**
+  Agreed with ExperiRays (experirays-c7, 2026-11-21) on our review of
+  EXRAY-0005 part 2 at b205f8d. In UT_Ants a special-lit light reaches
+  only special-lit surfaces, and the reverse (scene.frag specialLight).
+  The lab's light model ignores engine_data, so every exported punctual
+  light reaches every surface. ut-export's Scene.cpp writes every light
+  in bundle.lights as a punctual light, special ones included, while its
+  ut_light_pairs already leave them out for normal surfaces.
+  The change: a special-lit light gets no KHR_lights_punctual entry; its
+  native_light record stays. Cost, accepted: in the lab special-lit
+  surfaces get no punctual light. Normal geometry, which dominates, is
+  then lit as UT_Ants lights it.
+  Check: a scene with one special-lit and one normal light exports one
+  punctual light and two native_light records.
+  **Layman:** Scenes sent to the lighting lab stop lighting ordinary walls with lamps meant only for special surfaces.
+  Kind: enhancement.
+  Source: in-session-2026-11-21.
   Lanes: tools.
 
 ## After 1.0.0
