@@ -83,6 +83,10 @@ struct PunctualLight {
     float outerConeAngle = 0;   ///< radians; spots only
     std::uint32_t utIndex = 0;  ///< MaskPair::light's numbering
     ubundle::Light native;      ///< the bundle's record, untouched
+    /// UTA-0494: whether KHR_lights_punctual lists it. A special-lit light
+    /// reaches only special-lit surfaces, which ExperiRays' lab model cannot
+    /// tell apart, so it is written as its node's native_light alone.
+    bool punctual = true;
 };
 
 struct Node {

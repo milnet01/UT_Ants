@@ -23548,6 +23548,11 @@ to.
   ut-paths itself is new analysis, and UT_MonsterHunt already computes it.
   Before building: read .claude/rules/routing.md.
   Record the arrangement in GAME-0284 too.
+  Agreed with UT_MonsterHunt (2026-11-21): they pass --group
+  themselves; the shape above stands. Their mapping from the fast route
+  verdict: ENDNODE gives EXIT_OFF_NET, NOROUTE gives PARTITIONED, ENDNODE
+  winning where both hold, at the distance their census split uses. They
+  record it on GAME-0284. Tell them the commit when it ships.
   **Layman:** The sister project's automatic map fixer can ask for bot paths on any map, including ones changed since the last full survey.
   Kind: enhancement.
   Source: in-session-2026-11-21.

@@ -211,6 +211,7 @@ PunctualLight punctualOf(const ubundle::Light& light, std::uint32_t utIndex, boo
     PunctualLight out;
     out.utIndex = utIndex;
     out.native = light;
+    out.punctual = !light.specialLit; // UTA-0494
     if (directional) {
         out.type = PunctualLight::Type::Directional;
     } else {
@@ -581,8 +582,13 @@ std::vector<std::byte> writeGlb(const Scene& scene) {
         materials.push_back(o.str());
     }
 
+    // UTA-0494: KHR_lights_punctual lists the punctual lights only, so a
+    // node's index into it is that light's place among them.
     std::vector<std::string> lights;
+    std::vector<std::optional<std::uint32_t>> listedAs;
     for (const PunctualLight& l : scene.lights) {
+        listedAs.push_back(l.punctual ? std::optional{static_cast<std::uint32_t>(lights.size())} : std::nullopt);
+        if (!l.punctual) continue;
         static constexpr const char* TYPES[] = {"directional", "point", "spot"};
         std::ostringstream o;
         o << "{\"type\":\"" << TYPES[static_cast<int>(l.type)] << "\",\"color\":" << list(l.color)
@@ -602,7 +608,8 @@ std::vector<std::byte> writeGlb(const Scene& scene) {
         if (n.mesh) o << ",\"mesh\":" << *n.mesh;
         o << ",\"translation\":" << list(n.translation) << ",\"rotation\":" << list(n.rotation)
           << ",\"scale\":" << list(n.scale);
-        if (n.light) o << ",\"extensions\":{\"KHR_lights_punctual\":{\"light\":" << *n.light << "}}";
+        if (n.light && listedAs[*n.light])
+            o << ",\"extensions\":{\"KHR_lights_punctual\":{\"light\":" << *listedAs[*n.light] << "}}";
         o << ",\"extras\":{\"xr\":{\"id\":" << quoted(n.id) << ",\"motion\":" << quoted(n.motion);
         if (n.light) o << ",\"native_light\":" << nativeLight(scene.lights[*n.light]);
         o << "}}}";

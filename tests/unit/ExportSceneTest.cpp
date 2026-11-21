@@ -430,3 +430,35 @@ TEST_CASE("ut-export's walkers tour the navigation graph and walk back", "[expor
     CHECK_THAT(*path, Catch::Matchers::ContainsSubstring("{\"time\":1,"));
     CHECK_THAT(*path, Catch::Matchers::ContainsSubstring("\"walker:0\":{\"translation\":[8,0,0]"));
 }
+
+TEST_CASE("UTA-0494: ut-export lists no special-lit light in KHR_lights_punctual and keeps its native_light",
+          "[export]") {
+    ub::Geometry g;
+    addTriangle(g, {vertex(0, 0, 0), vertex(100, 0, 0), vertex(0, 100, 0)});
+    ub::Bundle b = levelWith(g);
+    ub::Light special;
+    special.radius = 3;
+    special.brightness = 255;
+    special.specialLit = true;
+    ub::Light normal = special;
+    normal.specialLit = false;
+    b.lights = {special, normal}; // the special one first, so the index must move
+    const ex::Scene s = build(b);
+    REQUIRE(s.lights.size() == 2);
+    CHECK_FALSE(s.lights[0].punctual);
+    CHECK(s.lights[1].punctual);
+
+    const std::vector<std::byte> glb = ex::writeGlb(s);
+    std::uint32_t jsonLength = 0;
+    std::memcpy(&jsonLength, glb.data() + 12, 4);
+    const std::string json(reinterpret_cast<const char*>(glb.data()) + 20, jsonLength);
+    const auto count = [&json](const std::string& text) {
+        std::size_t n = 0;
+        for (std::size_t at = json.find(text); at != std::string::npos; at = json.find(text, at + 1)) ++n;
+        return n;
+    };
+    CHECK(count("\"type\":\"point\"") == 1);
+    CHECK(count("\"native_light\"") == 2);
+    CHECK(count("{\"KHR_lights_punctual\":{\"light\":") == 1);
+    CHECK(count("{\"KHR_lights_punctual\":{\"light\":0}}") == 1); // the normal light, at the list's start
+}

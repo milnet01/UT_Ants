@@ -12,6 +12,13 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ## [Unreleased]
 
+### Changed
+
+- **`ut-export` no longer lists special-lit lights as ordinary lights** (UTA-0494)
+  Scenes sent to ExperiRays' lighting lab stop lighting ordinary walls
+  with lamps meant only for special surfaces. Each such lamp is still
+  recorded on its node.
+
 ### Added
 
 - **Falling out of the map kills, and lava and slime hurt** (UTA-0493)
