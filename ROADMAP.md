@@ -23534,7 +23534,7 @@ to.
   Kind: feature.
   Source: ut-monsterhunt-request-2026-11-19.
 
-- 📋 [UTA-0495] **ut-paths: propose path nodes for one map file named on the command line, with no census.**
+- ✅ [UTA-0495] **ut-paths: propose path nodes for one map file named on the command line, with no census.**
   Asked by UT_MonsterHunt (ut-monsterhunt-6a, 2026-11-21) for its
   map-repair ladder, GAME-0284 (analysis/autofix.py). Today ut-paths needs
   --census <tsv>, reads only <install>/Maps (resolveUnder, after
@@ -23553,6 +23553,9 @@ to.
   verdict: ENDNODE gives EXIT_OFF_NET, NOROUTE gives PARTITIONED, ENDNODE
   winning where both hold, at the distance their census split uses. They
   record it on GAME-0284. Tell them the commit when it ships.
+  Shipped 2026-11-21 at 1275dc7, green on GitHub's matrix (GCC 14,
+  Clang 19, MSVC). ut-paths --install <dir> --out <dir> --map-file
+  <file.unr> --group EXIT_OFF_NET|PARTITIONED. UT_MonsterHunt told.
   **Layman:** The sister project's automatic map fixer can ask for bot paths on any map, including ones changed since the last full survey.
   Kind: enhancement.
   Source: in-session-2026-11-21.
@@ -24879,6 +24882,12 @@ docs/standards/versioning-overrides.md. Closes S8.
   2026-11-21: no class in § 4.4 fits it).
   Check: a scene with one backdrop, one non-solid and one plain triangle
   exports their classes as agreed.
+  Agreed with ExperiRays (d1f6a93, 2026-11-21): EXRAY-0001 § 4.4's
+  triangle_class 4 is PF_FakeBackdrop and 5 a surface viewer rays meet and
+  shadow and bounce rays pass. Proposed to them: we write 5 for every
+  LIGHT_PASSES_FLAGS triangle (PF_NotSolid, PF_Translucent, PF_Modulated),
+  since our probe gather passes all three; alphaOf still sets Blend or
+  Mask for viewer rays. Ready to build once they confirm.
   **Layman:** Outdoor areas in scenes sent to the lighting lab stop being lit as if they had a roof.
   Kind: fix.
   Source: in-session-2026-11-21.

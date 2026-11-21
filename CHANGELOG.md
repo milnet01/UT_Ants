@@ -171,6 +171,10 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Changed
 
+- **`ut-export` marks sky and see-through surfaces for the lighting lab** (UTA-0496)
+  Outdoor areas in scenes sent to ExperiRays stop being lit as if they
+  had a roof, and light passes non-solid, translucent and modulated
+  surfaces there as it does in our own lighting bake.
 - **`ut-export` no longer lists special-lit lights as ordinary lights** (UTA-0494)
   Scenes sent to ExperiRays' lighting lab stop lighting ordinary walls
   with lamps meant only for special surfaces. Each such lamp is still

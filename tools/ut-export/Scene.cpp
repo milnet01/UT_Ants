@@ -8,6 +8,7 @@
 #include "core/Sha256.h"
 #include "ubake/Geometry.h"
 #include "ubake/LightModel.h"
+#include "ubake/SurfaceRays.h"
 
 #include <algorithm>
 #include <cmath>
@@ -155,6 +156,7 @@ private:
             primitive.indices.push_back(remap[v]);
         }
         primitive.triangleChart.push_back(chart);
+        primitive.triangleClass.push_back(triangleClassOf(scene_.materials[material].polyFlags));
         return {};
     }
 
@@ -333,6 +335,13 @@ std::string sceneKeyOf(std::span<const std::byte> unr, std::span<const std::byte
         return out;
     };
     return "ut:" + hex(sha256(unr)) + ":" + hex(sha256(utab));
+}
+
+std::uint8_t triangleClassOf(std::uint32_t polyFlags) {
+    if ((polyFlags & ubake::PF_FAKE_BACKDROP) != 0) return CLASS_SKY;
+    // The baker's own set (UTA-0168), so the lab's rays pass what it passes.
+    if ((polyFlags & ubake::LIGHT_PASSES_FLAGS) != 0) return CLASS_LIGHT_PASSES;
+    return CLASS_SURFACE;
 }
 
 Result<Scene> buildScene(const ubundle::Bundle& bundle, std::string sceneKey, bool addedLamps) {
@@ -561,10 +570,13 @@ std::vector<std::byte> writeGlb(const Scene& scene) {
                 glb.accessor(glb.view(p.indices, ELEMENT_ARRAY_BUFFER), UNSIGNED_INT, p.indices.size(), "SCALAR");
             const std::size_t chart = glb.accessor(glb.view(p.triangleChart, std::nullopt), UNSIGNED_INT,
                                                    p.triangleChart.size(), "SCALAR");
+            const std::size_t kind = glb.accessor(glb.view(p.triangleClass, std::nullopt), UNSIGNED_BYTE,
+                                                  p.triangleClass.size(), "SCALAR");
             std::ostringstream o;
             o << "{\"attributes\":{\"POSITION\":" << position << ",\"NORMAL\":" << normal << ",\"TEXCOORD_0\":" << uv
               << ",\"_XR_ZONE\":" << zone << "},\"indices\":" << indices << ",\"material\":" << p.material
-              << ",\"mode\":4,\"extras\":{\"xr\":{\"triangle_chart\":" << chart << "}}}";
+              << ",\"mode\":4,\"extras\":{\"xr\":{\"triangle_chart\":" << chart
+              << ",\"triangle_class\":" << kind << "}}}";
             primitives.push_back(o.str());
         }
         meshes.push_back("{\"primitives\":" + joined(primitives) + "}");

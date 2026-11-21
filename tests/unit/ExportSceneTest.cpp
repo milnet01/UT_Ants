@@ -11,6 +11,7 @@
 
 #include "ut-export/Path.h"
 #include "ut-export/Scene.h"
+#include "ubake/Geometry.h"
 
 #include "unav/Reach.h"
 
@@ -461,4 +462,39 @@ TEST_CASE("UTA-0494: ut-export lists no special-lit light in KHR_lights_punctual
     CHECK(count("\"native_light\"") == 2);
     CHECK(count("{\"KHR_lights_punctual\":{\"light\":") == 1);
     CHECK(count("{\"KHR_lights_punctual\":{\"light\":0}}") == 1); // the normal light, at the list's start
+}
+
+TEST_CASE("UTA-0496: ut-export classes a sky backdrop 4, a surface light passes through 5, the rest 0",
+          "[export]") {
+    using namespace uta::ubake;
+    CHECK(ex::triangleClassOf(0) == ex::CLASS_SURFACE);
+    CHECK(ex::triangleClassOf(PF_MASKED) == ex::CLASS_SURFACE);
+    CHECK(ex::triangleClassOf(PF_FAKE_BACKDROP) == ex::CLASS_SKY);
+    CHECK(ex::triangleClassOf(PF_NOT_SOLID) == ex::CLASS_LIGHT_PASSES);
+    CHECK(ex::triangleClassOf(PF_TRANSLUCENT) == ex::CLASS_LIGHT_PASSES);
+    CHECK(ex::triangleClassOf(PF_MODULATED) == ex::CLASS_LIGHT_PASSES);
+    CHECK(ex::triangleClassOf(PF_FAKE_BACKDROP | PF_TRANSLUCENT) == ex::CLASS_SKY); // the sky wins
+
+    // One triangle of each, each its own batch and so its own material.
+    ub::Geometry g;
+    addTriangle(g, {vertex(0, 0, 0), vertex(100, 0, 0), vertex(0, 100, 0)}, "wall");
+    addTriangle(g, {vertex(0, 0, 10), vertex(100, 0, 10), vertex(0, 100, 10)}, "sky");
+    addTriangle(g, {vertex(0, 0, 20), vertex(100, 0, 20), vertex(0, 100, 20)}, "brush");
+    g.batches[1].polyFlags = PF_FAKE_BACKDROP;
+    g.batches[2].polyFlags = PF_NOT_SOLID;
+    const ex::Scene s = build(levelWith(g));
+    std::vector<std::uint8_t> classes;
+    for (const ex::Mesh& m : s.meshes)
+        for (const ex::Primitive& p : m.primitives) {
+            REQUIRE(p.triangleClass.size() == p.triangleChart.size());
+            classes.insert(classes.end(), p.triangleClass.begin(), p.triangleClass.end());
+        }
+    std::ranges::sort(classes);
+    CHECK(classes == std::vector<std::uint8_t>{0, 4, 5});
+
+    const std::vector<std::byte> glb = ex::writeGlb(s);
+    std::uint32_t jsonLength = 0;
+    std::memcpy(&jsonLength, glb.data() + 12, 4);
+    const std::string json(reinterpret_cast<const char*>(glb.data()) + 20, jsonLength);
+    CHECK_THAT(json, Catch::Matchers::ContainsSubstring("\"triangle_class\":"));
 }

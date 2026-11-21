@@ -64,7 +64,17 @@ struct Primitive {
     std::uint32_t material = 0;
     std::vector<std::uint32_t> indices;       ///< three a triangle, into the mesh's vertices
     std::vector<std::uint32_t> triangleChart; ///< one a triangle; MASK_NO_CHART for none
+    /// UTA-0496: one a triangle, EXRAY-0001 SS 4.4's triangle_class.
+    std::vector<std::uint8_t> triangleClass;
 };
+
+/// UTA-0496: EXRAY-0001 SS 4.4's classes UT_Ants writes. A sky backdrop is
+/// met by viewer rays alone; a surface light passes through is met by viewer
+/// rays and passed by shadow and bounce rays, as ubake's baker passes it.
+inline constexpr std::uint8_t CLASS_SURFACE = 0, CLASS_SKY = 4, CLASS_LIGHT_PASSES = 5;
+
+/// The class of a triangle whose batch carries `polyFlags`.
+[[nodiscard]] std::uint8_t triangleClassOf(std::uint32_t polyFlags);
 
 struct Mesh {
     std::vector<std::array<float, 3>> positions; ///< glTF axes, metres
