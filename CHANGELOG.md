@@ -12,15 +12,12 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ## [Unreleased]
 
-### Changed
-
-- **`ut-export` no longer lists special-lit lights as ordinary lights** (UTA-0494)
-  Scenes sent to ExperiRays' lighting lab stop lighting ordinary walls
-  with lamps meant only for special surfaces. Each such lamp is still
-  recorded on its node.
-
 ### Added
 
+- **`ut-paths --map-file` proposes path nodes for one map file, with no census** (UTA-0495)
+  A map can now be read from any folder, given its group with
+  `--group`. UT_MonsterHunt's map repair uses it for maps changed since
+  its last survey.
 - **Falling out of the map kills, and lava and slime hurt** (UTA-0493)
   A body that leaves the level dies at once. One standing in a zone the
   map marks as painful loses health about once a second, more the deeper
@@ -171,6 +168,13 @@ The `[Unreleased]` block stays at the top, always, even when empty.
   such a prop now carries a copy of it. Both of UT99's model formats are
   read, the newer and the older. Props stand still and cast no shadows
   yet. Bundle format 36, baker revision 78: re-bake every map.
+
+### Changed
+
+- **`ut-export` no longer lists special-lit lights as ordinary lights** (UTA-0494)
+  Scenes sent to ExperiRays' lighting lab stop lighting ordinary walls
+  with lamps meant only for special surfaces. Each such lamp is still
+  recorded on its node.
 
 ### Fixed
 

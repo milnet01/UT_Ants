@@ -39,6 +39,8 @@ using uta::tools::writeJsonString;
 
 void usage(std::ostream& err) {
     err << "usage: ut-paths --install <install> --census <tsv> --out <dir> [<map> ...]\n"
+           "       ut-paths --install <install> --out <dir> --map-file <file.unr>\n"
+           "                --group EXIT_OFF_NET|PARTITIONED\n"
            "       ut-paths --help | -h\n"
            "\n"
            "Proposes bot path nodes for every EXIT_OFF_NET and PARTITIONED map of\n"
@@ -47,7 +49,10 @@ void usage(std::ostream& err) {
            "any file of that name elsewhere in the install, and any Maps/ name that\n"
            "differs from it only in punctuation, and reads neither: such a name is\n"
            "often a different map. Standard output is one\n"
-           "JSON object, also written to <dir>/ut-paths-summary.json.\n";
+           "JSON object, also written to <dir>/ut-paths-summary.json.\n"
+           "\n"
+           "With --map-file, the one map file named, wherever it is, with the group\n"
+           "given, and no census; its file is <dir>/<its name>.json.\n";
 }
 
 struct Arguments {
@@ -55,6 +60,8 @@ struct Arguments {
     std::optional<std::string_view> install;
     std::optional<std::string_view> census;
     std::optional<std::string_view> out;
+    std::optional<std::string_view> mapFile; ///< UTA-0495: one map, named by its path
+    std::optional<std::string_view> group;   ///< UTA-0495: --map-file's census group
     std::vector<std::string_view> maps;
 };
 
@@ -72,6 +79,10 @@ std::optional<Arguments> parse(std::span<const std::string_view> args, std::ostr
             if (!(parsed.census = values.take(i))) return std::nullopt;
         } else if (arg == "--out") {
             if (!(parsed.out = values.take(i))) return std::nullopt;
+        } else if (arg == "--map-file") {
+            if (!(parsed.mapFile = values.take(i))) return std::nullopt;
+        } else if (arg == "--group") {
+            if (!(parsed.group = values.take(i))) return std::nullopt;
         } else if (arg.starts_with("-")) {
             err << "ut-paths: unknown option " << arg << "\n";
             return std::nullopt;
@@ -80,6 +91,22 @@ std::optional<Arguments> parse(std::span<const std::string_view> args, std::ostr
         }
     }
     if (parsed.help) return parsed;
+    if (parsed.mapFile || parsed.group) {
+        // UTA-0495: one map with its group, in place of the census.
+        if (!parsed.install || !parsed.out || !parsed.mapFile || !parsed.group) {
+            err << "ut-paths: --map-file needs --install, --out and --group\n";
+            return std::nullopt;
+        }
+        if (parsed.census || !parsed.maps.empty()) {
+            err << "ut-paths: --map-file takes no --census and no map names\n";
+            return std::nullopt;
+        }
+        if (*parsed.group != EXIT_OFF_NET && *parsed.group != PARTITIONED) {
+            err << "ut-paths: --group is EXIT_OFF_NET or PARTITIONED, not " << *parsed.group << "\n";
+            return std::nullopt;
+        }
+        return parsed;
+    }
     if (!parsed.install || !parsed.census || !parsed.out) {
         err << "ut-paths: --install, --census and --out are all needed\n";
         return std::nullopt;
@@ -238,32 +265,18 @@ std::optional<stdfs::path> foldedMap(const stdfs::path& install, std::string_vie
     return *std::ranges::min_element(found);
 }
 
-/// One map, read from <install>/Maps, its file written to `outDir`.
+/// Whether `name` is a plain file name: not empty, not a dot or two, and
+/// holding no separator, drive colon or NUL.
+bool plainName(const std::string& name) {
+    return !name.empty() && name != "." && name != ".." &&
+           name.find_first_of(std::string_view{"/\\:\0", 4}) == std::string::npos;
+}
+
+/// The map in `file`, its proposal written to `outDir` as `<row.map>.json`.
 /// `installed` is opened by the first map that needs it and kept for the
 /// rest, so a library run lists the install and parses its packages once.
-Entry runMap(const stdfs::path& install, std::optional<ubake::Install>& installed, const stdfs::path& outDir,
-             const Row& row, std::ostream& err) {
-    // The census is another project's file. A name that is a path would read
-    // outside Maps/ and write outside --out (review-code 2026-09-26).
-    if (row.map.empty() || row.map == "." || row.map == ".." ||
-        row.map.find_first_of(std::string_view{"/\\:\0", 4}) != std::string::npos)
-        return refusal(row.map, "not a plain map name", err);
-    // resolveUnder refuses what a plain name can still carry: a Windows
-    // device name such as NUL, which opens a device in any folder
-    // (review-code 2026-10-15).
-    const auto resolved = uta::fs::resolveUnder(install / "Maps", uta::fs::pathFromUtf8(row.map + ".unr"));
-    if (!resolved.has_value()) return refusal(row.map, "not a plain map name", err);
-    stdfs::path file = *resolved;
-    std::error_code ec;
-    if (!stdfs::is_regular_file(file, ec))
-        if (const auto folded = foldedMap(install, row.map)) file = *folded;
-    if (!stdfs::is_regular_file(file, ec)) {
-        err << "ut-paths: " << row.map << ": skipped, no file in Maps/\n";
-        Entry skipped{row.map, "skipped", "no file in Maps/"};
-        lookElsewhere(install, row, skipped);
-        return skipped;
-    }
-
+Entry runFile(const stdfs::path& install, std::optional<ubake::Install>& installed, const stdfs::path& outDir,
+              const Row& row, const stdfs::path& file, std::ostream& err) {
     const auto bytes = uta::fs::readFile(file);
     if (!bytes.has_value()) return refusal(row.map, std::string(bytes.error().message()), err);
     if (!installed) {
@@ -279,26 +292,69 @@ Entry runMap(const stdfs::path& install, std::optional<ubake::Install>& installe
     const Proposal proposal = propose(*scene, row.group == PARTITIONED);
     const std::string json =
         toJson(row.map, ubake::detail::hex(uta::md5(*bytes)), row.group, *scene, proposal);
-    const stdfs::path target = outDir / (row.map + ".json");
+    // resolveUnder refuses a Windows device name such as NUL, which a plain
+    // name can still be (review-code 2026-10-15).
+    const auto target = uta::fs::resolveUnder(outDir, uta::fs::pathFromUtf8(row.map + ".json"));
+    if (!target.has_value()) return refusal(row.map, "not a plain map name", err);
     const auto written = uta::fs::writeFileAtomically(
-        target, std::as_bytes(std::span<const char>(json.data(), json.size())));
+        *target, std::as_bytes(std::span<const char>(json.data(), json.size())));
     if (!written.has_value()) return refusal(row.map, std::string(written.error().message()), err);
 
-    err << "ut-paths: wrote " << ubake::detail::utf8(target) << ": " << scene->exits.size()
+    err << "ut-paths: wrote " << ubake::detail::utf8(*target) << ": " << scene->exits.size()
         << " exits, " << proposal.nodes.size() << " nodes\n";
     return Entry{row.map, "written", {}, scene->exits.size(), proposal.nodes.size()};
+}
+
+/// One census row's map, read from <install>/Maps.
+Entry runMap(const stdfs::path& install, std::optional<ubake::Install>& installed, const stdfs::path& outDir,
+             const Row& row, std::ostream& err) {
+    // The census is another project's file. A name that is a path would read
+    // outside Maps/ and write outside --out (review-code 2026-09-26).
+    if (!plainName(row.map)) return refusal(row.map, "not a plain map name", err);
+    // resolveUnder refuses what a plain name can still carry: a Windows
+    // device name such as NUL, which opens a device in any folder
+    // (review-code 2026-10-15).
+    const auto resolved = uta::fs::resolveUnder(install / "Maps", uta::fs::pathFromUtf8(row.map + ".unr"));
+    if (!resolved.has_value()) return refusal(row.map, "not a plain map name", err);
+    stdfs::path file = *resolved;
+    std::error_code ec;
+    if (!stdfs::is_regular_file(file, ec))
+        if (const auto folded = foldedMap(install, row.map)) file = *folded;
+    if (!stdfs::is_regular_file(file, ec)) {
+        err << "ut-paths: " << row.map << ": skipped, no file in Maps/\n";
+        Entry skipped{row.map, "skipped", "no file in Maps/"};
+        lookElsewhere(install, row, skipped);
+        return skipped;
+    }
+    return runFile(install, installed, outDir, row, file, err);
+}
+
+/// UTA-0495: the one map file the caller named, wherever it is. Its name is
+/// the file's stem; a missing file is refused, since the caller named it.
+Entry runNamedFile(const stdfs::path& install, std::optional<ubake::Install>& installed, const stdfs::path& outDir,
+                   const stdfs::path& file, std::string_view group, std::ostream& err) {
+    const Row row{ubake::detail::utf8(file.stem()), std::string(group)};
+    if (!plainName(row.map)) return refusal(row.map, "not a plain map name", err);
+    std::error_code ec;
+    if (!stdfs::is_regular_file(file, ec)) return refusal(row.map, "no such map file", err);
+    return runFile(install, installed, outDir, row, file, err);
 }
 
 /// runMap, with anything it throws refused as that map's failure. walkGraph
 /// rethrows a worker's exception, and one map must not end a library run
 /// (UTA-0224).
+template <typename Run>
+Entry guarded(const std::string& map, std::ostream& err, Run run) {
+    try {
+        return run();
+    } catch (const std::exception& thrown) {
+        return refusal(map, std::string("threw: ") + thrown.what(), err);
+    }
+}
+
 Entry runMapGuarded(const stdfs::path& install, std::optional<ubake::Install>& installed, const stdfs::path& outDir,
                     const Row& row, std::ostream& err) {
-    try {
-        return runMap(install, installed, outDir, row, err);
-    } catch (const std::exception& thrown) {
-        return refusal(row.map, std::string("threw: ") + thrown.what(), err);
-    }
+    return guarded(row.map, err, [&] { return runMap(install, installed, outDir, row, err); });
 }
 
 std::string summaryOf(const std::vector<Entry>& entries) {
@@ -346,8 +402,11 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
         usage(err);
         return EXIT_OK;
     }
-    const std::optional<std::vector<Row>> rows = readCensus(uta::fs::pathFromUtf8(*parsed->census), err);
-    if (!rows.has_value()) return EXIT_FAILED; // well-formed arguments; the file failed
+    std::optional<std::vector<Row>> rows;
+    if (!parsed->mapFile) {
+        rows = readCensus(uta::fs::pathFromUtf8(*parsed->census), err);
+        if (!rows.has_value()) return EXIT_FAILED; // well-formed arguments; the file failed
+    }
 
     const stdfs::path install = uta::fs::pathFromUtf8(*parsed->install);
     const stdfs::path outDir = uta::fs::pathFromUtf8(*parsed->out);
@@ -357,7 +416,12 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
 
     std::optional<ubake::Install> installed;
     std::vector<Entry> entries;
-    if (parsed->maps.empty()) {
+    if (parsed->mapFile) {
+        const stdfs::path file = uta::fs::pathFromUtf8(*parsed->mapFile);
+        entries.push_back(guarded(ubake::detail::utf8(file.stem()), err, [&] {
+            return runNamedFile(install, installed, outDir, file, *parsed->group, err);
+        }));
+    } else if (parsed->maps.empty()) {
         for (const Row& row : *rows)
             if (isWork(row)) entries.push_back(runMapGuarded(install, installed, outDir, row, err));
     } else {

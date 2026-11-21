@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=495 -->
+<!-- ants-roadmap-id-high-water: UTA=496 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -24850,8 +24850,37 @@ docs/standards/versioning-overrides.md. Closes S8.
   Shipped 2026-11-21 at 347f43f, green on GitHub's matrix (GCC 14,
   Clang 19, MSVC). Scenes exported before it still list special-lit
   lights; re-export them with ut-export at or after 347f43f.
+  Found by ExperiRays (2026-11-21): their reader refused native_light on
+  a node with no KHR light, and ut_light_pairs name special-lit lights,
+  so a scene with one failed experirays load. They amend EXRAY-0001 § 4.5
+  and their reader to accept such a node as a light the lab does not
+  cast; no change here. Until theirs ships, export from 31c7720.
+  Lesson: check an export against the reader's refusals, not only the
+  format's text.
   **Layman:** Scenes sent to the lighting lab stop lighting ordinary walls with lamps meant only for special surfaces.
   Kind: enhancement.
+  Source: in-session-2026-11-21.
+  Lanes: tools.
+
+- 📋 [UTA-0496] **ut-export: mark sky backdrops as sky occluders, and surfaces light passes through as such, so the lab's rays treat them as our baker does.**
+  Found reviewing ExperiRays' EXRAY-0006 slice 1 (53770be), 2026-11-21.
+  ut-export writes no triangle_class (Scene.cpp; checked), so every
+  PF_FakeBackdrop triangle reaches the lab as a solid wall: sun shadow
+  rays and bounce rays toward an outdoor sky are blocked there. EXRAY-0001
+  § 4.4 defines triangle_class 4, a sky occluder that primary rays hit and
+  secondary rays pass through.
+  Our baker lets light through PF_Translucent, PF_Modulated and
+  PF_NotSolid (ubake SurfaceRays.h LIGHT_PASSES_FLAGS), and through
+  PF_FakeBackdrop for the sun (UTA-0326 § 4.3). alphaOf exports the first
+  two as Blend and PF_NotSolid as Opaque, so non-solid brushes cast
+  shadows in the lab.
+  The change: a per-triangle triangle_class, 4 for PF_FakeBackdrop, 0
+  otherwise; and PF_NotSolid marked however ExperiRays answers (asked
+  2026-11-21: no class in § 4.4 fits it).
+  Check: a scene with one backdrop, one non-solid and one plain triangle
+  exports their classes as agreed.
+  **Layman:** Outdoor areas in scenes sent to the lighting lab stop being lit as if they had a roof.
+  Kind: fix.
   Source: in-session-2026-11-21.
   Lanes: tools.
 

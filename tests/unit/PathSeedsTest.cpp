@@ -881,3 +881,45 @@ TEST_CASE("INV-16: a switched-off teleporter nothing switches on sends nobody on
         {at(0), at(400)}};                    // arriving at D
     CHECK(kept == expected);
 }
+
+TEST_CASE("UTA-0495: --map-file reads the one file named, outside the install, with no census",
+          "[paths][seeds]") {
+    // Not a package, so a file this tool read is refused as one: that refusal,
+    // rather than "no file in Maps/" or "no such map file", is the evidence
+    // that the named file itself was read.
+    const uta::test::bake::TempDir dir;
+    const fs::path install = dir.path() / "install";
+    fs::create_directories(install / "Maps");
+    uta::test::bake::writeFile(dir.path() / "staging" / "MH-Staged.unr", bytesOf("not a package"));
+    const fs::path out = dir.path() / "out";
+
+    const Run result = run({"--install", install.string(), "--out", out.string(), "--map-file",
+                            (dir.path() / "staging" / "MH-Staged.unr").string(), "--group", "PARTITIONED"});
+    INFO(result.err);
+    INFO(result.out);
+    CHECK(result.code == 1);
+    CHECK(result.out.find("{\"map\": \"MH-Staged\", \"status\": \"refused\"") != std::string::npos);
+    CHECK(result.out.find("no file in Maps/") == std::string::npos);
+    CHECK(result.out.find("no such map file") == std::string::npos);
+    CHECK(fs::exists(out / "ut-paths-summary.json"));
+
+    const Run missing = run({"--install", install.string(), "--out", out.string(), "--map-file",
+                             (dir.path() / "staging" / "MH-Absent.unr").string(), "--group", "EXIT_OFF_NET"});
+    CHECK(missing.code == 1);
+    CHECK(missing.out.find("{\"map\": \"MH-Absent\", \"status\": \"refused\", \"why\": \"no such map file\"}")
+          != std::string::npos);
+}
+
+TEST_CASE("UTA-0495: --map-file needs a group of the two, and takes no census or map names", "[paths][seeds]") {
+    const uta::test::bake::TempDir dir;
+    const std::string install = (dir.path() / "install").string();
+    const std::string out = (dir.path() / "out").string();
+    const std::string file = (dir.path() / "MH-X.unr").string();
+    CHECK(run({"--install", install, "--out", out, "--map-file", file}).code == 2);
+    CHECK(run({"--install", install, "--out", out, "--map-file", file, "--group", "NOROUTE"}).code == 2);
+    CHECK(run({"--install", install, "--out", out, "--group", "PARTITIONED"}).code == 2);
+    CHECK(run({"--install", install, "--out", out, "--map-file", file, "--group", "PARTITIONED", "--census",
+               (dir.path() / "c.tsv").string()})
+              .code == 2);
+    CHECK(run({"--install", install, "--out", out, "--map-file", file, "--group", "PARTITIONED", "MH-Y"}).code == 2);
+}

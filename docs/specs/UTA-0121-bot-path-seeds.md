@@ -182,6 +182,7 @@ finds a map's Level and Model as a bake does.
 
 ```text
 ut-paths --install <dir> --census <tsv> --out <dir> [<map> ...]
+ut-paths --install <dir> --out <dir> --map-file <file.unr> --group EXIT_OFF_NET|PARTITIONED
 ```
 
 - `--census` is UT_MonsterHunt's split TSV. Its header names a `map` and a
@@ -193,6 +194,12 @@ ut-paths --install <dir> --census <tsv> --out <dir> [<map> ...]
   temporary file and a rename. A map with no file there is skipped: named in
   the output, and not a refusal. UT_MonsterHunt's GAME-0092 moved some census
   maps out of `Maps/`.
+- **Amended by `UTA-0495`.** `--map-file` names one map file, anywhere, a
+  staging folder included, and `--group` gives its group; there is no census
+  and no named map. Its name is the file's stem, under the same plain-name
+  rule, and it writes `<out>/<stem>.json`. A missing file is refused, since
+  the caller named it. UT_MonsterHunt passes the group from its own route
+  verdict.
 - Standard output is one JSON object, as ut-bake's is, and the same object is
   written to `<out>/ut-paths-summary.json`, so a reader of the directory sees
   every map the run took, skipped ones included. Standard error is for
