@@ -21871,6 +21871,12 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Also from UTA-0108: monsters keep landing damage while players and
   bots are spared. ugame::tick takes one MoveRules for every body, so
   the first monster needs rules per body kind.
+  Spec: docs/specs/UTA-0493-leaving-the-world.md (2026-11-21). No gate.
+  Out of the world is the null zone at the body's centre, and a lookup
+  that failed never kills. Pain follows Pawn.PainTimer: bPainZone and
+  DamagePerSec join ZONE (format 38, baker revision 80).
+  Monsters keeping landing damage moved to UTA-0024 (2026-11-21): no
+  body kind exists yet to give rules to.
   **Layman:** Falling out of the map, or into lava, kills you, whatever the fall-damage setting says.
   Kind: feature.
   Source: in-session-2026-11-20.
@@ -21902,6 +21908,11 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   behaviour archetype. This is what ancestry resolution resolves ONTO.
   This is what S3 is measured on, together with the resolver.
   Blocked-by: the class resolver.
+  From UTA-0493 (2026-11-21): monsters keep landing damage while
+  players and bots are spared (user, 2026-09-10, on UTA-0108).
+  ugame::tick takes one MoveRules for every body and reads
+  MoveRules::landingDamage at the landing alone, so the first monster
+  needs rules per body kind, or a monster flag read there.
   **Layman:** The monsters themselves -- Skaarj, Titan, Krall, Brute, Warlord and the rest -- built as tables of numbers so a custom variant is a different table.
   Kind: implement.
   Source: design-2026-09-03.
