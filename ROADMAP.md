@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=496 -->
+<!-- ants-roadmap-id-high-water: UTA=497 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -23561,6 +23561,24 @@ to.
   Source: in-session-2026-11-21.
   Lanes: tools.
 
+- 📋 [UTA-0497] **ut-dump --zone-at: the zone, its actor, and whether it is water or pain, for each point named.**
+  Asked by UT_MonsterHunt (ut-monsterhunt-09, 2026-11-21) for its map
+  fixer (GAME-0284): MH-Nagrath, MH-Kuratorium and MH-Canals route no
+  exit because the way is through water, which ut-paths' walk does not
+  swim (Walkable.cpp reads no water or zone).
+  ut-dump already gives each PlayerStart's zone and waterZone (UTA-0335,
+  writePlayerStarts: umap::roomAt and ubake::buildZones). This gives the
+  same for any point: one entry per point, in the input's order, with
+  zone, zoneActor, waterZone and painZone (UTA-0493's pain and
+  damagePerSec). Many points in one call: a few hundred candidate spots
+  and every nav node of a map, so a points file as well as arguments.
+  Use umap::zoneNumberAt, so outside the level and unknown stay apart.
+  A swimming walk in ut-paths is out of scope without a design (agreed).
+  **Layman:** The sister project's map fixer can ask which spots are under water, so it can lay swimming paths where bots now stop.
+  Kind: enhancement.
+  Source: in-session-2026-11-21.
+  Lanes: tools.
+
 ## 0.5.0 — Map editor
 
 Edit a baked bundle, build a new level, and author enemies as data. A map built
@@ -24865,7 +24883,7 @@ docs/standards/versioning-overrides.md. Closes S8.
   Source: in-session-2026-11-21.
   Lanes: tools.
 
-- 📋 [UTA-0496] **ut-export: mark sky backdrops as sky occluders, and surfaces light passes through as such, so the lab's rays treat them as our baker does.**
+- ✅ [UTA-0496] **ut-export: mark sky backdrops as sky occluders, and surfaces light passes through as such, so the lab's rays treat them as our baker does.**
   Found reviewing ExperiRays' EXRAY-0006 slice 1 (53770be), 2026-11-21.
   ut-export writes no triangle_class (Scene.cpp; checked), so every
   PF_FakeBackdrop triangle reaches the lab as a solid wall: sun shadow
@@ -24888,6 +24906,10 @@ docs/standards/versioning-overrides.md. Closes S8.
   LIGHT_PASSES_FLAGS triangle (PF_NotSolid, PF_Translucent, PF_Modulated),
   since our probe gather passes all three; alphaOf still sets Blend or
   Mask for viewer rays. Ready to build once they confirm.
+  Shipped 2026-11-21 at cd51146, green on GitHub's matrix (GCC 14,
+  Clang 19, MSVC). triangle_class 4 for PF_FakeBackdrop, 5 for
+  LIGHT_PASSES_FLAGS, else 0, per EXRAY-0001 § 4.4 at ExperiRays'
+  111e2bd. ExperiRays told.
   **Layman:** Outdoor areas in scenes sent to the lighting lab stop being lit as if they had a roof.
   Kind: fix.
   Source: in-session-2026-11-21.
