@@ -28,7 +28,8 @@ and lifts, and `UTA-0474`, `ut-ants --no-gamepad`, shipped 2026-11-20.
 Pass `--no-gamepad` to every headless viewer run. `UTA-0108`, landing
 damage and the rule that turns it off, shipped 2026-11-20. `UTA-0493`,
 leaving the world and pain zones, shipped 2026-11-21; monsters keeping
-landing damage moved to `UTA-0024`. `UTA-0492`'s
+landing damage moved to `UTA-0024`. `UTA-0494`, ut-export leaving
+special-lit lights out of ExperiRays' light list, shipped 2026-11-21. `UTA-0492`'s
 magnifier-off run is done: the magnifier alone, on a still desktop, is
 not the cost. `UTA-0437` stays behind those although
 frameledger freezes its file format in its 0.8.0 (user, 2026-11-20).

@@ -24833,7 +24833,7 @@ docs/standards/versioning-overrides.md. Closes S8.
   Source: peer-experirays-2026-11-17.
   Lanes: tools.
 
-- 📋 [UTA-0494] **ut-export: leave special-lit lights out of KHR_lights_punctual, keeping them in native_light.**
+- ✅ [UTA-0494] **ut-export: leave special-lit lights out of KHR_lights_punctual, keeping them in native_light.**
   Agreed with ExperiRays (experirays-c7, 2026-11-21) on our review of
   EXRAY-0005 part 2 at b205f8d. In UT_Ants a special-lit light reaches
   only special-lit surfaces, and the reverse (scene.frag specialLight).
@@ -24847,6 +24847,9 @@ docs/standards/versioning-overrides.md. Closes S8.
   then lit as UT_Ants lights it.
   Check: a scene with one special-lit and one normal light exports one
   punctual light and two native_light records.
+  Shipped 2026-11-21 at 347f43f, green on GitHub's matrix (GCC 14,
+  Clang 19, MSVC). Scenes exported before it still list special-lit
+  lights; re-export them with ut-export at or after 347f43f.
   **Layman:** Scenes sent to the lighting lab stop lighting ordinary walls with lamps meant only for special surfaces.
   Kind: enhancement.
   Source: in-session-2026-11-21.
