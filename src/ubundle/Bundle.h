@@ -82,7 +82,8 @@ namespace uta::ubundle {
 /// 35 since UTA-0293 added VEGE, the grass.
 /// 36 since UTA-0341 added PROP, the props a map places as models.
 /// 37 since UTA-0478 added SNDS and the Sounds kind.
-inline constexpr std::uint32_t FORMAT_VERSION = 37;
+/// 38 since UTA-0493 SS 4.2 gave each ZONE entry its pain flag and damage.
+inline constexpr std::uint32_t FORMAT_VERSION = 38;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -583,6 +584,8 @@ struct Zone {
     std::uint8_t water = 0;              ///< UTA-0215: 1 where bWaterZone is set; never above 1
     std::array<float, 3> viewFog{};      ///< UTA-0215: ViewFog, display units; finite
     float viewFlash = 0;                 ///< UTA-0215: ViewFlash.X; finite
+    std::uint8_t pain = 0;               ///< UTA-0493: 1 where bPainZone is set; never above 1
+    std::int32_t damagePerSec = 0;       ///< UTA-0493: DamagePerSec; below 0 heals
 };
 
 /// The widest and tallest AOCC atlas, in texels -- UTA-0164 SS 4.1.

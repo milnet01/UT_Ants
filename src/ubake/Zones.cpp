@@ -35,6 +35,14 @@ std::uint8_t flagOf(std::string_view name, const ubundle::ActorPlacement& actor,
     return record != nullptr && std::get<bool>(record->value) ? 1 : 0;
 }
 
+/// UTA-0493: an Int property, else 0, Engine.u's ZoneInfo default.
+std::int32_t intOf(std::string_view name, const ubundle::ActorPlacement& actor,
+                   const ubundle::ActorClass& actorClass) {
+    const ubundle::PropertyRecord* record =
+        detail::resolvedRecord(name, ubundle::ValueKind::Int, actor.properties, actorClass.defaults);
+    return record == nullptr ? 0 : std::get<std::int32_t>(record->value);
+}
+
 /// UTA-0276: a pan speed is the actor's own record, else its class's default,
 /// else 1, Engine.u's ZoneInfo default. A NaN or infinity is 1, so ZONE's
 /// refusal of a speed that is not finite is never reached from a map.
@@ -69,6 +77,9 @@ ubundle::Zone zoneOf(const ubundle::Placements& placements, const ubundle::Actor
     zone.water = flagOf("bwaterzone", *actor, actorClass);
     zone.viewFog = vectorOf("viewfog", *actor, actorClass);
     zone.viewFlash = vectorOf("viewflash", *actor, actorClass)[0];
+    // UTA-0493 SS 4.2: what a pain zone does to a body standing in it.
+    zone.pain = flagOf("bpainzone", *actor, actorClass);
+    zone.damagePerSec = intOf("damagepersec", *actor, actorClass);
     return zone;
 }
 

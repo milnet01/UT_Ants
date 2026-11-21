@@ -94,7 +94,7 @@ Bytes emptyLite() {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(37); // formatVersion -- 37 since UTA-0478 added SNDS
+    out.u32(38); // formatVersion -- 38 since UTA-0493 gave ZONE its pain
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -210,7 +210,7 @@ void refusedBothWays(const std::vector<MoverShape>& shapes, std::string_view say
 TEST_CASE("the MOVR golden bytes decode to the shapes they encode", "[ubundle][movr]") {
     const auto result = read(fileWith({{"LITE", emptyLite()}, {"MOVR", movrPayload(golden())}}));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 37);
+    CHECK(result->header.formatVersion == 38);
     REQUIRE(result->lights.has_value());
     REQUIRE(result->movers.has_value());
     sameShapes(*result->movers, golden());
@@ -281,6 +281,8 @@ Bytes zonesOf(std::uint32_t count) {
         out.f32(1.0F);
         out.u8(0); // UTA-0215: not water, no tint
         for (int part = 0; part < 4; ++part) out.f32(0.0F);
+        out.u8(0);  // UTA-0493: no pain
+        out.u32(0); // and no damage
     }
     return out;
 }

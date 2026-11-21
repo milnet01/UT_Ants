@@ -102,6 +102,12 @@ entry is 29 bytes. `read` and `write` refuse a `water` byte above `1`, and a
 fog or flash that is not finite. `UTA-0215` § 4 owns what the renderer does
 with them.
 
+**Amended by `UTA-0493`, recording what was built.** After `viewFlash`, each
+entry carries `pain` as a `u8` (`bPainZone`) and `damagePerSec` as an `i32`
+(`DamagePerSec`, below 0 heals). They resolve as § 4.3 resolves the ambient,
+else `0`. An entry is 34 bytes. `read` and `write` refuse a `pain` byte above
+`1`. `UTA-0493` § 4.5 owns what the game does with them.
+
 ### 4.2 A vertex's zone — `ubundle`
 
 ```cpp

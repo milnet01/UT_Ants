@@ -128,6 +128,22 @@ struct RoomMap {
 /// cycle or point outside their tables (INV-3).
 [[nodiscard]] std::uint32_t roomAt(const RoomMap& map, Point3 point);
 
+/// What a point is in, for a rule that must not act on a lookup that failed
+/// -- UTA-0493 SS 4.1. `roomAt`'s NO_ROOM is six cases; this keeps apart the
+/// one that means outside the level.
+struct ZoneHit {
+    enum class Kind : std::uint8_t {
+        Zone,    ///< in `zone`, which names a room
+        Outside, ///< the descent ends at zone 0, on a map that has rooms
+        Unknown, ///< every other NO_ROOM: refused, out of range, bad tree, no rooms
+    };
+    Kind kind = Kind::Unknown;
+    std::uint8_t zone = 0; ///< the source Model's zone number; set only for Zone
+};
+
+/// The zone `point` is in, descending exactly as `roomAt` does. Total.
+[[nodiscard]] ZoneHit zoneNumberAt(const RoomMap& map, Point3 point);
+
 } // namespace uta::umap
 
 #endif // UTA_UMAP_ROOMS_H

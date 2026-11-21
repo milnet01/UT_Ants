@@ -14,6 +14,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **Falling out of the map kills, and lava and slime hurt** (UTA-0493)
+  A body that leaves the level dies at once. One standing in a zone the
+  map marks as painful loses health about once a second, more the deeper
+  it stands; a zone marked to heal restores it. Neither is touched by
+  `--no-landing-damage`. Re-bake maps to pick up their zones' damage.
 - **Hard landings hurt, and `ut-ants --no-landing-damage` turns that off** (UTA-0108)
   Landing from a long fall now costs health, and from a very long one
   kills, by UT99's own rule. With the option, any landing is free. The

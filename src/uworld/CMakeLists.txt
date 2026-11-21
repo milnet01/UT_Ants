@@ -4,6 +4,7 @@
 # so the client's camera can stop at walls. UTA-0457 adds a body's sweeps,
 # which Jolt Physics does; no Jolt type appears in a uworld header, so it
 # links privately. UTA-0017 adds the movement rules and the fixed tick.
+# UTA-0493 adds the zone a point is in.
 
 add_library(uta_uworld STATIC
     BodyCollision.cpp
@@ -11,7 +12,8 @@ add_library(uta_uworld STATIC
     CollisionQuery.cpp
     FixedTick.cpp
     Movement.cpp
-    Teleporters.cpp)
+    Teleporters.cpp
+    Zones.cpp)
 target_link_libraries(uta_uworld PUBLIC uta_core uta_ubundle PRIVATE Jolt)
 
 # Asserted at configure time, in the form every sibling uses. A link beyond

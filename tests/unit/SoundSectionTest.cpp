@@ -81,7 +81,7 @@ Bytes bakrPayload() {
 std::vector<std::byte> fileWith(std::uint8_t kind, const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(37); // formatVersion -- 37 since UTA-0478 added SNDS
+    out.u32(38); // formatVersion -- 38 since UTA-0493 gave ZONE its pain
     out.u8(1);   // origin: Authored
     out.u8(kind);
     out.u16(0);  // reserved

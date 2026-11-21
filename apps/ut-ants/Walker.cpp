@@ -74,6 +74,18 @@ std::array<double, 3> clearOf(const uworld::BodyWorld& world, std::array<double,
     return centre;
 }
 
+std::vector<Walker::Spawn> standable(const uworld::BodyWorld& world, const uworld::ZoneWorld* zones,
+                                     const std::vector<Walker::Spawn>& starts) {
+    std::vector<Walker::Spawn> out;
+    for (const Walker::Spawn& start : starts) {
+        const std::array<double, 3> centre = clearOf(world, start.location);
+        if (zones != nullptr && zones->at({centre[0], centre[1], centre[2]}).kind == umap::ZoneHit::Kind::Outside)
+            continue;
+        out.push_back({centre, start.yaw});
+    }
+    return out;
+}
+
 Walker::Walker(std::array<double, 3> location, double pitch, double yaw, uworld::Teleporters teleporters,
                ugame::WeaponSet set, std::vector<Spawn> spawns)
     : teleporters_(std::move(teleporters)), set_(std::move(set)), spawns_(std::move(spawns)), pitch_(pitch),
@@ -224,7 +236,7 @@ void Walker::update(const uinput::Frame& input, double seconds, const uworld::Bo
         commands_.assign(game_.bodies.size(), uworld::MoveCommand{});
         commands_[0] = command;
         previous_ = game_.bodies[0].move;
-        ugame::tick(world, set_, rules_, game_, commands_, clock_.dt());
+        ugame::tick(world, set_, rules_, game_, commands_, clock_.dt(), zones_ ? &*zones_ : nullptr);
         events_.insert(events_.end(), game_.events.begin(), game_.events.end());
         cues_.insert(cues_.end(), game_.cues.begin(), game_.cues.end());
         for (std::size_t i = 1; i < game_.bodies.size(); ++i) {

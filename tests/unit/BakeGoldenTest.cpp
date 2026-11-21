@@ -187,9 +187,12 @@ namespace {
 // 79, format 37: UTA-0478 bakes each map's sounds. The fixture names none,
 // so it writes an empty SNDS; that, the header's format and BAKR's revision
 // moved it.
-constexpr std::uint32_t RECORDED_UNDER = 79;
+// 80, format 38: UTA-0493 gives each ZONE entry its pain flag and damage. The
+// fixture's zones hurt nobody, so they write zeros; those bytes, the header's
+// format and BAKR's revision moved it.
+constexpr std::uint32_t RECORDED_UNDER = 80;
 constexpr std::string_view GOLDEN =
-    "2194de119370bfb1523ddda85f1cb6986f1789f05f702ad721b1fd1436a6dbb5";
+    "f94beafb2d89b8a0ddc68614cb85adaea48ff8cd37dcb7199b32d58ffc70a651";
 
 } // namespace
 

@@ -497,6 +497,36 @@ void land(Tick& tick) {
     }
 }
 
+/// UTA-0493 SS 4.5: Pawn.PainTimer, in tenths so every compiler agrees. The
+/// feet decide whether the clock runs; the centre and head add to the depth.
+void painTick(const uworld::ZoneWorld& zones, Body& body, double dt) {
+    const Vec3 centre = body.move.location;
+    const auto pains = [&zones](const Vec3& point) {
+        const ubundle::Zone* zone = zones.zoneAt(point);
+        return zone != nullptr && zone->pain != 0 ? zone : nullptr;
+    };
+    const ubundle::Zone* feet = pains(centre - Vec3{0, 0, body.size.halfHeight});
+    if (feet == nullptr) {
+        body.painClock = -1;
+        return;
+    }
+    if (body.painClock < 0) {
+        // It counts from the next tick, as the engine's timer does from the
+        // next frame.
+        body.painClock = PAIN_FIRST_WAIT;
+        return;
+    }
+    body.painClock -= dt;
+    if (body.painClock > 0) return;
+    const std::int64_t tenths =
+        4 + (pains(centre) != nullptr ? 4 : 0) + (pains(centre + Vec3{0, 0, body.eyeHeight}) != nullptr ? 2 : 0);
+    const std::int64_t amount = static_cast<std::int64_t>(feet->damagePerSec) * tenths / 10;
+    if (feet->damagePerSec > 0) body.health -= static_cast<double>(amount);
+    else if (body.health < START_HEALTH)
+        body.health = std::min(START_HEALTH, body.health - static_cast<double>(amount));
+    if (body.alive()) body.painClock = PAIN_WAIT;
+}
+
 } // namespace
 
 double landingDamage(double landedZ, double jumpZ) {
@@ -533,7 +563,7 @@ void giveAll(const WeaponSet& set, Body& body) {
 }
 
 void tick(const uworld::BodyWorld& world, const WeaponSet& set, const uworld::MoveRules& rules, Game& game,
-          std::span<const uworld::MoveCommand> commands, double dt) {
+          std::span<const uworld::MoveCommand> commands, double dt, const uworld::ZoneWorld* zones) {
     game.events.clear();
     game.cues.clear();
     Tick tick{world, set, rules, game, dt, {}, {}, std::vector<bool>(game.shots.size(), false)};
@@ -544,6 +574,14 @@ void tick(const uworld::BodyWorld& world, const WeaponSet& set, const uworld::Mo
         switchWeapon(set, game, static_cast<int>(i), commands[i], dt);
         body.move = uworld::tick(world, body.size, rules, body.move, commands[i], dt);
         if (rules.landingDamage) body.health -= landingDamage(body.move.landedZ, rules.jumpZ);
+        if (zones != nullptr && body.alive()) {
+            // UTA-0493 SS 4.4: outside the level is death, not damage, so it
+            // passes neither the landing nor its flag. Unknown never kills.
+            if (zones->at(body.move.location).kind == umap::ZoneHit::Kind::Outside)
+                body.health = OUT_OF_WORLD_HEALTH;
+            else
+                painTick(*zones, body, dt);
+        }
         body.yaw = commands[i].yaw;
         body.pitch = commands[i].pitch;
     }
@@ -650,6 +688,7 @@ std::uint64_t stateHash(const Game& game) {
         addVec(body.move.mantleTo);
         addDouble(body.move.landedZ);
         addDouble(body.health);
+        addDouble(body.painClock); // UTA-0493
         for (const Carried& carried : body.weapons) {
             add(carried.has ? 1 : 0);
             add(carried.ammo);

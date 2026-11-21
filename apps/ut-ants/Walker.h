@@ -126,6 +126,9 @@ public:
     /// setting as the assists are.
     void setLandingDamage(bool on) noexcept { rules_.landingDamage = on; }
     [[nodiscard]] const uworld::MoveRules& rules() const noexcept { return rules_; }
+    /// UTA-0493: the level's zones, so leaving the level kills and a pain
+    /// zone hurts. Without them neither does.
+    void setZones(std::optional<uworld::ZoneWorld> zones) noexcept { zones_ = zones; }
     /// The drawn view's horizontal field of view and width over height,
     /// which the take-off pitch frames the landing in.
     void setViewShape(double fov, double aspect) noexcept;
@@ -145,6 +148,7 @@ private:
     uworld::DoubleTap tap_;
     uworld::DodgeDir dodgeAsked_ = uworld::DodgeDir::None; ///< a Dodge press waiting for a tick
     uworld::MoveRules rules_;
+    std::optional<uworld::ZoneWorld> zones_;
     uworld::Teleporters teleporters_;
     ugame::WeaponSet set_;
     ugame::Game game_; ///< bodies[0] is the player; a dead dummy's place is used again
@@ -185,5 +189,12 @@ private:
 /// onto it: a walker made in a floor could never move (UTA-0472). `centre`
 /// itself where nothing that near fits.
 [[nodiscard]] std::array<double, 3> clearOf(const uworld::BodyWorld& world, std::array<double, 3> centre);
+
+/// UTA-0493 SS 4.4: each of `starts` lifted clear of the floor by `clearOf`,
+/// less any whose lifted centre `zones` puts outside the level. UT99's spawn
+/// fails at such a start and the engine tries another; a body placed there
+/// here would die on its first tick. Without `zones` none is dropped.
+[[nodiscard]] std::vector<Walker::Spawn> standable(const uworld::BodyWorld& world, const uworld::ZoneWorld* zones,
+                                                   const std::vector<Walker::Spawn>& starts);
 
 } // namespace uta::client

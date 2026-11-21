@@ -60,6 +60,14 @@ PropertyRecord vectorRecord(std::string name, std::array<float, 3> value) {
     return record;
 }
 
+PropertyRecord intRecord(std::string name, std::int32_t value) {
+    PropertyRecord record;
+    record.name = std::move(name);
+    record.kind = ValueKind::Int;
+    record.value = value;
+    return record;
+}
+
 PropertyRecord boolRecord(std::string name, bool value) {
     PropertyRecord record;
     record.name = std::move(name);
@@ -183,6 +191,24 @@ TEST_CASE("UTA-0215 INV-2: a water zone takes its class's water flag and tint, i
     CHECK(int(zones[2].water) == 1);
     CHECK(zones[2].viewFog == std::array<float, 3>{0.3F, 0.2F, 0.1F}); // its own record
     CHECK(zones[2].viewFlash == -0.078F);                              // its class's
+}
+
+TEST_CASE("UTA-0493 INV-3: a lava zone takes its class's pain and damage, its own record winning", "[ubake][zone]") {
+    // UnrealShare's LavaZone stores bPainZone true and DamagePerSec 40 in its
+    // defaults (read from the install's script, 2026-11-21); ZoneInfo neither.
+    Placements withLava = placements();
+    withLava.classes.push_back(classOf("unrealshare.lavazone", {"engine.zoneinfo", "engine.info", "engine.actor"},
+                                       {boolRecord("bPainZone", true), intRecord("DamagePerSec", 40)}));
+    withLava.actors[2].classIndex = 3; // export 8 sets nothing of its own
+    withLava.actors[1].properties.push_back(intRecord("DamagePerSec", -10));
+    const std::vector<Zone> zones = buildZones(threeZones(), withLava);
+    REQUIRE(zones.size() == 3);
+    CHECK(int(zones[0].pain) == 0);
+    CHECK(zones[0].damagePerSec == 0);
+    CHECK(int(zones[1].pain) == 0);      // a plain ZoneInfo
+    CHECK(zones[1].damagePerSec == -10); // its own record
+    CHECK(int(zones[2].pain) == 1);      // its class's
+    CHECK(zones[2].damagePerSec == 40);
 }
 
 TEST_CASE("INV-3: a Model with no zones gives one entry from the LevelInfo", "[ubake][zone]") {

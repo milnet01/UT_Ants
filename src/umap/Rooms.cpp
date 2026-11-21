@@ -1,6 +1,7 @@
 #include "umap/Rooms.h"
 
 #include <cstddef>
+#include <optional>
 
 namespace uta::umap {
 namespace {
@@ -19,10 +20,11 @@ namespace {
     return map.roomForZone[static_cast<std::size_t>(zone)];
 }
 
-} // namespace
-
-std::uint32_t roomAt(const RoomMap& map, Point3 point) {
-    if (map.nodes.empty()) return NO_ROOM;
+/// The zone byte the descent ends at, or nothing where the tree cannot be
+/// descended: empty, a bad child or leaf index, or a cycle. roomAt and
+/// zoneNumberAt share it, so the two always agree on the leaf.
+[[nodiscard]] std::optional<std::uint8_t> descend(const RoomMap& map, Point3 point) {
+    if (map.nodes.empty()) return std::nullopt;
 
     std::size_t index = 0;
     // Bounded by the node count, because a valid descent visits each node at
@@ -51,7 +53,7 @@ std::uint32_t roomAt(const RoomMap& map, Point3 point) {
         const std::int32_t child = which == 1U ? node.iFront : node.iBack;
         if (child != INDEX_NONE) {
             if (child < 0 || static_cast<std::size_t>(child) >= map.nodes.size())
-                return NO_ROOM;
+                return std::nullopt;
             index = static_cast<std::size_t>(child);
             continue;
         }
@@ -59,16 +61,34 @@ std::uint32_t roomAt(const RoomMap& map, Point3 point) {
         const std::int32_t leaf = node.iLeaf[which];
         if (leaf != INDEX_NONE) {
             if (leaf < 0 || static_cast<std::size_t>(leaf) >= map.leafZone.size())
-                return NO_ROOM;
-            return roomForZone(map, map.leafZone[static_cast<std::size_t>(leaf)]);
+                return std::nullopt;
+            return map.leafZone[static_cast<std::size_t>(leaf)];
         }
 
-        return roomForZone(map, node.iZone[which]);
+        return node.iZone[which];
     }
 
     // The counter ran out, so the child links form a cycle. Refusing beats
     // looping: this hangs the bake otherwise, and the bake is not interactive.
-    return NO_ROOM;
+    return std::nullopt;
+}
+
+} // namespace
+
+std::uint32_t roomAt(const RoomMap& map, Point3 point) {
+    const std::optional<std::uint8_t> zone = descend(map, point);
+    return zone ? roomForZone(map, *zone) : NO_ROOM;
+}
+
+ZoneHit zoneNumberAt(const RoomMap& map, Point3 point) {
+    const std::optional<std::uint8_t> zone = descend(map, point);
+    if (!zone) return {};
+    // Zone 0 means outside the level only on a map that has rooms at all: on
+    // one with none, a failed build and a level with no zone table both read
+    // as zone 0 everywhere, and that must never kill (UTA-0493 SS 4.1).
+    if (*zone == 0) return map.rooms.empty() ? ZoneHit{} : ZoneHit{ZoneHit::Kind::Outside, 0};
+    if (roomForZone(map, *zone) == NO_ROOM) return {};
+    return {ZoneHit::Kind::Zone, *zone};
 }
 
 } // namespace uta::umap

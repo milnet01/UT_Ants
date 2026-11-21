@@ -200,3 +200,78 @@ TEST_CASE("an out-of-range index resolves to no room", "[umap]") {
         CHECK(roomAt(map, Point3{0.0F, 0.0F, 64.0F}) == NO_ROOM);
     }
 }
+
+TEST_CASE("UTA-0493: only zone 0 on a map with rooms is outside", "[umap]") {
+    // docs/specs/UTA-0493-leaving-the-world.md INV-1. A body dies where this
+    // answers Outside, so every other NO_ROOM case must answer Unknown: a
+    // lookup that failed never kills. Each section below is a case roomAt
+    // also answers NO_ROOM for, so only the split under test tells them apart.
+    using uta::umap::ZoneHit;
+    using uta::umap::zoneNumberAt;
+    constexpr Point3 FRONT{0.0F, 0.0F, 64.0F};
+    constexpr Point3 BACK{0.0F, 0.0F, -64.0F};
+
+    SECTION("a room's zone is that zone") {
+        const ZoneHit hit = zoneNumberAt(twoSidedMap(), BACK);
+        CHECK(hit.kind == ZoneHit::Kind::Zone);
+        CHECK(hit.zone == 2);
+    }
+
+    SECTION("zone 0 on a map with rooms is outside") {
+        RoomMap map = twoSidedMap();
+        map.leafZone[1] = 0;
+        CHECK(zoneNumberAt(map, BACK).kind == ZoneHit::Kind::Outside);
+        CHECK(zoneNumberAt(map, FRONT).kind == ZoneHit::Kind::Zone);
+    }
+
+    SECTION("zone 0 on a map with no rooms is unknown") {
+        RoomMap map = twoSidedMap();
+        map.leafZone[1] = 0;
+        map.rooms.clear();
+        CHECK(zoneNumberAt(map, BACK).kind == ZoneHit::Kind::Unknown);
+    }
+
+    SECTION("a refused zone is unknown") {
+        // Sized past ZONE_REFUSED as roomAt's own refused case is, so the
+        // refusal rather than the range check answers.
+        RoomMap map = twoSidedMap();
+        map.leafZone[0] = ZONE_REFUSED;
+        map.roomForZone.assign(256U, NO_ROOM);
+        map.roomForZone[ZONE_REFUSED] = 0;
+        CHECK(zoneNumberAt(map, FRONT).kind == ZoneHit::Kind::Unknown);
+    }
+
+    SECTION("a zone past the table is unknown") {
+        RoomMap map = twoSidedMap();
+        map.leafZone[0] = 200;
+        CHECK(zoneNumberAt(map, FRONT).kind == ZoneHit::Kind::Unknown);
+    }
+
+    SECTION("a zone with no room is unknown") {
+        RoomMap map = twoSidedMap();
+        map.roomForZone[1] = NO_ROOM;
+        CHECK(zoneNumberAt(map, FRONT).kind == ZoneHit::Kind::Unknown);
+    }
+
+    SECTION("a bad leaf index is unknown") {
+        RoomMap map = twoSidedMap();
+        map.nodes[0].iLeaf[1] = 99;
+        CHECK(zoneNumberAt(map, FRONT).kind == ZoneHit::Kind::Unknown);
+    }
+
+    SECTION("a cycle is unknown") {
+        RoomMap map = twoSidedMap();
+        RoomMap::Node loop;
+        loop.normal = Point3{0.0F, 0.0F, 1.0F};
+        loop.iFront = 0;
+        map.nodes[0].iFront = 1;
+        map.nodes.push_back(loop);
+        CHECK(zoneNumberAt(map, FRONT).kind == ZoneHit::Kind::Unknown);
+    }
+
+    SECTION("an empty tree is unknown") {
+        RoomMap map = twoSidedMap();
+        map.nodes.clear();
+        CHECK(zoneNumberAt(map, FRONT).kind == ZoneHit::Kind::Unknown);
+    }
+}

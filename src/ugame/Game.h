@@ -9,6 +9,7 @@
 
 #include "ugame/WeaponSet.h"
 #include "uworld/Movement.h"
+#include "uworld/Zones.h"
 
 #include <cstdint>
 #include <span>
@@ -23,6 +24,11 @@ using uworld::Vec3;
 inline constexpr double EYE_HEIGHT = 27;
 /// A body's starting health: TournamentPlayer.Health.
 inline constexpr double START_HEALTH = 100;
+/// UTA-0493 SS 4.4: a body that leaves the level has this health, as
+/// Pawn.FellOutOfWorld sets it.
+inline constexpr double OUT_OF_WORLD_HEALTH = -1;
+/// UTA-0493 SS 4.5: Pawn.FootZoneChange's first wait, and PainTimer's between hits.
+inline constexpr double PAIN_FIRST_WAIT = 0.01, PAIN_WAIT = 1.0;
 /// UTA-0108: what a landing too hard to live through costs.
 inline constexpr double LANDING_DEATH_DAMAGE = 1000;
 /// UTA-0108: what landing at vertical velocity `landedZ` costs a body whose
@@ -69,6 +75,7 @@ struct Body {
     std::int32_t yaw = 0, pitch = 0; ///< the last command's aim
     bool fireHeld = false, altHeld = false;
     bool human = false; ///< a person plays it; a dummy or a bot does not (UTA-0020 SS 4.3)
+    double painClock = -1; ///< UTA-0493 SS 4.5: seconds to a pain zone's next hit; below 0 stopped
 
     [[nodiscard]] bool alive() const { return health > 0; }
 };
@@ -160,8 +167,12 @@ void giveAll(const WeaponSet& set, Body& body);
 /// what another's shot hits. Last, `game.timeScale` is set: WHEEL_TIME_SCALE
 /// where exactly one body is human, it is alive and its command has the
 /// wheel open; else 1 (UTA-0020 SS 4.3).
+///
+/// With `zones`, a body whose centre leaves the level dies on that tick, and a
+/// pain zone hurts or heals on Pawn.PainTimer's clock; neither reads
+/// `rules.landingDamage` (UTA-0493 SS 4.4, SS 4.5). Without it neither runs.
 void tick(const uworld::BodyWorld& world, const WeaponSet& set, const uworld::MoveRules& rules, Game& game,
-          std::span<const uworld::MoveCommand> commands, double dt);
+          std::span<const uworld::MoveCommand> commands, double dt, const uworld::ZoneWorld* zones = nullptr);
 
 // The parts of a shot SS 4.5 and INV-8 and INV-9 name, for tests.
 

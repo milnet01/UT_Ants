@@ -1,7 +1,7 @@
 <!-- ants-spec-format: 1 -->
 # UTA-0493 — leaving the world kills, and a hurting zone hurts
 
-**Status:** spec draft (2026-11-21).
+**Status:** implemented (2026-11-21).
 **Kind:** feature.
 **Source:** ROADMAP UTA-0493 (in session 2026-11-20, building UTA-0108).
 
@@ -79,12 +79,12 @@ struct ZoneHit {
 It descends the tree exactly as `roomAt` does, so the two always agree on
 the leaf. It answers:
 
-- **Outside** where the descent ends at zone 0, and the map names at least
-  one zone (`roomForZone` is not empty).
+- **Outside** where the descent ends at zone 0, and the map has at least
+  one room.
 - **Zone** where it ends at a zone that names a room.
 - **Unknown** for every other `NO_ROOM` case: a refused zone, a zone past
-  the table, a bad index, a cycle, an empty tree, and zone 0 on a map with
-  no zone table.
+  the table, a zone with no room, a bad index, a cycle, an empty tree, and
+  zone 0 on a map with no rooms.
 
 `roomAt` keeps its signature and callers.
 
@@ -124,6 +124,13 @@ step and does not pass the landing. **Unknown** and **Zone** do nothing.
 This kills at once where UT99 was seen to take 5 s. The player is already
 past every wall, so a delay shows nothing but a fall.
 
+**A start a body cannot stand at is never used.** `ut-ants` lifts each
+player start clear of the floor (`client::clearOf`), then drops any whose
+lifted centre is Outside (`client::standable`). UT99's spawn fails at a start
+in solid space and tries another. Measured 2026-11-21 over the reference
+library: 11 of 20213 starts are Outside as placed. Three of them sit just
+below a floor and the lift saves them; the rest are in the void.
+
 ### 4.5 A hurting zone
 
 Each body carries `painClock`, in seconds. Below 0 means stopped, which is
@@ -155,8 +162,9 @@ below a whole number.
 ## 5. Invariants
 
 - **INV-1** — `zoneNumberAt` answers Outside only where the descent ends at
-  zone 0 on a map that names a zone. A refused zone, an out-of-range zone,
-  a bad index, a cycle and an empty tree all answer Unknown.
+  zone 0 on a map that has a room. A refused zone, an out-of-range zone,
+  a bad index, a cycle, an empty tree and a map with no rooms all answer
+  Unknown.
   *Test:* `tests/unit/RoomMapTest.cpp`, one case per `NO_ROOM` source, built
   as `roomAt`'s cases are.
   *Breaks when:* `zoneNumberAt` maps `NO_ROOM` to Outside wholesale. The
@@ -165,8 +173,8 @@ below a whole number.
 - **INV-2** — `ZONE`'s `pain` and `damagePerSec` round-trip, including a
   negative `damagePerSec`. A `pain` above 1 is refused.
   *Test:* `tests/unit/BundleZonesTest.cpp`.
-  *Breaks when:* the field is written as unsigned, or the check on `pain`
-  is missing.
+  *Breaks when:* a field is dropped from the writer or the reader, or the
+  check on `pain` is missing.
 
 - **INV-3** — The bake writes a LavaZone's class defaults: `pain` 1 and
   `damagePerSec` 40, with no value saved on the placement.
@@ -201,18 +209,24 @@ below a whole number.
   *Breaks when:* the cap is missing, or negative damage is applied as
   damage.
 
-- **INV-8** — Every player start in the reference library is in a Zone, not
-  Outside.
-  *Test:* `tests/real/RealRoomsTest.cpp`, each map's player starts through
-  `zoneNumberAt`.
-  *Breaks when:* a map's start sits in solid space, or the descent is wrong.
-  Either would kill a player as they appear.
+- **INV-8** — Every map in the reference library with a player start has
+  one that is not Outside, and the client drops a start still Outside once
+  lifted clear.
+  *Test:* `tests/real/RealRoomsTest.cpp` (`[zone-out]`), each map's player
+  starts through `zoneNumberAt`, naming each Outside one; and
+  `tests/unit/ClientWalkerTest.cpp`, a sunk start kept and a start in the
+  void dropped.
+  *Breaks when:* a map has no start inside the level, or `standable` checks
+  the start as placed rather than as lifted.
 
 ## 6. Failure modes
 
 - **A map's tree misplaces a point** (`umap/Rooms.cpp`'s front-side rule on a
   plane). A body's centre is a radius from walls and half its height above
   the floor, so it never lies on a surface. INV-8 checks every start.
+- **Walking begins where the flying camera is.** The camera stops at walls,
+  so it is inside the level. A body that starts outside dies and respawns at
+  a standable start.
 - **A map whose zones did not read** answers Unknown, so nothing dies.
   Its pain zones do not hurt either; the bake report already names the
   refusal.
@@ -224,10 +238,10 @@ below a whole number.
 
 ## 7. Tests
 
-INV-1 to INV-7 run in the `unit` label, INV-8 in the real-asset tier. Each
-is seen to fail with the rule it names removed. INV-1 with the Outside
-mapping widened, INV-4 with the death moved under the landing flag, and
-INV-6 with the clock started at 1.0 go in `scripts/mutations/`.
+INV-1 to INV-7 run in the `unit` label. INV-8's library half runs in the
+real-asset tier under `[zone-out]`, and its client half in `unit`.
+`scripts/mutations/zones.py` holds a mutation for every invariant but INV-8,
+whose client half was mutated by hand.
 
 ## 8. Alternatives considered (and rejected)
 
@@ -259,7 +273,7 @@ INV-6 with the clock started at 1.0 go in `scripts/mutations/`.
 | INV-2 | `tests/unit/BundleZonesTest.cpp` |
 | INV-3 | `tests/unit/BakeZonesTest.cpp` |
 | INV-4 to INV-7 | `tests/unit/GameTest.cpp` |
-| INV-8 | `tests/real/RealRoomsTest.cpp`, real-asset tier only |
+| INV-8 | `tests/real/RealRoomsTest.cpp`, real-asset tier only; `tests/unit/ClientWalkerTest.cpp` |
 
 ## 11. Cross-doc impact
 

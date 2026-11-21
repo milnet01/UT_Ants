@@ -273,3 +273,35 @@ TEST_CASE("UTA-0022: the physical assists are off until set, each turning on its
     CHECK(off(walker.rules()));
     CHECK(walker.rules().airJumps == 1); // the double jump is not one of them
 }
+
+TEST_CASE("UTA-0493: a start is lifted clear, and one outside the level is never used") {
+    // A floor whose top is z = 0; everything below z = -5 is the null zone.
+    uta::ubundle::Collision collision;
+    collision.level = solidBlocks({box({-2000, -2000, -64}, {2000, 2000, 0})});
+    auto world = uta::uworld::BodyWorld::build(collision, {});
+    REQUIRE(world.has_value());
+    uta::umap::RoomMap rooms;
+    uta::umap::RoomMap::Node node;
+    node.normal = uta::umap::Point3{0, 0, 1};
+    node.w = -5;
+    node.iZone[1] = 1;
+    node.iZone[0] = 0;
+    rooms.nodes.push_back(node);
+    rooms.roomForZone = {uta::umap::NO_ROOM, 0};
+    rooms.rooms.resize(1);
+    rooms.rooms[0].zoneIndex = 1;
+    const std::vector<uta::ubundle::Zone> zones(2);
+    const uta::uworld::ZoneWorld lookup(rooms, zones);
+
+    // Sunk into the floor and below the plane: outside as placed, inside once
+    // lifted, so only a check made after the lift keeps it.
+    const std::vector<Walker::Spawn> starts{{{0, 0, -20}, 1}, {{0, 0, -1000}, 2}, {{100, 0, 100}, 3}};
+    const std::vector<Walker::Spawn> kept = uta::client::standable(*world, &lookup, starts);
+    REQUIRE(kept.size() == 2);
+    CHECK(kept[0].yaw == 1);
+    CHECK(kept[0].location[2] > uta::uworld::BodySize{}.halfHeight);
+    CHECK(kept[1].yaw == 3);
+    CHECK(kept[1].location[2] == 100);
+
+    CHECK(uta::client::standable(*world, nullptr, starts).size() == 3);
+}

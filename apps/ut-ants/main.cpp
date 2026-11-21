@@ -477,9 +477,12 @@ void Viewer::toggleWalking() {
                       << loaded.error().message() << "\n";
         weapons = loaded ? std::move(*loaded) : uta::ugame::WeaponSet{};
     }
-    std::vector<Walker::Spawn> spawns;
+    std::optional<uta::uworld::ZoneWorld> zones;
+    if (bundle.rooms && bundle.zones) zones.emplace(*bundle.rooms, *bundle.zones);
+    std::vector<Walker::Spawn> starts;
     for (const PlayerStart& at : playerStarts(bundle))
-        spawns.push_back({{at.location[0], at.location[1], at.location[2]}, static_cast<double>(at.rotation[1])});
+        starts.push_back({{at.location[0], at.location[1], at.location[2]}, static_cast<double>(at.rotation[1])});
+    std::vector<Walker::Spawn> spawns = standable(*bodies, zones ? &*zones : nullptr, starts);
     // The body hangs an eye's height under the camera, lifted clear where
     // that is in the floor, as it is at a PlayerStart.
     walker.emplace(clearOf(*bodies, {view.location[0], view.location[1], view.location[2] - Walker::EYE_HEIGHT}),
@@ -491,6 +494,7 @@ void Viewer::toggleWalking() {
     walker->setPhysicalAssists(
         {.coyoteTime = options.coyoteTime, .mantle = options.mantle, .highStep = options.highStep});
     walker->setLandingDamage(options.landingDamage);
+    walker->setZones(zones);
     renderer.setCrosshair(true);
     // Walking, the triggers fire; the bottom face button and the shoulders
     // still jump and duck.

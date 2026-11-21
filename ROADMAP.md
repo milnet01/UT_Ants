@@ -21853,7 +21853,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-11-20.
   Lanes: urender, ut-bench.
 
-- 📋 [UTA-0493] **Leaving the world kills: a body outside the level dies, and a kill zone hurts.**
+- 🚧 [UTA-0493] **Leaving the world kills: a body outside the level dies, and a kill zone hurts.**
   Found building UTA-0108 (2026-11-20): nothing in src/ kills a body
   that leaves the level, and no zone hurts one. A body that falls
   through a hole falls for ever.

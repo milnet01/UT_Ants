@@ -4,6 +4,8 @@
 #include "core/FileSystem.h"
 #include "upkg/Geometry.h"
 #include "upkg/Package.h"
+#include "upkg/Properties.h"
+#include "ubake/Install.h"
 #include "umap/Build.h"
 #include "umap/Rooms.h"
 #include "real/RealSupport.h"
@@ -17,6 +19,8 @@
 #include <optional>
 #include <set>
 #include <span>
+#include <string>
+#include <variant>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -347,4 +351,81 @@ TEST_CASE("every node's own zone record agrees with the descent", "[real-assets]
     // the reason was the probe's placement, fixed above, and measured after
     // it, 0 of 8,107,369 probes disagree.
     REQUIRE(census.disagreements == 0);
+}
+
+TEST_CASE("UTA-0493 INV-8: every map with a player start has one inside the level",
+          "[real-assets][zone-out]") {
+    // A body dies the tick its centre is Outside (UTA-0493 SS 4.4), and the
+    // client drops a start that stays outside once lifted clear of the floor
+    // (client::standable). A map whose every start is outside would leave
+    // nowhere to spawn. Each outside start is named, with what lies 80 units
+    // above and below it: zone above is a start sunk into a floor, which the
+    // lift saves; outside both ways is a start in the void, which UT99's
+    // spawn refuses too. Unknown never kills.
+    const fs::path maps = fs::path{UTA_UT_INSTALL_DIR} / "Maps";
+    REQUIRE(fs::is_directory(maps));
+    uta::umap::RoomBuildOptions options;
+    options.sampleSpacing = 512.0F; // the descent tables do not depend on it
+
+    int starts = 0, inZone = 0, unknown = 0;
+    std::vector<std::string> outside, nowhere;
+    for (const fs::directory_entry& entry : fs::recursive_directory_iterator(maps)) {
+        if (!entry.is_regular_file() || entry.path().extension() != ".unr") continue;
+        const auto read = uta::fs::readFile(entry.path());
+        REQUIRE(read.has_value());
+        const auto package = uta::upkg::Package::open(std::span<const std::byte>{*read});
+        if (!package.has_value()) continue;
+
+        std::uint32_t largestBytes = 0; // the level's Model, as the case above
+        std::optional<uta::upkg::Model> level;
+        for (const auto& object : package->exports()) {
+            const auto className = package->objectName(object.objectClass);
+            if (!className.has_value() || *className != "Model") continue;
+            if (object.serialSize < largestBytes) continue;
+            largestBytes = object.serialSize;
+            auto model = uta::upkg::readModel(*package, object);
+            level = model.has_value() ? std::optional{std::move(*model)} : std::nullopt;
+        }
+        if (!level.has_value()) continue;
+        const auto built = uta::umap::buildRoomMap(*level, options);
+        if (!built.has_value()) continue;
+
+        int mapStarts = 0, mapUsable = 0;
+        for (const auto& object : package->exports()) {
+            if (uta::ubake::detail::fold(package->objectName(object.objectClass).value_or("")) != "playerstart")
+                continue;
+            const auto properties = uta::upkg::readProperties(*package, object);
+            if (!properties.has_value()) continue;
+            for (const uta::upkg::Property& property : *properties) {
+                if (uta::ubake::detail::fold(package->name(property.nameIndex).value_or("")) != "location") continue;
+                const auto* at = std::get_if<uta::upkg::Vector3>(&property.value);
+                if (at == nullptr) continue;
+                ++starts;
+                ++mapStarts;
+                const auto hit = uta::umap::zoneNumberAt(built->map, uta::umap::Point3{at->x, at->y, at->z});
+                if (hit.kind != uta::umap::ZoneHit::Kind::Outside) ++mapUsable;
+                if (hit.kind == uta::umap::ZoneHit::Kind::Zone) ++inZone;
+                else if (hit.kind == uta::umap::ZoneHit::Kind::Unknown) ++unknown;
+                else {
+                    // Where it is, and what lies a body's height above and below,
+                    // so a stray start in the void reads apart from a bad descent.
+                    const auto near = [&](float dz) {
+                        const auto kind =
+                            uta::umap::zoneNumberAt(built->map, uta::umap::Point3{at->x, at->y, at->z + dz}).kind;
+                        return kind == uta::umap::ZoneHit::Kind::Zone ? "zone" : kind == uta::umap::ZoneHit::Kind::Outside ? "outside" : "unknown";
+                    };
+                    outside.push_back(entry.path().filename().string() + " at (" + std::to_string(at->x) + ", "
+                                      + std::to_string(at->y) + ", " + std::to_string(at->z) + "), 80 up "
+                                      + near(80) + ", 80 down " + near(-80));
+                }
+            }
+        }
+        if (mapStarts > 0 && mapUsable == 0) nowhere.push_back(entry.path().filename().string());
+    }
+    WARN("UTA-0493 INV-8: " << starts << " player starts, " << inZone << " in a zone, " << unknown
+                            << " unknown, " << outside.size() << " outside");
+    for (const std::string& map : outside) WARN("outside: " << map);
+    for (const std::string& map : nowhere) WARN("no start inside the level: " << map);
+    CHECK(starts > 0);
+    CHECK(nowhere.empty());
 }

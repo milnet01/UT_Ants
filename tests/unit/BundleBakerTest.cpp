@@ -53,7 +53,7 @@ std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, By
                                 std::uint32_t count) {
     Bytes out;
     out.id("UTAB");
-    out.u32(37); // formatVersion -- 37 since UTA-0478 added SNDS
+    out.u32(38); // formatVersion -- 38 since UTA-0493 gave ZONE its pain
     out.u8(0);   // origin: Derived
     out.u8(0);   // kind: Map
     out.u16(0);  // reserved

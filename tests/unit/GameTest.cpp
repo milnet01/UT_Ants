@@ -1530,8 +1530,9 @@ TEST_CASE("INV-5: a scripted fight is the same at every frame rate and on every 
         CHECK(again == reference);
     }
     INFO("final hash " << reference.back());
-    // UTA-0020: the script opens the wheel. UTA-0022: the hash covers coyoteLeft and mantleTo.
-    CHECK(reference.back() == 10680685210560859493u);
+    // UTA-0020: the script opens the wheel. UTA-0022: the hash covers coyoteLeft and mantleTo;
+    // UTA-0108 landedZ; UTA-0493 painClock, which moved the pin and nothing else.
+    CHECK(reference.back() == 779078879845529185u);
 }
 
 // UTA-0020: the weapon wheel's time scale, and what it lists and picks.
@@ -2059,4 +2060,161 @@ TEST_CASE("UTA-0108: a soft landing costs nothing", "[ugame][game]") {
     Game game;
     REQUIRE(dropped(world, RULES, game, 300) < 0);
     CHECK(game.bodies[0].health == START_HEALTH);
+}
+
+namespace {
+
+using uta::umap::INDEX_NONE;
+using uta::umap::NO_ROOM;
+using uta::umap::RoomMap;
+using uta::ubundle::Zone;
+using uta::uworld::ZoneWorld;
+
+/// UTA-0493: one plane at height `z`; above it zone `above`, below it zone
+/// `below`. Zones 1 and 2 are rooms 0 and 1; zone 0 is the null zone.
+RoomMap splitAt(double z, std::uint8_t above, std::uint8_t below) {
+    RoomMap map;
+    RoomMap::Node node;
+    node.normal = uta::umap::Point3{0, 0, 1};
+    node.w = static_cast<float>(z);
+    node.iZone[1] = above;
+    node.iZone[0] = below;
+    map.nodes.push_back(node);
+    map.roomForZone = {NO_ROOM, 0, 1};
+    map.rooms.resize(2);
+    map.rooms[0].zoneIndex = 1;
+    map.rooms[1].zoneIndex = 2;
+    return map;
+}
+
+/// Zone 1 plain, zone 2 a pain zone of `damagePerSec`.
+std::vector<Zone> painIn2(std::int32_t damagePerSec) {
+    std::vector<Zone> zones(3);
+    zones[2].pain = 1;
+    zones[2].damagePerSec = damagePerSec;
+    return zones;
+}
+
+/// A body standing on the arena's floor, landing damage off, so no other rule
+/// can change its health.
+Game standing() {
+    Game game;
+    game.bodies.push_back(bodyAt(stock(), {0, 0, STANDING}, 0));
+    return game;
+}
+
+MoveRules noLanding() {
+    MoveRules rules = RULES;
+    rules.landingDamage = false;
+    return rules;
+}
+
+} // namespace
+
+TEST_CASE("UTA-0493 INV-4: a body outside the level dies with landing damage off", "[ugame][game]") {
+    // The body stands still and never lands, so only the out-of-world rule
+    // can take its health. Everything below z = 1000 is the null zone.
+    const BodyWorld world = arena();
+    const RoomMap rooms = splitAt(1000, 1, 0);
+    const std::vector<Zone> zones(3);
+    const ZoneWorld lookup(rooms, zones);
+    Game game = standing();
+    const std::vector<MoveCommand> idle(1);
+    tick(world, stock(), noLanding(), game, idle, DT, &lookup);
+    CHECK(game.bodies[0].move.landedZ == 0);
+    CHECK(game.bodies[0].health == OUT_OF_WORLD_HEALTH);
+    CHECK_FALSE(game.bodies[0].alive());
+}
+
+TEST_CASE("UTA-0493 INV-5: a lookup that failed kills nobody, and no lookup changes nothing", "[ugame][game]") {
+    const BodyWorld world = arena();
+    RoomMap rooms = splitAt(1000, 1, 0);
+    rooms.rooms.clear(); // zone 0 on a map with no rooms is Unknown
+    const std::vector<Zone> zones(3);
+    const ZoneWorld lookup(rooms, zones);
+    const std::vector<MoveCommand> idle(1);
+    Game unknown = standing();
+    Game none = standing();
+    for (int k = 0; k < 10; ++k) {
+        tick(world, stock(), noLanding(), unknown, idle, DT, &lookup);
+        tick(world, stock(), noLanding(), none, idle, DT);
+    }
+    CHECK(unknown.bodies[0].health == START_HEALTH);
+    CHECK(none.bodies[0].health == START_HEALTH);
+}
+
+namespace {
+
+/// Ticks `game` until body 0's health moves, at most `limit` ticks: how many it took.
+int ticksToHit(const BodyWorld& world, const MoveRules& rules, Game& game, const ZoneWorld& lookup, int limit) {
+    const std::vector<MoveCommand> idle(1);
+    const double before = game.bodies[0].health;
+    for (int k = 1; k <= limit; ++k) {
+        tick(world, stock(), rules, game, idle, DT, &lookup);
+        if (game.bodies[0].health != before) return k;
+    }
+    return -1;
+}
+
+} // namespace
+
+TEST_CASE("UTA-0493 INV-6: a pain zone hurts on PainTimer's clock and depth", "[ugame][game]") {
+    const BodyWorld world = arena();
+    const int second = static_cast<int>(std::ceil(PAIN_WAIT / DT));
+    const std::vector<Zone> zones = painIn2(40);
+
+    SECTION("feet, centre and head in it: 40 on the tick after entering, then 40 a second on") {
+        const RoomMap rooms = splitAt(1000, 1, 2); // the body stands wholly below
+        const ZoneWorld lookup(rooms, zones);
+        for (const bool landing : {true, false}) {
+            MoveRules rules = RULES;
+            rules.landingDamage = landing;
+            Game game = standing();
+            CHECK(ticksToHit(world, rules, game, lookup, 100) == 2);
+            CHECK(game.bodies[0].health == START_HEALTH - 40);
+            const int next = ticksToHit(world, rules, game, lookup, 1000);
+            CHECK((next == second || next == second + 1)); // a second of ticks, give or take rounding
+            CHECK(next * DT >= PAIN_WAIT);
+            CHECK(game.bodies[0].health == START_HEALTH - 80);
+        }
+    }
+
+    SECTION("feet alone in it: 16 each time") {
+        // The plane sits between the feet and the centre.
+        const RoomMap rooms = splitAt(STANDING / 2, 1, 2);
+        const ZoneWorld lookup(rooms, zones);
+        Game game = standing();
+        CHECK(ticksToHit(world, noLanding(), game, lookup, 100) == 2);
+        CHECK(game.bodies[0].health == START_HEALTH - 16);
+    }
+
+    SECTION("leaving it stops the clock") {
+        const RoomMap rooms = splitAt(1000, 1, 2);
+        const RoomMap clear = splitAt(-1000, 1, 2); // the body stands wholly above
+        const ZoneWorld in(rooms, zones);
+        const ZoneWorld out(clear, zones);
+        Game game = standing();
+        const std::vector<MoveCommand> idle(1);
+        tick(world, stock(), noLanding(), game, idle, DT, &in);
+        CHECK(game.bodies[0].painClock == PAIN_FIRST_WAIT);
+        tick(world, stock(), noLanding(), game, idle, DT, &out);
+        CHECK(game.bodies[0].painClock < 0);
+        CHECK(game.bodies[0].health == START_HEALTH);
+    }
+}
+
+TEST_CASE("UTA-0493 INV-7: a zone of negative damage heals, never past full health", "[ugame][game]") {
+    const BodyWorld world = arena();
+    const RoomMap rooms = splitAt(1000, 1, 2);
+    const std::vector<Zone> zones = painIn2(-10);
+    const ZoneWorld lookup(rooms, zones);
+    Game game = standing();
+    game.bodies[0].health = 50;
+    CHECK(ticksToHit(world, noLanding(), game, lookup, 100) == 2);
+    CHECK(game.bodies[0].health == 60);
+
+    Game nearly = standing();
+    nearly.bodies[0].health = 95;
+    CHECK(ticksToHit(world, noLanding(), nearly, lookup, 100) == 2);
+    CHECK(nearly.bodies[0].health == START_HEALTH);
 }

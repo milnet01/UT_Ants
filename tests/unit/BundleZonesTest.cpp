@@ -50,6 +50,8 @@ Bytes zonePayload(const std::vector<Zone>& zones) {
         out.u8(zone.water); // UTA-0215
         for (const float part : zone.viewFog) out.f32(part);
         out.f32(zone.viewFlash);
+        out.u8(zone.pain); // UTA-0493
+        out.u32(static_cast<std::uint32_t>(zone.damagePerSec));
     }
     return out;
 }
@@ -71,7 +73,7 @@ Bytes emptyLprb() {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(37); // formatVersion -- 37 since UTA-0478 added SNDS
+    out.u32(38); // formatVersion -- 38 since UTA-0493 gave ZONE its pain
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -95,8 +97,10 @@ std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, By
 /// Three entries, every byte distinct but the flags, which alternate, so a
 /// transposition shows.
 std::vector<Zone> golden() {
-    return {Zone{90, 17, 250, 1, {2.32F, 1.0F}, 1, {0.1289F, 0.1953F, 0.1758F}, -0.078F},
-            Zone{40, 3, 200, 0, {0.5F, -3.0F}}, Zone{7, 131, 0, 1, {1, 1}, 1, {0.5859F, 0.1953F, 0.0781F}, 0}};
+    // UTA-0493: the second entry heals, so a damage written unsigned shows.
+    return {Zone{90, 17, 250, 1, {2.32F, 1.0F}, 1, {0.1289F, 0.1953F, 0.1758F}, -0.078F, 1, 40},
+            Zone{40, 3, 200, 0, {0.5F, -3.0F}, 0, {}, 0, 1, -10},
+            Zone{7, 131, 0, 1, {1, 1}, 1, {0.5859F, 0.1953F, 0.0781F}, 0}};
 }
 
 void sameZones(const std::vector<Zone>& actual, const std::vector<Zone>& expected) {
@@ -111,6 +115,8 @@ void sameZones(const std::vector<Zone>& actual, const std::vector<Zone>& expecte
         CHECK(int(actual[i].water) == int(expected[i].water));
         CHECK(actual[i].viewFog == expected[i].viewFog);
         CHECK(actual[i].viewFlash == expected[i].viewFlash);
+        CHECK(int(actual[i].pain) == int(expected[i].pain));
+        CHECK(actual[i].damagePerSec == expected[i].damagePerSec);
     }
 }
 
@@ -135,7 +141,7 @@ void refusedBothWays(const std::vector<Zone>& zones, std::string_view says) {
 TEST_CASE("INV-1: the ZONE golden bytes decode to the entries they encode", "[ubundle][zone]") {
     const auto result = read(fileWith({{"ZONE", zonePayload(golden())}}));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 37);
+    CHECK(result->header.formatVersion == 38);
     REQUIRE(result->zones.has_value());
     sameZones(*result->zones, golden());
 }
@@ -181,4 +187,9 @@ TEST_CASE("UTA-0215 INV-1: a ZONE water byte of 2 or a tint that is not finite i
 
 TEST_CASE("UTA-0015 INV-1: a fog byte of 2 is refused", "[ubundle][zone]") {
     refusedBothWays({Zone{0, 0, 0, 1}, Zone{0, 0, 0, 2}}, "entry 1 has a fog byte of 2");
+}
+
+TEST_CASE("UTA-0493 INV-2: a ZONE pain byte of 2 is refused", "[ubundle][zone]") {
+    refusedBothWays({Zone{0, 0, 0, 0, {1, 1}, 0, {}, 0, 1, 40}, Zone{0, 0, 0, 0, {1, 1}, 0, {}, 0, 2, 40}},
+                    "entry 1 has a pain byte of 2");
 }
