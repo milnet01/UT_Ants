@@ -21853,7 +21853,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-11-20.
   Lanes: urender, ut-bench.
 
-- 🚧 [UTA-0493] **Leaving the world kills: a body outside the level dies, and a kill zone hurts.**
+- ✅ [UTA-0493] **Leaving the world kills: a body outside the level dies, and a kill zone hurts.**
   Found building UTA-0108 (2026-11-20): nothing in src/ kills a body
   that leaves the level, and no zone hurts one. A body that falls
   through a hole falls for ever.
@@ -21877,6 +21877,12 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   DamagePerSec join ZONE (format 38, baker revision 80).
   Monsters keeping landing damage moved to UTA-0024 (2026-11-21): no
   body kind exists yet to give rules to.
+  Shipped 2026-11-21 at 797fa73, green on GitHub's matrix (GCC 14,
+  Clang 19, MSVC). Out of the world is the null zone at the centre; a
+  failed lookup never kills. Pain follows Pawn.PainTimer. Bundles are
+  format 38, baker revision 80. 11 of 20213 reference player starts are
+  outside the level as placed; ut-ants lifts each clear and drops one
+  still outside.
   **Layman:** Falling out of the map, or into lava, kills you, whatever the fall-damage setting says.
   Kind: feature.
   Source: in-session-2026-11-20.
