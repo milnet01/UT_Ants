@@ -24995,8 +24995,8 @@ Work the user wants once 1.0.0 has replaced the live server, not before it.
 - 📋 [UTA-0469] **Offer the game in more than one language.**
   The user, relayed by the Ants Terminal session 2026-11-12: "I want our
   game to be offered in multiple languages." No languages or scope were
-  named. Filed after 1.0.0 for want of a stated time; ask the user which
-  languages, and whether it should come sooner, before speccing it.
+  named. Filed after 1.0.0 for want of a stated time; it stays there
+  (user, 2026-11-22): translate once the menus' text exists.
   Languages (user, 2026-11-12): French, Italian, Spanish, German,
   Portuguese (Brazilian and Portugal), Hebrew, Arabic, Korean,
   Japanese, Chinese (Traditional and Simplified), Thai, Vietnamese,
