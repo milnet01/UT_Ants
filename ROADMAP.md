@@ -23561,7 +23561,7 @@ to.
   Source: in-session-2026-11-21.
   Lanes: tools.
 
-- 🚧 [UTA-0497] **ut-dump --zone-at: the zone, its actor, and whether it is water or pain, for each point named.**
+- ✅ [UTA-0497] **ut-dump --zone-at: the zone, its actor, and whether it is water or pain, for each point named.**
   Asked by UT_MonsterHunt (ut-monsterhunt-09, 2026-11-21) for its map
   fixer (GAME-0284): MH-Nagrath, MH-Kuratorium and MH-Canals route no
   exit because the way is through water, which ut-paths' walk does not
@@ -23574,6 +23574,9 @@ to.
   and every nav node of a map, so a points file as well as arguments.
   Use umap::zoneNumberAt, so outside the level and unknown stay apart.
   A swimming walk in ut-paths is out of scope without a design (agreed).
+  Shipped 2026-11-22 at e758d5f, green on GitHub's matrix (GCC 14, Clang
+  19, MSVC). UT_MonsterHunt told (message 2441). All 777 nav nodes of
+  MH-canals][ in one call: 0.20 s, 62 MB, 18 in water.
   **Layman:** The sister project's map fixer can ask which spots are under water, so it can lay swimming paths where bots now stop.
   Kind: enhancement.
   Source: in-session-2026-11-21.

@@ -32,7 +32,8 @@ landing damage moved to `UTA-0024`. `UTA-0494`, ut-export leaving
 special-lit lights out of ExperiRays' light list, shipped 2026-11-21, as
 did `UTA-0495` (ut-paths `--map-file`, for UT_MonsterHunt) and `UTA-0496`
 (ut-export's triangle classes). `UTA-0497`, `ut-dump --zone-at` for
-UT_MonsterHunt's swim chains, is next. `UTA-0492`'s
+UT_MonsterHunt's swim chains, shipped 2026-11-22; the rest of 0.2.0 is
+next, in any order (user, 2026-11-20). `UTA-0492`'s
 magnifier-off run is done: the magnifier alone, on a still desktop, is
 not the cost. `UTA-0437` stays behind those although
 frameledger freezes its file format in its 0.8.0 (user, 2026-11-20).
