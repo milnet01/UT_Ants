@@ -203,6 +203,7 @@ struct OurShot {
     std::map<std::int64_t, ugame::Shot> rows; ///< k + 1: after our tick k; its first, the launch
     int recorded = -1;                        ///< the recorded shot it was matched to
     std::int64_t late = 0;                    ///< rows the recorded one's launch is after ours
+    std::int64_t lag = 0;                     ///< of `late`, the switch's lag (UTA-0499)
     std::uint32_t bounces = 0;                ///< as of our last tick
     bool raised = false;                      ///< flown at the recorded height; its rows are kept lowered
 };
@@ -386,11 +387,9 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
                           : weaponOf(set, switchTo->second);
 
     // The mode under test: alt where the run ever holds alt fire, of the
-    // weapon in hand -- or, in a run with a target that switches, of the one
-    // N raises, whose hits the run is for. A switch run with no target is
-    // judged as before: its flights are not compared (UTA-0499).
-    const bool targetedSwitch = other >= 0 && !recording.target.empty();
-    const ugame::Weapon& weapon = set.weapons[static_cast<std::size_t>(targetedSwitch ? other : inHand)];
+    // weapon in hand -- or, in a run that switches, of the one N raises,
+    // whose shots the run is for (UTA-0499).
+    const ugame::Weapon& weapon = set.weapons[static_cast<std::size_t>(other >= 0 ? other : inHand)];
     const bool alt = std::ranges::any_of(rows, [](const auto& row) { return row.keys.find('A') != std::string::npos; });
     const ugame::FireMode* mode = alt && weapon.alt ? &*weapon.alt : &weapon.primary;
 
@@ -552,6 +551,15 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
     std::vector<int> live; // per game.shots, an index into `ours`
     std::vector<Hit> ourHits;
     std::vector<std::int64_t> ourSpends;
+    // After a switch our spends run its lag early, which the spend check
+    // judges (SWITCH_TICK_ERROR). Later spends, and shots fired as they are
+    // spent, are paired and judged with that lag taken out (UTA-0499). A
+    // charge spends on its press and launches on its release, which no
+    // switch delays.
+    const auto switchLag = [other, &ourSpends, &theirSpends]() -> std::int64_t {
+        if (other < 0 || ourSpends.empty() || theirSpends.empty()) return 0;
+        return std::clamp<std::int64_t>(theirSpends.front() - ourSpends.front(), -SWITCH_TICK_ERROR, SWITCH_TICK_ERROR);
+    };
     for (std::size_t k = 0; k + 1 < rows.size(); ++k) {
         const auto& row = rows[k];
         const auto& w = recording.weapon[k];
@@ -616,14 +624,18 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
         // fires before its frame moves the eye, at this row's height; the
         // weapon's own tick fires after, at the next row's.
         const ugame::Body& hand = game.bodies[FIRER];
-        // A refire the original made a tick before ours (its spend logged
-        // at this row) was fired at this row's height, before its shake.
+        // A refire takes the height the original's same shot -- the one its
+        // spend count pairs it with -- was fired at: the row its spend is
+        // logged at, where ours runs within the tick error of it (UTA-0499).
         const bool atRest = hand.refireLeft <= 0 && hand.winding < 0 && hand.charging < 0;
-        const auto spentAt = [&theirSpends](std::size_t row) {
-            return std::ranges::find(theirSpends, static_cast<std::int64_t>(row)) != theirSpends.end();
-        };
-        const bool theirsEarlier = !atRest && spentAt(k) && !spentAt(k + 1);
-        game.bodies[FIRER].eyeHeight = recording.weapon[atRest || theirsEarlier ? k : k + 1].eyeHeight;
+        std::size_t eyeRow = atRest ? k : k + 1;
+        if (!atRest && ourSpends.size() < theirSpends.size()) {
+            const std::int64_t theirs = theirSpends[ourSpends.size()];
+            const std::int64_t near = e.steady ? STEADY_TICK_ERROR : MAX_TICK_ERROR;
+            if (std::abs(theirs - (static_cast<std::int64_t>(k) + switchLag())) <= near)
+                eyeRow = static_cast<std::size_t>(theirs);
+        }
+        game.bodies[FIRER].eyeHeight = recording.weapon[eyeRow].eyeHeight;
 
         std::array<uworld::MoveCommand, 2> commands{};
         auto& c = commands[FIRER];
@@ -801,11 +813,12 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
             if (s.first == tick && s.recorded < 0) {
                 ugame::Shot launch = launched(shot);
                 const ugame::Projectile& kind = set.projectiles[shot.kind];
+                s.lag = mode->charge ? 0 : switchLag();
                 int best = -1;
                 for (std::size_t r = 0; r < theirOrder.size(); ++r) {
                     const RecordedShot& t = theirs.at(theirOrder[r]);
                     if (claimed[r] || t.kind != kind.name ||
-                        ticksFrom(tick, t.first) > (e.steady ? STEADY_TICK_ERROR : MAX_TICK_ERROR))
+                        ticksFrom(tick + s.lag, t.first) > (e.steady ? STEADY_TICK_ERROR : MAX_TICK_ERROR))
                         continue;
                     best = static_cast<int>(r);
                     break;
@@ -1151,7 +1164,7 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
         if (s.recorded < 0) continue;
         const std::string& name = theirOrder[static_cast<std::size_t>(s.recorded)];
         const RecordedShot& t = theirs.at(name);
-        e.shotTick = std::max(e.shotTick, std::abs(s.late));
+        e.shotTick = std::max(e.shotTick, std::abs(s.late - s.lag));
         // A launch within INV-6's tick of ours is judged above; its flight
         // is then compared age for age, not row for row.
         const std::int64_t late = s.late;

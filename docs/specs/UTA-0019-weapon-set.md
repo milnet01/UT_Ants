@@ -586,7 +586,8 @@ linearly from the victim's edge, not its centre, as `Fire.cpp`'s
   because the original's player hovers 4.8 units over the floor and ours
   does not; the first shot after a switch may be two ticks out, because
   a switch stays one time for each weapon where the original has two
-  waits; a mode whose original sleeps between shots (the Minigun's two,
+  waits, and the shots fired after it as they are spent keep that lag
+  (`UTA-0499`); a mode whose original sleeps between shots (the Minigun's two,
   the Enforcer's two, the Pulse Gun's and the Chainsaw's primary) may
   fire one shot more or fewer in a run, each within three ticks, because
   our cadence does not move with the frame rate as the original's does;

@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=500 -->
+<!-- ants-roadmap-id-high-water: UTA=501 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -21897,7 +21897,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: in-session-2026-11-20.
   Lanes: uworld, ugame, ubundle.
 
-- 🚧 [UTA-0498] **A rocket striking the player meets it about 17 units sooner in the original than our hit rule says.**
+- ✅ [UTA-0498] **A rocket striking the player meets it about 17 units sooner in the original than our hit rule says.**
   Found building UTA-0468 (2026-11-22). Run hammer-deflect-high with
   end 1.5 (UTA-0468's recordings, weapons/r468e in the UT_Ants
   scratchpad): a rocket flying straight at the player (UTARecPawn)
@@ -21914,12 +21914,14 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Bot's) count 0.5; Pawn's 0.4. Each body now carries its hit inset;
   the player 0.5. hammer-deflect-high runs to 1.5 again: push off
   2.0 -> 0.002 at 30, 85 and 120 fps; all 219 r468all runs pass.
+  Green on GitHub's matrix at fcf1ddd (GCC 14, Clang 19, MSVC),
+  2026-11-22.
   **Layman:** When a rocket hits you directly, the blast should go off exactly where the original's does.
   Kind: fix.
   Source: in-session-2026-11-22.
   Lanes: ugame.
 
-- 📋 [UTA-0499] **Replay the switch runs' flights: their shots were never compared.**
+- 🚧 [UTA-0499] **Replay the switch runs' flights: their shots were never compared.**
   Found building UTA-0468 (2026-11-22). RealWeaponTest judged every
   switch-* run by the weapon in hand at the start, the Enforcer, so its
   random-hit branch returned before any shot's flight was compared.
@@ -21927,6 +21929,17 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   1.73 units off at every rate, and switch-bio at 30 fps leaves 4 gel
   unmatched. UTA-0468 judges only switch runs with a target by the
   raised weapon. Fix the two, then judge every switch run so.
+  Fixed in the replay 2026-11-22; every switch run is judged by the
+  raised weapon. Pulse: the replay fed each refire the eye height of
+  its own tick, while the original's view shakes as it fires; ours ran
+  up to 3 ticks off its shot, so read another point of the shake. A
+  refire now takes the eye of the row the original's same shot (by
+  spend count) is logged at. Plasma start error 1.55-1.73 -> 0.001.
+  Bio at 30 fps: the switch's 2-tick lag plus the refire's 1. Shots
+  fired as spent are matched with the spend lag taken out, up to
+  SWITCH_TICK_ERROR; a charge is not (it launches on release). Gel
+  start 0.0001. All 219 r468all runs pass. The lag's cause is
+  UTA-0501.
   **Layman:** Check that shots fired just after switching weapons fly exactly as the original's do.
   Kind: fix.
   Source: in-session-2026-11-22.
@@ -21950,6 +21963,20 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-11-22.
   Lanes: unav.
+
+- 📋 [UTA-0501] **A weapon switch takes two waits, putting down then bringing up, each ending on a frame, as the original's does.**
+  Found working UTA-0499 (2026-11-22). Ours is one switch-time per
+  weapon, recorded from the Enforcer; the original's DownWeapon state
+  waits for the old weapon's Down animation, then Active for the new
+  one's Select, each ended at a frame. At 30 fps our first shot after
+  a switch is 2 ticks early (switch-bio: ours 20, theirs 22), which
+  UTA-0019 SS 4.9 allows and the replay takes out of later shots.
+  Needs each weapon's put-down time, so recordings switching away
+  from each weapon, not only from the Enforcer.
+  **Layman:** After you switch weapons, the new one should be ready to fire on exactly the same frame as in the original.
+  Kind: fix.
+  Source: in-session-2026-11-22 UTA-0499.
+  Lanes: ugame.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
