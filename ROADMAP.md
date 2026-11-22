@@ -21921,7 +21921,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: in-session-2026-11-22.
   Lanes: ugame.
 
-- 🚧 [UTA-0499] **Replay the switch runs' flights: their shots were never compared.**
+- ✅ [UTA-0499] **Replay the switch runs' flights: their shots were never compared.**
   Found building UTA-0468 (2026-11-22). RealWeaponTest judged every
   switch-* run by the weapon in hand at the start, the Enforcer, so its
   random-hit branch returned before any shot's flight was compared.
@@ -21940,6 +21940,8 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   SWITCH_TICK_ERROR; a charge is not (it launches on release). Gel
   start 0.0001. All 219 r468all runs pass. The lag's cause is
   UTA-0501.
+  Green on GitHub's matrix at 266952c (GCC 14, Clang 19, MSVC),
+  2026-11-22.
   **Layman:** Check that shots fired just after switching weapons fly exactly as the original's do.
   Kind: fix.
   Source: in-session-2026-11-22.
