@@ -23561,7 +23561,7 @@ to.
   Source: in-session-2026-11-21.
   Lanes: tools.
 
-- 📋 [UTA-0497] **ut-dump --zone-at: the zone, its actor, and whether it is water or pain, for each point named.**
+- 🚧 [UTA-0497] **ut-dump --zone-at: the zone, its actor, and whether it is water or pain, for each point named.**
   Asked by UT_MonsterHunt (ut-monsterhunt-09, 2026-11-21) for its map
   fixer (GAME-0284): MH-Nagrath, MH-Kuratorium and MH-Canals route no
   exit because the way is through water, which ut-paths' walk does not

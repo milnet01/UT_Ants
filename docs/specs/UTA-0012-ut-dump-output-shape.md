@@ -92,7 +92,7 @@ are put to the consumer in this draft.
 ### 4.1 Invocation
 
 ```
-ut-dump (--install <root> | --system <dir>) [--nav-graph] [--wiring-graph] [--surface-list] [--lighting] [--brushes] [--ndjson] <package|directory>...
+ut-dump (--install <root> | --system <dir>) [--nav-graph] [--wiring-graph] [--surface-list] [--lighting] [--brushes] [--zone-at <points>] [--zone-at-file <file>] [--ndjson] <package|directory>...
 ```
 
 - `--install` names the install's root. Added by `UTA-0206`. It is searched
@@ -114,6 +114,8 @@ ut-dump (--install <root> | --system <dir>) [--nav-graph] [--wiring-graph] [--su
 - `--surface-list` adds `surfaces.list` (§ 4.5, UTA-0213).
 - `--lighting` adds `lighting` (§ 4.7d, UTA-0360).
 - `--brushes` adds `brushes` (§ 4.7e, UTA-0361).
+- `--zone-at` and `--zone-at-file` add `zoneAt` (§ 4.7f, UTA-0497). A
+  point that does not read, or a file that does not open, is a usage error.
 - The exit code is 0 when every package was attempted, including packages
   that did not open. 2 is a usage error, with no output on stdout.
 
@@ -174,8 +176,10 @@ A package whose `Level` export does not read carries `level: null` and
 Otherwise, after `level`: `surfaces` (and `surfacesError` when it is null),
 `levelInfo`, `levelSummary`, `monsters`, `nav`, `wiring`, `exits`,
 `waypoints`, `playerStarts` (and `playerStartsError` when it is null), and
-under `--lighting` only `lighting` (and `lightingError` when it is null), as
-§ 4.5 to § 4.7d give them.
+under `--lighting` only `lighting` (and `lightingError` when it is null),
+under `--brushes` only `brushes`, and under `--zone-at` or `--zone-at-file`
+only `zoneAt` (and `zoneAtError` when it is null), as § 4.5 to § 4.7f give
+them.
 
 ### 4.5 Level, surfaces, credits and monsters
 
@@ -393,6 +397,32 @@ applies; where neither stores a scale, it is unit with no shear.
 - `actors` holds every actor not in `list`, blockers included, with the
   opening keys alone.
 
+### 4.7f `zoneAt`
+
+Added by `UTA-0497`, under `--zone-at` or `--zone-at-file` only, after
+`brushes`. It answers UT_MonsterHunt's question of which spots are under
+water (GAME-0284). A point is `x,y,z`, each number as `std::from_chars` reads
+it, and finite. Points are separated by spaces, tabs, newlines or `;`. The
+argument's points come first, then the file's. Every map gets the same
+points.
+
+`zoneAt` is `[{point, where, zone, zoneActor, waterZone, painZone,
+damagePerSec}]`, one per point, in that order.
+
+- `point` is `[x, y, z]`, as read.
+- `where` is `zone`, `outside` or `unknown`, from `umap::zoneNumberAt`.
+  `outside` is the BSP descent ending at zone 0 on a map that has rooms.
+  `unknown` is every other failed lookup.
+- `zone` is the zone index where `where` is `zone`, else `null`.
+- `zoneActor` is as in `playerStarts`.
+- `waterZone`, `painZone` and `damagePerSec` are the baker's own resolution
+  (`ubake::buildZones`): `bWaterZone`, `bPainZone` and `DamagePerSec`, from
+  the zone actor, else the LevelInfo, each through its class defaults. A
+  negative `damagePerSec` heals. All three are `null` where `zone` is.
+
+`zoneAt` is `null`, with `zoneAtError` a string, when the level's Model does
+not read, its zones do not build, or its actors do not build.
+
 ### 4.8 Counting what was dropped
 
 Scope decision 5's rule, applied:
@@ -446,6 +476,7 @@ them on 2026-09-25, checked by them against § 4 and UTA-0172 § 4.3 to § 4.4.
 | GAME-0208, the waypoints check | `waypoints`' `class`, `name`, `position` and `location` | It finds a gap or repeat in a map's waypoint numbers. The UTA-0332 case in `tests/unit/DumpCliTest.cpp` asserts these fields' exact text |
 | GAME-0207 | `playerStarts`' `name`, `class`, `location`, `zone`, `zoneActor` and `waterZone`; `playerStartsError` | It needs the BSP zone each PlayerStart lands in (UTA-0335) |
 | GAME-0032, the vote list's map size | `slot` in `playerStarts`, `exits` and `brushes`' three arrays | "First" PlayerStart and exit are taken in slot order, as its T3D exports gave them (UTA-0481) |
+| GAME-0284, the swim chains | `zoneAt`'s `point`, `where`, `zone`, `waterZone` and `painZone` | It lays swimming paths where ut-paths' walk stops at water (UTA-0497) |
 | GAME-0063, the route check | `exits`' `collisionRadius` and `collisionHeight` | A reached node inside the exit's cylinder counts as a route (UTA-0483) |
 | GAME-0210 | `wiring.actors`' `liftTag`, and `mover`'s `numKeys`, `basePos` and `keyPos` | It needs each lift's tag and its mover's keyframes (UTA-0336) |
 | `analysis/mapcheck` checks | `nodeList`'s `name`, `class`; `edgeList`'s `from`, `to`, `reachFlags`, `collisionRadius`, `collisionHeight` (the route check); `classCounts` (paths, starts); `importedPackages` (load) | Per-map checks |

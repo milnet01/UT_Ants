@@ -14,6 +14,9 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **`ut-dump --zone-at` says which zone each named point is in, and whether it is water or pain** (UTA-0497)
+  Points come as an argument, a file, or both, and are answered in
+  order. UT_MonsterHunt's map repair uses it to find spots under water.
 - **`ut-paths --map-file` proposes path nodes for one map file, with no census** (UTA-0495)
   A map can now be read from any folder, given its group with
   `--group`. UT_MonsterHunt's map repair uses it for maps changed since

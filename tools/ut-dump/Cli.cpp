@@ -38,6 +38,7 @@
 #include <algorithm>
 #include <array>
 #include <bit>
+#include <charconv>
 #include <cmath>
 #include <cstddef>
 #include <expected>
@@ -1458,6 +1459,106 @@ void writeBrushes(std::ostream& out, const uta::upkg::Package& map, std::string_
         << "], \"actors\": [" << others.str() << "]}";
 }
 
+/// UTA-0497: points written `x,y,z`, separated by whitespace or `;`, each
+/// number as from_chars reads it and finite. The error names the first point
+/// that does not read.
+std::expected<std::vector<uta::upkg::Vector3>, std::string> parsePoints(std::string_view text) {
+    std::vector<uta::upkg::Vector3> points;
+    const auto separator = [](char ch) { return ch == ';' || ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r'; };
+    std::size_t at = 0;
+    while (at < text.size()) {
+        if (separator(text[at])) {
+            ++at;
+            continue;
+        }
+        std::size_t end = at;
+        while (end < text.size() && !separator(text[end])) ++end;
+        const std::string_view token = text.substr(at, end - at);
+        at = end;
+
+        std::array<float, 3> xyz{};
+        std::size_t from = 0;
+        bool ok = true;
+        for (std::size_t axis = 0; ok && axis < 3; ++axis) {
+            const std::size_t comma = axis < 2 ? token.find(',', from) : token.size();
+            if (comma == std::string_view::npos) {
+                ok = false;
+                break;
+            }
+            const std::string_view number = token.substr(from, comma - from);
+            const auto [stop, error] = std::from_chars(number.data(), number.data() + number.size(), xyz[axis]);
+            ok = !number.empty() && error == std::errc{} && stop == number.data() + number.size()
+                 && std::isfinite(xyz[axis]);
+            from = comma + 1;
+        }
+        if (!ok) return std::unexpected("not a point x,y,z: " + std::string{token});
+        points.push_back(uta::upkg::Vector3{xyz[0], xyz[1], xyz[2]});
+    }
+    return points;
+}
+
+/// UTA-0497: `--zone-at` and `--zone-at-file` add `zoneAt`, one entry per
+/// point in the order given -- UT_MonsterHunt's swim chains (GAME-0284) ask
+/// which of a map's spots are under water. The zone is umap::zoneNumberAt,
+/// which keeps outside the level apart from a lookup that failed; water and
+/// pain are the baker's own resolution (buildZones), as in playerStarts.
+void writeZoneAt(std::ostream& out, const uta::upkg::Package& map, std::string_view mapName,
+                 const uta::upkg::Level& level, const uta::upkg::PackageResolver& resolver,
+                 std::span<const uta::upkg::Vector3> points) {
+    const auto refuse = [&out](std::string_view why) {
+        out << ",\n  \"zoneAt\": null,\n  \"zoneAtError\": ";
+        writeJsonString(out, why);
+    };
+    const auto model = modelOf(map, level);
+    if (!model.has_value()) {
+        refuse(model.error());
+        return;
+    }
+    // The lookup reads only the descent tables and the zone-to-room table, as
+    // in writePlayerStarts, so the coarse spacing gives the bake's answer.
+    const auto rooms = uta::umap::buildRoomMap(*model, uta::umap::RoomBuildOptions{.sampleSpacing = 4096.0F});
+    if (!rooms.has_value()) {
+        refuse("the level's zones did not build: " + std::string(rooms.error().message()));
+        return;
+    }
+    const auto actors = uta::ubake::buildActors(map, asciiFolded(mapName), level, resolver);
+    if (!actors.has_value()) {
+        refuse("the level's actors did not build: " + std::string(actors.error().message()));
+        return;
+    }
+    const std::vector<uta::ubundle::Zone> zones = uta::ubake::buildZones(*model, actors->placements);
+
+    out << ",\n  \"zoneAt\": [";
+    for (std::size_t i = 0; i < points.size(); ++i) {
+        const uta::upkg::Vector3& point = points[i];
+        const uta::umap::ZoneHit hit =
+            uta::umap::zoneNumberAt(rooms->map, uta::umap::Point3{point.x, point.y, point.z});
+        std::optional<std::uint32_t> zone;
+        if (hit.kind == uta::umap::ZoneHit::Kind::Zone) zone = hit.zone;
+        const uta::ubundle::Zone* facts = zone.has_value() && *zone < zones.size() ? &zones[*zone] : nullptr;
+
+        out << (i == 0 ? "" : ", ") << "{\"point\": ";
+        writeLocation(out, point);
+        out << ", \"where\": "
+            << (hit.kind == uta::umap::ZoneHit::Kind::Zone      ? "\"zone\""
+                : hit.kind == uta::umap::ZoneHit::Kind::Outside ? "\"outside\""
+                                                                : "\"unknown\"");
+        out << ", \"zone\": ";
+        if (zone.has_value()) out << *zone;
+        else out << "null";
+        out << ", \"zoneActor\": ";
+        writeZoneActor(out, map, *model, zone);
+        if (facts != nullptr) {
+            out << ", \"waterZone\": " << (facts->water != 0 ? "true" : "false")
+                << ", \"painZone\": " << (facts->pain != 0 ? "true" : "false")
+                << ", \"damagePerSec\": " << facts->damagePerSec << "}";
+        } else {
+            out << ", \"waterZone\": null, \"painZone\": null, \"damagePerSec\": null}";
+        }
+    }
+    out << "]";
+}
+
 /// The opt-in sections the command line asked for, one per flag.
 struct Sections {
     bool navGraph = false;
@@ -1465,6 +1566,8 @@ struct Sections {
     bool surfaceList = false;
     bool lighting = false;
     bool brushes = false;
+    /// UTA-0497: the points `zoneAt` looks up; absent when neither option is given.
+    std::optional<std::vector<uta::upkg::Vector3>> zoneAt;
 };
 
 void dumpPackage(std::ostream& out, const fs::path& path, const uta::upkg::PackageResolver& resolver,
@@ -1649,6 +1752,8 @@ void dumpPackage(std::ostream& out, const fs::path& path, const uta::upkg::Packa
     writePlayerStarts(out, *package, uta::fs::utf8(path.stem()), *level, resolver);
     if (sections.lighting) writeLighting(out, *package, uta::fs::utf8(path.stem()), *level, resolver);
     if (sections.brushes) writeBrushes(out, *package, uta::fs::utf8(path.stem()), *level, resolver);
+    if (sections.zoneAt.has_value())
+        writeZoneAt(out, *package, uta::fs::utf8(path.stem()), *level, resolver, *sections.zoneAt);
 
     out << "\n }";
 }
@@ -1676,7 +1781,8 @@ int usage(std::ostream& err) {
     err <<
         "usage: ut-dump (--install <UT dir> | --system <UT System dir>)\n"
         "                [--nav-graph] [--wiring-graph] [--surface-list] [--lighting]\n"
-        "                [--brushes] [--ndjson]\n"
+        "                [--brushes] [--zone-at <points>] [--zone-at-file <file>]\n"
+        "                [--ndjson]\n"
         "                <package|directory>...\n"
         "\n"
         "Writes one JSON object per package to stdout. Class ancestry crosses\n"
@@ -1715,6 +1821,12 @@ int usage(std::ostream& err) {
         "that is not a brush, blockers included.\n"
         "It is what a T3D export was read for.\n"
         "\n"
+        "--zone-at adds `zoneAt` to each map: for each point, in order, the\n"
+        "zone it is in, that zone's actor, and whether it is water or pain.\n"
+        "A point is x,y,z; points are separated by spaces, newlines or `;`.\n"
+        "--zone-at-file reads points written the same way from a file; with\n"
+        "both, the argument's points come first.\n"
+        "\n"
         "Packages are listed in path order, not argument order: key on each\n"
         "one's `file`. docs/specs/UTA-0012-ut-dump-output-shape.md is the\n"
         "output's contract.\n"
@@ -1747,6 +1859,8 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
     Sections sections;
     bool ndjson = false;
     std::vector<fs::path> targets;
+    std::optional<std::string_view> zoneAtText;
+    std::optional<fs::path> zoneAtFile;
 
     tools::OptionValues values("ut-dump", args, err);
     for (std::size_t i = 0; i < args.size(); ++i) {
@@ -1769,6 +1883,14 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
             sections.lighting = true;
         } else if (arg == "--brushes") {
             sections.brushes = true;
+        } else if (arg == "--zone-at") {
+            const std::optional<std::string_view> points = values.take(i);
+            if (!points) return usage(err);
+            zoneAtText = *points;
+        } else if (arg == "--zone-at-file") {
+            const std::optional<std::string_view> file = values.take(i);
+            if (!file) return usage(err);
+            zoneAtFile = uta::fs::pathFromUtf8(*file);
         } else if (arg == "--ndjson") {
             ndjson = true;
         } else if (arg == "-h" || arg == "--help") {
@@ -1788,6 +1910,32 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
     if (!systemDir.empty() && !installDir.empty()) {
         err << "ut-dump: give --install or --system, not both\n";
         return usage(err);
+    }
+    // UTA-0497: the argument's points first, then the file's, each in order.
+    if (zoneAtText.has_value() || zoneAtFile.has_value()) {
+        std::vector<uta::upkg::Vector3> points;
+        const auto add = [&](std::string_view text, std::string_view from) {
+            auto parsed = parsePoints(text);
+            if (!parsed.has_value()) {
+                err << "ut-dump: " << from << ": " << parsed.error() << "\n";
+                return false;
+            }
+            points.insert(points.end(), parsed->begin(), parsed->end());
+            return true;
+        };
+        if (zoneAtText.has_value() && !add(*zoneAtText, "--zone-at")) return usage(err);
+        if (zoneAtFile.has_value()) {
+            const auto mapped = uta::fs::MappedFile::open(*zoneAtFile);
+            if (!mapped.has_value()) {
+                err << "ut-dump: --zone-at-file " << uta::fs::utf8(*zoneAtFile) << ": "
+                    << mapped.error().message() << "\n";
+                return usage(err);
+            }
+            const std::span<const std::byte> bytes = mapped->bytes();
+            const std::string_view text{reinterpret_cast<const char*>(bytes.data()), bytes.size()};
+            if (!add(text, "--zone-at-file " + uta::fs::utf8(*zoneAtFile))) return usage(err);
+        }
+        sections.zoneAt = std::move(points);
     }
 
     std::vector<fs::path> files;

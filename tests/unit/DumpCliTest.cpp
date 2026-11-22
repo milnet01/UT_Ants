@@ -1008,6 +1008,12 @@ TEST_CASE("UTA-0012 INV-4: the key sets are exactly the contract's", "[dump]") {
     const std::string brushMap = packagesOf(brushed.out).at(0);
     CHECK(keysOf(brushMap) == brushKeys);
     CHECK(keysOf(member(brushMap, "brushes")) == Keys{"list", "blockers", "actors"});
+
+    const Run zoned = run({"--system", system, "--zone-at", "0,0,0", mapPath.string()});
+    REQUIRE(zoned.code == 0);
+    Keys zoneKeys = mapKeys;
+    zoneKeys.push_back("zoneAt");
+    CHECK(keysOf(packagesOf(zoned.out).at(0)) == zoneKeys);
 }
 
 TEST_CASE("UTA-0012 INV-5: classCounts counts every export and sums to exports", "[dump]") {
@@ -1384,6 +1390,71 @@ TEST_CASE("UTA-0335: playerStarts names the zone each start lands in, and whethe
                           starts)
           != std::string::npos);
     CHECK(result.out.find("PathNode", starts) == std::string::npos);
+}
+
+TEST_CASE("UTA-0497: --zone-at gives each point its zone, in order, and whether it is water or pain", "[dump]") {
+    // GAME-0284: UT_MonsterHunt's swim chains ask which spots are under water.
+    const TempDir dir;
+    MapBuilder map;
+    const std::int32_t water = map.addClass("WaterZone", 0, {boolProperty("bWaterZone", true)});
+    const std::int32_t lava = map.addClass("LavaZone", 0, {boolProperty("bPainZone", true), intProperty("DamagePerSec", 40)});
+    map.addActor("WaterZone0", water)
+        .addActor("LavaZone0", lava)
+        .setZoneActor(1, 0)  // above the floor: wet
+        .setZoneActor(2, 1); // below it: pain
+    const fs::path mapPath = writeMap(dir, map);
+    const std::string system = (dir.path() / "System").string();
+
+    const fs::path pointsFile = dir.path() / "points.txt";
+    const std::string_view pointsText = "8,8,16\n-4.5,2,-16\n";
+    writeFile(pointsFile, std::vector<std::uint8_t>(pointsText.begin(), pointsText.end()));
+    // The argument's points first, then the file's, each in its own order.
+    const Run result =
+        run({"--system", system, "--zone-at", "8,8,-16;1,1,16", "--zone-at-file", pointsFile.string(),
+             mapPath.string()});
+    INFO(result.out << result.err);
+    REQUIRE(result.code == 0);
+    const std::size_t at = result.out.find("\"zoneAt\": [");
+    REQUIRE(at != std::string::npos);
+    const std::string pain = R"("where": "zone", "zone": 2, "zoneActor": {"export": )";
+    const std::string wet = R"("where": "zone", "zone": 1, "zoneActor": {"export": )";
+    const std::size_t first = result.out.find("{\"point\": [8, 8, -16], " + pain, at);
+    const std::size_t second = result.out.find("{\"point\": [1, 1, 16], " + wet, at);
+    const std::size_t third = result.out.find("{\"point\": [8, 8, 16], " + wet, at);
+    const std::size_t fourth = result.out.find("{\"point\": [-4.5, 2, -16], " + pain, at);
+    REQUIRE(first != std::string::npos);
+    REQUIRE(second != std::string::npos);
+    REQUIRE(third != std::string::npos);
+    REQUIRE(fourth != std::string::npos);
+    CHECK(first < second);
+    CHECK(second < third);
+    CHECK(third < fourth);
+    CHECK(result.out.find(R"("class": "LavaZone"}, "waterZone": false, "painZone": true, "damagePerSec": 40})", at)
+          != std::string::npos);
+    CHECK(result.out.find(R"("class": "WaterZone"}, "waterZone": true, "painZone": false, "damagePerSec": 0})", at)
+          != std::string::npos);
+
+    // Without either option there is no zoneAt.
+    const Run plain = run({"--system", system, mapPath.string()});
+    REQUIRE(plain.code == 0);
+    CHECK(plain.out.find("\"zoneAt\"") == std::string::npos);
+}
+
+TEST_CASE("UTA-0497: a point that does not read is a usage error with nothing on stdout", "[dump]") {
+    const TempDir dir;
+    const fs::path mapPath = writeMap(dir, MapBuilder{});
+    const std::string system = (dir.path() / "System").string();
+    for (const std::string points : {"1,2", "1,2,3,4", "1,,3", "a,2,3", "1,2,inf", "1,2,3x"}) {
+        INFO(points);
+        const Run result = run({"--system", system, "--zone-at", points, mapPath.string()});
+        CHECK(result.code == 2);
+        CHECK(result.out.empty());
+        CHECK(result.err.find("not a point x,y,z") != std::string::npos);
+    }
+    const Run missing =
+        run({"--system", system, "--zone-at-file", (dir.path() / "absent.txt").string(), mapPath.string()});
+    CHECK(missing.code == 2);
+    CHECK(missing.out.empty());
 }
 
 TEST_CASE("UTA-0360: countLighting counts only lightmaps that resolve, and their light actors", "[dump]") {
