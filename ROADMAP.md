@@ -19686,7 +19686,8 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   edge, either a low-detail ring of land or a painted horizon band in
   the sky, drawn behind everything so it costs almost nothing. (b) fits
   with UTA-0282's new skies, which is why this sits in the same release.
-  First: ask the user which maps they saw it on, and list them here.
+  Maps (user, 2026-11-22): start with the two cases below; add others
+  as the user names them.
   Another case (user, F12 capture 2026-10-06 11:34,
   MH-(_@_)_Aliens_Xmas_Beta1SP, camera 31951.77 14623.47 794.00 -2776
   5315 0): a flat snowfield ends in a square corner against the mountain
@@ -21843,7 +21844,8 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Reading: on a still, untouched desktop the loaded magnifier costs
   about 1.2 ms at the 99th percentile and disturbs almost no frame. It
   did not reproduce the busy card (73 to 89) of 18:02, when the user
-  was at the machine. So the magnifier alone is not the cost. Untested:
+  was at the machine. So the magnifier alone is not the cost. Parked (user, 2026-11-22): nothing more is owed; resume only if the
+  user sees stutter in play. Untested:
   the magnifier at the user's 2.85 times with the screen being
   redrawn (pointer moving, windows updating), which is what the 18:02
   readings had and this run lacked.
