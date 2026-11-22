@@ -73,6 +73,12 @@ void switchWeapon(const WeaponSet& set, Game& game, int index, const uworld::Mov
         body.charged = 0;
         body.stepHeld = 0;
         body.loaded = 0;
+        // UTA-0468: the weapon put down looks for no target, and its second gun stops.
+        body.lockLooking = false;
+        body.lockCandidate = body.lockTarget = -1;
+        body.secondDue = -1;
+        body.secondWinding = body.secondHolding = -1;
+        body.secondRefire = 0;
     }
     if (body.pending >= 0) {
         body.switchLeft -= dt;
@@ -91,6 +97,106 @@ double chargeScale(const Charge& charge, double held) {
     return charge.min + (charge.max - charge.min) * full;
 }
 
+/// UTA-0468, UT_Eightball: a mode about to fire keeps its weapon's lock only
+/// where it locks and still finds the locked body (FireRockets.BeginState,
+/// NormalFire.AnimEnd); another mode, such as the grenades, drops it.
+void keepLock(const detail::Tick& tick, int index, const FireMode& mode) {
+    Body& body = tick.game.bodies[static_cast<std::size_t>(index)];
+    if (body.lockTarget < 0) return;
+    if (mode.lockProjectile.empty() || detail::lockPick(tick, index, mode) != body.lockTarget) body.lockTarget = -1;
+}
+
+/// UTA-0468, UT_Eightball's Idle state: while the weapon in hand is idle it
+/// looks for a target on entering, then every lock-every, the time past
+/// each look counting toward the next (the actor's timer); the entering
+/// tick counts. The same body twice running is locked on; a look that
+/// loses the body it found keeps the lock (Idle.Timer), which the shot's
+/// own look then drops.
+void lookForLock(const detail::Tick& tick, int index, const FireMode* mode, bool idle) {
+    Body& body = tick.game.bodies[static_cast<std::size_t>(index)];
+    if (mode == nullptr || !idle) {
+        body.lockLooking = false;
+        return;
+    }
+    if (!body.lockLooking) {
+        body.lockLooking = true;
+        body.lockClock = 0;
+        body.lockCandidate = detail::lockPick(tick, index, *mode);
+        body.lockTarget = -1;
+    }
+    body.lockClock += tick.dt;
+    if (body.lockClock < mode->lockEvery) return;
+    body.lockClock -= mode->lockEvery;
+    const int found = detail::lockPick(tick, index, *mode);
+    if (found == body.lockCandidate) body.lockTarget = found;
+    else if (body.lockCandidate < 0 || found >= 0) body.lockTarget = -1;
+    body.lockCandidate = found;
+}
+
+/// UTA-0468, Enforcer's slave: a doubled weapon's second gun. Set off
+/// `doubleDelay` after the first gun's shot (NormalFire's timer) or its
+/// wind-up's start (AltFiring's), it fires that mode as the first gun
+/// would from idle -- a shot where it is idle, or its own wind-up first --
+/// and then a shot every refire while that trigger is held, on its own
+/// cadence (Weapon.Idle fires again at once for a held trigger). It shares
+/// the ammo.
+void fireSecond(detail::Tick& tick, int index, const Weapon& weapon, const uworld::MoveCommand& command,
+                bool setOff, int which) {
+    Body& body = tick.game.bodies[static_cast<std::size_t>(index)];
+    Carried& carried = body.weapons[static_cast<std::size_t>(body.weapon)];
+    const auto modeOf = [&weapon](int mode) -> const FireMode& { return mode == 0 ? weapon.primary : *weapon.alt; };
+    const auto shoot = [&](int mode, double overshoot) {
+        const FireMode& fire = modeOf(mode);
+        if (carried.ammo < fire.ammo) return false;
+        detail::fire(tick, index, fire, 1, true);
+        tick.game.cues.push_back(Cue{Cue::Kind::Fire, index, static_cast<std::uint32_t>(body.weapon), mode,
+                                     body.move.location});
+        ++body.secondBurst;
+        body.secondRefire = fire.refire + overshoot;
+        return true;
+    };
+    if (setOff) {
+        body.secondDue = weapon.doubleDelay;
+        body.secondDueMode = which;
+    }
+    body.secondRefire -= tick.dt;
+    if (body.secondHolding >= 0 && !(body.secondHolding == 0 ? command.fire : command.altFire)) body.secondHolding = -1;
+    if (body.secondDue >= 0) {
+        body.secondDue -= tick.dt;
+        if (body.secondDue <= 0) {
+            const int mode = body.secondDueMode;
+            const FireMode& fire = modeOf(mode);
+            const double overshoot = body.secondDue;
+            body.secondDue = -1;
+            if (fire.windUp > 0) {
+                // Enforcer.AltFire: a press with any ammo turns the gun first.
+                if (carried.ammo > 0 && body.secondWinding < 0) {
+                    body.secondWinding = mode;
+                    body.secondWind = fire.windUp + overshoot + tick.dt;
+                    body.secondHolding = mode;
+                    body.secondBurst = 0;
+                }
+            } else if (body.secondRefire <= 0 && body.secondWinding < 0 && body.secondHolding < 0) {
+                // Enforcer.Fire: ignored while the second gun still fires.
+                body.secondBurst = 0;
+                if (shoot(mode, 0)) body.secondHolding = mode;
+            }
+        }
+    }
+    if (body.secondWinding >= 0) {
+        body.secondWind -= tick.dt;
+        if (body.secondWind <= 0) {
+            const int mode = body.secondWinding;
+            body.secondWinding = -1;
+            if (!shoot(mode, body.secondWind)) body.secondHolding = -1;
+        }
+    } else if (body.secondHolding >= 0 && body.secondRefire <= 0) {
+        // Again while held: AltFiring's Repeater, or Idle's Fire.
+        if (!shoot(body.secondHolding, body.secondRefire)) body.secondHolding = -1;
+    }
+    if (body.secondRefire < 0 && body.secondHolding < 0) body.secondRefire = 0;
+}
+
 void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
     Body& body = tick.game.bodies[static_cast<std::size_t>(index)];
     // UTA-0467: one cue a shot, however many projectiles or pellets it is.
@@ -104,6 +210,7 @@ void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
     if (body.weapon < 0 || body.pending >= 0) {
         body.beamHeld = body.beamFor = 0;
         body.beamVictim = -1;
+        body.lockLooking = false;
         return;
     }
     const Weapon& weapon = tick.set.weapons[static_cast<std::size_t>(body.weapon)];
@@ -115,6 +222,7 @@ void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
     const bool idle = body.refireLeft <= 0;
     body.refireLeft -= tick.dt;
     bool fired = false, beamed = false;
+    int secondSetOff = -1; // UTA-0468: the mode whose shot or wind-up this tick sets the second gun off
     Carried& carried = body.weapons[static_cast<std::size_t>(body.weapon)];
     // A press at idle on a mode with a wind-up starts it, and pays its
     // press-ammo; the press's own tick counts toward it.
@@ -123,6 +231,7 @@ void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
         const FireMode* mode = which >= 0 ? modeOf(which) : nullptr;
         // INV-7: a press it cannot pay for changes nothing.
         if (mode != nullptr && mode->windUp > 0 && carried.ammo >= mode->pressAmmo + mode->ammo) {
+            secondSetOff = which;
             carried.ammo -= mode->pressAmmo;
             body.winding = which;
             body.windLeft = mode->windUp;
@@ -187,6 +296,7 @@ void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
                 // the step; UT_BioRifle's Count starts again from nothing.
                 if (count) ++body.loaded, body.stepHeld -= step;
                 else body.charged += body.stepHeld, body.stepHeld = 0;
+                keepLock(tick, index, mode);
                 // The launcher fires once its last rocket is in or its ammo is out.
                 full = count && (body.loaded >= mode.count || carried.ammo < mode.ammo);
             }
@@ -204,6 +314,7 @@ void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
             const double scale = count && charge.step > 0
                                      ? static_cast<double>(body.loaded) / mode.count
                                      : chargeScale(charge, body.charged);
+            keepLock(tick, index, mode);
             detail::fire(tick, index, mode, scale);
             cueShot(body.charging);
             body.refireLeft = mode.refire;
@@ -233,15 +344,23 @@ void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
             body.stepHeld = tick.dt;
             body.loaded = 1;
         } else {
+            keepLock(tick, index, *mode);
             detail::fire(tick, index, *mode, 1);
             cueShot(which);
             ++body.burst;
             body.refireLeft += refireOf(*mode, which) + (idle ? mode->refireLead : 0);
             fired = true;
+            secondSetOff = which;
         }
     }
     // A held trigger keeps its cadence; an idle one owes nothing.
     if (!fired && body.refireLeft < 0) body.refireLeft = 0;
+    const FireMode* locking = !weapon.primary.lockProjectile.empty()            ? &weapon.primary
+                              : weapon.alt && !weapon.alt->lockProjectile.empty() ? &*weapon.alt
+                                                                                  : nullptr;
+    lookForLock(tick, index, locking, !fired && body.refireLeft <= 0 && body.winding < 0 && body.charging < 0);
+    if (carried.doubled && weapon.doubleDelay > 0)
+        fireSecond(tick, index, weapon, command, secondSetOff >= 0, secondSetOff);
     // A released beam is gone, and its store with it.
     if (!beamed) {
         body.beamHeld = body.beamFor = 0;
@@ -347,6 +466,30 @@ void fly(Tick& tick, std::size_t index) {
             tick.shotGone[index] = true;
         }
         return;
+    }
+    // UTA-0468, UT_SeekingRocket.Timer, before the move: every seek-every it
+    // turns half its speed's worth towards its body while that body lies
+    // ahead of the way it first flew, keeping its speed.
+    if (kind.seekEvery > 0 && shot.seeking >= 0) {
+        shot.seekClock += tick.dt;
+        if (shot.seekClock >= kind.seekEvery) {
+            shot.seekClock -= kind.seekEvery;
+            const double speed = uworld::length(shot.velocity);
+            if (shot.seekFrom == Vec3{} && speed > 0) shot.seekFrom = shot.velocity * (1 / speed);
+            const Body& target = tick.game.bodies[static_cast<std::size_t>(shot.seeking)];
+            const Vec3 way = target.move.location - shot.location;
+            const double distance = uworld::length(way);
+            if (target.alive() && shot.seeking != shot.owner && distance > 0 &&
+                uworld::dot(way, shot.seekFrom) > 0) {
+                const Vec3 turned = way * (0.5 * speed / distance) + shot.velocity;
+                const double length = uworld::length(turned);
+                if (length > 0) {
+                    const Vec3 heading = turned * (1 / length);
+                    shot.velocity = heading * speed;
+                    shot.acceleration = heading * kind.seekAcceleration;
+                }
+            }
+        }
     }
     const Vec3 old = shot.previous;
     shot.previous = shot.location;
@@ -692,6 +835,7 @@ std::uint64_t stateHash(const Game& game) {
         for (const Carried& carried : body.weapons) {
             add(carried.has ? 1 : 0);
             add(carried.ammo);
+            add(carried.doubled ? 1 : 0); // UTA-0468
         }
         add(static_cast<std::uint64_t>(body.weapon));
         add(static_cast<std::uint64_t>(body.pending));
@@ -714,6 +858,18 @@ std::uint64_t stateHash(const Game& game) {
         add(body.burst);
         addDouble(body.eyeHeight);
         add(body.human ? 1 : 0);
+        // UTA-0468
+        add(body.lockLooking ? 1 : 0);
+        addDouble(body.lockClock);
+        add(static_cast<std::uint64_t>(body.lockCandidate));
+        add(static_cast<std::uint64_t>(body.lockTarget));
+        addDouble(body.secondDue);
+        add(static_cast<std::uint64_t>(body.secondDueMode));
+        addDouble(body.secondRefire);
+        add(static_cast<std::uint64_t>(body.secondWinding));
+        addDouble(body.secondWind);
+        add(static_cast<std::uint64_t>(body.secondHolding));
+        add(body.secondBurst);
     }
     add(game.shots.size());
     for (const Shot& shot : game.shots) {
@@ -730,6 +886,9 @@ std::uint64_t stateHash(const Game& game) {
         add(shot.bounces);
         add(shot.stuck ? 1 : 0);
         addDouble(shot.damageScale);
+        add(static_cast<std::uint64_t>(shot.seeking)); // UTA-0468
+        addDouble(shot.seekClock);
+        addVec(shot.seekFrom);
     }
     return hash;
 }

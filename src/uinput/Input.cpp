@@ -58,6 +58,7 @@ Bindings defaultBindings() {
                  {Key::N9, Action::Weapon9},
                  {Key::N0, Action::Weapon0},
                  {Key::T, Action::DropDummy},
+                 {Key::Y, Action::SecondGun},
                  {Key::Q, Action::Wheel}},
         .mouseButtons = {{MouseButton::Left, Action::Fire}, {MouseButton::Right, Action::AltFire}},
         .padButtons = {{PadButton::South, Action::Up},
@@ -72,7 +73,8 @@ Bindings defaultBindings() {
                        {PadButton::West, Action::Capture},
                        {PadButton::DpadRight, Action::NextWeapon},
                        {PadButton::DpadLeft, Action::PrevWeapon},
-                       {PadButton::DpadUp, Action::DropDummy}},
+                       {PadButton::DpadUp, Action::DropDummy},
+                       {PadButton::DpadDown, Action::SecondGun}},
     };
 }
 

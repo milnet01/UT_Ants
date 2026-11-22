@@ -520,3 +520,84 @@ switch Botpack.Enforcer
 0.16 P
 2 -
 end 2.5
+
+# -- UTA-0468: the hammer turning shots aside, rocket lock-on, double Enforcers
+#
+# The deflection runs' target launches a rocket at the player on tick 0,
+# from 2.3 degrees off the aim. hammer-deflect looks level, so the rocket is
+# inside the hammer's cone (ImpactHammer.TraceAltFire's 0.9); hammer-deflect-high
+# looks up 30 degrees, a cosine of 0.87, so it is outside it. (Spots off to
+# either side put the rocket into the level within three ticks.) It ends
+# before the rocket strikes the player: that hit is UTA-0498's.
+
+run hammer-deflect DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.ImpactHammer
+target 400
+side 40
+incoming Botpack.RocketMk2
+0 -
+0.1 A
+0.2 -
+end 1.5
+
+run hammer-deflect-high DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim 5461
+weapon Botpack.ImpactHammer
+target 400
+side 40
+incoming Botpack.RocketMk2
+0 -
+0.1 A
+0.2 -
+end 0.35
+
+# The lock runs raise the launcher at 0, so its idle timer (1.25 s,
+# UT_Eightball's Idle state) starts at a known tick. The target stands 14
+# degrees off the aim, inside PickTarget's 0.93, and in sight (at 1000
+# ahead the level hides it): a locked rocket turns to it.
+
+run rocket-lock DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.Enforcer
+switch Botpack.UT_Eightball
+target 600
+side 150
+0 N
+0.08 -
+2.8 P
+2.88 -
+end 5
+
+run rocket-lock-early DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.Enforcer
+switch Botpack.UT_Eightball
+target 600
+side 150
+0 N
+0.08 -
+1.6 P
+1.68 -
+end 4
+
+run double-enforcer-primary DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.Enforcer
+give Botpack.Enforcer
+target 400
+0 P
+2.5 -
+end 4
+
+run double-enforcer-alt DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.Enforcer
+give Botpack.Enforcer
+target 400
+0 A
+2.5 -
+end 4
+
+run double-enforcer-tap DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.Enforcer
+give Botpack.Enforcer
+target 400
+0 P
+0.08 -
+end 2

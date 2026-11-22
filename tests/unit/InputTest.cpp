@@ -185,11 +185,13 @@ TEST_CASE("UTA-0019 SS 4.8: a number key picks its weapon once a press and T dro
     input.keyDown(Key::N0, false);
     input.keyDown(Key::N5, true); // auto-repeat: not a press
     input.keyDown(Key::T, false);
+    input.keyDown(Key::Y, false);
     const Frame frame = input.frame({}, {}, 1);
     CHECK(frame.wasPressed(Action::Weapon1));
     CHECK(frame.wasPressed(Action::Weapon0));
     CHECK_FALSE(frame.wasPressed(Action::Weapon5));
     CHECK(frame.wasPressed(Action::DropDummy));
+    CHECK(frame.wasPressed(Action::SecondGun)); // UTA-0468
     CHECK_FALSE(input.frame({}, {}, 1).wasPressed(Action::Weapon1));
 }
 

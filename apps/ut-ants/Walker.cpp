@@ -143,6 +143,20 @@ void Walker::dropDummy(const uworld::BodyWorld& world) {
     game_.bodies[place].move.physics = uworld::Physics::Falling;
 }
 
+// UTA-0468: as picking up a second copy does (Enforcer.HandlePickupQuery),
+// until pickups exist (UTA-0027): each carried weapon that doubles is doubled,
+// and gains the copy's ammo, up to its most. A weapon already doubled is left.
+void Walker::secondGun() {
+    ugame::Body& self = game_.bodies[0];
+    for (std::size_t i = 0; i < set_.weapons.size(); ++i) {
+        const ugame::Weapon& weapon = set_.weapons[i];
+        ugame::Carried& carried = self.weapons[i];
+        if (weapon.doubleDelay <= 0 || !carried.has || carried.doubled) continue;
+        carried.doubled = true;
+        carried.ammo = std::min(weapon.ammoMax, carried.ammo + weapon.ammoStart);
+    }
+}
+
 std::size_t Walker::dummies() const noexcept {
     std::size_t standing = 0;
     for (std::size_t i = 1; i < game_.bodies.size(); ++i) standing += game_.bodies[i].alive() ? 1 : 0;
@@ -193,6 +207,7 @@ void Walker::update(const uinput::Frame& input, double seconds, const uworld::Bo
     fireAsked_ = fireAsked_ || fire;
     altAsked_ = altAsked_ || altFire;
     if (input.wasPressed(uinput::Action::DropDummy)) dropDummy(world);
+    if (input.wasPressed(uinput::Action::SecondGun)) secondGun();
     zoomBy(altFire, seconds);
     events_.clear();
     cues_.clear();

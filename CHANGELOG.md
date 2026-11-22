@@ -14,6 +14,13 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **Rocket lock-on, double Enforcers, and the hammer turning shots aside** (UTA-0468)
+  Keep the rocket launcher idle with a target in sight near the crosshair
+  for about a second and a quarter, and its rockets steer towards it. Walking, Y or the pad's down
+  gives you a second Enforcer: the two fire in turn, a little less
+  accurately. The hammer's alt fire pushes aside rockets and other shots
+  coming at you from straight ahead. Each matches recordings of the
+  original.
 - **`ut-dump --zone-at` says which zone each named point is in, and whether it is water or pain** (UTA-0497)
   Points come as an argument, a file, or both, and are answered in
   order. UT_MonsterHunt's map repair uses it to find spots under water.

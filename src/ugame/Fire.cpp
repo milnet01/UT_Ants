@@ -90,7 +90,7 @@ double rangeDraw(Game& game, double range) {
 
 Vec3 eyeOf(const Body& body) { return body.move.location + Vec3{0, 0, body.eyeHeight}; }
 
-Vec3 startOf(const Body& body, const FireMode& mode) {
+Vec3 startOf(const Body& body, const FireMode& mode, bool second) {
     // UT99's GetAxes of the view rotation: forward, right and up.
     const double sy = core::sineOf(body.yaw), cy = core::cosineOf(body.yaw);
     const double sp = core::sineOf(body.pitch), cp = core::cosineOf(body.pitch);
@@ -100,7 +100,7 @@ Vec3 startOf(const Body& body, const FireMode& mode) {
     // PulseGun.ProjectileFire: each shot of a hold starts a turn further
     // round a circle about the offset, the first straight above it.
     const auto turned = static_cast<std::int32_t>(mode.spiralTurn * body.burst);
-    const double across = mode.offset[1] - core::sineOf(turned) * mode.spiralRadius;
+    const double across = (second ? -mode.offset[1] : mode.offset[1]) - core::sineOf(turned) * mode.spiralRadius;
     const double above = mode.offset[2] + core::cosineOf(turned) * mode.spiralRadius;
     return eyeOf(body) + forward * mode.offset[0] + right * across + up * above;
 }
@@ -214,10 +214,16 @@ Vec3 turned(const Vec3& v, std::int32_t pitch, std::int32_t yaw, std::int32_t ro
 
 /// `mode`'s cone for `body`'s next shot: widened by each shot of the hold so
 /// far (Enforcer.AltFiring's AltAccuracy), to its most.
-std::uint32_t spreadOf(const Body& body, const FireMode& mode) {
-    if (mode.spreadGrow == 0) return mode.spread;
-    const std::uint64_t grown = mode.spread + std::uint64_t{mode.spreadGrow} * body.burst;
-    return static_cast<std::uint32_t>(std::min<std::uint64_t>(grown, mode.spreadMax));
+/// A mode's cone for its next shot. A doubled weapon's guns both take the
+/// double spread (Enforcer.TraceFire widens either while the other is
+/// carried); each grows by its own shots.
+std::uint32_t spreadOf(const Body& body, const FireMode& mode, bool second) {
+    const bool doubled = body.weapons[static_cast<std::size_t>(body.weapon)].doubled;
+    const std::uint32_t spread = doubled ? mode.doubleSpread : mode.spread;
+    const std::uint32_t grow = doubled ? mode.doubleSpreadGrow : mode.spreadGrow;
+    if (grow == 0) return spread;
+    const std::uint64_t grown = spread + std::uint64_t{grow} * (second ? body.secondBurst : body.burst);
+    return static_cast<std::uint32_t>(std::min<std::uint64_t>(grown, doubled ? mode.doubleSpreadMax : mode.spreadMax));
 }
 
 /// `count` projectiles of `kind` from `body`'s `start`, by `mode`'s rule.
@@ -225,7 +231,7 @@ void launchAll(Tick& tick, int index, const FireMode& mode, std::uint32_t kind, 
                const Vec3& start, double damageScale) {
     const Body& body = tick.game.bodies[static_cast<std::size_t>(index)];
     if (mode.rule == FireRule::None) {
-        const std::uint32_t spread = spreadOf(body, mode);
+        const std::uint32_t spread = spreadOf(body, mode, false);
         for (std::uint32_t i = 0; i < count; ++i) {
             const std::int32_t yawOff = spreadDraw(tick.game, spread);
             const std::int32_t pitchOff = spreadDraw(tick.game, spread);
@@ -314,6 +320,29 @@ Vec3 meleeEnd(const Body& body, const FireMode& mode, const Vec3& start) {
     return (mode.rangeFromBody ? body.move.location : start) + aimOf(body.yaw, body.pitch) * mode.range;
 }
 
+/// ImpactHammer.TraceAltFire's push aside, from VisibleCollidingActors: each
+/// shot in flight within `deflectRadius` of `body`'s centre, in sight of it
+/// and inside the cone about the aim, is turned along the firer's right, to
+/// the side it already heads, harder the nearer it is; its speed is kept.
+void deflect(Tick& tick, const Body& body, const FireMode& mode) {
+    const Vec3 aim = aimOf(body.yaw, body.pitch);
+    const Vec3 right{-core::sineOf(body.yaw), core::cosineOf(body.yaw), 0};
+    for (std::size_t i = 0; i < tick.game.shots.size(); ++i) {
+        Shot& shot = tick.game.shots[i];
+        if (shot.stuck || tick.shotGone[i]) continue; // a stuck glob has left PHYS_Projectile and PHYS_Falling
+        const Vec3 away = shot.location - body.move.location;
+        const double distance = uworld::length(away);
+        if (distance == 0 || distance >= mode.deflectRadius || uworld::dot(away, aim) / distance <= mode.deflectCone)
+            continue;
+        const uworld::BodyHit level = tick.world.trace(body.move.location, shot.location);
+        if (level.fraction < 1 || level.startsInside) continue;
+        const double side = mode.deflectPush - distance;
+        const Vec3 turned = shot.velocity + right * (uworld::dot(shot.velocity, right) > 0 ? side : -side);
+        const double length = uworld::length(turned);
+        if (length > 0) shot.velocity = turned * (uworld::length(shot.velocity) / length);
+    }
+}
+
 } // namespace
 
 bool meleeTouches(const Tick& tick, int index, const FireMode& mode) {
@@ -328,20 +357,43 @@ bool meleeTouches(const Tick& tick, int index, const FireMode& mode) {
     return hit.fraction < 1; // a trace meeting nothing reports 1
 }
 
-void fire(Tick& tick, int index, const FireMode& mode, double scale) {
+int lockPick(const Tick& tick, int index, const FireMode& mode) {
+    const Body& body = tick.game.bodies[static_cast<std::size_t>(index)];
+    const Vec3 start = startOf(body, mode);
+    const Vec3 aim = aimOf(body.yaw, body.pitch);
+    const Vec3 eye = eyeOf(body);
+    double best = mode.lockAim;
+    int pick = -1;
+    for (std::size_t i = 0; i < tick.game.bodies.size(); ++i) {
+        const Body& other = tick.game.bodies[i];
+        if (static_cast<int>(i) == index || !other.alive()) continue;
+        const Vec3 way = other.move.location - start;
+        const double along = uworld::dot(aim, way);
+        const double distance = uworld::length(way);
+        if (along <= 0 || distance >= mode.lockRange || along / distance <= best) continue;
+        // LineOfSightTo: the level hides nothing between the eye and its centre.
+        const uworld::BodyHit level = tick.world.trace(eye, other.move.location);
+        if (level.fraction < 1 || level.startsInside) continue;
+        best = along / distance;
+        pick = static_cast<int>(i);
+    }
+    return pick;
+}
+
+void fire(Tick& tick, int index, const FireMode& mode, double scale, bool second) {
     Body& body = tick.game.bodies[static_cast<std::size_t>(index)];
     Carried& carried = body.weapons[static_cast<std::size_t>(body.weapon)];
 
     const bool scalesCount = mode.charge && mode.charge->scales == ChargeScales::Count;
     const double damageScale = mode.charge && !scalesCount ? scale : 1;
-    const Vec3 start = startOf(body, mode);
+    const Vec3 start = startOf(body, mode, second);
     // A charge paid at its press and its steps (Game.cpp's fireBody).
     const std::uint32_t spend = mode.charge ? 0 : mode.ammo;
 
     switch (mode.archetype) {
     case Archetype::InstantHit: {
         carried.ammo -= spend;
-        const std::uint32_t spread = spreadOf(body, mode);
+        const std::uint32_t spread = spreadOf(body, mode, second);
         for (std::uint32_t pellet = 0; pellet < mode.pellets; ++pellet) {
             const Vec3 aim = spreadAim(tick.game, body.yaw, body.pitch, spread);
             const Vec3 end = start + aim * mode.range;
@@ -381,6 +433,7 @@ void fire(Tick& tick, int index, const FireMode& mode, double scale) {
             const double push = mode.rule == FireRule::Hammer ? std::max(effect, 1.0) : effect;
             tick.owed.push_back(Owed{index, mode.selfDamage * distance, aim * (-mode.selfMomentum * push), index});
         }
+        if (mode.deflectRadius > 0) deflect(tick, body, mode);
         break;
     }
     case Archetype::Projectile: {
@@ -393,9 +446,15 @@ void fire(Tick& tick, int index, const FireMode& mode, double scale) {
             carried.ammo -= mode.ammo * (count - 1);
         }
         carried.ammo -= spend;
-        const std::uint32_t kind = static_cast<std::uint32_t>(
-            std::ranges::find(tick.set.projectiles, mode.projectile, &Projectile::name) - tick.set.projectiles.begin());
+        // UT_Eightball.FireRockets: locked on, every rocket seeks.
+        const bool locked = !mode.lockProjectile.empty() && body.lockTarget >= 0;
+        const std::string& name = locked ? mode.lockProjectile : mode.projectile;
+        const auto kind = static_cast<std::uint32_t>(
+            std::ranges::find(tick.set.projectiles, name, &Projectile::name) - tick.set.projectiles.begin());
+        const std::size_t first = tick.spawned.size();
         launchAll(tick, index, mode, kind, count, start, damageScale);
+        if (locked)
+            for (std::size_t i = first; i < tick.spawned.size(); ++i) tick.spawned[i].seeking = body.lockTarget;
         break;
     }
     case Archetype::Beam: beam(tick, index, mode); break;

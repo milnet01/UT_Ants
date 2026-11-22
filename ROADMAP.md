@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=497 -->
+<!-- ants-roadmap-id-high-water: UTA=500 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -21477,10 +21477,13 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-11-11.
   Lanes: ugame, uaudio.
 
-- 📋 [UTA-0468] **The stock weapons' remaining behaviours: rocket lock-on, double Enforcers, the hammer turning projectiles away.**
+- 🚧 [UTA-0468] **The stock weapons' remaining behaviours: rocket lock-on, double Enforcers, the hammer turning projectiles away.**
   Left out of UTA-0019 to keep that item one size
   (docs/specs/UTA-0019-weapon-set.md § 9). Each is checked against
   recordings of the original, as UTA-0019's INV-6 does.
+  Double Enforcers (user, 2026-11-22): until pickups exist (UTA-0027),
+  a key in walking mode hands the player a second Enforcer, as the dummy
+  key drops a dummy. Pickups give it properly later.
   **Layman:** Three finer UT99 weapon tricks left out of the first weapon set.
   Kind: implement.
   Source: user-request-2026-11-11.
@@ -21889,6 +21892,46 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: feature.
   Source: in-session-2026-11-20.
   Lanes: uworld, ugame, ubundle.
+
+- 📋 [UTA-0498] **A rocket striking the player meets it about 17 units sooner in the original than our hit rule says.**
+  Found building UTA-0468 (2026-11-22). Run hammer-deflect-high with
+  end 1.5 (UTA-0468's recordings, weapons/r468e in the UT_Ants
+  scratchpad): a rocket flying straight at the player (UTARecPawn)
+  strikes it at y 876.27, where our rule (0.4 of the radius past the
+  cylinder, SS 4.9) puts the blast at about 893.5. The push differs by
+  2 unit/s at 30, 85 and 120 fps. UTA-0019's rocket pushes were
+  recorded on UTARecTarget, a plain Pawn, so the player may be met
+  differently. The run now ends before the hit.
+  **Layman:** When a rocket hits you directly, the blast should go off exactly where the original's does.
+  Kind: fix.
+  Source: in-session-2026-11-22.
+  Lanes: ugame.
+
+- 📋 [UTA-0499] **Replay the switch runs' flights: their shots were never compared.**
+  Found building UTA-0468 (2026-11-22). RealWeaponTest judged every
+  switch-* run by the weapon in hand at the start, the Enforcer, so its
+  random-hit branch returned before any shot's flight was compared.
+  Judged by the raised weapon, switch-pulse's plasma starts 1.55 to
+  1.73 units off at every rate, and switch-bio at 30 fps leaves 4 gel
+  unmatched. UTA-0468 judges only switch runs with a target by the
+  raised weapon. Fix the two, then judge every switch run so.
+  **Layman:** Check that shots fired just after switching weapons fly exactly as the original's do.
+  Kind: fix.
+  Source: in-session-2026-11-22.
+  Lanes: ugame.
+
+- 📋 [UTA-0500] **ut-paths: a gap's break line from the start network runs through solid, so sampling it never meets the water beside it.**
+  UT_MonsterHunt, 2026-11-22: gaps' break lines from the start
+  network run through solid ("outside" in ut-dump --zone-at) rather
+  than through the water, so sampling the line alone never sees the
+  water. Their autofix samples a 128 grid around the line's ends
+  instead, which fixed MH-Canals and MH-Kuratorium (their ea76ff1,
+  GAME-0284). Find whether a break line should follow open space, or
+  say in the output that it is a straight join between two nodes.
+  **Layman:** The route checker's report of where a map's paths break should point through open space a player could use, not straight through rock.
+  Kind: investigate.
+  Source: ut-monsterhunt-request-2026-11-22.
+  Lanes: unav.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 

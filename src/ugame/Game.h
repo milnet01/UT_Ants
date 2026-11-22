@@ -44,6 +44,7 @@ inline constexpr double WHEEL_TIME_SCALE = 0.2;
 struct Carried {
     bool has = false;
     std::uint32_t ammo = 0;
+    bool doubled = false; ///< UTA-0468: a second copy is carried too (Weapon::doubleDelay)
     bool operator==(const Carried&) const = default;
 };
 
@@ -76,6 +77,19 @@ struct Body {
     bool fireHeld = false, altHeld = false;
     bool human = false; ///< a person plays it; a dummy or a bot does not (UTA-0020 SS 4.3)
     double painClock = -1; ///< UTA-0493 SS 4.5: seconds to a pain zone's next hit; below 0 stopped
+    // UTA-0468: a locking weapon's look for a target (FireMode::lockProjectile).
+    bool lockLooking = false; ///< the weapon in hand is idle and looking
+    double lockClock = 0;     ///< seconds since its last look
+    int lockCandidate = -1;   ///< the body its last look found; -1 for none
+    int lockTarget = -1;      ///< the body it is locked on; -1 for none
+    // UTA-0468: a doubled weapon's second gun (Weapon::doubleDelay).
+    double secondDue = -1;     ///< seconds until the first gun's shot sets it off; below 0 none due
+    int secondDueMode = -1;    ///< 0 primary, 1 alt: what it is set off to fire
+    double secondRefire = 0;   ///< seconds until it may fire again
+    int secondWinding = -1;    ///< 0 primary, 1 alt, while its wind-up runs; else -1
+    double secondWind = 0;     ///< seconds until that wind-up's shot
+    int secondHolding = -1;    ///< 0 primary, 1 alt: a mode it repeats while that trigger is held; else -1
+    std::uint32_t secondBurst = 0; ///< its shots since it was last set off
 
     [[nodiscard]] bool alive() const { return health > 0; }
 };
@@ -92,6 +106,9 @@ struct Shot {
     std::uint32_t bounces = 0;
     bool stuck = false;
     double damageScale = 1; ///< a charge's
+    int seeking = -1;       ///< UTA-0468: the body it seeks; -1 for none
+    double seekClock = 0;   ///< seconds since its last turn
+    Vec3 seekFrom{};        ///< the way it flew at its first turn; zero before it
     bool operator==(const Shot&) const = default;
 };
 

@@ -184,6 +184,7 @@ static_assert(int(uta::uinput::Key::A) == SDL_SCANCODE_A && int(uta::uinput::Key
               int(uta::uinput::Key::H) == SDL_SCANCODE_H && int(uta::uinput::Key::P) == SDL_SCANCODE_P &&
               int(uta::uinput::Key::Q) == SDL_SCANCODE_Q &&
               int(uta::uinput::Key::S) == SDL_SCANCODE_S && int(uta::uinput::Key::W) == SDL_SCANCODE_W &&
+              int(uta::uinput::Key::Y) == SDL_SCANCODE_Y &&
               int(uta::uinput::Key::T) == SDL_SCANCODE_T && int(uta::uinput::Key::N1) == SDL_SCANCODE_1 &&
               int(uta::uinput::Key::N2) == SDL_SCANCODE_2 && int(uta::uinput::Key::N3) == SDL_SCANCODE_3 &&
               int(uta::uinput::Key::N4) == SDL_SCANCODE_4 && int(uta::uinput::Key::N5) == SDL_SCANCODE_5 &&
@@ -651,6 +652,7 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
             if (input.wasPressed(uta::uinput::Action::DropDummy))
                 std::cerr << (viewer.walker->dummies() > dummies ? "ut-ants: a dummy stands ahead\n"
                                                                  : "ut-ants: no room for a dummy here\n");
+            if (input.wasPressed(uta::uinput::Action::SecondGun)) std::cerr << "ut-ants: two Enforcers\n";
             view = viewer.walker->view(camera.fov(), viewer.config.width, viewer.config.height);
             // UTA-0020 SS 3 item 4: what the game simulates slows with it.
             viewer.standIns.advance(viewer.walker->gameSeconds(), viewer.walker->events());

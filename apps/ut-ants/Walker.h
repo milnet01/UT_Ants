@@ -181,6 +181,7 @@ private:
     [[nodiscard]] ugame::Body armed(const Spawn& at) const;
     void respawn();
     void dropDummy(const uworld::BodyWorld& world);
+    void secondGun();
     void zoomBy(bool altFire, double seconds) noexcept;
 };
 

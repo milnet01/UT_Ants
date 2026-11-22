@@ -55,6 +55,9 @@ range = 180                # script: ImpactHammer.TraceAltFire
 distance-scale = 180       # script: ImpactHammer.ProcessAltTraceHit
 self-momentum = 40000      # script: ImpactHammer.ProcessAltTraceHit, a surface, x distance / 180
 self-damage = 24           # script: ImpactHammer.ProcessAltTraceHit, a surface, x distance / 180
+deflect-radius = 550       # script: ImpactHammer.TraceAltFire, shots this near the firer are pushed aside
+deflect-cone = 0.9         # script: ImpactHammer.TraceAltFire, only those this close to the aim
+deflect-push = 750         # script: ImpactHammer.TraceAltFire, along the right, less the shot's distance
 sound = botpack.asmd.impactfire  # default: ImpactHammer.AltFireSound; script: ImpactHammer.PlayAltFiring
 
 [weapon chainsaw]
@@ -96,6 +99,7 @@ slot = 2                   # default: Enforcer.InventoryGroup
 ammo-max = 199             # default: Miniammo.MaxAmmo
 ammo-start = 30            # default: Enforcer.PickupAmmoCount
 switch-time = 1.02         # recorded: from the Shock Rifle, key to first shot
+double-delay = 0.2         # script: Enforcer.NormalFire and AltFiring set the slave off 0.2 s on; recorded
 select-sound = botpack.enforcer.cocking  # default: Enforcer.SelectSound
 
 [fire enforcer primary]
@@ -104,6 +108,7 @@ offset = 3.3 5.5 -4.4      # SS 4.9: PlayerViewOffset plus the class's FireOffse
 refire = 0.4               # recorded at 30 fps only
 ammo = 1
 spread = 104               # script: Weapon.TraceFire, accuracy 0.2 over 10000
+double-spread = 390        # script: Enforcer.TraceFire, two guns' accuracy 3 x 0.2, at least 0.75
 damage = 17                # SS 4.9: Enforcer.HitDamage
 momentum = 3000            # SS 4.9
 push-chance = 0.2          # SS 4.9: one hit in five
@@ -120,6 +125,9 @@ ammo = 1
 spread = 208               # script: Enforcer.AltFire, accuracy 0.4 over 10000
 spread-grow = 260          # script: Enforcer.AltFiring, accuracy 0.5 more a shot
 spread-max = 1756          # script: Enforcer.AltFiring, accuracy 3.4 at most
+double-spread = 624        # script: Enforcer.TraceFire, two guns' accuracy 3 x 0.4
+double-spread-grow = 780   # script: 3 x 0.5 more a shot
+double-spread-max = 1553   # script: Enforcer.TraceFire, two guns' accuracy at most 3
 damage = 17                # SS 4.9: Enforcer.HitDamage
 momentum = 3000            # SS 4.9
 push-chance = 0.2          # SS 4.9: one hit in five
@@ -334,6 +342,10 @@ charge-step-last = 0.833   # recorded: the sixth's, past 4.431 and by 4.435 s of
 charge-scales = count
 projectile = rocket
 count = 6                  # script: UT_Eightball loads at most six; recorded
+lock-projectile = seeking-rocket  # script: UT_Eightball.FireRockets, locked on, UT_SeekingRocket; recorded
+lock-every = 1.25          # script: UT_Eightball's Idle state looks every 1.25 s; recorded
+lock-aim = 0.93            # script: UT_Eightball.CheckTarget's PickTarget, the aim within 0.93
+lock-range = 2000          # unconfirmed: Pawn.PickTarget is native, outside the exported script; no run tests it
 sound = unrealshare.eightball.ignite  # script: UT_Eightball plays RocketMk2.SpawnSound as the rockets leave
 
 [fire rocket-launcher alt]
@@ -494,6 +506,20 @@ strike = explode
 acceleration = 50          # SS 4.9: RocketMk2
 max-speed = 1600           # default: RocketMk2.MaxSpeed
 sound = unrealshare.general.explo1  # script: RocketMk2.BlowUp spawns UT_SpriteBallExplosion, whose EffectSound1 this is
+
+[projectile seeking-rocket]
+speed = 900                # default: UT_SeekingRocket, as RocketMk2
+radius = 0
+lifetime = 10              # default: UT_SeekingRocket.LifeSpan
+damage = 75                # default: as RocketMk2; recorded
+momentum = 80000           # default: as RocketMk2
+splash-radius = 220        # script: RocketMk2.Explode
+strike = explode
+acceleration = 50          # SS 4.9: RocketMk2
+max-speed = 1600           # default: RocketMk2.MaxSpeed
+seek-every = 0.1           # script: UT_SeekingRocket.PostBeginPlay; recorded
+seek-acceleration = 25     # script: UT_SeekingRocket.Timer
+sound = unrealshare.general.explo1  # script: as RocketMk2.BlowUp
 
 [projectile grenade]
 speed = 650                # SS 4.9: UT_Grenade, 600 + FRand() * 100

@@ -9,6 +9,10 @@
 // run (UTA-0019 SS 4.7) adds parts before its steps: "aim <pitch>", "weapon
 // <class>" (in hand before tick 0), "switch <class>" (carried; N raises it)
 // and "target <distance>" (a UTARecTarget that far ahead along the yaw).
+// UTA-0468 adds "side <units>" (the target that far to the right as well),
+// "give <class>" (a second copy, picked up as from the floor once the first
+// is in hand) and "incoming <class>" (the target launches one at the player
+// on tick 0).
 //
 // Log lines (format 1; docs/specs/UTA-0456-movement-recorder.md section 4.5):
 //   UTAREC 1 BEGIN run=<name> map=<map> rate=<cap> pose=<x>,<y>,<z>,<yaw>
@@ -56,6 +60,9 @@ var string WeaponClass;   // in hand before tick 0; "" for a movement run
 var string SwitchClass;   // carried too, raised by N
 var float TargetDist;     // a target this far ahead; 0 for none
 var UTARecTarget Target;
+var float TargetSide;     // the target this far right of the line ahead
+var string GiveClass;     // a second copy picked up after the first; "" for none
+var string IncomingClass; // a projectile the target launches at the player on tick 0; "" for none
 
 // The next space-separated field of S, which loses it.
 function string NextField(out string S)
@@ -115,6 +122,9 @@ function bool ParseRun(string Line)
 	WeaponClass = "";
 	SwitchClass = "";
 	TargetDist = 0;
+	TargetSide = 0;
+	GiveClass = "";
+	IncomingClass = "";
 	while (Line != "")
 	{
 		Part = NextPart(Line);
@@ -129,6 +139,12 @@ function bool ParseRun(string Line)
 			SwitchClass = NextField(Part);
 		else if (Head == "target")
 			TargetDist = float(NextField(Part));
+		else if (Head == "side")
+			TargetSide = float(NextField(Part));
+		else if (Head == "give")
+			GiveClass = NextField(Part);
+		else if (Head == "incoming")
+			IncomingClass = NextField(Part);
 		else if (Steps < MaxSteps)
 		{
 			StepTime[Steps] = float(Head);
@@ -211,7 +227,55 @@ function bool Equip(UTARecPawn P)
 		return true;
 	if (Give(P, WeaponClass, true) == None)
 		return false;
+	if (GiveClass != "" && !PickUp(P, GiveClass))
+		return false;
 	return SwitchClass == "" || Give(P, SwitchClass, false) != None;
+}
+
+// A second copy of a carried weapon, offered as a pickup is
+// (Inventory.Touch's HandlePickupQuery); the Enforcer becomes two. Ammo is
+// filled again afterwards, as Give fills it.
+function bool PickUp(UTARecPawn P, string ClassName)
+{
+	local class<Weapon> C;
+	local Weapon W;
+
+	C = class<Weapon>(DynamicLoadObject(ClassName, class'Class'));
+	if (C == None || P.Inventory == None)
+		return false;
+	W = P.Spawn(C);
+	if (W == None)
+		return false;
+	W.RespawnTime = 0.0;
+	if (!P.Inventory.HandlePickupQuery(W))
+		return false;
+	if (W != None && !W.bDeleteMe)
+		W.Destroy();
+	if (P.Weapon != None && P.Weapon.AmmoType != None)
+		P.Weapon.AmmoType.AmmoAmount = P.Weapon.AmmoType.MaxAmmo;
+	return true;
+}
+
+// The target launches IncomingClass at the player's centre, from just
+// outside its own cylinder.
+function LaunchIncoming(UTARecPawn P)
+{
+	local class<Projectile> C;
+	local vector Dir;
+	local Projectile Pr;
+
+	if (IncomingClass == "" || Target == None)
+		return;
+	C = class<Projectile>(DynamicLoadObject(IncomingClass, class'Class'));
+	if (C == None)
+	{
+		log("UTAREC SKIP "$RunName$" no projectile "$IncomingClass);
+		return;
+	}
+	Dir = Normal(P.Location - Target.Location);
+	Pr = Target.Spawn(C, Target,, Target.Location + 30 * Dir, rotator(Dir));
+	if (Pr != None)
+		Pr.Instigator = Target;
 }
 
 // N: put down the weapon in hand and raise the carried one, as a number key does.
@@ -238,7 +302,8 @@ function bool PlaceTarget()
 	Target = None;
 	if (TargetDist <= 0)
 		return true;
-	At = Pose + TargetDist * vector(rot(0,1,0) * PoseYaw);
+	At = Pose + TargetDist * vector(rot(0,1,0) * PoseYaw)
+		+ TargetSide * vector(rot(0,1,0) * ((PoseYaw + 16384) & 65535));
 	Target = Spawn(class'UTARecTarget',,, At, rot(0,1,0) * ((PoseYaw + 32768) & 65535));
 	if (Target == None)
 		return false;
@@ -252,6 +317,9 @@ function bool Ready(UTARecPawn P)
 	if (P.Physics != PHYS_Walking || VSize(P.Velocity) >= 1 || P.DodgeDir != DODGE_None)
 		return false;
 	if (WeaponClass != "" && (P.Weapon == None || !P.Weapon.IsInState('Idle')))
+		return false;
+	if (Enforcer(P.Weapon) != None && Enforcer(P.Weapon).SlaveEnforcer != None
+		&& !Enforcer(P.Weapon).SlaveEnforcer.IsInState('Idle'))
 		return false;
 	return Target == None || (Target.Physics == PHYS_Walking && VSize(Target.Velocity) < 1);
 }
@@ -415,7 +483,8 @@ function string InputTick(UTARecPawn P, float DeltaTime)
 				log("UTAREC 1 BEGIN run="$RunName$" map="$MapName$" rate="$Rate$" pose="$Pose.X$","$Pose.Y$","$Pose.Z$","$PoseYaw);
 			else
 				log("UTAREC 1 BEGIN run="$RunName$" map="$MapName$" rate="$Rate$" pose="$Pose.X$","$Pose.Y$","$Pose.Z$","$PoseYaw
-					$" aim="$AimPitch$" weapon="$WeaponClass$" switch="$SwitchClass$" target="$TargetDist);
+					$" aim="$AimPitch$" weapon="$WeaponClass$" switch="$SwitchClass$" target="$TargetDist
+					$" side="$TargetSide$" give="$GiveClass$" incoming="$IncomingClass);
 			log("UTAREC 1 PAWN class="$P.Class.Name$" GroundSpeed="$P.GroundSpeed$" AirSpeed="$P.AirSpeed
 				$" AccelRate="$P.AccelRate$" JumpZ="$P.JumpZ$" AirControl="$P.AirControl$" MaxStepHeight="$P.MaxStepHeight
 				$" CollisionRadius="$P.CollisionRadius$" CollisionHeight="$P.CollisionHeight$" DodgeClickTime="$P.DodgeClickTime
@@ -434,7 +503,10 @@ function string InputTick(UTARecPawn P, float DeltaTime)
 
 	// Phase 2: running. Tick 0 is the first tick after the player settled.
 	if (Tick == 0)
+	{
 		StartTime = Level.TimeSeconds;
+		LaunchIncoming(P);
+	}
 	if (Level.TimeSeconds - StartTime >= EndTime)
 	{
 		log("UTAREC 1 END run="$RunName$" ticks="$Tick);

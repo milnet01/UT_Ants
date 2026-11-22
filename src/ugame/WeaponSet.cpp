@@ -219,6 +219,8 @@ Result<void> readWeapon(Weapon& weapon, Keys& keys) {
     UTA_TRY(weapon.ammoStart, ini::numberOf(FORMAT, start->value, weapon.ammoMax, start->line));
     UTA_TRY(const std::optional<double> switchTime, keys.decimal("switch-time", true, 0, TIME_MAX));
     weapon.switchTime = *switchTime;
+    UTA_TRY(const std::optional<double> doubleDelay, keys.decimal("double-delay", false, 0, TIME_MAX));
+    weapon.doubleDelay = doubleDelay.value_or(0);
     UTA_TRY(weapon.selectSound, keys.sound("select-sound"));
     return keys.finish(std::format("[weapon {}]", weapon.name));
 }
@@ -285,6 +287,15 @@ Result<void> readFire(FireMode& mode, Keys& keys) {
     }
     UTA_TRY(const std::optional<Triple> offset, keys.triple("offset", OFFSET_MAX));
     mode.offset = offset.value_or(Triple{});
+    UTA_TRY(const std::optional<std::uint32_t> doubleSpread, keys.number("double-spread", false, 0, SPREAD_MAX));
+    mode.doubleSpread = doubleSpread.value_or(mode.spread);
+    UTA_TRY(const std::optional<std::uint32_t> doubleGrow, keys.number("double-spread-grow", false, 0, SPREAD_MAX));
+    mode.doubleSpreadGrow = doubleGrow.value_or(mode.spreadGrow);
+    if (mode.doubleSpreadGrow > 0) {
+        UTA_TRY(const std::optional<std::uint32_t> max,
+                keys.number("double-spread-max", !mode.spreadGrow, mode.doubleSpread, SPREAD_MAX));
+        mode.doubleSpreadMax = max.value_or(mode.spreadMax);
+    }
     UTA_CHECK(readCharge(mode, keys));
     UTA_TRY(const std::optional<Entry> rule, keys.take("rule", false));
     if (rule) {
@@ -305,6 +316,17 @@ Result<void> readFire(FireMode& mode, Keys& keys) {
         mode.spiralRadius = spiral.value_or(0);
         UTA_TRY(const std::optional<std::uint32_t> turn, keys.number("spiral-turn", false, 0, 65535));
         mode.spiralTurn = turn.value_or(0);
+        UTA_TRY(const std::optional<std::string> lock, keys.name("lock-projectile", false));
+        mode.lockProjectile = lock.value_or("");
+        // Read only beside a lock: without one they are keys the mode does not have.
+        if (!mode.lockProjectile.empty()) {
+            UTA_TRY(const std::optional<double> every, keys.decimal("lock-every", true, 0.001, TIME_MAX));
+            mode.lockEvery = *every;
+            UTA_TRY(const std::optional<double> aim, keys.decimal("lock-aim", true, -1, 1));
+            mode.lockAim = *aim;
+            UTA_TRY(const std::optional<double> range, keys.decimal("lock-range", true, 1, DISTANCE_MAX));
+            mode.lockRange = *range;
+        }
     } else {
         UTA_TRY(const std::optional<double> damage, keys.decimal("damage", true, 0, AMOUNT_MAX));
         mode.damage = *damage;
@@ -354,6 +376,15 @@ Result<void> readFire(FireMode& mode, Keys& keys) {
         mode.reach = reach.value_or(0);
         UTA_TRY(const std::optional<double> scale, keys.decimal("distance-scale", false, 0, DISTANCE_MAX));
         mode.distanceScale = scale.value_or(0);
+        UTA_TRY(const std::optional<double> deflect, keys.decimal("deflect-radius", false, 0, DISTANCE_MAX));
+        mode.deflectRadius = deflect.value_or(0);
+        // Read only beside a radius: without one they are keys the mode does not have.
+        if (mode.deflectRadius > 0) {
+            UTA_TRY(const std::optional<double> cone, keys.decimal("deflect-cone", true, -1, 1));
+            mode.deflectCone = *cone;
+            UTA_TRY(const std::optional<double> push, keys.decimal("deflect-push", true, 0, DISTANCE_MAX));
+            mode.deflectPush = *push;
+        }
     }
     UTA_TRY(mode.sound, keys.sound("sound"));
     UTA_TRY(mode.loopSound, keys.sound("loop-sound"));
@@ -416,6 +447,13 @@ Result<void> readProjectile(Projectile& projectile, Keys& keys, std::size_t head
     }
     UTA_TRY(const std::optional<std::string> combo, keys.name("combo", false));
     projectile.combo = combo.value_or("");
+    UTA_TRY(const std::optional<double> seekEvery, keys.decimal("seek-every", false, 0, TIME_MAX));
+    projectile.seekEvery = seekEvery.value_or(0);
+    if (projectile.seekEvery > 0) {
+        UTA_TRY(const std::optional<double> seekAcceleration,
+                keys.decimal("seek-acceleration", true, 0, DISTANCE_MAX));
+        projectile.seekAcceleration = *seekAcceleration;
+    }
     UTA_TRY(projectile.sound, keys.sound("sound"));
 
     UTA_TRY(const std::optional<Entry> strike, keys.take("strike", true));
@@ -515,6 +553,7 @@ Result<WeaponSet> parse(std::string_view text) {
             UTA_CHECK(readFire(*open->fire, keys));
             if (open->fire->archetype == Archetype::Projectile)
                 projectileRefs.emplace_back(open->fire->projectile, heading);
+            if (!open->fire->lockProjectile.empty()) projectileRefs.emplace_back(open->fire->lockProjectile, heading);
             break;
         }
         case SectionKind::Projectile: {
@@ -595,6 +634,12 @@ Result<WeaponSet> parse(std::string_view text) {
     UTA_CHECK(close());
 
     if (!setLine) return refuse(1, "the weapon set has no [set] section");
+    // A second gun copies a shot or a wind-up; a charge or a beam it cannot.
+    for (const Weapon& weapon : set.weapons)
+        for (const FireMode* mode : {&weapon.primary, weapon.alt ? &*weapon.alt : nullptr})
+            if (weapon.doubleDelay > 0 && mode != nullptr && (mode->charge || mode->archetype == Archetype::Beam))
+                return refuse(*weaponLines.find(weapon.name),
+                              std::format("[weapon {}] doubles, but a fire of it charges or is a beam", weapon.name));
     for (const Weapon& weapon : set.weapons)
         if (weapon.primary.refire <= 0)
             return refuse(*weaponLines.find(weapon.name), std::format("[weapon {}] has no [fire {} primary]",
@@ -622,6 +667,8 @@ std::string fireText(std::string_view weapon, std::string_view which, const Fire
                                   decimal(mode.windUp), mode.ammo, mode.pressAmmo, mode.spread,
                                   decimal(mode.offset[0]), decimal(mode.offset[1]), decimal(mode.offset[2]));
     if (mode.spreadGrow > 0) out += std::format("spread-grow = {}\nspread-max = {}\n", mode.spreadGrow, mode.spreadMax);
+    out += std::format("double-spread = {}\ndouble-spread-grow = {}\n", mode.doubleSpread, mode.doubleSpreadGrow);
+    if (mode.doubleSpreadGrow > 0) out += std::format("double-spread-max = {}\n", mode.doubleSpreadMax);
     if (mode.windUp > 0)
         out += std::format("repress = {}\nspin-up = {}\n", decimal(mode.repress), decimal(mode.spinUp));
     if (mode.spinUp > 0) out += std::format("spin-refire = {}\n", decimal(mode.spinRefire));
@@ -638,6 +685,10 @@ std::string fireText(std::string_view weapon, std::string_view which, const Fire
     if (mode.archetype == Archetype::Projectile) {
         out += std::format("projectile = {}\ncount = {}\nspiral-radius = {}\nspiral-turn = {}\n", mode.projectile,
                            mode.count, decimal(mode.spiralRadius), mode.spiralTurn);
+        if (!mode.lockProjectile.empty())
+            out += std::format("lock-projectile = {}\nlock-every = {}\nlock-aim = {}\nlock-range = {}\n",
+                               mode.lockProjectile, decimal(mode.lockEvery), decimal(mode.lockAim),
+                               decimal(mode.lockRange));
         return out;
     }
     out += std::format("damage = {}\nmomentum = {}\nrange = {}\n", decimal(mode.damage), decimal(mode.momentum),
@@ -658,6 +709,9 @@ std::string fireText(std::string_view weapon, std::string_view which, const Fire
                            decimal(mode.momentumSide), RANGE_FROM_NAMES[mode.rangeFromBody ? 1 : 0],
                            decimal(mode.selfMomentum), decimal(mode.selfDamage), decimal(mode.reach),
                            decimal(mode.distanceScale));
+    if (mode.archetype == Archetype::Melee && mode.deflectRadius > 0)
+        out += std::format("deflect-radius = {}\ndeflect-cone = {}\ndeflect-push = {}\n", decimal(mode.deflectRadius),
+                           decimal(mode.deflectCone), decimal(mode.deflectPush));
     return out;
 }
 
@@ -669,9 +723,10 @@ std::string write(const WeaponSet& set) {
                                   FORMAT.header, WEAPON_SET_VERSION, ini::quotedIfNeeded(set.name, true),
                                   decimal(set.selfDamage), decimal(set.headHeight), decimal(set.damageScale));
     for (const Weapon& weapon : set.weapons) {
-        out += std::format("\n[weapon {}]\nclass = {}\nslot = {}\nammo-max = {}\nammo-start = {}\nswitch-time = {}\n",
+        out += std::format("\n[weapon {}]\nclass = {}\nslot = {}\nammo-max = {}\nammo-start = {}\nswitch-time = {}\n"
+                           "double-delay = {}\n",
                            weapon.name, weapon.className, weapon.slot, weapon.ammoMax, weapon.ammoStart,
-                           decimal(weapon.switchTime));
+                           decimal(weapon.switchTime), decimal(weapon.doubleDelay));
         out += soundText("select-sound", weapon.selectSound);
         out += fireText(weapon.name, "primary", weapon.primary);
         if (weapon.alt) out += fireText(weapon.name, "alt", *weapon.alt);
@@ -694,6 +749,9 @@ std::string write(const WeaponSet& set) {
                            SPLASH_FROM_NAMES[projectile.splashFromMoved ? 1 : 0],
                            BODY_HIT_NAMES[projectile.bodyDirect ? 1 : 0], decimal(projectile.splashUpMax),
                            decimal(projectile.splashRadiusMax));
+        if (projectile.seekEvery > 0)
+            out += std::format("seek-every = {}\nseek-acceleration = {}\n", decimal(projectile.seekEvery),
+                               decimal(projectile.seekAcceleration));
         switch (projectile.strike) {
         case Strike::Explode: break;
         case Strike::Bounce:

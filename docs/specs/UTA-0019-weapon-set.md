@@ -241,6 +241,16 @@ velocity along the aim. Each `-random` key draws a uniform value within
 ± its value: `speed-random` and `lifetime-random` about their key, and
 `turn-random` for both the yaw and the pitch.
 
+UTA-0468's keys. A melee mode's `deflect-radius`, `deflect-cone` and
+`deflect-push` turn shots in flight aside (§ 4.9, Hammer). A projectile
+mode's `lock-projectile` names the kind it fires once locked on a body,
+with `lock-every`, `lock-aim` and `lock-range` (§ 4.9, Rockets). A
+projectile kind's `seek-every` and `seek-acceleration` steer it at the
+body it was fired at. A weapon's `double-delay` lets a second copy double
+it (§ 4.9, Enforcer); each of its modes may give `double-spread`,
+`double-spread-grow` and `double-spread-max`, the spread both guns use
+then. A weapon that doubles may not charge or beam.
+
 A new archetype is a code change; a new weapon built from existing
 archetypes is not. That is the line § 3 item 3 draws.
 
@@ -304,7 +314,11 @@ defaults where `upkg::effectiveDefaults` reads it. A comment on each
 line says which. A number the original decides by frame rate is
 recorded at more than one rate before it is trusted.
 
-The runs are `tools/ut-record/weapons.txt`. The target is
+The runs are `tools/ut-record/weapons.txt`. UTA-0468 adds three
+directives: `side`, the target that far to the right as well; `give`, a
+second copy picked up as from the floor; and `incoming`, a projectile
+the target launches at the player on tick 0, which the replay flies from
+its first recorded row. The target is
 `UTARecTarget`: a pawn the player's size, counted as a player and
 carrying an item, so its damage passes through hardcore's scaling as an
 armed opponent's does. A run at a missed frame rate (UTA-0456 INV-7)
@@ -331,6 +345,9 @@ there is trusted once a recording agrees.
   weapon pickups wait for the game modes (UTA-0027).
 - **A key drops a dummy** a few metres ahead, standing on the floor,
   with the player's size and health.
+- **Y, or the pad's down, doubles the Enforcer** (UTA-0468), as picking
+  up a second one does, with that one's ammo, until pickups exist
+  (UTA-0027; user, 2026-11-22).
 - **The sniper's zoom** narrows the view; it is the client's, not a tick
   input.
 
@@ -425,12 +442,26 @@ Botpack `DeathMatchPlus.ReduceDamage`):
   charge at least 1. Held past a charge of 1, a body 25 ahead fires it;
   the level never does. Recorded. Alt traces 180, scaled by distance ÷ 180: 20 and
   30000 to a body, 24 and 40000 to the firer off the level. Recorded:
-  1.01 s of charge gave 45.
+  1.01 s of charge gave 45. The alt also turns shots aside
+  (`ImpactHammer.TraceAltFire`): each in flight within 550 of the
+  firer's centre, in sight, whose direction from the centre has a cosine
+  above 0.9 with the aim, gains 750 less its distance along the firer's
+  right, to the side it already heads, and keeps its speed. A stuck shot
+  is left. Recorded 2026-11-22: a rocket straight ahead turned, one with
+  the aim 30 degrees up did not.
 - **Chainsaw:** one trace every 0.30 s while held, 20 damage, momentum
   15000 towards the firer. Alt is one slash, 110 damage and 10000,
   landing 0.3 s after the press. Recorded.
 - **Enforcer:** 17 damage, momentum 3000; one hit in five, momentum
-  15000. Alt fires repeatedly; its accuracy is 0.4 on the first shot
+  15000. A second one picked up doubles it (`Enforcer.HandlePickupQuery`):
+  the second gun fires 0.2 s after the first's shot, or after its alt's
+  press, from the other side, and then keeps its own cadence while that
+  trigger is held (`Weapon.Idle` fires again at once). Both guns share the
+  ammo, and both take accuracy 3 × theirs, from 0.75 to 3
+  (`Enforcer.TraceFire`): 390 angle units for the primary, and 624
+  growing 780 a shot to 1553 for the alt. Recorded 2026-11-22: the second
+  gun's first shot 0.2 s after the first's, then every 0.39 s, about
+  0.185 s after it. Alt fires repeatedly; its accuracy is 0.4 on the first shot
   and grows 0.5 a shot to 3.4, starting again at each press. Accuracy
   `a` scatters the aim up to `a` × 500 at 10000: in angle units 208,
   then 260 a shot, at most 1756 (`spread-grow`, `spread-max`).
@@ -470,6 +501,21 @@ Botpack `DeathMatchPlus.ReduceDamage`):
   Several grenades are each turned up to ±750 in pitch, yaw and roll. A
   rocket gains speed by 50 a second²; a grenade's speed, fuse and bounce
   are part random.
+  **Lock-on** (`UT_Eightball`'s Idle state): while idle, the launcher
+  looks for a target on going idle and then every 1.25 s, the time past
+  each look carried to the next (recorded). A look picks the live body
+  nearest the aim from the shot's start, with a cosine above 0.93, nearer
+  than 2000 and in sight of the eye (`Pawn.PickTarget`; the 2000 is
+  unconfirmed, the function being native). The same body twice running is
+  locked on. Each rocket loaded, and the firing, look again and drop a
+  lock that finds another; the grenades drop it. Locked, every rocket is a
+  seeking one (`UT_SeekingRocket`, 10 s of life): every 0.1 s of flight,
+  where its body lies ahead of the way it first flew, it turns half its
+  speed's worth towards it, keeping its speed, and accelerates at 25 along
+  its new heading. Recorded 2026-11-22: locked 1.25 s after going idle; a
+  rocket fired 14 degrees off a body turned at its third tick and struck
+  it; one fired before the lock flew straight. A body the level hides is
+  never locked (recorded: at 1000 ahead on DM-Deck16][, none was).
 - **Bio:** a gel is tossed with lift 120 and bursts after its fuse or on
   a body. In flight it bursts 3.1 to 3.3 s after launch (a 3 s timer,
   then `Exploding`'s 0.1 + FRand() × 0.2); landed, 3.8 s after landing.
@@ -531,14 +577,14 @@ linearly from the victim's edge, not its centre, as `Fire.cpp`'s
   original's. A launch a tick out flies frames of other lengths and
   reaches a body over other ticks, so its hits on a body are compared as
   one: damage summed, and the velocity after the last less the fall
-  between the first and the last. Five differences are allowed (user, 2026-11-13 and
-  2026-11-15):
+  between the first and the last. Five differences are allowed (user, 2026-11-13,
+  2026-11-15 and, for the Enforcer's primary, 2026-11-22):
   a blast at the firer's own feet may differ by 3 damage and 25 unit/s,
   because the original's player hovers 4.8 units over the floor and ours
   does not; the first shot after a switch may be two ticks out, because
   a switch stays one time for each weapon where the original has two
   waits; a mode whose original sleeps between shots (the Minigun's two,
-  the Enforcer's alt, the Pulse Gun's and the Chainsaw's primary) may
+  the Enforcer's two, the Pulse Gun's and the Chainsaw's primary) may
   fire one shot more or fewer in a run, each within three ticks, because
   our cadence does not move with the frame rate as the original's does;
   a stuck shot may rest within 3 units; and a body that moves onto a
@@ -581,7 +627,8 @@ linearly from the victim's edge, not its centre, as `Fire.cpp`'s
 
 `IniTextTest.cpp` for the moved reader; the recipe's existing tests
 unchanged. INV-1, INV-2 and INV-3 in `WeaponSetTest.cpp`. INV-4,
-INV-5, INV-7, INV-8 and INV-9 in `GameTest.cpp`, on hand-built levels. INV-6 in
+INV-5, INV-7, INV-8 and INV-9 in `GameTest.cpp`, on hand-built levels;
+UTA-0468's rules there too, by its id. INV-6 in
 `RealWeaponTest.cpp`, label `real`, reading the recordings
 `UTA_WEAPON_RECORDINGS` names, as `RealMovementTest.cpp` does. A
 `scripts/mutations/` file for `ugame` covers INV-4, INV-7, INV-8 and
@@ -608,8 +655,8 @@ animation and muzzle flashes (UTA-0467). Sounds are
 `docs/specs/UTA-0467-weapon-sounds.md`: its § 4.2 adds the sound keys to
 this file's format, and its § 4.3 adds `Game::cues` beside the events.
 Modern explosion effects (UTA-0470).
-Placed weapon and ammo pickups (UTA-0027). Rocket lock-on, double
-Enforcers and the hammer's alt-fire turning projectiles away (own item).
+Placed weapon and ammo pickups (UTA-0027). The launcher's tight wad, its
+alt held while loading.
 Choosing a set per map (UTA-0029). The weapon wheel (UTA-0020).
 Sending a set to a joining player (with networking). Armour.
 

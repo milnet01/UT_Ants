@@ -45,8 +45,10 @@ struct Tick {
 /// The eye of `body`.
 [[nodiscard]] Vec3 eyeOf(const Body& body);
 
-/// Where `mode`'s shot starts: the eye plus the mode's offset, turned by the aim.
-[[nodiscard]] Vec3 startOf(const Body& body, const FireMode& mode);
+/// Where `mode`'s shot starts: the eye plus the mode's offset, turned by the
+/// aim. A doubled weapon's second gun is held in the other hand: its offset
+/// to the right is mirrored (Enforcer.SetHand).
+[[nodiscard]] Vec3 startOf(const Body& body, const FireMode& mode, bool second = false);
 
 /// A projectile of kind `kind` leaving `at` along `yaw` and `pitch`, after
 /// the kind's own launch rules: its turn, speed and lifetime draws, its
@@ -81,8 +83,15 @@ void setOffCombo(Tick& tick, int shot, int instigator);
 /// SS 4.4: body `index` fires `mode` of its weapon in hand, its charge's
 /// effect `scale`, and spends its ammo. The caller has checked the weapon
 /// holds at least `mode.ammo` (INV-7): Game.cpp's fireBody, before a shot
-/// or a charge starts.
-void fire(Tick& tick, int index, const FireMode& mode, double scale);
+/// or a charge starts. `second`: a doubled weapon's second gun fires it,
+/// from its own side, its spread grown by its own shots (UTA-0468). A projectile mode
+/// with a lock fires its lock kind at `body.lockTarget` where it is set.
+void fire(Tick& tick, int index, const FireMode& mode, double scale, bool second = false);
+
+/// UTA-0468, Pawn.PickTarget: the live body other than `index` nearest
+/// `mode`'s aim from its start, within its lock-aim and lock-range, in
+/// sight of `index`'s eye; -1 for none.
+[[nodiscard]] int lockPick(const Tick& tick, int index, const FireMode& mode);
 
 /// SS 4.4's beam for one tick: ammo by the second, damage by the second.
 void beam(Tick& tick, int index, const FireMode& mode);

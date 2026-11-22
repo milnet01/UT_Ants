@@ -344,6 +344,28 @@ TEST_CASE("INV-1: each refusal names its line", "[ugame][weapons]") {
         {"an upward cap past 1", edited("splash-up-max = 0.45", "splash-up-max = 1.5"), "splash-up-max",
          "is not a number from 0 to 1"},
         {"a second [set]", edited("[weapon gun]", "[set]\n[weapon gun]"), "[set]\n[weapon gun]", "a second [set]"},
+        // UTA-0468
+        {"a lock key with no lock", edited("count = 4", "count = 4\nlock-every = 1"), "lock-every",
+         "has no key 'lock-every'"},
+        {"a lock with no lock-aim", edited("count = 4", "count = 4\nlock-projectile = ball\nlock-every = 1\nlock-range = 9"),
+         "[fire gun alt]", "has no `lock-aim`"},
+        {"a missing lock projectile",
+         edited("count = 4", "count = 4\nlock-projectile = bal\nlock-every = 1\nlock-aim = 0.9\nlock-range = 9"),
+         "[fire gun alt]", "there is no [projectile bal]"},
+        {"a lock on an instant hit", edited("pellets = 3", "pellets = 3\nlock-projectile = ball"), "lock-projectile",
+         "an instant-hit fire has no key 'lock-projectile'"},
+        {"a seek with no acceleration", edited("max-speed = 1600", "max-speed = 1600\nseek-every = 0.1"),
+         "[projectile ball]", "has no `seek-acceleration`"},
+        {"a deflection with no cone", edited("range-from = body", "range-from = body\ndeflect-radius = 550\ndeflect-push = 750"),
+         "[fire hammer primary]", "has no `deflect-cone`"},
+        {"a deflect key with no radius", edited("range-from = body", "range-from = body\ndeflect-push = 750"),
+         "deflect-push", "has no key 'deflect-push'"},
+        {"a deflection on a beam", edited("first-hit = 0.1", "first-hit = 0.1\ndeflect-radius = 550"), "deflect-radius",
+         "a beam fire has no key 'deflect-radius'"},
+        {"a doubled weapon that charges", edited("switch-time = 0\n", "switch-time = 0\ndouble-delay = 0.2\n"),
+         "[weapon hammer]", "doubles, but a fire of it charges or is a beam"},
+        {"a double spread-max under its spread", edited("spread-max = 1756", "spread-max = 1756\ndouble-spread = 500\ndouble-spread-max = 400"),
+         "double-spread-max", "double-spread-max is from 500 to"},
     };
     for (const Refusal& refusal : refusals) {
         CAPTURE(refusal.what);
@@ -355,6 +377,44 @@ TEST_CASE("INV-1: each refusal names its line", "[ugame][weapons]") {
         CHECK(message.starts_with(std::format("weapon set line {}: ", lineOf(refusal.text, refusal.at))));
         CHECK(message.find(refusal.says) != std::string::npos);
     }
+}
+
+TEST_CASE("UTA-0468: the stock lock, seek, deflection and double keys parse and read back", "[ugame][weapons]") {
+    const auto set = uta::ugame::load(uta::ugame::shippedDirectory() / "stock.weapons");
+    REQUIRE(set.has_value());
+    const auto weapon = [&set](std::string_view name) -> const uta::ugame::Weapon& {
+        const auto at = std::ranges::find(set->weapons, name, &uta::ugame::Weapon::name);
+        REQUIRE(at != set->weapons.end());
+        return *at;
+    };
+    const auto& rockets = weapon("rocket-launcher").primary;
+    CHECK(rockets.lockProjectile == "seeking-rocket");
+    CHECK(rockets.lockEvery == 1.25);
+    CHECK(rockets.lockAim == 0.93);
+    CHECK(rockets.lockRange == 2000);
+    CHECK(weapon("rocket-launcher").alt->lockProjectile.empty());
+    REQUIRE(set->projectile("seeking-rocket") != nullptr);
+    CHECK(set->projectile("seeking-rocket")->seekEvery == 0.1);
+    CHECK(set->projectile("seeking-rocket")->seekAcceleration == 25);
+    CHECK(set->projectile("rocket")->seekEvery == 0);
+    CHECK(weapon("impact-hammer").alt->deflectRadius == 550);
+    CHECK(weapon("impact-hammer").alt->deflectCone == 0.9);
+    CHECK(weapon("impact-hammer").alt->deflectPush == 750);
+    CHECK(weapon("impact-hammer").primary.deflectRadius == 0);
+    CHECK(weapon("enforcer").doubleDelay == 0.2);
+    CHECK(weapon("enforcer").primary.doubleSpread == 390);
+    CHECK(weapon("enforcer").primary.doubleSpreadGrow == 0);
+    CHECK(weapon("enforcer").alt->doubleSpread == 624);
+    CHECK(weapon("enforcer").alt->doubleSpreadGrow == 780);
+    CHECK(weapon("enforcer").alt->doubleSpreadMax == 1553);
+    // A mode with no double keys gives its second gun its own spread.
+    CHECK(weapon("minigun").primary.doubleSpread == weapon("minigun").primary.spread);
+    CHECK(weapon("minigun").doubleDelay == 0);
+
+    const std::string written = uta::ugame::write(*set);
+    const auto again = uta::ugame::parse(written);
+    REQUIRE(again.has_value());
+    CHECK(*again == *set);
 }
 
 TEST_CASE("INV-1: a weapon with no primary fire is refused at its heading", "[ugame][weapons]") {

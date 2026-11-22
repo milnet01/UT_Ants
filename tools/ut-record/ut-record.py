@@ -37,6 +37,9 @@ A weapon run (UTA-0019 section 4.7; weapons.txt) adds, before its first key line
     weapon <class>       in hand before the run starts, with full ammo
     switch <class>       carried too; the key N raises it
     target <distance>    a stand-in pawn this far ahead along the yaw
+    side <units>         that pawn this far to the right as well (UTA-0468)
+    give <class>         a second copy, picked up once the first is in hand
+    incoming <class>     the pawn launches one at the player on the first tick
 
 and the keys P (fire), A (alt fire) and N (switch weapon).
 
@@ -75,7 +78,7 @@ PACKAGE = "UTARec"
 MAX_RUNS = 64   # UTARec's Runs[64]; change both. More runs on a map take more launches.
 MAX_STEPS = 32  # UTARec's MaxSteps; change both
 KEYS = set("FBLRJDWPAN")
-DIRECTIVES = {"aim", "weapon", "switch", "target"}  # a weapon run's, before its keys
+DIRECTIVES = {"aim", "weapon", "switch", "target", "side", "give", "incoming"}  # a weapon run's, before its keys
 TIME_DILATION = 1.1  # hardcore mode (DeathMatchPlus.SetGameSpeed)
 # The game as shipped (spec section 4.4, INV-2): what each recording's PAWN line must show.
 SHIPPED = {"DodgeClickTime": 0.25, "AirControl": 0.35, "TimeDilation": TIME_DILATION, "Bots": 0}
@@ -125,7 +128,7 @@ def read_runs(path):
                 fail(f"{where}: {fields[0]} comes before run {run.name}'s first key line")
             if len(fields) != 2 or fields[0] in run.directives:
                 fail(f"{where}: one {fields[0]} <value> a run")
-            if fields[0] in ("aim", "target"):
+            if fields[0] in ("aim", "target", "side"):
                 float(fields[1])
             run.directives[fields[0]] = fields[1]
         elif fields[0] == "end":

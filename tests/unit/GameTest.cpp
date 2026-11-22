@@ -1363,6 +1363,271 @@ TEST_CASE("SS 4.9: the hammer's alt pushes by its hit's distance, counted into t
     CHECK(std::abs(push[0] / push[1] - distance[0] / distance[1]) < 1e-9);
 }
 
+TEST_CASE("UTA-0468: the hammer's alt turns shots near and ahead aside, keeping their speed", "[ugame][game]") {
+    const BodyWorld world = arena();
+    const WeaponSet& set = stock();
+    const FireMode& alt = *set.weapons[static_cast<std::size_t>(weaponNamed(set, "impact-hammer"))].alt;
+    REQUIRE(alt.deflectRadius > 0);
+    const auto rocket = static_cast<std::uint32_t>(
+        std::ranges::find(set.projectiles, "rocket", &Projectile::name) - set.projectiles.begin());
+    // A rocket at `at` flying `velocity`, with no acceleration of its own,
+    // and the velocity it has after one tick of the hammer's alt; and where
+    // the firer's centre stood as it fired, after the tick's move.
+    Vec3 centre{};
+    const auto after = [&](const Vec3& at, const Vec3& velocity) {
+        Game game = duel(set, "impact-hammer", 1500);
+        game.shots.push_back(Shot{.kind = rocket, .owner = 1, .location = at, .velocity = velocity, .previous = at,
+                                  .lifetime = 10});
+        hold(world, set, game, 1, true);
+        REQUIRE(game.shots.size() == 1);
+        centre = game.bodies[0].move.location;
+        return game.shots[0].velocity;
+    };
+    const double eye = STANDING + EYE_HEIGHT;
+    const auto pushedBy = [&](const Vec3& at) { return alt.deflectPush - uta::uworld::length(at - centre); };
+
+    // Ahead and heading a little right: pushed right, by the push less its
+    // distance from the firer's centre, at the same speed.
+    const Vec3 at{300, 20, eye};
+    const Vec3 v{-900, 50, 0};
+    const Vec3 got = after(at, v);
+    const Vec3 turned = v + Vec3{0, pushedBy(at), 0};
+    const Vec3 want = turned * (uta::uworld::length(v) / uta::uworld::length(turned));
+    CHECK(uta::uworld::length(got - want) < 1e-9);
+    CHECK(std::abs(uta::uworld::length(got) - uta::uworld::length(v)) < 1e-9);
+    // Heading a little left: pushed left.
+    CHECK(after(at, {-900, -50, 0}).y < -50);
+    // Outside the cone, or past the radius: untouched.
+    CHECK(after({300, 300, eye}, v) == v);
+    CHECK(after({alt.deflectRadius + 10, 0, eye}, v) == v);
+}
+
+TEST_CASE("UTA-0468: the hammer's alt turns aside no shot the level hides", "[ugame][game]") {
+    uta::ubundle::Collision collision;
+    collision.level = solidBlocks({box({-3000, -3000, -64}, {3000, 3000, 0}), box({100, -3000, 0}, {164, 3000, 600})});
+    auto built = BodyWorld::build(collision, {});
+    REQUIRE(built.has_value());
+    const WeaponSet& set = stock();
+    const auto rocket = static_cast<std::uint32_t>(
+        std::ranges::find(set.projectiles, "rocket", &Projectile::name) - set.projectiles.begin());
+    Game game = duel(set, "impact-hammer", 1500);
+    const Vec3 at{300, 0, STANDING + EYE_HEIGHT};
+    const Vec3 v{-900, 50, 0};
+    game.shots.push_back(Shot{.kind = rocket, .owner = 1, .location = at, .velocity = v, .previous = at, .lifetime = 10});
+    hold(*built, set, game, 1, true);
+    REQUIRE(game.shots.size() == 1);
+    CHECK(game.shots[0].velocity == v);
+}
+
+namespace {
+
+std::uint32_t kindNamed(const WeaponSet& set, std::string_view name) {
+    const auto at = std::ranges::find(set.projectiles, name, &Projectile::name);
+    REQUIRE(at != set.projectiles.end());
+    return static_cast<std::uint32_t>(at - set.projectiles.begin());
+}
+
+/// `ticks` idle ticks: nobody presses anything.
+void idle(const BodyWorld& world, const WeaponSet& set, Game& game, int ticks) {
+    std::vector<MoveCommand> commands(game.bodies.size());
+    commands[1].yaw = 32768;
+    for (int k = 0; k < ticks; ++k) tick(world, set, RULES, game, commands, DT);
+}
+
+/// Ticks of idle that pass the launcher's look-every once, and twice.
+int looksTicks(const WeaponSet& set, int looks) {
+    return static_cast<int>(std::ceil(looks * primaryOf(set, "rocket-launcher").lockEvery / DT)) + 1;
+}
+
+} // namespace
+
+TEST_CASE("UTA-0468: an idle launcher locks on a body in sight near its aim at its first look", "[ugame][game]") {
+    const BodyWorld world = arena();
+    const WeaponSet& set = stock();
+    Game game = duel(set, "rocket-launcher", 800);
+    // Its look on going idle finds the body; the look lock-every later finds
+    // it again, which locks it.
+    idle(world, set, game, looksTicks(set, 1) - 3);
+    CHECK(game.bodies[0].lockTarget == -1);
+    CHECK(game.bodies[0].lockCandidate == 1);
+    idle(world, set, game, 3);
+    CHECK(game.bodies[0].lockTarget == 1);
+    // A tap: the rocket it fires seeks the body.
+    hold(world, set, game, 1);
+    idle(world, set, game, 1);
+    REQUIRE(game.shots.size() == 1);
+    CHECK(game.shots[0].kind == kindNamed(set, "seeking-rocket"));
+    CHECK(game.shots[0].seeking == 1);
+}
+
+TEST_CASE("UTA-0468: a body that comes into view locks only at the second look that finds it", "[ugame][game]") {
+    const BodyWorld world = arena();
+    const WeaponSet& set = stock();
+    Game game = duel(set, "rocket-launcher", 800);
+    game.bodies[1].move.location = {700, 404, STANDING}; // off the aim as the launcher goes idle
+    idle(world, set, game, 2);
+    REQUIRE(game.bodies[0].lockCandidate == -1);
+    game.bodies[1].move.location = {800, 0, STANDING};
+    idle(world, set, game, looksTicks(set, 1));
+    CHECK(game.bodies[0].lockCandidate == 1);
+    CHECK(game.bodies[0].lockTarget == -1);
+    idle(world, set, game, looksTicks(set, 1));
+    CHECK(game.bodies[0].lockTarget == 1);
+}
+
+TEST_CASE("UTA-0468: the launcher locks on no body off its aim, out of range or hidden", "[ugame][game]") {
+    const WeaponSet& set = stock();
+    const FireMode& rockets = primaryOf(set, "rocket-launcher");
+    const auto locksOn = [&](const BodyWorld& world, const Vec3& at) {
+        Game game = duel(set, "rocket-launcher", 800);
+        game.bodies[1].move.location = at;
+        idle(world, set, game, looksTicks(set, 2));
+        return game.bodies[0].lockTarget;
+    };
+    // A floor with no wall: the arena's would hide a body past lock-range.
+    uta::ubundle::Collision floorOnly;
+    floorOnly.level = solidBlocks({box({-3000, -3000, -64}, {3000, 3000, 0})});
+    auto built = BodyWorld::build(floorOnly, {});
+    REQUIRE(built.has_value());
+    const BodyWorld& open = *built;
+    CHECK(locksOn(open, {800, 0, STANDING}) == 1);
+    // 30 degrees off the aim: a cosine of 0.87, under lock-aim.
+    REQUIRE(rockets.lockAim > 0.87);
+    CHECK(locksOn(open, {700, 404, STANDING}) == -1);
+    CHECK(locksOn(open, {rockets.lockRange - 50, 0, STANDING}) == 1);
+    CHECK(locksOn(open, {rockets.lockRange + 50, 0, STANDING}) == -1);
+    uta::ubundle::Collision collision;
+    collision.level = solidBlocks({box({-3000, -3000, -64}, {3000, 3000, 0}), box({400, -3000, 0}, {464, 3000, 600})});
+    auto walled = BodyWorld::build(collision, {});
+    REQUIRE(walled.has_value());
+    CHECK(locksOn(*walled, {800, 0, STANDING}) == -1);
+}
+
+TEST_CASE("UTA-0468: a lock the shot's own look loses fires a plain rocket; the grenades drop it", "[ugame][game]") {
+    const BodyWorld world = arena();
+    const WeaponSet& set = stock();
+    Game game = duel(set, "rocket-launcher", 800);
+    idle(world, set, game, looksTicks(set, 2));
+    REQUIRE(game.bodies[0].lockTarget == 1);
+    game.bodies[1].move.location = {700, 404, STANDING}; // off the aim before the press
+    hold(world, set, game, 1);
+    idle(world, set, game, 1);
+    REQUIRE(game.shots.size() == 1);
+    CHECK(game.shots[0].kind == kindNamed(set, "rocket"));
+    CHECK(game.shots[0].seeking == -1);
+
+    Game alt = duel(set, "rocket-launcher", 800);
+    idle(world, set, alt, looksTicks(set, 2));
+    REQUIRE(alt.bodies[0].lockTarget == 1);
+    hold(world, set, alt, 1, true);
+    idle(world, set, alt, 1);
+    CHECK(alt.bodies[0].lockTarget == -1);
+}
+
+TEST_CASE("UTA-0468: a seeking rocket turns towards its body every seek-every, keeping its speed", "[ugame][game]") {
+    const BodyWorld world = arena();
+    const WeaponSet& set = stock();
+    const Projectile& kind = set.projectiles[kindNamed(set, "seeking-rocket")];
+    // Seeks the body at `at` from the origin's air, flying +X; the velocity
+    // after the ticks that pass seek-every once.
+    const auto flown = [&](const Vec3& at, int ticks) {
+        Game game = duel(set, "enforcer", 1500);
+        game.bodies[1].move.location = at;
+        const Vec3 from{0, 0, 300};
+        game.shots.push_back(Shot{.kind = kindNamed(set, "seeking-rocket"), .owner = 0, .location = from,
+                                  .velocity = {900, 0, 0}, .previous = from, .lifetime = 10, .seeking = 1});
+        idle(world, set, game, ticks);
+        REQUIRE(game.shots.size() == 1);
+        return game.shots[0];
+    };
+    const int once = static_cast<int>(std::ceil(kind.seekEvery / DT));
+    const Shot before = flown({1200, 600, STANDING}, once - 1);
+    CHECK(before.velocity == Vec3{900, 0, 0});
+    const Shot turned = flown({1200, 600, STANDING}, once);
+    CHECK(turned.velocity.y > 0);
+    CHECK(turned.velocity.z < 0);
+    // Its speed is kept by the turn; the move after gains its new acceleration.
+    CHECK(std::abs(uta::uworld::length(turned.velocity) - 900 - kind.seekAcceleration * DT) < 1e-6);
+    CHECK(std::abs(uta::uworld::length(turned.acceleration) - kind.seekAcceleration) < 1e-9);
+    // A body behind the way it first flew is not sought.
+    CHECK(flown({-600, 600, STANDING}, once).velocity == Vec3{900, 0, 0});
+}
+
+TEST_CASE("UTA-0468: a doubled Enforcer's second gun fires double-delay after the first, from the other side",
+          "[ugame][game]") {
+    const BodyWorld world = arena();
+    const WeaponSet& set = stock();
+    const Weapon& enforcer = set.weapons[static_cast<std::size_t>(weaponNamed(set, "enforcer"))];
+    REQUIRE(enforcer.doubleDelay > 0);
+    // The tick of each instant hit over `ticks` from a tap, and its start's side.
+    const auto shots = [&](bool doubled, bool alt, int ticks, bool held) {
+        Game game = duel(set, "enforcer", 400);
+        game.bodies[0].weapons[static_cast<std::size_t>(weaponNamed(set, "enforcer"))].doubled = doubled;
+        std::vector<std::pair<int, double>> out;
+        std::vector<MoveCommand> commands(game.bodies.size());
+        commands[1].yaw = 32768;
+        for (int k = 0; k < ticks; ++k) {
+            commands[0].fire = !alt && (held || k == 0);
+            commands[0].altFire = alt && (held || k == 0);
+            tick(world, set, RULES, game, commands, DT);
+            for (const Event& event : game.events)
+                if (event.kind == Event::Kind::InstantHit) out.emplace_back(k, event.from.y);
+        }
+        return out;
+    };
+    const int window = static_cast<int>(std::ceil(enforcer.primary.refire / DT)) - 1;
+    CHECK(shots(false, false, window, false).size() == 1);
+    const auto two = shots(true, false, window, false);
+    REQUIRE(two.size() == 2);
+    CHECK(two[0].first == 0);
+    CHECK(std::abs(two[1].first * DT - enforcer.doubleDelay) <= DT);
+    CHECK(two[0].second > 0);
+    CHECK(two[1].second == -two[0].second);
+
+    // The alt: the second gun turns too, from double-delay after the press.
+    const FireMode& alt = *enforcer.alt;
+    const auto alts = shots(true, true, static_cast<int>(std::ceil((enforcer.doubleDelay + alt.windUp) / DT)) + 2, true);
+    REQUIRE(alts.size() >= 2);
+    const auto second = std::ranges::find_if(alts, [](const auto& s) { return s.second < 0; });
+    REQUIRE(second != alts.end());
+    CHECK(std::abs(second->first * DT - (enforcer.doubleDelay + alt.windUp)) <= DT);
+}
+
+TEST_CASE("UTA-0468: a doubled weapon's first gun takes the double spread too", "[ugame][game]") {
+    const BodyWorld world = arena();
+    WeaponSet set = stock();
+    const auto at = static_cast<std::size_t>(weaponNamed(set, "enforcer"));
+    set.weapons[at].primary.spread = 0;
+    set.weapons[at].primary.doubleSpread = 4000;
+    // The first gun's one shot from a tap: straight along +X unless spread.
+    const auto firstShot = [&](bool doubled) {
+        Game game = duel(set, "enforcer", 3000);
+        game.bodies[0].weapons[at].doubled = doubled;
+        hold(world, set, game, 1);
+        const auto shot = std::ranges::find(game.events, Event::Kind::InstantHit, &Event::kind);
+        REQUIRE(shot != game.events.end());
+        const Vec3 way = shot->to - shot->from;
+        return std::hypot(way.y, way.z) / uta::uworld::length(way);
+    };
+    CHECK(firstShot(false) < 1e-9);
+    CHECK(firstShot(true) > 1e-3);
+}
+
+TEST_CASE("UTA-0468: the second gun shares the ammo and spreads by its own keys", "[ugame][game]") {
+    const WeaponSet& set = stock();
+    const FireMode& primary = primaryOf(set, "enforcer");
+    Body body = bodyAt(set, {0, 0, STANDING}, 0);
+    CHECK(detail::startOf(body, primary, true).y == -detail::startOf(body, primary, false).y);
+
+    const BodyWorld world = arena();
+    Game game = duel(set, "enforcer", 400);
+    const auto at = static_cast<std::size_t>(weaponNamed(set, "enforcer"));
+    game.bodies[0].weapons[at].doubled = true;
+    game.bodies[0].weapons[at].ammo = 1;
+    hold(world, set, game, static_cast<int>(std::ceil(0.5 / DT)));
+    CHECK(game.bodies[0].weapons[at].ammo == 0); // one round: the first gun's; the second finds none
+}
+
 TEST_CASE("SS 4.9: the chainsaw's cut pulls, and its slash lands after its wind-up and pushes left", "[ugame][game]") {
     const BodyWorld world = arena();
     const WeaponSet& set = stock();
@@ -1531,8 +1796,9 @@ TEST_CASE("INV-5: a scripted fight is the same at every frame rate and on every 
     }
     INFO("final hash " << reference.back());
     // UTA-0020: the script opens the wheel. UTA-0022: the hash covers coyoteLeft and mantleTo;
-    // UTA-0108 landedZ; UTA-0493 painClock, which moved the pin and nothing else.
-    CHECK(reference.back() == 779078879845529185u);
+    // UTA-0108 landedZ; UTA-0493 painClock; UTA-0468 the lock, the second gun and the seeking,
+    // each of which moved the pin and nothing else.
+    CHECK(reference.back() == 12121377059366180465u);
 }
 
 // UTA-0020: the weapon wheel's time scale, and what it lists and picks.

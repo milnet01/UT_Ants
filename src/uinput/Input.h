@@ -55,6 +55,7 @@ enum class Action : std::uint8_t {
     Weapon9,
     Weapon0,
     DropDummy, ///< UTA-0019 SS 4.8: stands a target dummy ahead
+    SecondGun, ///< UTA-0468: a second copy of each weapon that doubles, until pickups do it
     Wheel,     ///< UTA-0020 SS 4.7: held, the weapon wheel is open
     Count
 };
@@ -79,6 +80,7 @@ enum class Key : std::uint16_t {
     S = 22,
     T = 23,
     W = 26,
+    Y = 28,
     N1 = 30, ///< the number row: 1 to 9, then 0
     N2 = 31,
     N3 = 32,
@@ -178,7 +180,8 @@ struct Bindings {
 /// right mouse buttons fire and alt-fire; the number row picks a weapon and
 /// the mouse wheel or the D-pad's left and right steps through them; Q or the
 /// right shoulder, held, opens the weapon wheel; T or the D-pad's up drops a
-/// dummy; and the viewer's keys as apps/ut-ants/Cli.cpp's help lists them.
+/// dummy; Y or the D-pad's down gives a second Enforcer; and the viewer's
+/// keys as apps/ut-ants/Cli.cpp's help lists them.
 [[nodiscard]] Bindings defaultBindings();
 
 /// One frame's actions, from every device at once.

@@ -108,12 +108,32 @@ struct FireMode {
     std::uint32_t count = 1;              ///< projectile
     double spiralRadius = 0;              ///< projectile: its start circles the offset at this radius
     std::uint32_t spiralTurn = 0;         ///< projectile: angle units round that circle a shot of one hold
+    /// projectile: UT_Eightball's lock (UTA-0468). The kind it fires at a
+    /// body the weapon is locked on; empty for a mode that never locks.
+    /// While idle, the weapon looks for a body every `lockEvery`: the one
+    /// nearest the aim, within `lockAim` of it (a cosine) and `lockRange` of
+    /// the shot's start, in sight. The same body twice running locks it.
+    std::string lockProjectile;
+    double lockEvery = 0;
+    double lockAim = 0;
+    double lockRange = 0;
+    /// A doubled weapon's guns (UTA-0468): the spread, growth and most of
+    /// each, in place of `spread`, `spreadGrow` and `spreadMax`.
+    std::uint32_t doubleSpread = 0, doubleSpreadGrow = 0, doubleSpreadMax = 0;
     double momentumSide = 0;              ///< melee: momentum along the firer's right; below 0, its left
     bool rangeFromBody = false;           ///< melee: `range` runs from the firer's centre, not the shot's start
     double selfMomentum = 0;              ///< melee: pushes the firer back off a surface
     double selfDamage = 0;                ///< melee: what a surface hit costs the firer
     double reach = 0;                     ///< melee: no body farther than this from the firer is hurt; 0 any
     double distanceScale = 0;             ///< melee: the effect x the hit's distance / this; 0 none
+    /// melee: shots in flight nearer the firer's centre than this are turned
+    /// aside (ImpactHammer.TraceAltFire); 0 for none. Only those in sight,
+    /// whose direction from the centre has at least `deflectCone` along the
+    /// aim; each is pushed `deflectPush` less its distance along the firer's
+    /// right, to the side it already heads, keeping its speed.
+    double deflectRadius = 0;
+    double deflectCone = 0;
+    double deflectPush = 0;
     FireRule rule = FireRule::None;       ///< `rule`: a named behaviour of the archetype
     /// UTA-0467 SS 4.2, each a baked sound's path or empty: played once a
     /// shot; looped while the mode sounds (ugame::loopingMode); played once
@@ -128,6 +148,10 @@ struct Weapon {
     std::uint32_t slot = 0; ///< its number key, 0 to 9; ties order by file order
     std::uint32_t ammoMax = 0, ammoStart = 0;
     double switchTime = 0; ///< seconds to bring it up
+    /// UTA-0468: above 0, a second copy doubles it, as the Enforcer's slave.
+    /// The second gun fires each mode this long after the first gun's shot
+    /// or wind-up, from the other side, sharing the ammo.
+    double doubleDelay = 0;
     std::string selectSound; ///< played when a switch to it starts; a baked sound's path or empty
     FireMode primary;
     std::optional<FireMode> alt;
@@ -175,6 +199,12 @@ struct Projectile {
     std::uint32_t splitCount = 0;
     std::uint32_t splitSpread = 0; ///< split: the pieces' cone, angle units
     std::string combo;         ///< what an instant hit on it sets off; empty for none
+    /// UTA-0468, UT_SeekingRocket: every `seekEvery` of flight it turns
+    /// towards the body it was fired at, half its speed's worth, while that
+    /// body is ahead of the way it first flew; its acceleration becomes
+    /// `seekAcceleration` along its new heading. 0 for a shot that never seeks.
+    double seekEvery = 0;
+    double seekAcceleration = 0;
     std::string sound;         ///< played where it explodes; a baked sound's path or empty
     bool operator==(const Projectile&) const = default;
 };

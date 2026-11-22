@@ -176,7 +176,7 @@ std::string kindOf(const std::string& cls) {
         {"UTChunk2", "flak-chunk"},  {"UTChunk3", "flak-chunk"},    {"UTChunk4", "flak-chunk"},
         {"flakslug", "flak-shell"},  {"UT_BioGel", "bio-gel"},      {"BioGlob", "bio-glob"},
         {"ShockProj", "shock-ball"}, {"PlasmaSphere", "plasma"},    {"Razor2", "razor"},
-        {"Razor2Alt", "razor-alt"}};
+        {"Razor2Alt", "razor-alt"},  {"UT_SeekingRocket", "seeking-rocket"}};
     const auto found = KINDS.find(cls);
     return found == KINDS.end() ? std::string{} : found->second;
 }
@@ -327,7 +327,10 @@ std::string str(const Vec3& v) {
 /// Whether the original's mode sleeps between shots (see `slept`).
 bool sleeps(const ugame::Weapon& weapon, bool alt) {
     if (alt) return weapon.alt && (weapon.name == "minigun" || weapon.name == "enforcer");
-    return weapon.name == "minigun" || weapon.name == "pulse-gun" || weapon.name == "chainsaw";
+    // The Enforcer's primary: 0.404 s at 30 frames a second, 0.391 at 85
+    // (user, 2026-11-22, UTA-0468's double runs).
+    return weapon.name == "minigun" || weapon.name == "pulse-gun" || weapon.name == "chainsaw" ||
+           weapon.name == "enforcer";
 }
 
 ugame::WeaponSet slept(ugame::WeaponSet set, double dt) {
@@ -382,8 +385,12 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
                           ? -1
                           : weaponOf(set, switchTo->second);
 
-    // The mode under test: alt where the run ever holds alt fire.
-    const ugame::Weapon& weapon = set.weapons[static_cast<std::size_t>(inHand)];
+    // The mode under test: alt where the run ever holds alt fire, of the
+    // weapon in hand -- or, in a run with a target that switches, of the one
+    // N raises, whose hits the run is for. A switch run with no target is
+    // judged as before: its flights are not compared (UTA-0499).
+    const bool targetedSwitch = other >= 0 && !recording.target.empty();
+    const ugame::Weapon& weapon = set.weapons[static_cast<std::size_t>(targetedSwitch ? other : inHand)];
     const bool alt = std::ranges::any_of(rows, [](const auto& row) { return row.keys.find('A') != std::string::npos; });
     const ugame::FireMode* mode = alt && weapon.alt ? &*weapon.alt : &weapon.primary;
 
@@ -417,9 +424,25 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
         for (const ugame::FireMode* fire : {&gun.primary, gun.alt ? &*gun.alt : nullptr}) {
             if (fire == nullptr || fire->projectile.empty()) continue;
             launched.insert(fire->projectile);
+            if (!fire->lockProjectile.empty()) launched.insert(fire->lockProjectile); // UTA-0468
             const ugame::Projectile* kind = set.projectile(fire->projectile);
             if (kind != nullptr && !kind->splitInto.empty()) launched.insert(kind->splitInto);
         }
+    }
+
+    // UTA-0468: a run's incoming shot, launched by the target on tick 0
+    // (UTARec.LaunchIncoming), flies in ours from its first recorded row.
+    const auto incoming = recording.begin.find("incoming");
+    std::string incomingKind;
+    if (incoming != recording.begin.end() && !incoming->second.empty()) {
+        incomingKind = kindOf(incoming->second.substr(incoming->second.find('.') + 1));
+        REQUIRE(!incomingKind.empty());
+        launched.insert(incomingKind);
+    }
+    // UTA-0468: a run that picked up a second copy carries it doubled.
+    if (const auto give = recording.begin.find("give"); give != recording.begin.end() && !give->second.empty()) {
+        REQUIRE(weaponOf(set, give->second) == inHand);
+        firer.weapons[static_cast<std::size_t>(inHand)].doubled = true;
     }
 
     // The recorded shots. One alive at row 0 and all but still is the level's
@@ -506,6 +529,22 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
         if (e.outOfRange++ == 0) e.outOfRangeAt = at;
     };
     std::vector<bool> claimed(theirOrder.size(), false);
+
+    if (!incomingKind.empty()) {
+        const auto first = std::ranges::find_if(recording.projectiles, [&incomingKind](const auto& p) {
+            return p.tick == 0 && kindOf(p.cls) == incomingKind;
+        });
+        REQUIRE(first != recording.projectiles.end());
+        const auto kind = static_cast<std::uint32_t>(
+            std::ranges::find(set.projectiles, incomingKind, &ugame::Projectile::name) - set.projectiles.begin());
+        const ugame::Projectile& projectile = set.projectiles[kind];
+        Vec3 at = vec(first->location);
+        at.z -= firerHover;
+        const Vec3 v = vec(first->velocity);
+        game.shots.push_back(ugame::Shot{.kind = kind, .owner = TARGET, .location = at, .velocity = v, .previous = at,
+                                         .acceleration = v * (projectile.acceleration / uworld::length(v)),
+                                         .lifetime = projectile.lifetime});
+    }
 
     // Our replay.
     std::vector<OurShot> ours;
