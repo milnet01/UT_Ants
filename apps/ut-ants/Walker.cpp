@@ -107,6 +107,7 @@ ugame::Body Walker::armed(const Spawn& at) const {
     ugame::giveAll(set_, body);
     body.move.physics = uworld::Physics::Falling;
     body.human = true; // UTA-0020 SS 4.8: the player; a dummy is not
+    body.hitInset = ugame::PLAYER_HIT_INSET; // a PlayerPawn (UTA-0498)
     return body;
 }
 

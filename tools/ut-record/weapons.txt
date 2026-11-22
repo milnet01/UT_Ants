@@ -527,8 +527,8 @@ end 2.5
 # from 2.3 degrees off the aim. hammer-deflect looks level, so the rocket is
 # inside the hammer's cone (ImpactHammer.TraceAltFire's 0.9); hammer-deflect-high
 # looks up 30 degrees, a cosine of 0.87, so it is outside it. (Spots off to
-# either side put the rocket into the level within three ticks.) It ends
-# before the rocket strikes the player: that hit is UTA-0498's.
+# either side put the rocket into the level within three ticks.)
+# hammer-deflect-high runs on until the rocket strikes the player.
 
 run hammer-deflect DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
 weapon Botpack.ImpactHammer
@@ -549,7 +549,7 @@ incoming Botpack.RocketMk2
 0 -
 0.1 A
 0.2 -
-end 0.35
+end 1.5
 
 # The lock runs raise the launcher at 0, so its idle timer (1.25 s,
 # UT_Eightball's Idle state) starts at a known tick. The target stands 14

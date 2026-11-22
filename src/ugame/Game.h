@@ -24,6 +24,11 @@ using uworld::Vec3;
 inline constexpr double EYE_HEIGHT = 27;
 /// A body's starting health: TournamentPlayer.Health.
 inline constexpr double START_HEALTH = 100;
+/// How far into a body a hit on it is counted, along the shot, of its
+/// radius: AdjustHitLocation. Pawn's, which a monster or a dummy keeps;
+/// PlayerPawn and Bot count it further in (UTA-0498).
+inline constexpr double PAWN_HIT_INSET = 0.4;
+inline constexpr double PLAYER_HIT_INSET = 0.5;
 /// UTA-0493 SS 4.4: a body that leaves the level has this health, as
 /// Pawn.FellOutOfWorld sets it.
 inline constexpr double OUT_OF_WORLD_HEALTH = -1;
@@ -76,6 +81,7 @@ struct Body {
     std::int32_t yaw = 0, pitch = 0; ///< the last command's aim
     bool fireHeld = false, altHeld = false;
     bool human = false; ///< a person plays it; a dummy or a bot does not (UTA-0020 SS 4.3)
+    double hitInset = PAWN_HIT_INSET; ///< PAWN_HIT_INSET or PLAYER_HIT_INSET, by the class it stands for
     double painClock = -1; ///< UTA-0493 SS 4.5: seconds to a pain zone's next hit; below 0 stopped
     // UTA-0468: a locking weapon's look for a target (FireMode::lockProjectile).
     bool lockLooking = false; ///< the weapon in hand is idle and looking

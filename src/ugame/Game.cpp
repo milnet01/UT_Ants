@@ -417,10 +417,6 @@ constexpr double BACK_OFF = 2.5;
 /// the replay fails fewer checks at 2 than at 2.5.
 constexpr double LOOK_ON = 2.0;
 
-/// How far into a body a shot's hit is moved along its path, of the body's
-/// radius (Pawn.AdjustHitLocation).
-constexpr double HIT_INSET = 0.4;
-
 /// How early a trace meets a body, of the trace's own length
 /// (UPrimitive::LineCheck; Fire.cpp's, recorded on the hammer).
 constexpr double HIT_EARLY = 0.001;
@@ -556,11 +552,11 @@ void fly(Tick& tick, std::size_t index) {
             if (struck >= 0) {
                 // The script's Location is where the move ends, the level allowing;
                 // its HitLocation is where the shot met the body.
-                // Pawn.AdjustHitLocation moves it on into the body, along the shot.
+                // The body's AdjustHitLocation moves it on into it, along the shot.
                 const double moved = std::min(met, 1.0);
                 const Body& body = bodies[static_cast<std::size_t>(struck)];
                 const double moving = uworld::length(shot.velocity);
-                const Vec3 inset = moving > 0 ? shot.velocity * (HIT_INSET * body.size.radius / moving) : Vec3{};
+                const Vec3 inset = moving > 0 ? shot.velocity * (body.hitInset * body.size.radius / moving) : Vec3{};
                 Vec3 end = from + delta * moved;
                 // Projectile.Touch's trace, OldLocation to Location, meets the
                 // body a little early (UPrimitive::LineCheck).

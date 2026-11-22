@@ -404,6 +404,7 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
         game.bodies.push_back(body);
     }
     ugame::Body& firer = game.bodies[FIRER];
+    firer.hitInset = ugame::PLAYER_HIT_INSET; // UTARecPawn is a PlayerPawn; the target a Pawn (UTA-0498)
     // The recorder gives full ammo (UTARec.GiveWeapon); row 0 is after its
     // first press.
     firer.weapons[static_cast<std::size_t>(inHand)] =

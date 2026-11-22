@@ -21897,7 +21897,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: in-session-2026-11-20.
   Lanes: uworld, ugame, ubundle.
 
-- 📋 [UTA-0498] **A rocket striking the player meets it about 17 units sooner in the original than our hit rule says.**
+- 🚧 [UTA-0498] **A rocket striking the player meets it about 17 units sooner in the original than our hit rule says.**
   Found building UTA-0468 (2026-11-22). Run hammer-deflect-high with
   end 1.5 (UTA-0468's recordings, weapons/r468e in the UT_Ants
   scratchpad): a rocket flying straight at the player (UTARecPawn)
@@ -21906,6 +21906,14 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   2 unit/s at 30, 85 and 120 fps. UTA-0019's rocket pushes were
   recorded on UTARecTarget, a plain Pawn, so the player may be met
   differently. The run now ends before the hit.
+  Fixed 2026-11-22. The 876.27 was HurtRadius's logged spot, the
+  victim's centre less 28 (half its radius plus half its height)
+  toward the blast, not the blast. Solved from its direction, the
+  blast lies 20.05 past the rocket's last place: the body's edge at
+  11.55 plus 0.5 of the radius. PlayerPawn.AdjustHitLocation (and
+  Bot's) count 0.5; Pawn's 0.4. Each body now carries its hit inset;
+  the player 0.5. hammer-deflect-high runs to 1.5 again: push off
+  2.0 -> 0.002 at 30, 85 and 120 fps; all 219 r468all runs pass.
   **Layman:** When a rocket hits you directly, the blast should go off exactly where the original's does.
   Kind: fix.
   Source: in-session-2026-11-22.

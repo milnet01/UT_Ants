@@ -434,9 +434,11 @@ TEST_CASE("S2: a rocket at the firer's feet hurts and throws it", "[ugame][game]
 }
 
 /// The centre of the first explosion `weapon`'s alt fire makes at a dummy
-/// 600 ahead, on its line.
-Vec3 altBlastAt(const BodyWorld& world, const WeaponSet& set, std::string_view weapon) {
+/// 600 ahead, on its line, whose hits count `inset` of its radius in.
+Vec3 altBlastAt(const BodyWorld& world, const WeaponSet& set, std::string_view weapon,
+                double inset = PAWN_HIT_INSET) {
     Game game = duel(set, weapon, 600);
+    game.bodies[1].hitInset = inset;
     const FireMode& alt = *set.weapons[static_cast<std::size_t>(weaponNamed(set, weapon))].alt;
     game.bodies[1].move.location.y = levelStart(alt).y;
     std::vector<MoveCommand> commands(2);
@@ -473,6 +475,21 @@ TEST_CASE("SS 4.9: a shock ball striking a body bursts where its move ends, not 
     // less 0.001 of its last move, which the trace meets the body early by.
     const double inset = 0.4 * uta::uworld::BodySize{}.radius;
     CHECK(std::abs(altBlastAt(world, met, "shock-rifle").x - contact - inset + 0.001 * step) < 1e-6);
+}
+
+TEST_CASE("UTA-0498: a hit on a player counts further into it than a hit on a dummy", "[ugame][game]") {
+    const BodyWorld world = arena();
+    // PlayerPawn.AdjustHitLocation's 0.5 of the radius against Pawn's 0.4.
+    REQUIRE(Body{}.hitInset == PAWN_HIT_INSET);
+    WeaponSet met = stock();
+    for (Projectile& p : met.projectiles)
+        if (p.name == "shock-ball") p.splashFromMoved = false;
+    const double radius = uta::uworld::BodySize{}.radius;
+    const double pawn = altBlastAt(world, met, "shock-rifle").x;
+    const double player = altBlastAt(world, met, "shock-rifle", PLAYER_HIT_INSET).x;
+    CHECK(std::abs(player - pawn - (PLAYER_HIT_INSET - PAWN_HIT_INSET) * radius) < 1e-6);
+    CHECK(PAWN_HIT_INSET == 0.4);
+    CHECK(PLAYER_HIT_INSET == 0.5);
 }
 
 TEST_CASE("SS 4.9: the ripper's alt blade hurts the body it strikes alone; its blast is for the level", "[ugame][game]") {
@@ -1361,6 +1378,13 @@ TEST_CASE("SS 4.9: the hammer's alt pushes by its hit's distance, counted into t
         CHECK(push[i] > 0);
     }
     CHECK(std::abs(push[0] / push[1] - distance[0] / distance[1]) < 1e-9);
+
+    // UTA-0498: on a player, PlayerPawn.AdjustHitLocation's 0.5.
+    Game game = duel(set, "impact-hammer", 60);
+    game.bodies[1].hitInset = PLAYER_HIT_INSET;
+    const double radius = game.bodies[1].size.radius;
+    const double further = distance[0] + (PLAYER_HIT_INSET - PAWN_HIT_INSET) * radius;
+    CHECK(std::abs(hitsWhileHeld(world, set, game, 1, true).pushes[0].x / push[0] - further / distance[0]) < 1e-9);
 }
 
 TEST_CASE("UTA-0468: the hammer's alt turns shots near and ahead aside, keeping their speed", "[ugame][game]") {

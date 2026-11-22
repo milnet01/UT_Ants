@@ -204,8 +204,8 @@ original hit). `refire-lead` is added once to the interval after a shot
 fired from idle, and may be below zero. A melee mode may carry `self-damage`, what a surface hit costs its firer;
 `reach`, past which from the firer no body is hurt; and `distance-scale`,
 which scales the effect by the hit's distance over it. That distance on a
-body runs 0.4 of the body's radius past where the trace meets it
-(`Pawn.AdjustHitLocation`), less a thousandth of the trace's length
+body runs its hit inset (§ 4.9) past where the trace meets it,
+less a thousandth of the trace's length
 (recorded 2026-11-13: every hammer alt hit lies 10.30 short of its
 body's centre). Every mode has an **`offset`**: where its
 shot starts from the eye, forward, right and up, turned by the aim
@@ -389,10 +389,13 @@ Botpack `DeathMatchPlus.ReduceDamage`):
   and the blast of a rocket fired at the floor.
 - A bounce ends one move and starts another in the same tick: the shot
   falls and moves for the time left. Recorded.
-- A shot's hit on a body is moved 0.4 of the body's radius on along the
-  shot (Engine `Pawn.AdjustHitLocation`), less a thousandth of the trace
-  from where its last tick began (`UPrimitive::LineCheck`). Recorded: the
-  flak slug's and the rocket's push, 2026-11-16.
+- A shot's hit on a body is moved its hit inset on along the shot, less
+  a thousandth of the trace from where its last tick began
+  (`UPrimitive::LineCheck`). The inset is 0.4 of the body's radius on a
+  dummy or a monster (Engine `Pawn.AdjustHitLocation`), and 0.5 on a
+  player or a bot (`PlayerPawn`'s and Botpack `Bot`'s). Recorded: the
+  flak slug's and the rocket's push on a dummy, 2026-11-16; a rocket's
+  on the player, 2026-11-22 (`UTA-0498`).
 - A body that moves onto a shot is met along the shot's last move, from
   where its last tick began, into the body where it now stands, and moved
   in as above. A last move that starts inside the body meets its side,
