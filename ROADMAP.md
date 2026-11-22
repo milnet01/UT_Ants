@@ -21477,13 +21477,17 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-11-11.
   Lanes: ugame, uaudio.
 
-- 🚧 [UTA-0468] **The stock weapons' remaining behaviours: rocket lock-on, double Enforcers, the hammer turning projectiles away.**
+- ✅ [UTA-0468] **The stock weapons' remaining behaviours: rocket lock-on, double Enforcers, the hammer turning projectiles away.**
   Left out of UTA-0019 to keep that item one size
   (docs/specs/UTA-0019-weapon-set.md § 9). Each is checked against
   recordings of the original, as UTA-0019's INV-6 does.
   Double Enforcers (user, 2026-11-22): until pickups exist (UTA-0027),
   a key in walking mode hands the player a second Enforcer, as the dummy
   key drops a dummy. Pickups give it properly later.
+  Shipped 2026-11-22 at 4d620c4, green on GitHub's matrix (GCC, Clang,
+  MSVC). Spec: docs/specs/UTA-0019-weapon-set.md SS 4.4, 4.9. The replay
+  passes over the r3 recordings plus this item's, in the UT_Ants
+  scratchpad's weapons/r468all. Left: UTA-0498, UTA-0499.
   **Layman:** Three finer UT99 weapon tricks left out of the first weapon set.
   Kind: implement.
   Source: user-request-2026-11-11.
