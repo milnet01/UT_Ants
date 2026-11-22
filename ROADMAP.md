@@ -21924,7 +21924,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: in-session-2026-11-22.
   Lanes: ugame.
 
-- 📋 [UTA-0500] **ut-paths: a gap's break line from the start network runs through solid, so sampling it never meets the water beside it.**
+- ✅ [UTA-0500] **ut-paths: a gap's break line from the start network runs through solid, so sampling it never meets the water beside it.**
   UT_MonsterHunt, 2026-11-22: gaps' break lines from the start
   network run through solid ("outside" in ut-dump --zone-at) rather
   than through the water, so sampling the line alone never sees the
@@ -21932,6 +21932,12 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   instead, which fixed MH-Canals and MH-Kuratorium (their ea76ff1,
   GAME-0284). Find whether a break line should follow open space, or
   say in the output that it is a straight join between two nodes.
+  Answered 2026-11-22: not UT_Ants output. UT_MonsterHunt's
+  analysis/mapcheck/gaps.py `_pairs` draws each break: the cheapest
+  node pairs across the split, by its `_walk_cost`, joined straight
+  from `from_at` to `to_at`. ut-paths writes no line between nodes.
+  A straight join between two nodes is what a break is; its own
+  docstring can say so. Nothing to change here.
   **Layman:** The route checker's report of where a map's paths break should point through open space a player could use, not straight through rock.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-11-22.
