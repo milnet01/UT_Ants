@@ -25052,10 +25052,11 @@ docs/standards/versioning-overrides.md. Closes S8.
 
 - 📋 [UTA-0503] **Export one walled UT map for ExperiRays to time its light choice on.**
   ExperiRays asked 2026-11-23, after UT_Ants' re-read of EXRAY-0007:
-  once its EXRAY-0042 (a UT map export it can load) is ready, make one
-  map with walls hiding bright lights, exported by ut-export (UTA-0476),
-  so EXRAY-0048 can time settling at 4 and 8 picks with an even share of
-  0.1 and 0.3. Waiting-on: EXRAY-0042.
+  one map with walls hiding bright lights, exported by ut-export
+  (UTA-0476) as .glb, so EXRAY-0048 can time settling at 4 and 8 picks
+  with an even share of 0.1 and 0.3. It must hold no Blend surface (the
+  reference refuses one until EXRAY-0045); `experirays load <scene.glb>`
+  exits 0 when the lab accepts it.
   **Layman:** Give the sister renderer a real Unreal Tournament level, so it can test how it picks which lights to trace.
   Kind: chore.
   Source: in-session-2026-11-23 EXRAY-0048.
