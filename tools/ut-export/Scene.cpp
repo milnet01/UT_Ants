@@ -545,6 +545,17 @@ std::string joined(const std::vector<std::string>& items) {
 
 } // namespace
 
+std::size_t colourMaterials(Scene& scene, std::span<const ubake::MaterialLight> materials) {
+    std::size_t coloured = 0;
+    for (Material& m : scene.materials) {
+        const auto found = std::ranges::find(materials, m.name, &ubake::MaterialLight::id);
+        if (found == materials.end()) continue;
+        m.baseColor = {found->albedo.r, found->albedo.g, found->albedo.b};
+        ++coloured;
+    }
+    return coloured;
+}
+
 std::vector<std::byte> writeGlb(const Scene& scene) {
     GlbWriter glb;
 
@@ -586,7 +597,9 @@ std::vector<std::byte> writeGlb(const Scene& scene) {
     for (const Material& m : scene.materials) {
         std::ostringstream o;
         o << "{\"name\":" << quoted(m.name)
-          << ",\"pbrMetallicRoughness\":{\"baseColorFactor\":[1,1,1,1],\"metallicFactor\":0,\"roughnessFactor\":1}";
+          << ",\"pbrMetallicRoughness\":{\"baseColorFactor\":[" << number(m.baseColor[0]) << ','
+          << number(m.baseColor[1]) << ',' << number(m.baseColor[2])
+          << ",1],\"metallicFactor\":0,\"roughnessFactor\":1}";
         if (m.doubleSided) o << ",\"doubleSided\":true";
         if (m.alpha == Material::Alpha::Mask) o << ",\"alphaMode\":\"MASK\"";
         if (m.alpha == Material::Alpha::Blend) o << ",\"alphaMode\":\"BLEND\"";

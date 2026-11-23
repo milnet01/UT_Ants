@@ -5,6 +5,11 @@
 //
 //   ut-export --map <file.unr> --bundle <file.utab> --out <path stem>
 //             [--no-added-lamps] [--walkers N] [--seconds N]
+//             [--light-materials <file>]
+//
+// --light-materials reads ut-bake's file of the same name and gives each
+// material its mean albedo as base colour (UTA-0504); without it every
+// material is white.
 
 #include "Path.h"
 #include "Scene.h"
@@ -13,8 +18,9 @@
 #include "core/FileSystem.h"
 #include "ubundle/Bundle.h"
 
-#include <optional>
+#include <fstream>
 #include <iostream>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -24,7 +30,8 @@ namespace {
 
 constexpr std::string_view USAGE =
     "usage: ut-export --map <file.unr> --bundle <file.utab> --out <path stem>\n"
-    "                 [--no-added-lamps] [--walkers N] [--seconds N]\n";
+    "                 [--no-added-lamps] [--walkers N] [--seconds N]\n"
+    "                 [--light-materials <file>]\n";
 
 int write(const std::string& path, std::span<const std::byte> bytes) {
     if (auto written = uta::fs::writeFileAtomically(path, bytes); !written) {
@@ -40,7 +47,7 @@ int write(const std::string& path, std::span<const std::byte> bytes) {
 int main(int argc, char** argv) {
     const std::vector<std::string_view> args(argv + 1, argv + argc);
     uta::tools::OptionValues values("ut-export", args, std::cerr);
-    std::string map, bundlePath, out;
+    std::string map, bundlePath, out, lightMaterials;
     bool addedLamps = true;
     uta::tools::exporter::PathOptions pathOptions;
     for (std::size_t at = 0; at < args.size(); ++at) {
@@ -50,11 +57,13 @@ int main(int argc, char** argv) {
         if (arg == "--map" && (value = values.take(at))) map = *value;
         else if (arg == "--bundle" && (value = values.take(at))) bundlePath = *value;
         else if (arg == "--out" && (value = values.take(at))) out = *value;
+        else if (arg == "--light-materials" && (value = values.take(at))) lightMaterials = *value;
         else if (arg == "--no-added-lamps") addedLamps = false;
         else if (arg == "--walkers" && values.takeWhole(at, whole, 1)) pathOptions.walkers = whole;
         else if (arg == "--seconds" && values.takeWhole(at, whole, 1)) pathOptions.seconds = whole;
         else {
-            if (arg != "--map" && arg != "--bundle" && arg != "--out" && arg != "--walkers" && arg != "--seconds")
+            if (arg != "--map" && arg != "--bundle" && arg != "--out" && arg != "--walkers" && arg != "--seconds" &&
+                arg != "--light-materials")
                 std::cerr << "ut-export: unknown argument " << arg << "\n" << USAGE;
             return 2;
         }
@@ -82,6 +91,18 @@ int main(int argc, char** argv) {
     if (!scene) {
         std::cerr << "ut-export: " << scene.error().message() << "\n";
         return 1;
+    }
+    if (!lightMaterials.empty()) {
+        std::ifstream file(lightMaterials);
+        auto materials = uta::ubake::readMaterialLight(file);
+        if (!file.is_open() || !materials) {
+            std::cerr << "ut-export: " << lightMaterials << ": "
+                      << (materials ? std::string("cannot open") : materials.error().message()) << "\n";
+            return 1;
+        }
+        const std::size_t coloured = uta::tools::exporter::colourMaterials(*scene, *materials);
+        std::cerr << "ut-export: " << coloured << " of " << scene->materials.size()
+                  << " materials coloured from " << lightMaterials << "\n";
     }
     const auto& r = scene->report;
     std::cerr << "ut-export: scene_key " << key << "\n"

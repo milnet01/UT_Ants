@@ -498,3 +498,27 @@ TEST_CASE("UTA-0496: ut-export classes a sky backdrop 4, a surface light passes 
     const std::string json(reinterpret_cast<const char*>(glb.data()) + 20, jsonLength);
     CHECK_THAT(json, Catch::Matchers::ContainsSubstring("\"triangle_class\":"));
 }
+
+TEST_CASE("UTA-0504: ut-export colours a material the light-materials file names and leaves the rest white",
+          "[export]") {
+    ub::Geometry g;
+    addTriangle(g, {vertex(0, 0, 0), vertex(100, 0, 0), vertex(0, 100, 0)}, "brick");
+    addTriangle(g, {vertex(0, 0, 10), vertex(100, 0, 10), vertex(0, 100, 10)}, "stone");
+    ex::Scene s = build(levelWith(g));
+    REQUIRE(s.materials.size() == 2);
+    const std::vector<uta::ubake::MaterialLight> lights{{"brick", {0.25, 0.125, 0.5}, {}},
+                                                        {"absent", {0.75, 0.75, 0.75}, {}}};
+    CHECK(ex::colourMaterials(s, lights) == 1);
+    const auto byName = [&s](std::string_view name) {
+        return *std::ranges::find(s.materials, name, &ex::Material::name);
+    };
+    CHECK(byName("brick").baseColor == std::array<double, 3>{0.25, 0.125, 0.5});
+    CHECK(byName("stone").baseColor == std::array<double, 3>{1, 1, 1});
+
+    const std::vector<std::byte> glb = ex::writeGlb(s);
+    std::uint32_t jsonLength = 0;
+    std::memcpy(&jsonLength, glb.data() + 12, 4);
+    const std::string json(reinterpret_cast<const char*>(glb.data()) + 20, jsonLength);
+    CHECK(json.find("\"baseColorFactor\":[0.25,0.125,0.5,1]") != std::string::npos);
+    CHECK(json.find("\"baseColorFactor\":[1,1,1,1]") != std::string::npos);
+}

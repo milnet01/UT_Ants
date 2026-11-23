@@ -9,13 +9,15 @@
 // out as a file. A test reads buildScene's answer without parsing glTF.
 //
 // NO IMAGES: a bundle holds its textures as BC7, BC4 and BC5 blocks and
-// nothing here decodes them, so every material is white. ExperiRays agreed,
-// 2026-11-17: its UT_Ants hypotheses judge light, not albedo. alphaMode is
-// still set, so a cut-out reads as one once images come.
+// nothing here decodes them. A material is white unless colourMaterials gives
+// it the probe bake's mean albedo (UTA-0504; ut-bake --light-materials), which
+// ExperiRays needs where a closed map at albedo 1 keeps all its light.
+// alphaMode is still set, so a cut-out reads as one once images come.
 
 #pragma once
 
 #include "core/Error.h"
+#include "ubake/MaterialLight.h"
 #include "ubundle/Bundle.h"
 
 #include <array>
@@ -58,6 +60,8 @@ struct Material {
     std::uint32_t polyFlags = 0;
     bool doubleSided = false;
     enum class Alpha : std::uint8_t { Opaque, Mask, Blend } alpha = Alpha::Opaque;
+    /// baseColorFactor's red, green and blue, linear; white until colourMaterials.
+    std::array<double, 3> baseColor{1, 1, 1};
 };
 
 struct Primitive {
@@ -155,6 +159,10 @@ struct Scene {
 ///
 /// Refuses a bundle with no GEOM, and any non-finite position, normal or uv.
 [[nodiscard]] Result<Scene> buildScene(const ubundle::Bundle& bundle, std::string sceneKey, bool addedLamps);
+
+/// UTA-0504: each material whose id `materials` names takes that line's
+/// albedo as its base colour. Returns how many did; the rest stay white.
+std::size_t colourMaterials(Scene& scene, std::span<const ubake::MaterialLight> materials);
 
 /// `scene` as a glTF 2.0 binary file, laid out as SS 4.1 says.
 [[nodiscard]] std::vector<std::byte> writeGlb(const Scene& scene);

@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=503 -->
+<!-- ants-roadmap-id-high-water: UTA=504 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -25064,6 +25064,18 @@ docs/standards/versioning-overrides.md. Closes S8.
   the scratchpad's exray503 folder, kept until 2026-11-30.
   **Layman:** Give the sister renderer a real Unreal Tournament level, so it can test how it picks which lights to trace.
   Kind: chore.
+  Source: in-session-2026-11-23 EXRAY-0048.
+  Lanes: tools.
+
+- 🚧 [UTA-0504] **ut-export: each material's colour, from the probe bake's mean albedo, in place of white.**
+  ExperiRays asked 2026-11-23: UTA-0503's maps have every material at
+  baseColorFactor 1, so a closed map keeps nearly all its light, paths
+  run to the bounce cap, and the RX 6600 lost the device. Its
+  recommendation: the mean colour as baseColorFactor, textures later.
+  ut-export gains --light-materials <file>, ut-bake's file of each
+  material's linear mean albedo (UTA-0292), written as baseColorFactor.
+  **Layman:** The levels handed to the sister renderer were all pure white, so light never faded; give each surface its real average colour.
+  Kind: enhancement.
   Source: in-session-2026-11-23 EXRAY-0048.
   Lanes: tools.
 
