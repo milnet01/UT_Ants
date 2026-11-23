@@ -56,6 +56,10 @@ std::vector<Shape> StandIns::shapes(const ugame::Game& game, const ugame::Weapon
                        .colour = {1 - share, share, 0.1f, 1}});
     }
     for (const ugame::Shot& shot : game.shots) {
+        // UTA-0465: the shell the player steers is where the view is.
+        if (shot.guided && shot.owner == 0 && !game.bodies.empty() &&
+            game.bodies[0].guide == ugame::Body::Guide::Steering)
+            continue;
         const float radius =
             shot.kind < set.projectiles.size() ? static_cast<float>(set.projectiles[shot.kind].radius) : 0;
         const std::array<float, 3>& colour = SHOT_COLOURS[shot.kind % SHOT_COLOURS.size()];
@@ -63,6 +67,16 @@ std::vector<Shape> StandIns::shapes(const ugame::Game& game, const ugame::Weapon
                        .a = place(shot.location),
                        .radius = std::max(radius, SMALLEST_SHOT),
                        .colour = {colour[0], colour[1], colour[2], 1}});
+    }
+    // UTA-0465: a Redeemer's wave, a sphere at its reach, fading over its life.
+    for (const ugame::Spread& wave : game.waves) {
+        if (wave.kind >= set.waves.size()) continue;
+        const ugame::Wave& kind = set.waves[wave.kind];
+        const auto spent = static_cast<float>(wave.age / kind.lifetime);
+        out.push_back({.kind = Shape::Kind::Sphere,
+                       .a = place(wave.at),
+                       .radius = static_cast<float>(ugame::reachOf(kind, wave.age)),
+                       .colour = {1.0f, 0.8f, 0.5f, 0.35f * (1 - spent)}});
     }
     for (const Effect& effect : effects_) {
         const ugame::Event& event = effect.event;
@@ -92,6 +106,7 @@ std::string hudText(const ugame::Body& body, const ugame::WeaponSet& set,
     if (body.weapon >= 0 && static_cast<std::size_t>(body.weapon) < set.weapons.size()) {
         const auto held = static_cast<std::size_t>(body.weapon);
         text = set.weapons[held].name + "\n";
+        if (body.guide == ugame::Body::Guide::Steering) text += "STEERING\n"; // UTA-0465
         // A weapon that holds no ammo, such as the hammer, spends none.
         if (set.weapons[held].ammoMax > 0) text += std::format("AMMO {}\n", body.weapons[held].ammo);
     }

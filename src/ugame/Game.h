@@ -108,6 +108,13 @@ struct Body {
     /// Seconds until a throw may be made; one is made only below 0. -1 at rest.
     double throwWait = -1;
     int previous = -1; ///< the weapon in hand before this one came up; -1 for none
+    // SS 4.11, the Redeemer: a shell it steers, then the weapon's wait.
+    enum class Guide : std::uint8_t { None, Steering, Recovering } guide = Guide::None;
+    /// Steering: seconds since the launch, counted from the tick after.
+    /// Recovering: seconds until the weapon may fire again.
+    double guideClock = 0;
+    /// The aim when the shell was launched, which the view returns to.
+    std::int32_t guideYaw = 0, guidePitch = 0;
 
     [[nodiscard]] bool alive() const { return health > 0; }
 };
@@ -130,7 +137,27 @@ struct Shot {
     // SS 4.10: a disc, a kind that settles. `stuck` is at rest.
     bool floored = false;   ///< it has struck a surface facing up; the next strike stops it
     double disruption = 0;  ///< damage it has taken
+    // SS 4.11: a shell its owner steers (Projectile::steer).
+    bool guided = false;
+    std::int32_t steerYaw = 0, steerPitch = 0; ///< the way it is steered (GuidedRotation)
+    std::int32_t aimYaw = 0, aimPitch = 0;     ///< its owner's aim at its last steer (OldGuiderRotation)
+    std::int32_t roll = 0;                     ///< its roll, 65536 to a turn, which the view takes
     bool operator==(const Shot&) const = default;
+};
+
+/// SS 4.11: how far a wave of kind `kind` reaches at `age` seconds:
+/// ShockWave's ShockSize x its scale. A client draws it at this.
+[[nodiscard]] double reachOf(const Wave& kind, double age);
+
+/// SS 4.11: a wave spreading from a blast (WeaponSet's Wave).
+struct Spread {
+    std::uint32_t kind = 0; ///< an index into the set's waves
+    int owner = -1;         ///< the body whose shot started it
+    Vec3 at{};
+    double age = 0;         ///< seconds since it started
+    double clock = 0;       ///< seconds since its last act
+    double reached = 0;     ///< how far its last act reached
+    bool operator==(const Spread&) const = default;
 };
 
 /// What a tick did that a client draws: a shot's line, an explosion.
@@ -158,6 +185,7 @@ struct Cue {
 struct Game {
     std::vector<Body> bodies;
     std::vector<Shot> shots;
+    std::vector<Spread> waves; ///< SS 4.11
     std::uint64_t ticks = 0;
     std::uint64_t random = 0x9E3779B97F4A7C15u; ///< the one generator's state (SS 4.5)
     std::vector<Event> events;                   ///< this tick's; cleared at its start

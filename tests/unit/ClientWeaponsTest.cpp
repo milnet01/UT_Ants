@@ -7,6 +7,7 @@
 
 #include "BlockFixture.h"
 
+#include "core/Angles.h"
 #include "ut-ants/StandIns.h"
 #include "ut-ants/Walker.h"
 
@@ -382,4 +383,43 @@ TEST_CASE("UTA-0472: a walker made where a body does not fit is lifted clear and
     solid.level = solidBlocks({box({-4000, -4000, -4000}, {4000, 4000, 4000})});
     const auto rock = uta::uworld::BodyWorld::build(solid, {}).value();
     CHECK(uta::client::clearOf(rock, sunk) == sunk);
+}
+
+TEST_CASE("UTA-0465: steering a Redeemer's shell views from the shell and then puts the aim back",
+          "[client][weapons]") {
+    const auto world = room(1000); // the shell, flying +Y, strikes this wall
+    Walker walker = landed(world);
+    // The 0 key twice: the sniper rifle, then the Redeemer beside it in slot 0.
+    walker.update(pressing(Action::Weapon0), FRAME, world);
+    run(walker, world, 0.2);
+    walker.update(pressing(Action::Weapon0), FRAME, world);
+    run(walker, world, 2);
+    REQUIRE(inHand(walker) == "redeemer");
+    const std::int32_t yawBefore = walker.view(90, 640, 480).rotation[1];
+
+    Frame alt;
+    alt.altFire = true;
+    walker.update(alt, FRAME, world);
+    run(walker, world, 0.2);
+    REQUIRE(walker.body().guide == uta::ugame::Body::Guide::Steering);
+    const auto shell = std::ranges::find_if(walker.game().shots,
+                                            [](const uta::ugame::Shot& shot) { return shot.guided; });
+    REQUIRE(shell != walker.game().shots.end());
+    const uta::urender::Camera camera = walker.view(90, 640, 480);
+    const double apart = std::hypot(camera.location[0] - shell->location.x, camera.location[1] - shell->location.y,
+                                    camera.location[2] - shell->location.z);
+    CHECK(apart <= uta::uworld::length(shell->location - shell->previous) + 0.01);
+    CHECK(camera.rotation[1] == uta::core::angleOf(shell->velocity.x, shell->velocity.y));
+    // StandIns draws no sphere where the view is.
+    StandIns standIns;
+    for (const Shape& shape : standIns.shapes(walker.game(), walker.set()))
+        CHECK(std::hypot(shape.a[0] - shell->location.x, shape.a[1] - shell->location.y) > 1);
+
+    // Turn while steering; once the shell is gone the aim is as it was at the launch.
+    Frame turn;
+    turn.lookRight = 1000;
+    walker.update(turn, FRAME, world);
+    run(walker, world, 3);
+    REQUIRE(walker.body().guide != uta::ugame::Body::Guide::Steering);
+    CHECK(walker.view(90, 640, 480).rotation[1] == yawBefore);
 }

@@ -82,4 +82,23 @@ inline constexpr double RADIANS_PER_UNIT = std::numbers::pi / 32768.0;
     return detail::sineOfUnits(static_cast<std::uint32_t>(angle) + 16384u);
 }
 
+/// The angle of (x, y), in whole UT units from -32767 to 32768, rounded to
+/// the nearest unit: UT99's Rotator() of a vector (UTA-0465). Found by
+/// halving within the quadrant on the sign of x sin a - y cos a, which rises
+/// through the answer there, so no platform maths runs. (0, 0) is 0.
+[[nodiscard]] constexpr std::int32_t angleOf(double x, double y) noexcept {
+    if (x == 0 && y == 0) return 0;
+    const auto past = [x, y](std::int32_t a) { return x * sineOf(a) - y * cosineOf(a); };
+    // The quadrant whose closed range holds the answer.
+    std::int32_t low = y >= 0 ? (x >= 0 ? 0 : 16384) : (x >= 0 ? -16384 : -32768);
+    std::int32_t high = low + 16384;
+    while (high - low > 1) {
+        const std::int32_t middle = low + (high - low) / 2;
+        (past(middle) <= 0 ? low : high) = middle;
+    }
+    const double below = -past(low), above = past(high);
+    const std::int32_t nearest = below <= above ? low : high;
+    return nearest == -32768 ? 32768 : nearest;
+}
+
 } // namespace uta::core

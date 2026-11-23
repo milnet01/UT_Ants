@@ -1,6 +1,7 @@
 ut-ants weapons 2
-# The stock weapon set: UT99's Botpack weapons but the Redeemer
-# (docs/specs/UTA-0019-weapon-set.md SS 3; the Translocator, SS 4.10).
+# The stock weapon set: UT99's Botpack weapons
+# (docs/specs/UTA-0019-weapon-set.md SS 3; the Translocator, SS 4.10; the
+# Redeemer, SS 4.11).
 #
 # Each number says where it came from:
 #   "default: Class.Property" -- the class's default properties, read from
@@ -437,6 +438,33 @@ ammo = 0
 land-up = 40               # script: Translocator.Translocate; recorded (tl-teleport)
 sound = botpack.translocator.returntarget  # default: Translocator.AltFireSound
 
+[weapon redeemer]
+class = botpack.warheadlauncher
+slot = 0                   # default: WarheadLauncher.InventoryGroup is 10, the 0 key
+ammo-max = 2               # default: WarHeadAmmo.MaxAmmo
+ammo-start = 1             # default: WarheadLauncher.PickupAmmoCount
+put-down = 0.25            # unrecorded: rd-switch fits it
+bring-up = 0.5             # unrecorded: rd-switch fits it
+select-sound = botpack.redeemer.warheadpickup  # default: WarheadLauncher.SelectSound
+
+[fire redeemer primary]
+archetype = projectile
+offset = 19.8 1 -11.89     # SS 4.9: PlayerViewOffset plus the class's FireOffset, right-handed; recorded
+refire = 0.73              # recorded: shot to shot while held (rd-hold)
+ammo = 1
+projectile = redeemer-shell
+sound = botpack.redeemer.warheadshot  # default: WarheadLauncher.FireSound
+
+[fire redeemer alt]
+archetype = guide
+offset = 19.8 1 -11.89     # as the primary: WarheadLauncher.ProjectileFire
+refire = 0.73              # unused: the guide's arm and recover time it
+ammo = 1
+projectile = guided-shell
+arm = 1                    # script: WarheadLauncher's Guiding, Sleep(1.0)
+recover = 1.3              # script: WarheadLauncher's Finishing, Sleep(0.3) then Sleep(1.0)
+sound = botpack.redeemer.warheadshot  # script: WarheadLauncher.ClientAltFire plays FireSound
+
 [projectile bio-gel]
 speed = 840                # default: UT_BioGel.speed
 radius = 2                 # default: UT_BioGel.CollisionRadius
@@ -606,8 +634,56 @@ bounce-off = 0.3           # script: TranslocatorTarget.HitWall; recorded
 mass = 50                  # default: TranslocatorTarget.Mass
 disrupt = 65               # default: TranslocatorTarget.DisruptionThreshold
 
+[projectile redeemer-shell]
+speed = 600                # default: WarShell.speed
+radius = 15                # default: WarShell.CollisionRadius
+half-height = 8            # default: WarShell.CollisionHeight
+lifetime = 140             # default: Projectile.LifeSpan
+damage = 1000              # default: WarShell.Damage
+momentum = 100000          # default: WarShell.MomentumTransfer
+splash-radius = 300        # script: WarShell's Flying.Explode
+strike = explode
+acceleration = 50          # script: WarShell's Flying.BeginState
+max-speed = 2000           # default: Projectile.MaxSpeed
+shot-down = 5              # script: WarShell.TakeDamage
+shot-down-radius = 350     # script: WarShell.TakeDamage
+wave = redeemer-wave       # script: WarShell's Flying.Explode spawns a ShockWave
+wave-off = 16              # script: WarShell's Flying.Explode, HitNormal * 16
+sound = unrealshare.general.expl03  # script: ShockWave.SpawnEffects
+
+[projectile guided-shell]
+speed = 600                # default: as WarShell.speed
+radius = 15                # default: as WarShell
+half-height = 8            # default: as WarShell
+lifetime = 140             # default: Projectile.LifeSpan
+damage = 1000              # default: as WarShell
+momentum = 100000          # default: as WarShell
+splash-radius = 300        # script: as WarShell's Flying.Explode
+strike = explode
+steer = 1500               # script: GuidedWarshell.MoveRocket
+steer-speed = 550          # script: GuidedWarshell.MoveRocket
+steer-lead = 16384         # script: GuidedWarshell.Tick, YawDiff
+shot-down = 5              # script: as WarShell.TakeDamage
+shot-down-radius = 350     # script: as WarShell.TakeDamage
+wave = redeemer-wave       # script: as WarShell
+wave-off = 16              # script: as WarShell
+sound = unrealshare.general.expl03  # script: ShockWave.SpawnEffects
+
 [combo shock-combo]
 damage = 165               # script: ShockProj.SuperExplosion, Damage x 3
 momentum = 140000          # script: ShockProj.SuperExplosion, MomentumTransfer x 2
 splash-radius = 250        # script: ShockProj.SuperExplosion
 sound = unrealshare.general.specialexpl  # default: ShockProj.ExploSound; script: ShockProj.SuperExplosion
+
+[wave redeemer-wave]
+lifetime = 1.5             # default: ShockWave.LifeSpan
+every = 0.1                # script: ShockWave.PostBeginPlay, SetTimer(0.1, True)
+grow = 13                  # script: ShockWave.Timer's ShockSize
+start = 3.5                # script: as grow
+edge = 0.05                # script: as grow
+scale = 29                 # script: ShockWave.Timer, ShockSize * 29
+damage = 1100              # script: ShockWave.Timer's MoScale
+falloff = 1.1              # script: as damage
+push = 20                  # script: ShockWave.Timer, MoScale + 20
+momentum = 1000            # script: ShockWave.Timer, 1000 * dir
+lift = 0.3                 # script: ShockWave.Timer, vect(0,0,0.3)

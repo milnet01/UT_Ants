@@ -177,7 +177,8 @@ constexpr std::uint32_t COUNT_MAX = 64;
 constexpr std::uint32_t SPREAD_MAX = 16384; // a quarter turn
 constexpr double OFFSET_MAX = 1000;
 
-constexpr std::string_view ARCHETYPE_NAMES[] = {"instant-hit", "projectile", "beam", "melee", "throw", "teleport"};
+constexpr std::string_view ARCHETYPE_NAMES[] = {"instant-hit", "projectile", "beam", "melee",
+                                                "throw",       "teleport",   "guide"};
 constexpr std::string_view STRIKE_NAMES[] = {"explode", "bounce", "stick", "split", "settle"};
 constexpr std::string_view SCALES_NAMES[] = {"damage", "count"};
 constexpr std::string_view EXPIRE_NAMES[] = {"vanish", "explode"};
@@ -358,6 +359,13 @@ Result<void> readFire(FireMode& mode, Keys& keys) {
     } else if (mode.archetype == Archetype::Teleport) {
         UTA_TRY(const std::optional<double> landUp, keys.decimal("land-up", true, 0, DISTANCE_MAX));
         mode.landUp = *landUp;
+    } else if (mode.archetype == Archetype::Guide) {
+        UTA_TRY(const std::optional<std::string> projectile, keys.name("projectile", true));
+        mode.projectile = *projectile;
+        UTA_TRY(const std::optional<double> arm, keys.decimal("arm", true, 0, TIME_MAX));
+        mode.arm = *arm;
+        UTA_TRY(const std::optional<double> recover, keys.decimal("recover", true, 0, TIME_MAX));
+        mode.recover = *recover;
     } else {
         UTA_TRY(const std::optional<double> damage, keys.decimal("damage", true, 0, AMOUNT_MAX));
         mode.damage = *damage;
@@ -490,6 +498,26 @@ Result<void> readProjectile(Projectile& projectile, Keys& keys, std::size_t head
                 keys.decimal("seek-acceleration", true, 0, DISTANCE_MAX));
         projectile.seekAcceleration = *seekAcceleration;
     }
+    // SS 4.11. Read only beside what turns each on: without it they are keys
+    // the kind does not have.
+    UTA_TRY(const std::optional<double> steer, keys.decimal("steer", false, 0, DISTANCE_MAX));
+    projectile.steer = steer.value_or(0);
+    if (projectile.steer > 0) {
+        UTA_TRY(projectile.steerSpeed, need("steer-speed", 1, DISTANCE_MAX));
+        UTA_TRY(const std::optional<std::uint32_t> lead, keys.number("steer-lead", true, 0, 32768));
+        projectile.steerLead = *lead;
+    }
+    UTA_TRY(const std::optional<double> shotDownRadius, keys.decimal("shot-down-radius", false, 0, DISTANCE_MAX));
+    projectile.shotDownRadius = shotDownRadius.value_or(0);
+    if (projectile.shotDownRadius > 0) {
+        UTA_TRY(projectile.shotDown, need("shot-down", 0, AMOUNT_MAX));
+    }
+    UTA_TRY(const std::optional<std::string> wave, keys.name("wave", false));
+    projectile.wave = wave.value_or("");
+    if (!projectile.wave.empty()) {
+        UTA_TRY(const std::optional<double> waveOff, keys.decimal("wave-off", false, 0, DISTANCE_MAX));
+        projectile.waveOff = waveOff.value_or(0);
+    }
     UTA_TRY(projectile.sound, keys.sound("sound"));
 
     UTA_TRY(const std::optional<Entry> strike, keys.take("strike", true));
@@ -547,7 +575,25 @@ Result<void> readCombo(Combo& combo, Keys& keys) {
     return keys.finish(std::format("[combo {}]", combo.name));
 }
 
-enum class SectionKind : std::uint8_t { Set, Weapon, Fire, Projectile, Combo };
+Result<void> readWave(Wave& wave, Keys& keys) {
+    for (auto [key, field, min, max] : {std::tuple{"lifetime", &wave.lifetime, 0.01, TIME_MAX},
+                                        std::tuple{"every", &wave.every, 0.001, TIME_MAX},
+                                        std::tuple{"grow", &wave.grow, 0.0, DISTANCE_MAX},
+                                        std::tuple{"start", &wave.start, 0.0, DISTANCE_MAX},
+                                        std::tuple{"edge", &wave.edge, 0.001, 10.0},
+                                        std::tuple{"scale", &wave.scale, 0.0, DISTANCE_MAX},
+                                        std::tuple{"damage", &wave.damage, 0.0, AMOUNT_MAX},
+                                        std::tuple{"falloff", &wave.falloff, 0.0, AMOUNT_MAX},
+                                        std::tuple{"push", &wave.push, 0.0, DISTANCE_MAX},
+                                        std::tuple{"momentum", &wave.momentum, 0.0, AMOUNT_MAX},
+                                        std::tuple{"lift", &wave.lift, 0.0, 10.0}}) {
+        UTA_TRY(const std::optional<double> value, keys.decimal(key, true, min, max));
+        *field = *value;
+    }
+    return keys.finish(std::format("[wave {}]", wave.name));
+}
+
+enum class SectionKind : std::uint8_t { Set, Weapon, Fire, Projectile, Combo, Wave };
 
 /// The section being read: where it opened, what it is, its keys so far.
 struct Open {
@@ -579,14 +625,19 @@ const Combo* WeaponSet::combo(std::string_view wanted) const {
     return found == combos.end() ? nullptr : &*found;
 }
 
+const Wave* WeaponSet::wave(std::string_view wanted) const {
+    const auto found = std::ranges::find(waves, wanted, &Wave::name);
+    return found == waves.end() ? nullptr : &*found;
+}
+
 Result<WeaponSet> parse(std::string_view text) {
     ini::Reader reader(FORMAT, text);
     WeaponSet set;
     std::optional<Open> open;
     std::optional<std::size_t> setLine;
-    NameLines weaponLines, projectileLines, comboLines;
+    NameLines weaponLines, projectileLines, comboLines, waveLines;
     // A reference to check once the whole file is read, and where it was made.
-    std::vector<std::pair<std::string, std::size_t>> projectileRefs, comboRefs;
+    std::vector<std::pair<std::string, std::size_t>> projectileRefs, comboRefs, waveRefs;
 
     const auto close = [&]() -> Result<void> {
         if (!open) return {};
@@ -597,7 +648,8 @@ Result<WeaponSet> parse(std::string_view text) {
         case SectionKind::Weapon: UTA_CHECK(readWeapon(set.weapons.back(), keys)); break;
         case SectionKind::Fire: {
             UTA_CHECK(readFire(*open->fire, keys));
-            if (open->fire->archetype == Archetype::Projectile || open->fire->archetype == Archetype::Throw)
+            if (open->fire->archetype == Archetype::Projectile || open->fire->archetype == Archetype::Throw ||
+                open->fire->archetype == Archetype::Guide)
                 projectileRefs.emplace_back(open->fire->projectile, heading);
             if (!open->fire->lockProjectile.empty()) projectileRefs.emplace_back(open->fire->lockProjectile, heading);
             break;
@@ -607,9 +659,11 @@ Result<WeaponSet> parse(std::string_view text) {
             UTA_CHECK(readProjectile(projectile, keys, heading));
             if (projectile.strike == Strike::Split) projectileRefs.emplace_back(projectile.splitInto, heading);
             if (!projectile.combo.empty()) comboRefs.emplace_back(projectile.combo, heading);
+            if (!projectile.wave.empty()) waveRefs.emplace_back(projectile.wave, heading);
             break;
         }
         case SectionKind::Combo: UTA_CHECK(readCombo(set.combos.back(), keys)); break;
+        case SectionKind::Wave: UTA_CHECK(readWave(set.waves.back(), keys)); break;
         }
         open.reset();
         return {};
@@ -673,6 +727,10 @@ Result<WeaponSet> parse(std::string_view text) {
             UTA_TRY(std::string valid, newName("combo", *name, comboLines, line));
             open = Open{.kind = SectionKind::Combo, .line = line, .label = std::format("[combo {}]", valid)};
             set.combos.push_back(Combo{.name = std::move(valid)});
+        } else if (const auto name = ini::nameAfter(heading, "wave")) {
+            UTA_TRY(std::string valid, newName("wave", *name, waveLines, line));
+            open = Open{.kind = SectionKind::Wave, .line = line, .label = std::format("[wave {}]", valid)};
+            set.waves.push_back(Wave{.name = std::move(valid)});
         } else {
             return refuse(line, std::format("there is no [{}] section", heading));
         }
@@ -704,10 +762,16 @@ Result<WeaponSet> parse(std::string_view text) {
                 return refuse(line, std::format("[weapon {}] teleports, but its primary does not throw", weapon.name));
             if (mode != &weapon.primary && mode->archetype == Archetype::Throw)
                 return refuse(line, std::format("[weapon {}] throws from its alt; only a primary throws", weapon.name));
+            // SS 4.11: a guide steers what it launches.
+            if (mode->archetype == Archetype::Guide && set.projectile(mode->projectile)->steer <= 0)
+                return refuse(line, std::format("[weapon {}] guides [projectile {}], which has no steer",
+                                                weapon.name, mode->projectile));
         }
     }
     for (const auto& [name, line] : comboRefs)
         if (!set.combo(name)) return refuse(line, std::format("there is no [combo {}]", name));
+    for (const auto& [name, line] : waveRefs)
+        if (!set.wave(name)) return refuse(line, std::format("there is no [wave {}]", name));
     return set;
 }
 
@@ -749,6 +813,9 @@ std::string fireText(std::string_view weapon, std::string_view which, const Fire
         return out;
     }
     if (mode.archetype == Archetype::Teleport) return out + std::format("land-up = {}\n", decimal(mode.landUp));
+    if (mode.archetype == Archetype::Guide)
+        return out + std::format("projectile = {}\narm = {}\nrecover = {}\n", mode.projectile, decimal(mode.arm),
+                                 decimal(mode.recover));
     if (mode.archetype == Archetype::Projectile) {
         out += std::format("projectile = {}\ncount = {}\nspiral-radius = {}\nspiral-turn = {}\n", mode.projectile,
                            mode.count, decimal(mode.spiralRadius), mode.spiralTurn);
@@ -822,6 +889,14 @@ std::string write(const WeaponSet& set) {
         if (projectile.seekEvery > 0)
             out += std::format("seek-every = {}\nseek-acceleration = {}\n", decimal(projectile.seekEvery),
                                decimal(projectile.seekAcceleration));
+        if (projectile.steer > 0)
+            out += std::format("steer = {}\nsteer-speed = {}\nsteer-lead = {}\n", decimal(projectile.steer),
+                               decimal(projectile.steerSpeed), projectile.steerLead);
+        if (projectile.shotDownRadius > 0)
+            out += std::format("shot-down = {}\nshot-down-radius = {}\n", decimal(projectile.shotDown),
+                               decimal(projectile.shotDownRadius));
+        if (!projectile.wave.empty())
+            out += std::format("wave = {}\nwave-off = {}\n", projectile.wave, decimal(projectile.waveOff));
         switch (projectile.strike) {
         case Strike::Explode: break;
         case Strike::Bounce:
@@ -850,6 +925,12 @@ std::string write(const WeaponSet& set) {
                            decimal(combo.damage), decimal(combo.momentum), decimal(combo.splashRadius));
         out += soundText("sound", combo.sound);
     }
+    for (const Wave& wave : set.waves)
+        out += std::format("\n[wave {}]\nlifetime = {}\nevery = {}\ngrow = {}\nstart = {}\nedge = {}\nscale = {}\n"
+                           "damage = {}\nfalloff = {}\npush = {}\nmomentum = {}\nlift = {}\n",
+                           wave.name, decimal(wave.lifetime), decimal(wave.every), decimal(wave.grow),
+                           decimal(wave.start), decimal(wave.edge), decimal(wave.scale), decimal(wave.damage),
+                           decimal(wave.falloff), decimal(wave.push), decimal(wave.momentum), decimal(wave.lift));
     return out;
 }
 

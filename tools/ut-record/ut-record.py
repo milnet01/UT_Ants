@@ -41,7 +41,10 @@ A weapon run (UTA-0019 section 4.7; weapons.txt) adds, before its first key line
     give <class>         a second copy, picked up once the first is in hand
     incoming <class>     the pawn launches one at the player on the first tick
 
-and the keys P (fire), A (alt fire) and N (switch weapon).
+    turn <units>         what a held turn key turns the view a second; 8192 if unset
+
+and the keys P (fire), A (alt fire), N (switch weapon), and < > ^ _, which
+turn the view left, right, up and down (UTA-0465).
 
 Each launch pins the game as shipped, not this install's settings: dodging on
 (DodgeClickTime 0.25), hardcore (TimeDilation 1.1), AirControl 0.35, no bots.
@@ -77,8 +80,8 @@ from ut_original import (
 PACKAGE = "UTARec"
 MAX_RUNS = 64   # UTARec's Runs[64]; change both. More runs on a map take more launches.
 MAX_STEPS = 32  # UTARec's MaxSteps; change both
-KEYS = set("FBLRJDWPAN")
-DIRECTIVES = {"aim", "weapon", "switch", "target", "side", "give", "incoming"}  # a weapon run's, before its keys
+KEYS = set("FBLRJDWPAN<>^_")
+DIRECTIVES = {"aim", "weapon", "switch", "target", "side", "give", "incoming", "turn"}  # a weapon run's, before its keys
 TIME_DILATION = 1.1  # hardcore mode (DeathMatchPlus.SetGameSpeed)
 # The game as shipped (spec section 4.4, INV-2): what each recording's PAWN line must show.
 SHIPPED = {"DodgeClickTime": 0.25, "AirControl": 0.35, "TimeDilation": TIME_DILATION, "Bots": 0}
@@ -128,7 +131,7 @@ def read_runs(path):
                 fail(f"{where}: {fields[0]} comes before run {run.name}'s first key line")
             if len(fields) != 2 or fields[0] in run.directives:
                 fail(f"{where}: one {fields[0]} <value> a run")
-            if fields[0] in ("aim", "target", "side"):
+            if fields[0] in ("aim", "target", "side", "turn"):
                 float(fields[1])
             run.directives[fields[0]] = fields[1]
         elif fields[0] == "end":
@@ -142,7 +145,7 @@ def read_runs(path):
         else:
             t, keys = float(fields[0]), fields[1] if len(fields) > 1 else "-"
             if keys != "-" and not set(keys) <= KEYS:
-                fail(f"{where}: keys are F B L R J D W P A N, or -")
+                fail(f"{where}: keys are F B L R J D W P A N < > ^ _, or -")
             if run.steps and t <= run.steps[-1][0]:
                 fail(f"{where}: times must increase")
             run.steps.append((t, keys))

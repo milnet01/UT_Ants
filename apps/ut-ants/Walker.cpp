@@ -2,6 +2,7 @@
 
 #include "Walker.h"
 
+#include "core/Angles.h"
 #include "uui/Platforming.h"
 
 #include <algorithm>
@@ -252,7 +253,16 @@ void Walker::update(const uinput::Frame& input, double seconds, const uworld::Bo
         commands_.assign(game_.bodies.size(), uworld::MoveCommand{});
         commands_[0] = command;
         previous_ = game_.bodies[0].move;
+        const bool steering = game_.bodies[0].guide == ugame::Body::Guide::Steering;
         ugame::tick(world, set_, rules_, game_, commands_, clock_.dt(), zones_ ? &*zones_ : nullptr);
+        if (steering && game_.bodies[0].guide != ugame::Body::Guide::Steering) {
+            // UTA-0019 SS 4.11: the shell gone, the aim is put back as it was at its launch.
+            yaw_ = game_.bodies[0].guideYaw;
+            pitch_ = std::clamp(double(game_.bodies[0].guidePitch), -double(FlyCamera::PITCH_LIMIT),
+                                double(FlyCamera::PITCH_LIMIT));
+            command.yaw = units(yaw_);
+            command.pitch = units(pitch_);
+        }
         events_.insert(events_.end(), game_.events.begin(), game_.events.end());
         cues_.insert(cues_.end(), game_.cues.begin(), game_.cues.end());
         for (std::size_t i = 1; i < game_.bodies.size(); ++i) {
@@ -331,6 +341,17 @@ FlyCamera Walker::eye(double fov) const noexcept {
 
 urender::Camera Walker::view(double fov, std::uint32_t width, std::uint32_t height) const noexcept {
     urender::Camera camera = eye(fov).camera(width, height);
+    if (game_.bodies[0].guide == ugame::Body::Guide::Steering) {
+        const auto shell = std::ranges::find_if(
+            game_.shots, [](const ugame::Shot& shot) { return shot.guided && shot.owner == 0; });
+        if (shell != game_.shots.end()) {
+            const uworld::Vec3 at = shell->previous + (shell->location - shell->previous) * clock_.blend();
+            const uworld::Vec3& v = shell->velocity;
+            camera.location = {static_cast<float>(at.x), static_cast<float>(at.y), static_cast<float>(at.z)};
+            camera.rotation = {core::angleOf(std::hypot(v.x, v.y), v.z), core::angleOf(v.x, v.y), shell->roll};
+            return camera;
+        }
+    }
     if (zoomLevel_ > 0 && width > 0 && height > 0) {
         // FlyCamera::camera's own sum, on a view narrower than a FlyCamera goes.
         const double half = fov * zoom() * std::numbers::pi / 360.0;

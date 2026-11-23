@@ -21431,7 +21431,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: in-session-2026-11-11.
   Lanes: uworld.
 
-- 📋 [UTA-0465] **The Redeemer: a missile steered from its own camera.**
+- 🚧 [UTA-0465] **The Redeemer: a missile steered from its own camera.**
   Split out of UTA-0019 by the user (2026-11-11): it is not a gun, and
   needs a second view to steer from. Builds on UTA-0019's weapon-set
   file and firing archetypes

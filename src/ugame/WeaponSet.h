@@ -24,8 +24,8 @@ namespace uta::ugame {
 inline constexpr std::uint32_t WEAPON_SET_VERSION = 2;
 
 /// SS 4.4: the behaviours that genuinely differ. Throw and Teleport are the
-/// Translocator's two modes (SS 4.10).
-enum class Archetype : std::uint8_t { InstantHit, Projectile, Beam, Melee, Throw, Teleport };
+/// Translocator's two modes (SS 4.10); Guide is the Redeemer's alt (SS 4.11).
+enum class Archetype : std::uint8_t { InstantHit, Projectile, Beam, Melee, Throw, Teleport, Guide };
 
 /// What charging scales: an instant hit's or a melee's damage and momentum,
 /// or how many projectiles a projectile mode spawns.
@@ -146,6 +146,11 @@ struct FireMode {
     double recallAfter = 0;
     /// teleport (SS 4.10): the thrower arrives this far above a resting disc.
     double landUp = 0;
+    /// guide (SS 4.11): launches one `projectile` its firer steers. A press
+    /// of either trigger `arm` seconds after the launch blows it up; once it
+    /// is gone the weapon waits `recover` before it fires again.
+    double arm = 0;
+    double recover = 0;
     FireRule rule = FireRule::None;       ///< `rule`: a named behaviour of the archetype
     /// UTA-0467 SS 4.2, each a baked sound's path or empty: played once a
     /// shot; looped while the mode sounds (ugame::loopingMode); played once
@@ -236,6 +241,20 @@ struct Projectile {
     /// `seekAcceleration` along its new heading. 0 for a shot that never seeks.
     double seekEvery = 0;
     double seekAcceleration = 0;
+    /// SS 4.11, GuidedWarshell.MoveRocket: each tick its velocity gains the
+    /// steering direction x `steer` x the tick, then is set to `steerSpeed`
+    /// along the sum. The steering yaw stays within `steerLead` of its
+    /// heading. 0 for a shot nobody steers.
+    double steer = 0;
+    double steerSpeed = 0;
+    std::uint32_t steerLead = 0;
+    /// SS 4.11, WarShell.TakeDamage: a hit of more than `shotDown` bursts it,
+    /// its damage a splash of `shotDownRadius`. A radius of 0: nothing does.
+    double shotDown = 0;
+    double shotDownRadius = 0;
+    /// SS 4.11: the wave its blast starts, `waveOff` off what it struck; empty for none.
+    std::string wave;
+    double waveOff = 0;
     std::string sound;         ///< played where it explodes; a baked sound's path or empty
     bool operator==(const Projectile&) const = default;
 };
@@ -248,6 +267,21 @@ struct Combo {
     bool operator==(const Combo&) const = default;
 };
 
+/// SS 4.11, ShockWave: a blast that spreads. Every `every` seconds of its
+/// `lifetime` it reaches `scale` x (`grow` x age + `start` / (left /
+/// lifetime + `edge`)). A body or shot in sight inside that, farther out
+/// than the last act reached or moving in, takes `damage` less `falloff` x
+/// its distance, at least 0, and gains that plus `push` as velocity, along
+/// its direction from the centre with `lift` added upward; the hit's
+/// momentum is `momentum` along the same.
+struct Wave {
+    std::string name;
+    double lifetime = 0, every = 0;
+    double grow = 0, start = 0, edge = 0, scale = 0;
+    double damage = 0, falloff = 0, push = 0, momentum = 0, lift = 0;
+    bool operator==(const Wave&) const = default;
+};
+
 struct WeaponSet {
     std::string name;
     double selfDamage = 1;  ///< of the damage the firer's own shots do it
@@ -256,10 +290,12 @@ struct WeaponSet {
     std::vector<Weapon> weapons;
     std::vector<Projectile> projectiles;
     std::vector<Combo> combos;
+    std::vector<Wave> waves;
     bool operator==(const WeaponSet&) const = default;
 
     [[nodiscard]] const Projectile* projectile(std::string_view name) const;
     [[nodiscard]] const Combo* combo(std::string_view name) const;
+    [[nodiscard]] const Wave* wave(std::string_view name) const;
 };
 
 /// SS 4.2: strict. An unknown section or key, a repeated one, an

@@ -603,6 +603,58 @@ strike and three weapon-file keys carry it:
   it or a recall of it kills its thrower. A projectile's direct strike on
   a disc is not modelled; its splash is.
 
+### 4.11 The Redeemer (UTA-0465)
+
+Read from `WarheadLauncher`, `WarShell`, `GuidedWarshell` and `ShockWave`,
+2026-11-23, and recorded at 30, 85 and 120 fps (`rd-` runs in
+`weapons.txt`). It is slot 0 (`InventoryGroup` 10) and holds 2, a pickup
+giving 1.
+
+- **The primary** is a projectile mode: a shell at 600, speeding up 50 a
+  second along its aim to 2000, that explodes on any surface or body but
+  its firer's.
+- **`guide`**, the alt, launches a shell the firer then steers
+  (`GuidedWarshell.MoveRocket`). Each tick, before it moves, its
+  velocity gains the steering direction × `steer` (1500) × the tick, and
+  is then set to `steer-speed` (550) along the sum. The steering direction
+  starts as the aim and follows each tick's change of the firer's aim, its
+  pitch freely, its yaw only while that leaves it within `steer-lead`
+  (16384) of the shell's own heading. A press of either trigger once
+  `arm` (1 s) has passed since the launch blows the shell up where it is.
+  The shell also blows up as its firer dies. The weapon then waits
+  `recover` (1.3 s) after the shell is gone, however it went, before it
+  fires again (`Finishing`). While a shell is steered or the weapon
+  recovers, a switch asked for is dropped: the original's `PutDown` sets
+  a flag only `Finish` reads, and these states never call it.
+- **The blast** is the kind's splash, then a **wave**
+  (`wave = redeemer-wave`), started `wave-off` (16) off what the shell
+  struck. A wave lasts `lifetime` (1.5 s). Its timer counts every tick
+  from the one it starts in and acts each time it passes `every`
+  (0.1 s), keeping what is over. An act reaches `scale` × (`grow` × age +
+  `start` ÷ (left ÷ lifetime + `edge`)) (`ShockWave.Timer`), the age and
+  life left being those before the act's tick; the wave ends after the
+  tick its life runs out in. Each act meets every body and shot in sight
+  of its centre whose own radius comes within that reach. One farther out
+  than the last act's reach, or moving towards the centre, takes damage
+  `max(0, damage − falloff × distance)` (1100, 1.1); its velocity gains
+  that plus `push` (20) along its direction from the centre with `lift`
+  (0.3) added upward, unnormalised, and the hit's momentum is `momentum`
+  (1000) along the same. Recorded: the act ticks, the own radius and the
+  age before the tick are each what the `rd-` runs' hits need (`rd-near`,
+  `rd-fire-up`).
+- **A wide shell striking a body** blasts where a line, not its cylinder,
+  from where its move began to where it ended meets the body's own
+  cylinder; a line that misses blasts on the body's side facing the shell
+  (`Projectile.Touch`). This holds for every kind with a radius; recorded
+  on the Redeemer, whose 15-wide shell otherwise blasts 15 out.
+- **Shot down.** An instant hit, splash or wave act doing more than
+  `shot-down` (5) to a shell bursts it: the kind's damage as a splash of
+  `shot-down-radius` (350) where it was hit, with no wave
+  (`WarShell.TakeDamage`).
+- **The view.** While a body steers a shell, `ut-ants` draws from the
+  shell, turned by its heading and the roll `MoveRocket` gives it, and
+  puts the aim back as it was at the launch when the shell is gone.
+
 ## 5. Invariants
 
 - **INV-1** — A set file is strict. An unknown key, an unknown section,
@@ -700,8 +752,9 @@ strike and three weapon-file keys carry it:
 ## 7. Tests
 
 `IniTextTest.cpp` for the moved reader; the recipe's existing tests
-unchanged. UTA-0466's rules (§ 4.10) are `GameTest.cpp` and
-`WeaponSetTest.cpp` cases by its id. INV-1, INV-2 and INV-3 in `WeaponSetTest.cpp`. INV-4,
+unchanged. UTA-0466's rules (§ 4.10) and UTA-0465's (§ 4.11) are
+`GameTest.cpp` and `WeaponSetTest.cpp` cases by their ids; the view from
+a steered shell is a `ClientWeaponsTest.cpp` case. INV-1, INV-2 and INV-3 in `WeaponSetTest.cpp`. INV-4,
 INV-5, INV-7, INV-8 and INV-9 in `GameTest.cpp`, on hand-built levels;
 UTA-0468's rules there too, by its id. INV-6 in
 `RealWeaponTest.cpp`, label `real`, reading the recordings
@@ -725,7 +778,8 @@ INV-9.
 
 ## 9. Out of scope
 
-The Redeemer (its own item). The Translocator's team rules (no team play
+The Redeemer's red tint, static and target marks on the view, and its
+smoke. Projectiles touching other projectiles. The Translocator's team rules (no team play
 yet) and the bot's use of it (UTA-0025). Weapon models, hand
 animation and muzzle flashes (UTA-0467). Sounds are
 `docs/specs/UTA-0467-weapon-sounds.md`: its § 4.2 adds the sound keys to

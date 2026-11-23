@@ -180,7 +180,8 @@ std::string kindOf(const std::string& cls) {
         {"flakslug", "flak-shell"},  {"UT_BioGel", "bio-gel"},      {"BioGlob", "bio-glob"},
         {"ShockProj", "shock-ball"}, {"PlasmaSphere", "plasma"},    {"Razor2", "razor"},
         {"Razor2Alt", "razor-alt"},  {"UT_SeekingRocket", "seeking-rocket"},
-        {"TranslocatorTarget", "translocator-disc"}};
+        {"TranslocatorTarget", "translocator-disc"},  {"WarShell", "redeemer-shell"},
+        {"GuidedWarshell", "guided-shell"}};
     const auto found = KINDS.find(cls);
     return found == KINDS.end() ? std::string{} : found->second;
 }
@@ -731,7 +732,18 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
             }
         for (int b = 0; b < 2; ++b) {
             const double lost = healthBefore[static_cast<std::size_t>(b)] - game.bodies[static_cast<std::size_t>(b)].health;
-            if (lost <= 0) continue;
+            if (lost <= 0) {
+                // UTA-0465: a wave's act far out pushes and does no damage, which
+                // the original logs as a D line of 0. The tick again with no
+                // waves tells whether one pushed this body.
+                if (gameBefore.waves.empty()) continue;
+                ugame::Game calm = gameBefore;
+                calm.waves.clear();
+                ugame::tick(world, set, rules, calm, commands, row.dt);
+                if (uworld::length(calm.bodies[static_cast<std::size_t>(b)].move.velocity -
+                                   game.bodies[static_cast<std::size_t>(b)].move.velocity) < 1e-9)
+                    continue;
+            }
             // A telefrag is a death, not damage: the original logs no D line
             // for it (Pawn.gibbedBy), so it is compared by tick below.
             if (game.bodies[static_cast<std::size_t>(b)].health <= ugame::GIBBED_HEALTH) {

@@ -891,3 +891,154 @@ switch Botpack.Translocator
 2.5 PA
 2.7 -
 end 4
+
+# -- UTA-0465: the Redeemer
+#
+# Fire launches a WarShell at 600, speeding up 50 a second along its aim
+# (WarShell's Flying.BeginState). Alt fire launches a GuidedWarshell the
+# view then steers (GuidedWarshell.MoveRocket); fire or alt fire blows it
+# up once it has flown 1 s (WarheadLauncher's Guiding). The turn keys steer:
+# 8192 units a second, or the run's turn. rd-steer-fast turns the view 0.4
+# of a turn in 0.4 s, faster than the shell can follow, so the steering's
+# quarter-turn lead (MoveRocket's YawDiff) is reached; it starts 1 s out,
+# so the shell turning back passes clear of the player. The recorder gives the
+# player 10000 health, so a shell bursting nearby hurts it and is recorded.
+# rd-shootdown shoots a WarShell the target launches at the player: aimed
+# 293 down, the Shock Rifle's line crosses the shell's height from 520 to
+# 1090 ahead, so its first shot meets the shell as it leaves the target.
+# From 1500 out the shell met the level 1330 ahead, and the Enforcer's
+# spread missed it. rd-steer-fast-left climbs as it turns, so the shell
+# coming back passes over the player.
+
+run rd-fire DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim 0
+weapon Botpack.WarheadLauncher
+0 P
+0.08 -
+end 5
+
+run rd-fire-up DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim 3000
+weapon Botpack.WarheadLauncher
+0 P
+0.08 -
+end 5
+
+run rd-hold DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim 0
+weapon Botpack.WarheadLauncher
+0 P
+4 -
+end 6
+
+run rd-target DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim 0
+weapon Botpack.WarheadLauncher
+target 1000
+0 P
+0.08 -
+end 4
+
+run rd-near DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim 0
+weapon Botpack.WarheadLauncher
+target 200
+0 P
+0.08 -
+end 2
+
+run rd-guide DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim 0
+weapon Botpack.WarheadLauncher
+0 A
+0.08 -
+0.5 P
+0.58 -
+2 P
+2.08 -
+2.5 P
+3.8 -
+end 5
+
+run rd-guide-alt DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim 0
+weapon Botpack.WarheadLauncher
+0 A
+0.08 -
+1.5 A
+1.58 -
+end 3.5
+
+run rd-steer DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim 0
+weapon Botpack.WarheadLauncher
+0 A
+0.08 -
+0.3 >
+0.6 -
+0.8 ^
+1.2 -
+1.4 _
+1.6 -
+2.2 P
+2.28 -
+end 4
+
+run rd-steer-fast DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim 0
+weapon Botpack.WarheadLauncher
+turn 65536
+0 A
+0.08 -
+1 >
+1.4 -
+2.2 P
+2.28 -
+end 3.5
+
+run rd-steer-fast-left DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim 2000
+weapon Botpack.WarheadLauncher
+turn 65536
+0 A
+0.08 -
+0.3 <
+0.7 -
+end 3
+
+run rd-guide-walk DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim 0
+weapon Botpack.WarheadLauncher
+0 A
+0.08 F
+1.5 -
+2 P
+2.08 -
+end 3
+
+run rd-guide-target DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim 0
+weapon Botpack.WarheadLauncher
+target 1000
+0 A
+0.08 -
+end 4
+
+run rd-shootdown DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim -293
+weapon Botpack.ShockRifle
+target 1000
+incoming Botpack.WarShell
+0 P
+0.08 -
+end 3
+
+run rd-switch DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim 0
+weapon Botpack.Enforcer
+switch Botpack.WarheadLauncher
+0 N
+0.08 -
+1.5 N
+1.58 -
+end 3

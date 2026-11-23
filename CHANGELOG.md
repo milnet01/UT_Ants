@@ -14,6 +14,13 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **The Redeemer: a slow nuke you can fly** (UTA-0465)
+  It is on the 0 key, after the sniper rifle. Fire launches a slow
+  missile that blows up on whatever it hits. Alt fire launches one you
+  steer with the mouse, seen from the missile itself as it banks. Press
+  either trigger after a second to blow it up early. The blast sends out
+  a shock wave that hurts and throws everyone it reaches, you included.
+  A missile shot down in flight bursts without the wave.
 - **The Translocator: throw a disc, then teleport to it** (UTA-0466)
   It is on the 1 key. Fire throws the disc, and fire again once it has
   flown a moment calls it back. Alt fire takes you to it, and lands you

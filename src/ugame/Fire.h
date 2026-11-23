@@ -15,6 +15,7 @@ struct Owed {
     double damage;
     Vec3 momentum;
     int instigator;
+    Vec3 velocity{}; ///< added first, as Pawn.AddVelocity (SS 4.11's wave)
 };
 
 struct Tick {
@@ -73,6 +74,15 @@ struct SegmentHit {
 
 /// Whether shots of `kind` are discs that instant hits and splashes meet (SS 4.10).
 [[nodiscard]] bool isTarget(const Projectile& kind);
+
+/// Whether instant hits and splashes meet shots of `kind`: discs, and shells
+/// that can be shot down (SS 4.11).
+[[nodiscard]] bool canBeHit(const Projectile& kind);
+
+/// SS 4.11, WarShell.TakeDamage: shot `shot` takes `damage`, hit at `at`;
+/// past its kind's `shotDown`, it bursts there, as a splash of its kind's
+/// damage over `shotDownRadius`, with no wave.
+void hurtShot(Tick& tick, int shot, double damage, const Vec3& at);
 
 /// A cylinder's half-height for `kind`: its own, or its radius.
 [[nodiscard]] double halfHeightOf(const Projectile& kind);

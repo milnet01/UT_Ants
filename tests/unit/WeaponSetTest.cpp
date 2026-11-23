@@ -455,7 +455,9 @@ TEST_CASE("INV-3: the stock set parses and maps each stock class to one weapon",
         CHECK(std::ranges::count(set->weapons, stockClass, &uta::ugame::Weapon::className) == 1);
     }
     CHECK(std::ranges::count(set->weapons, "botpack.translocator", &uta::ugame::Weapon::className) == 1);
-    CHECK(set->weapons.size() == 12); // SS 3 item 2's eleven, and the Translocator (SS 4.10)
+    CHECK(std::ranges::count(set->weapons, "botpack.warheadlauncher", &uta::ugame::Weapon::className) == 1);
+    // SS 3 item 2's eleven, the Translocator (SS 4.10) and the Redeemer (SS 4.11)
+    CHECK(set->weapons.size() == 13);
     // INV-2 holds for it too.
     const auto again = uta::ugame::parse(uta::ugame::write(*set));
     REQUIRE(again.has_value());
@@ -650,6 +652,147 @@ TEST_CASE("UTA-0466: a Translocator's keys parse and read back; its refusals nam
         const std::string message(refused.error().message());
         CAPTURE(message);
         CHECK(message.starts_with(std::format("weapon set line {}: ", lineOf(refusal.text, refusal.at))));
+        CHECK(message.find(refusal.says) != std::string::npos);
+    }
+}
+
+namespace {
+
+/// UTA-0465: a set holding just a Redeemer.
+constexpr std::string_view REDEEMER = R"(ut-ants weapons 2
+[set]
+name = "Nuke"
+self-damage = 1
+head-height = 0.62
+
+[weapon redeemer]
+class = botpack.warheadlauncher
+slot = 0
+ammo-max = 2
+ammo-start = 1
+put-down = 0.25
+bring-up = 0.5
+
+[fire redeemer primary]
+archetype = projectile
+refire = 0.73
+ammo = 1
+projectile = shell
+
+[fire redeemer alt]
+archetype = guide
+refire = 0.73
+ammo = 1
+projectile = guided
+arm = 1
+recover = 1.3
+
+[projectile shell]
+speed = 600
+radius = 15
+lifetime = 140
+damage = 1000
+momentum = 100000
+splash-radius = 300
+strike = explode
+shot-down = 5
+shot-down-radius = 350
+wave = blast
+wave-off = 16
+
+[projectile guided]
+speed = 600
+radius = 15
+lifetime = 140
+damage = 1000
+momentum = 100000
+strike = explode
+steer = 1500
+steer-speed = 550
+steer-lead = 16384
+
+[wave blast]
+lifetime = 1.5
+every = 0.1
+grow = 13
+start = 3.5
+edge = 0.05
+scale = 29
+damage = 1100
+falloff = 1.1
+push = 20
+momentum = 1000
+lift = 0.3
+)";
+
+std::string nuke(std::string_view from, std::string_view to) {
+    std::string text(REDEEMER);
+    const std::size_t at = text.find(from);
+    REQUIRE(at != std::string::npos);
+    return text.replace(at, from.size(), to);
+}
+
+} // namespace
+
+TEST_CASE("UTA-0465: a Redeemer's keys parse and read back; its refusals name their lines", "[ugame][weapons]") {
+    const auto set = uta::ugame::parse(REDEEMER);
+    REQUIRE(set.has_value());
+    const uta::ugame::Weapon& weapon = set->weapons.at(0);
+    CHECK(weapon.alt->archetype == uta::ugame::Archetype::Guide);
+    CHECK(weapon.alt->arm == 1);
+    CHECK(weapon.alt->recover == 1.3);
+    const uta::ugame::Projectile& shell = set->projectiles.at(0);
+    CHECK(shell.shotDown == 5);
+    CHECK(shell.shotDownRadius == 350);
+    CHECK(shell.wave == "blast");
+    CHECK(shell.waveOff == 16);
+    const uta::ugame::Projectile& guided = set->projectiles.at(1);
+    CHECK(guided.steer == 1500);
+    CHECK(guided.steerSpeed == 550);
+    CHECK(guided.steerLead == 16384);
+    CHECK(guided.shotDownRadius == 0);
+    REQUIRE(set->waves.size() == 1);
+    CHECK(set->waves[0].falloff == 1.1);
+    CHECK(set->waves[0].lift == 0.3);
+    const auto again = uta::ugame::parse(uta::ugame::write(*set)); // INV-2
+    REQUIRE(again.has_value());
+    CHECK(*again == *set);
+
+    struct Refusal {
+        std::string_view what;
+        std::string text;
+        std::string_view at;
+        std::string_view says;
+    };
+    const std::vector<Refusal> refusals{
+        {"a guide of a kind nobody steers", nuke("projectile = guided\n", "projectile = shell\n"), "[weapon redeemer]",
+         "which has no steer"},
+        {"a guide with no recover", nuke("recover = 1.3\n", ""), "[fire redeemer alt]", "has no `recover`"},
+        {"a steer with no steer-speed", nuke("steer-speed = 550\n", ""), "[projectile guided]",
+         "has no `steer-speed`"},
+        {"a steer-lead with no steer", nuke("steer = 1500\nsteer-speed = 550\n", ""), "steer-lead",
+         "has no key 'steer-lead'"},
+        {"a shot-down radius with no shot-down", nuke("shot-down = 5\n", ""), "[projectile shell]",
+         "has no `shot-down`"},
+        {"a shot-down with no radius", nuke("shot-down-radius = 350\n", ""), "shot-down = 5",
+         "has no key 'shot-down'"},
+        {"a wave that is not there", nuke("wave = blast", "wave = boom"), "[projectile shell]",
+         "there is no [wave boom]"},
+        {"a wave with no falloff", nuke("falloff = 1.1\n", ""), "[wave blast]", "has no `falloff`"},
+        {"a wave given twice", std::string(REDEEMER) + "\n[wave blast]\n", "", "is given twice"},
+    };
+    for (const Refusal& refusal : refusals) {
+        CAPTURE(refusal.what);
+        const auto refused = uta::ugame::parse(refusal.text);
+        REQUIRE_FALSE(refused.has_value());
+        CHECK(refused.error().code() == uta::ErrorCode::MalformedData);
+        const std::string message(refused.error().message());
+        CAPTURE(message);
+        // Empty `at`: the text's last line.
+        const std::size_t line = refusal.at.empty()
+                                     ? static_cast<std::size_t>(std::ranges::count(refusal.text, '\n'))
+                                     : lineOf(refusal.text, refusal.at);
+        CHECK(message.starts_with(std::format("weapon set line {}: ", line)));
         CHECK(message.find(refusal.says) != std::string::npos);
     }
 }

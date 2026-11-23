@@ -13,6 +13,9 @@
 // "give <class>" (a second copy, picked up as from the floor once the first
 // is in hand) and "incoming <class>" (the target launches one at the player
 // on tick 0).
+// UTA-0465 adds the turn keys < > ^ _ (yaw left and right, pitch up and
+// down), each turning the view "turn <units a second>" while held, 8192 by
+// default; the W line logs the view they leave.
 //
 // Log lines (format 1; docs/specs/UTA-0456-movement-recorder.md section 4.5):
 //   UTAREC 1 BEGIN run=<name> map=<map> rate=<cap> pose=<x>,<y>,<z>,<yaw>
@@ -63,6 +66,8 @@ var UTARecTarget Target;
 var float TargetSide;     // the target this far right of the line ahead
 var string GiveClass;     // a second copy picked up after the first; "" for none
 var string IncomingClass; // a projectile the target launches at the player on tick 0; "" for none
+var float TurnYaw, TurnPitch; // the turn keys' turn so far this run, 65536 to a turn
+var float TurnRate;           // units a second a held turn key turns the view (UTA-0465)
 
 // The next space-separated field of S, which loses it.
 function string NextField(out string S)
@@ -125,6 +130,7 @@ function bool ParseRun(string Line)
 	TargetSide = 0;
 	GiveClass = "";
 	IncomingClass = "";
+	TurnRate = 8192;
 	while (Line != "")
 	{
 		Part = NextPart(Line);
@@ -145,6 +151,8 @@ function bool ParseRun(string Line)
 			GiveClass = NextField(Part);
 		else if (Head == "incoming")
 			IncomingClass = NextField(Part);
+		else if (Head == "turn")
+			TurnRate = float(NextField(Part));
 		else if (Steps < MaxSteps)
 		{
 			StepTime[Steps] = float(Head);
@@ -318,7 +326,15 @@ function bool PlaceTarget()
 
 function bool Ready(UTARecPawn P)
 {
+	local vector Off;
+
 	if (P.Physics != PHYS_Walking || VSize(P.Velocity) >= 1 || P.DodgeDir != DODGE_None)
+		return false;
+	Off = P.Location - Pose;
+	Off.Z = 0;
+	if (WeaponClass != "" && VSize(Off) > 5) // a weapon run's player pushed off its pose (UTA-0465)
+		return false;
+	if (WeaponClass != "" && Abs(P.EyeHeight - P.BaseEyeHeight) > 0.5) // its eye still shaken (UTA-0465)
 		return false;
 	if (WeaponClass != "" && (P.Weapon == None || !P.Weapon.IsInState('Idle')))
 		return false;
@@ -396,6 +412,10 @@ function LogStarts()
 // when no run is active (the player's own input is left alone).
 function string InputTick(UTARecPawn P, float DeltaTime)
 {
+	local string Keys;
+	local Projectile Pr;
+	local ShockWave Wave;
+
 	if (!bStartsLogged)
 		LogStarts();
 	if (P.IsInState('PlayerWaiting'))
@@ -442,6 +462,12 @@ function string InputTick(UTARecPawn P, float DeltaTime)
 		Phase = 1;
 		Waited = 0;
 		Still = 0;
+		// What the last run left flying or spreading would reach this one
+		// (UTA-0465: a Redeemer's shell, its ShockWave).
+		foreach AllActors(class'Projectile', Pr)
+			Pr.Destroy();
+		foreach AllActors(class'ShockWave', Wave)
+			Wave.Destroy();
 		if (!P.SetLocation(Pose))
 		{
 			log("UTAREC SKIP "$RunName$" pose refused");
@@ -451,6 +477,12 @@ function string InputTick(UTARecPawn P, float DeltaTime)
 		}
 		P.Velocity = vect(0,0,0);
 		P.Acceleration = vect(0,0,0);
+		// The last run's blasts shook the view (PlayerPawn.ShakeView), which
+		// moves the eye and so where this run's shots start (UTA-0465).
+		P.ShakeTimer = 0;
+		P.ShakeMag = 0;
+		P.ShakeVert = 0;
+		P.EyeHeight = P.BaseEyeHeight;
 		P.SetRotation(rot(0,1,0) * PoseYaw);
 		P.ViewRotation = rot(0,1,0) * PoseYaw + rot(1,0,0) * AimPitch;
 		P.SetPhysics(PHYS_Falling); // it lands, then walks
@@ -483,6 +515,8 @@ function string InputTick(UTARecPawn P, float DeltaTime)
 		{
 			Phase = 2;
 			Tick = 0;
+			TurnYaw = 0;
+			TurnPitch = 0;
 			if (WeaponClass == "")
 				log("UTAREC 1 BEGIN run="$RunName$" map="$MapName$" rate="$Rate$" pose="$Pose.X$","$Pose.Y$","$Pose.Z$","$PoseYaw);
 			else
@@ -519,8 +553,24 @@ function string InputTick(UTARecPawn P, float DeltaTime)
 		return "-";
 	}
 	bRowDue = true;
-	P.ViewRotation = rot(0,1,0) * PoseYaw + rot(1,0,0) * AimPitch; // no mouse: the aim holds
-	return KeysAt(Level.TimeSeconds - StartTime);
+	Keys = KeysAt(Level.TimeSeconds - StartTime);
+	// No mouse: the aim holds, but for the turn keys.
+	if (InStr(Keys, "<") >= 0) TurnYaw -= TurnRate * DeltaTime;
+	if (InStr(Keys, ">") >= 0) TurnYaw += TurnRate * DeltaTime;
+	if (InStr(Keys, "^") >= 0) TurnPitch += TurnRate * DeltaTime;
+	if (InStr(Keys, "_") >= 0) TurnPitch -= TurnRate * DeltaTime;
+	P.ViewRotation = rot(0,1,0) * (PoseYaw + int(TurnYaw)) + rot(1,0,0) * ((AimPitch + int(TurnPitch)) & 65535);
+	if (WeaponClass != "")
+	{
+		// No view shake: a blast's ShakeView rolls the view and moves the eye,
+		// so where shots start, and our game has none (UTA-0465). PlayerTick's
+		// ViewShake runs after this and finds nothing to do.
+		P.ShakeTimer = 0;
+		P.ShakeMag = 0;
+		P.ShakeVert = 0;
+		P.VertTimer = 0;
+	}
+	return Keys;
 }
 
 // The tick's row: this tick's input, and the state the last tick left.

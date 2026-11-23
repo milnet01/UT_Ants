@@ -82,7 +82,9 @@ public:
     /// as far from the last tick's place to this one's as the clock's blend.
     [[nodiscard]] FlyCamera eye(double fov) const noexcept;
 
-    /// `eye(fov)` at `width` by `height`, narrowed by the zoom.
+    /// `eye(fov)` at `width` by `height`, narrowed by the zoom. While the body
+    /// steers a Redeemer's shell, the view is the shell's: from where it is,
+    /// along its heading, rolled as it banks (UTA-0019 SS 4.11).
     [[nodiscard]] urender::Camera view(double fov, std::uint32_t width, std::uint32_t height) const noexcept;
 
     [[nodiscard]] const uworld::MoveState& state() const noexcept { return game_.bodies[0].move; }

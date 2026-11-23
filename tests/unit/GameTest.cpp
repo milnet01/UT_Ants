@@ -7,6 +7,7 @@
 
 #include "BlockFixture.h"
 
+#include "core/Angles.h"
 #include "ugame/Fire.h"
 #include "ugame/Game.h"
 #include "uworld/FixedTick.h"
@@ -471,10 +472,16 @@ TEST_CASE("SS 4.9: a shock ball striking a body bursts where its move ends, not 
     WeaponSet met = stock();
     for (Projectile& p : met.projectiles)
         if (p.name == ball.name) p.splashFromMoved = false;
-    // Where it met it is moved 0.4 of the body's radius on (Pawn.AdjustHitLocation),
-    // less 0.001 of its last move, which the trace meets the body early by.
+    // UTA-0465, Projectile.Touch: where the move's line, not the ball's
+    // cylinder, meets the body's own cylinder, moved 0.4 of the body's
+    // radius on (Pawn.AdjustHitLocation), less 0.001 of its last move,
+    // which the trace meets the body early by; a line that stops short of
+    // it bursts on the body's side.
+    const double side = 600 - uta::uworld::BodySize{}.radius;
     const double inset = 0.4 * uta::uworld::BodySize{}.radius;
-    CHECK(std::abs(altBlastAt(world, met, "shock-rifle").x - contact - inset + 0.001 * step) < 1e-6);
+    const double x = altBlastAt(world, met, "shock-rifle").x;
+    CAPTURE(x, side, contact);
+    CHECK((std::abs(x - side) < 1e-6 || std::abs(x - (side + inset - 0.001 * step)) < 1e-6));
 }
 
 TEST_CASE("UTA-0498: a hit on a player counts further into it than a hit on a dummy", "[ugame][game]") {
@@ -1821,8 +1828,10 @@ TEST_CASE("INV-5: a scripted fight is the same at every frame rate and on every 
     INFO("final hash " << reference.back());
     // UTA-0020: the script opens the wheel. UTA-0022: the hash covers coyoteLeft and mantleTo;
     // UTA-0108 landedZ; UTA-0493 painClock; UTA-0468 the lock, the second gun and the seeking,
-    // each of which moved the pin and nothing else; UTA-0501 the switch's two waits; UTA-0502 `next`.
-    CHECK(reference.back() == 4140377617325553840u);
+    // each of which moved the pin and nothing else; UTA-0501 the switch's two waits; UTA-0502 `next`;
+    // UTA-0465 the Redeemer, carried but never raised, and the steering and wave fields: with them
+    // out, the old pin returned.
+    CHECK(reference.back() == 2842529306317246047u);
 }
 
 // UTA-0020: the weapon wheel's time scale, and what it lists and picks.
@@ -2809,4 +2818,216 @@ TEST_CASE("UTA-0466: both triggers held at a look bring back the weapon in hand 
     CHECK(game.bodies[0].pending == game.bodies[0].previous);
     idleFor(world, game, 2);
     CHECK(game.bodies[0].weapon != weaponNamed(stock(), "translocator"));
+}
+
+// UTA-0465: the Redeemer (SS 4.11).
+
+namespace {
+
+/// The shooter at the origin facing +X with the Redeemer in hand; the dummy
+/// out of the way unless a case moves it.
+Game redeemer() {
+    Game game = duel(stock(), "redeemer", 1500);
+    game.bodies[0].weapon = weaponNamed(stock(), "redeemer");
+    game.bodies[0].health = 1e9; // its own wave would kill it
+    game.bodies[1].move.location.y = 2500;
+    return game;
+}
+
+/// Body 0's steered shell, or null.
+const Shot* steered(const Game& game) {
+    const auto at = std::ranges::find_if(game.shots, [](const Shot& shot) { return shot.guided && shot.owner == 0; });
+    return at == game.shots.end() ? nullptr : &*at;
+}
+
+MoveCommand aiming(std::int32_t yaw, std::int32_t pitch = 0) {
+    MoveCommand command;
+    command.yaw = yaw;
+    command.pitch = pitch;
+    return command;
+}
+
+} // namespace
+
+TEST_CASE("UTA-0465: angleOf gives the vector's angle in whole units, as UT99's Rotator does", "[ugame][game]") {
+    using uta::core::angleOf;
+    CHECK(angleOf(1, 0) == 0);
+    CHECK(angleOf(0, 1) == 16384);
+    CHECK(angleOf(-1, 0) == 32768);
+    CHECK(angleOf(0, -1) == -16384);
+    CHECK(angleOf(0, 0) == 0);
+    // Every 7th unit of a turn, from a vector at that angle, comes back as itself.
+    for (std::int32_t units = -32767; units <= 32768; units += 7) {
+        CAPTURE(units);
+        CHECK(angleOf(uta::core::cosineOf(units) * 550, uta::core::sineOf(units) * 550) == units);
+    }
+    // Between two units, the nearer.
+    const double a = 1000.3 * std::numbers::pi / 32768;
+    CHECK(angleOf(std::cos(a), std::sin(a)) == 1000);
+    const double b = 1000.7 * std::numbers::pi / 32768;
+    CHECK(angleOf(std::cos(b), std::sin(b)) == 1001);
+}
+
+TEST_CASE("UTA-0465: a steered shell keeps steer-speed and turns as its firer's aim turns", "[ugame][game]") {
+    const BodyWorld world = arena();
+    const Projectile& kind = *stock().projectile("guided-shell");
+    Game game = redeemer();
+    step(world, game, firing(false, true));
+    REQUIRE(steered(game) != nullptr);
+    CHECK(game.bodies[0].guide == Body::Guide::Steering);
+    CHECK(std::abs(uta::uworld::length(steered(game)->velocity) - kind.steerSpeed) < 1e-9);
+    CHECK(steered(game)->velocity.y == 0);
+    // The aim turns 2000 to the left: the steering follows, and the shell turns that way.
+    for (int k = 0; k < 20; ++k) step(world, game, aiming(2000));
+    REQUIRE(steered(game) != nullptr);
+    CHECK(steered(game)->steerYaw == 2000);
+    CHECK(steered(game)->velocity.y > 0);
+    CHECK(std::abs(uta::uworld::length(steered(game)->velocity) - kind.steerSpeed) < 1e-9);
+    // Up as well: pitch follows freely.
+    for (int k = 0; k < 20; ++k) step(world, game, aiming(2000, 1500));
+    CHECK(steered(game)->steerPitch == 1500);
+    CHECK(steered(game)->velocity.z > 0);
+}
+
+TEST_CASE("UTA-0465: the steering yaw follows the aim only within steer-lead of the shell's heading", "[ugame][game]") {
+    const BodyWorld world = arena();
+    const auto lead = static_cast<std::int32_t>(stock().projectile("guided-shell")->steerLead);
+    Game near = redeemer();
+    step(world, near, firing(false, true));
+    step(world, near, aiming(lead - 1000)); // within the lead of a shell heading 0
+    CHECK(steered(near)->steerYaw == lead - 1000);
+    Game far = redeemer();
+    step(world, far, firing(false, true));
+    step(world, far, aiming(lead + 1000)); // past it: the steering stays
+    CHECK(steered(far)->steerYaw == 0);
+    CHECK(steered(far)->aimYaw == lead + 1000);
+}
+
+TEST_CASE("UTA-0465: a press once the shell is armed blows it up; the weapon then recovers, dropping a switch",
+          "[ugame][game]") {
+    const BodyWorld world = arena();
+    const FireMode& mode = *stock().weapons[static_cast<std::size_t>(weaponNamed(stock(), "redeemer"))].alt;
+    Game game = redeemer();
+    step(world, game, firing(false, true));
+    step(world, game, MoveCommand{});
+    // A press before arm does nothing.
+    step(world, game, firing(true));
+    step(world, game, MoveCommand{});
+    REQUIRE(steered(game) != nullptr);
+    while (game.bodies[0].guideClock + DT < mode.arm) step(world, game, MoveCommand{});
+    step(world, game, firing(true)); // the tick the clock reaches arm
+    CHECK(steered(game) == nullptr);
+    CHECK(game.waves.size() == 1);
+    CHECK(std::ranges::count(game.events, Event::Kind::Explosion, &Event::kind) == 1);
+    CHECK(game.bodies[0].guide == Body::Guide::Recovering);
+    // A switch asked for now is dropped, not queued.
+    MoveCommand pick;
+    pick.weaponPick = static_cast<std::int8_t>(weaponNamed(stock(), "enforcer"));
+    step(world, game, pick);
+    CHECK(game.bodies[0].pending < 0);
+    // A held trigger fires the primary on the tick the wait ends, not before.
+    int ticks = 1;
+    while (game.shots.empty() && ticks < 1000) {
+        step(world, game, firing(true));
+        ++ticks;
+    }
+    CHECK(game.bodies[0].guide == Body::Guide::None);
+    CHECK(ticks * DT >= mode.recover);
+    CHECK((ticks - 1) * DT < mode.recover + DT);
+    CHECK(game.bodies[0].weapon == weaponNamed(stock(), "redeemer"));
+}
+
+TEST_CASE("UTA-0465: a shell gone by striking sends the weapon to recover; one whose steerer dies blows up",
+          "[ugame][game]") {
+    const BodyWorld world = arena();
+    Game game = redeemer();
+    step(world, game, firing(false, true));
+    // The wall at x = 2000 is 3.6 s off at 550.
+    for (int k = 0; k < 1000 && steered(game) != nullptr; ++k) step(world, game, MoveCommand{});
+    CHECK(steered(game) == nullptr);
+    CHECK(game.bodies[0].guide == Body::Guide::Recovering);
+
+    Game dies = redeemer();
+    step(world, dies, firing(false, true));
+    dies.bodies[0].health = 0;
+    step(world, dies, MoveCommand{});
+    CHECK(dies.shots.empty());
+    CHECK(dies.waves.size() == 1);
+}
+
+TEST_CASE("UTA-0465: an instant hit of more than shot-down bursts a shell over shot-down-radius, with no wave",
+          "[ugame][game]") {
+    const BodyWorld world = arena();
+    const Projectile& kind = *stock().projectile("redeemer-shell");
+    const auto shell = static_cast<std::uint32_t>(&kind - stock().projectiles.data());
+    WeaponSet weak = stock();
+    weak.weapons[static_cast<std::size_t>(weaponNamed(weak, "enforcer"))].primary.damage = kind.shotDown;
+    for (const WeaponSet* set : std::array{&stock(), static_cast<const WeaponSet*>(&weak)}) {
+        Game game = duel(*set, "enforcer", 1500);
+        const Vec3 eye = levelStart(primaryOf(*set, "enforcer"));
+        game.shots.push_back(Shot{.kind = shell, .owner = 1, .location = {400, eye.y, eye.z},
+                                  .velocity = {0, 0, 0}, .previous = {400, eye.y, eye.z}, .lifetime = 100});
+        std::vector<MoveCommand> commands(2);
+        commands[0].fire = true;
+        commands[1].yaw = 32768;
+        tick(world, *set, RULES, game, commands, DT);
+        if (set == &stock()) {
+            CAPTURE("17 damage");
+            CHECK(game.shots.empty());
+            CHECK(game.waves.empty());
+            const auto blast = std::ranges::find(game.events, Event::Kind::Explosion, &Event::kind);
+            REQUIRE(blast != game.events.end());
+            CHECK(blast->radius == kind.shotDownRadius);
+        } else {
+            CAPTURE("shot-down damage, not more");
+            CHECK(game.shots.size() == 1);
+        }
+    }
+}
+
+TEST_CASE("UTA-0465: a wave hurts and pushes a body as it first reaches it, by distance, and never through a wall",
+          "[ugame][game]") {
+    const BodyWorld world = arena();
+    const Wave& kind = stock().waves.front();
+    Game game = duel(stock(), "enforcer", 500);
+    game.bodies[0].move.location = {0, 2500, STANDING};
+    // Behind the wall at x = 2000 from the second wave, and 1500 off the
+    // other bodies' line, past any wave's damage.
+    game.bodies.push_back(bodyAt(stock(), {2200, -1500, STANDING}, 0));
+    // Far out, so its push is weak and the wave's reach outruns it.
+    game.bodies.push_back(bodyAt(stock(), {-950, 0, STANDING}, 0));
+    const Vec3 centre{0, 0, STANDING};
+    game.waves.push_back(Spread{.kind = 0, .owner = 0, .at = centre});
+    game.waves.push_back(Spread{.kind = 0, .owner = 0, .at = {1500, -1500, STANDING}});
+    std::vector<MoveCommand> commands(4);
+    std::array<int, 4> hits{};
+    for (int k = 0; k < 400 && !game.waves.empty(); ++k) {
+        const std::vector<Body> before = game.bodies;
+        const double reached = game.waves.front().reached; // the last act's reach
+        tick(world, stock(), RULES, game, commands, DT);
+        for (const std::size_t b : {std::size_t{1}, std::size_t{3}}) {
+            if (game.bodies[b].health == before[b].health) continue;
+            CAPTURE(b);
+            ++hits[b];
+            const Vec3 away = before[b].move.location - centre;
+            const double distance = uta::uworld::length(away);
+            Vec3 direction = away * (1 / distance);
+            direction.z += kind.lift;
+            if (hits[b] == 1) {
+                const double scale = kind.damage - kind.falloff * distance;
+                CHECK(before[b].health - game.bodies[b].health == landed(stock(), scale));
+                // The push and the momentum over the body's mass, along the
+                // direction with the lift added.
+                const Vec3 gained = game.bodies[b].move.velocity - before[b].move.velocity;
+                const double along = scale + kind.push + kind.momentum / 100;
+                CHECK(std::abs(gained.x - direction.x * along) < 1e-6);
+                CHECK(std::abs(gained.z - direction.z * along) < 1e-6);
+            }
+            // Each hit: past the last act's reach, or moving in towards the centre.
+            CHECK((distance > reached || uta::uworld::dot(direction, before[b].move.velocity) < 0));
+        }
+    }
+    CHECK(hits[1] >= 1);
+    CHECK(hits[3] >= 1);
+    CHECK(game.bodies[2].health == START_HEALTH);
 }

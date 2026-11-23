@@ -121,6 +121,8 @@ void launch(Tick& tick, std::uint32_t kind, int owner, const Vec3& at, std::int3
 
 bool isTarget(const Projectile& kind) { return kind.strike == Strike::Settle && kind.mass > 0; }
 
+bool canBeHit(const Projectile& kind) { return isTarget(kind) || kind.shotDownRadius > 0; }
+
 double halfHeightOf(const Projectile& kind) { return kind.halfHeight > 0 ? kind.halfHeight : kind.radius; }
 
 /// TranslocatorTarget.TakeDamage: a knocked disc rises at least this share of its speed.
@@ -133,6 +135,18 @@ void knockDisc(Tick& tick, int shot, double damage, const Vec3& momentum) {
     disc.velocity = momentum * (1 / kind.mass);
     disc.velocity.z = std::max(disc.velocity.z, DISC_KNOCK_UP * uworld::length(disc.velocity));
     disc.disruption += std::trunc(damage);
+}
+
+void hurtShot(Tick& tick, int shot, double damage, const Vec3& at) {
+    const Shot& shell = tick.game.shots[static_cast<std::size_t>(shot)];
+    const Projectile& kind = tick.set.projectiles[shell.kind];
+    // TakeDamage's damage is an int.
+    if (std::trunc(damage) <= kind.shotDown) return;
+    tick.shotGone[static_cast<std::size_t>(shot)] = true;
+    splash(tick, at, kind.damage * shell.damageScale, kind.momentum * shell.damageScale, kind.shotDownRadius,
+           shell.owner);
+    tick.game.events.push_back(Event{Event::Kind::Explosion, shell.location, shell.location, kind.shotDownRadius});
+    tick.game.cues.push_back(Cue{Cue::Kind::Explode, shell.owner, shell.kind, -1, shell.location});
 }
 
 SegmentHit traceSegment(const Tick& tick, const Vec3& from, const Vec3& to, int ignore, bool shots) {
@@ -155,7 +169,7 @@ SegmentHit traceSegment(const Tick& tick, const Vec3& from, const Vec3& to, int 
         for (std::size_t i = 0; i < flying.size(); ++i) {
             if (tick.shotGone[i]) continue;
             const Projectile& kind = tick.set.projectiles[flying[i].kind];
-            if (kind.combo.empty() && !isTarget(kind)) continue;
+            if (kind.combo.empty() && !canBeHit(kind)) continue;
             const double at = entersCylinder(from, to, flying[i].location, kind.radius, halfHeightOf(kind));
             if (at < first.fraction) first = SegmentHit{at, -1, static_cast<int>(i), {}, false};
         }
@@ -177,18 +191,25 @@ void splash(Tick& tick, const Vec3& at, double damage, double momentum, double r
         direction.z = std::min(direction.z, upMax);
         tick.owed.push_back(Owed{static_cast<int>(i), damage * scale, direction * (momentum * scale), instigator});
     }
-    // HurtRadius reaches every actor, a disc too (SS 4.10). Shots fired this
-    // tick are not in the game's list yet, so a blast cannot meet them.
+    // HurtRadius reaches every actor, a disc (SS 4.10) and a shell that can
+    // be shot down (SS 4.11) too. Shots fired this tick are not in the
+    // game's list yet, so a blast cannot meet them.
     for (std::size_t i = 0; i < tick.game.shots.size(); ++i) {
         const Projectile& kind = tick.set.projectiles[tick.game.shots[i].kind];
-        if (tick.shotGone[i] || !isTarget(kind)) continue;
+        if (tick.shotGone[i] || !canBeHit(kind)) continue;
         const Vec3 away = tick.game.shots[i].location - at;
         const double distance = uworld::length(away);
         if (distance >= radius) continue;
         const double scale = 1 - std::max(0.0, (distance - kind.radius) / radius);
         Vec3 direction = distance > 0 ? away * (1 / distance) : Vec3{0, 0, 1};
-        direction.z = std::min(direction.z, upMax);
-        knockDisc(tick, static_cast<int>(i), damage * scale, direction * (momentum * scale));
+        if (isTarget(kind)) {
+            direction.z = std::min(direction.z, upMax);
+            knockDisc(tick, static_cast<int>(i), damage * scale, direction * (momentum * scale));
+        } else {
+            // HurtRadius's HitLocation: in from the shell's centre, towards the blast.
+            const Vec3 hitAt = tick.game.shots[i].location - direction * (0.5 * (halfHeightOf(kind) + kind.radius));
+            hurtShot(tick, static_cast<int>(i), damage * scale, hitAt);
+        }
     }
 }
 
@@ -427,9 +448,13 @@ void fire(Tick& tick, int index, const FireMode& mode, double scale, bool second
             const Vec3 stop = start + (end - start) * std::min(hit.fraction, 1.0);
             tick.game.events.push_back(Event{Event::Kind::InstantHit, start, stop, 0});
             if (hit.body >= 0) instantHit(tick, hit.body, index, start, end, hit.fraction, mode, damageScale);
-            if (hit.shot >= 0 && isTarget(tick.set.projectiles[tick.game.shots[static_cast<std::size_t>(hit.shot)].kind]))
+            const Projectile* met =
+                hit.shot < 0 ? nullptr : &tick.set.projectiles[tick.game.shots[static_cast<std::size_t>(hit.shot)].kind];
+            if (met != nullptr && isTarget(*met))
                 knockDisc(tick, hit.shot, mode.damage * damageScale, aim * (mode.momentum * damageScale));
-            else if (hit.shot >= 0)
+            else if (met != nullptr && met->shotDownRadius > 0)
+                hurtShot(tick, hit.shot, mode.damage * damageScale, stop);
+            else if (met != nullptr)
                 setOffCombo(tick, hit.shot, index);
         }
         break;
@@ -489,6 +514,18 @@ void fire(Tick& tick, int index, const FireMode& mode, double scale, bool second
     case Archetype::Beam: beam(tick, index, mode); break;
     case Archetype::Throw:
     case Archetype::Teleport: break; // the Translocator's: Game.cpp's translocate (SS 4.10)
+    case Archetype::Guide: {
+        // SS 4.11: one shell, launched as a projectile is, steered from the aim.
+        carried.ammo -= spend;
+        const auto kind = static_cast<std::uint32_t>(
+            std::ranges::find(tick.set.projectiles, mode.projectile, &Projectile::name) - tick.set.projectiles.begin());
+        launch(tick, kind, index, start, body.yaw, body.pitch, body.move.velocity, 1, 1);
+        Shot& shell = tick.spawned.back();
+        shell.guided = true;
+        shell.steerYaw = shell.aimYaw = body.yaw;
+        shell.steerPitch = shell.aimPitch = body.pitch;
+        break;
+    }
     }
 }
 

@@ -6,6 +6,8 @@
 
 #include "ugame/Fire.h"
 
+#include "core/Angles.h"
+
 #include <algorithm>
 #include <bit>
 #include <cmath>
@@ -86,6 +88,9 @@ void dropWeaponState(Body& body) {
 
 void switchWeapon(const WeaponSet& set, Game& game, int index, const uworld::MoveCommand& command, double dt) {
     Body& body = game.bodies[static_cast<std::size_t>(index)];
+    // SS 4.11: a switch asked for while a shell is steered, or while the
+    // weapon recovers, is dropped (Weapon.PutDown's flag, which only Finish reads).
+    if (body.guide != Body::Guide::None) return;
     const int asked = askedWeapon(set, body, command);
     bool pressed = false;
     if (asked >= 0 && asked != switchingTo(body)) {
@@ -393,8 +398,43 @@ void translocate(Tick& tick, int index, const Weapon& weapon, const uworld::Move
     }
 }
 
+void explode(Tick& tick, std::size_t index, int struck, const Vec3& away, const Vec3& splitFrom);
+
+/// The live shell body `index` steers, or -1 for none (SS 4.11).
+int guidedOf(const Tick& tick, int index) {
+    for (std::size_t i = 0; i < tick.game.shots.size(); ++i)
+        if (!tick.shotGone[i] && tick.game.shots[i].guided && tick.game.shots[i].owner == index)
+            return static_cast<int>(i);
+    return -1;
+}
+
+/// SS 4.11, WarheadLauncher's Guiding and Finishing: while body `index`
+/// steers a shell, a press of either trigger once it is armed blows it up;
+/// then the weapon waits. Returns whether the weapon is still busy.
+bool guideTick(Tick& tick, int index, const FireMode& mode, bool pressed) {
+    Body& body = tick.game.bodies[static_cast<std::size_t>(index)];
+    if (body.guide == Body::Guide::Steering) {
+        body.guideClock += tick.dt;
+        const int shell = guidedOf(tick, index);
+        if (shell >= 0 && pressed && body.guideClock >= mode.arm) {
+            explode(tick, static_cast<std::size_t>(shell), -1, Vec3{0, 0, 1},
+                    tick.game.shots[static_cast<std::size_t>(shell)].location);
+            body.guide = Body::Guide::Recovering;
+            body.guideClock = mode.recover;
+        }
+        return true;
+    }
+    body.guideClock -= tick.dt;
+    if (body.guideClock > 0) return true;
+    body.guide = Body::Guide::None;
+    body.guideClock = 0;
+    body.refireLeft = 0;
+    return false;
+}
+
 void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
     Body& body = tick.game.bodies[static_cast<std::size_t>(index)];
+    const bool pressed = (command.fire && !body.fireHeld) || (command.altFire && !body.altHeld);
     // UTA-0467: one cue a shot, however many projectiles or pellets it is.
     const auto cueShot = [&tick, &body, index](int which) {
         tick.game.cues.push_back(
@@ -421,6 +461,11 @@ void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
     const auto modeOf = [&weapon](int which) -> const FireMode* {
         return which == 0 ? &weapon.primary : weapon.alt ? &*weapon.alt : nullptr;
     };
+    if (body.guide != Body::Guide::None) {
+        const FireMode* guiding = weapon.primary.archetype == Archetype::Guide ? &weapon.primary : modeOf(1);
+        body.lockLooking = false;
+        if (guideTick(tick, index, *guiding, pressed)) return;
+    }
 
     // An idle weapon's refire is at rest on 0; one still cooling is above it.
     const bool idle = body.refireLeft <= 0;
@@ -555,6 +600,14 @@ void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
             body.refireLeft += refireOf(*mode, which) + (idle ? mode->refireLead : 0);
             fired = true;
             secondSetOff = which;
+            if (mode->archetype == Archetype::Guide) {
+                // SS 4.11: steering from the next tick; the aim to return to.
+                body.guide = Body::Guide::Steering;
+                body.guideClock = 0;
+                body.guideYaw = body.yaw;
+                body.guidePitch = body.pitch;
+                body.refireLeft = 0;
+            }
         }
     }
     // A held trigger keeps its cadence; an idle one owes nothing.
@@ -596,6 +649,13 @@ void explode(Tick& tick, std::size_t index, int struck, const Vec3& away, const 
     }
     tick.game.events.push_back(Event{Event::Kind::Explosion, shot.location, shot.location, radius});
     tick.game.cues.push_back(Cue{Cue::Kind::Explode, shot.owner, shot.kind, -1, shot.location});
+    if (!kind.wave.empty()) {
+        // SS 4.11, WarShell.Explode: the wave starts off what the shell struck.
+        const double awayLength = uworld::length(away);
+        const Vec3 at = shot.location + (awayLength > 0 ? away * (kind.waveOff / awayLength) : Vec3{});
+        const auto wave = static_cast<std::uint32_t>(tick.set.wave(kind.wave) - tick.set.waves.data());
+        tick.game.waves.push_back(Spread{.kind = wave, .owner = shot.owner, .at = at});
+    }
     if (kind.strike != Strike::Split) return;
     // flakslug.Explode: each piece starts a little off the surface struck and
     // flies on along the shell's own aim, turned by the piece's own draws.
@@ -657,11 +717,74 @@ constexpr double APEX_SPEED = 7.05;
 /// halves, each at the speed its own gravity gave.
 constexpr double FALLING_STEP = 0.05;
 
+/// A difference of `rawDifference`'s as the shortest turn, -32768 to 32768:
+/// GuidedWarshell.Tick's wrap.
+std::int32_t shortTurn(std::int32_t units) {
+    if (units < -32768) return units + 65536;
+    if (units > 32768) return units - 65536;
+    return units;
+}
+
+/// The difference `a - b` of two angles each taken modulo a turn, as
+/// GuidedWarshell.Tick takes it: from -65535 to 65535, unwrapped.
+std::int32_t rawDifference(std::int32_t a, std::int32_t b) { return (a & 0xFFFF) - (b & 0xFFFF); }
+
+/// Roll caps and smoothing in GuidedWarshell.MoveRocket.
+constexpr std::int32_t ROLL_MAX = 12000;
+constexpr std::int32_t ROLL_MIN = 53535;
+constexpr double ROLL_GAIN = 10;
+constexpr double ROLL_SMOOTH = 5;
+
+/// SS 4.11, GuidedWarshell.Tick then MoveRocket: the shell follows the change
+/// of its owner's aim, then turns towards the way it is steered and keeps
+/// its steering speed.
+void steerShot(Tick& tick, Shot& shot, const Projectile& kind) {
+    const Body& owner = tick.game.bodies[static_cast<std::size_t>(shot.owner)];
+    const std::int32_t deltaYaw = shortTurn(rawDifference(owner.yaw, shot.aimYaw));
+    const std::int32_t deltaPitch = shortTurn(rawDifference(owner.pitch, shot.aimPitch));
+    const std::int32_t heading = core::angleOf(shot.velocity.x, shot.velocity.y);
+    const std::int32_t yawDiff = rawDifference(heading, shot.steerYaw) - deltaYaw;
+    const auto lead = static_cast<std::int32_t>(kind.steerLead);
+    const bool follows = deltaYaw < 0 ? (yawDiff > 0 && yawDiff < lead) || yawDiff < lead - 65536
+                                      : (yawDiff < 0 && yawDiff > -lead) || yawDiff > 65536 - lead;
+    if (follows) shot.steerYaw += deltaYaw;
+    shot.steerPitch += deltaPitch;
+    shot.aimYaw = owner.yaw;
+    shot.aimPitch = owner.pitch;
+
+    const std::int32_t oldRoll = shot.roll & 0xFFFF;
+    const Vec3 oldVelocity = shot.velocity;
+    const Vec3 sum = shot.velocity + aimOf(shot.steerYaw, shot.steerPitch) * (kind.steer * tick.dt);
+    const double length = uworld::length(sum);
+    if (length > 0) shot.velocity = sum * (kind.steerSpeed / length);
+    // The roll leans into the turn: the speed gained along the shell's right.
+    const std::int32_t yaw = core::angleOf(shot.velocity.x, shot.velocity.y);
+    const Vec3 right{-core::sineOf(yaw), core::cosineOf(yaw), 0};
+    const auto rollMag = static_cast<std::int32_t>(ROLL_GAIN * uworld::dot(right, shot.velocity - oldVelocity) / tick.dt);
+    std::int32_t roll = rollMag > 0 ? std::min(ROLL_MAX, rollMag) : std::max(ROLL_MIN, 65536 + rollMag);
+    std::int32_t from = oldRoll;
+    if (roll > 32768) {
+        if (from < 32768) from += 65536;
+    } else if (from > 32768) {
+        from -= 65536;
+    }
+    const double smooth = std::min(1.0, ROLL_SMOOTH * tick.dt);
+    shot.roll = static_cast<std::int32_t>(roll * smooth + from * (1 - smooth));
+}
+
 void fly(Tick& tick, std::size_t index) {
     Shot& shot = tick.game.shots[index];
     const Projectile& kind = tick.set.projectiles[shot.kind];
     const bool launched = shot.age == 0;
     shot.age += tick.dt;
+    if (shot.guided && kind.steer > 0) {
+        // MoveRocket: a shell whose steerer is dead blows up where it is.
+        if (!tick.game.bodies[static_cast<std::size_t>(shot.owner)].alive()) {
+            explode(tick, index, -1, Vec3{0, 0, 1}, shot.location);
+            return;
+        }
+        steerShot(tick, shot, kind);
+    }
     if (shot.stuck) {
         // A disc at rest stays until it is taken, recalled or knocked (SS 4.10).
         if (kind.strike == Strike::Stick && shot.age >= kind.fuse) explode(tick, index, -1, Vec3{0, 0, 1}, shot.location);
@@ -800,6 +923,17 @@ void fly(Tick& tick, std::size_t index) {
                     if (back > 0 && back <= 1) met = old + (from - old) * (back - HIT_EARLY) + inset;
                     else met = away > 0 ? body.move.location + off * (body.size.radius / away) : from;
                     end = from;
+                } else if (kind.radius > 0) {
+                    // Projectile.Touch traces a line, not the shot's cylinder,
+                    // OldLocation to Location, against the body's own cylinder;
+                    // a line that misses it hits its side facing the shot
+                    // (UTA-0465: a Redeemer shell's blast on the body it struck).
+                    const double line = entersCylinder(from, end, body.move.location, body.size.radius,
+                                                       body.size.halfHeight);
+                    const Vec3 off = end - body.move.location;
+                    const double away = uworld::length(off);
+                    if (line <= 1) met = from + (end - from) * (line - HIT_EARLY) + inset;
+                    else if (away > 0) met = body.move.location + off * (body.size.radius / away);
                 }
                 shot.location = kind.splashFromMoved ? end : met;
                 // flakslug.ProcessTouch: off the body from where the shot met it, the
@@ -868,6 +1002,71 @@ void fly(Tick& tick, std::size_t index) {
     }
 }
 
+/// SS 4.11, ShockWave.Timer: one act of wave `wave`, `left` seconds of its life left.
+void waveAct(Tick& tick, Spread& wave, double left) {
+    const Wave& kind = tick.set.waves[wave.kind];
+    const double reach = reachOf(kind, kind.lifetime - left);
+    // VisibleCollidingActors: within the reach of the actor's own radius,
+    // and in sight of the centre. Recorded (rd-near): the hits the original
+    // makes, and misses, need the radius; the last act's reach does not take it.
+    const auto meets = [&tick, &wave, reach](const Vec3& at, double radius, Vec3& direction, double& distance) {
+        const Vec3 away = at - wave.at;
+        if (uworld::length(away) >= reach + radius) return false;
+        const uworld::BodyHit line = tick.world.trace(wave.at, at);
+        if (line.startsInside || line.fraction < 1) return false;
+        distance = std::max(1.0, uworld::length(away));
+        direction = away * (1 / distance);
+        return true;
+    };
+    for (std::size_t i = 0; i < tick.game.bodies.size(); ++i) {
+        const Body& body = tick.game.bodies[i];
+        Vec3 direction{};
+        double distance = 0;
+        if (!body.alive() || !meets(body.move.location, body.size.radius, direction, distance)) continue;
+        direction.z += kind.lift;
+        if (distance <= wave.reached && uworld::dot(direction, body.move.velocity) >= 0) continue;
+        const double scale = std::max(0.0, kind.damage - kind.falloff * distance);
+        tick.owed.push_back(Owed{static_cast<int>(i), scale, direction * kind.momentum, wave.owner,
+                                 direction * (scale + kind.push)});
+    }
+    for (std::size_t i = 0; i < tick.game.shots.size(); ++i) {
+        Shot& shot = tick.game.shots[i];
+        const Projectile& shotKind = tick.set.projectiles[shot.kind];
+        Vec3 direction{};
+        double distance = 0;
+        if (tick.shotGone[i] || !meets(shot.location, shotKind.radius, direction, distance)) continue;
+        direction.z += kind.lift;
+        if (distance <= wave.reached && uworld::dot(direction, shot.velocity) >= 0) continue;
+        const double scale = std::max(0.0, kind.damage - kind.falloff * distance);
+        shot.velocity = shot.velocity + direction * (scale + kind.push);
+        const Vec3 hitAt = shot.location - direction * (0.5 * (detail::halfHeightOf(shotKind) + shotKind.radius));
+        if (detail::isTarget(shotKind)) detail::knockDisc(tick, static_cast<int>(i), scale, direction * kind.momentum);
+        else if (shotKind.shotDownRadius > 0) detail::hurtShot(tick, static_cast<int>(i), scale, hitAt);
+    }
+    wave.reached = reach;
+}
+
+/// SS 4.11: each wave ages, acts every `every` of it, and ends with its life.
+void spread(Tick& tick) {
+    std::vector<Spread> kept;
+    for (std::size_t i = 0; i < tick.game.waves.size(); ++i) {
+        Spread wave = tick.game.waves[i];
+        const Wave& kind = tick.set.waves[wave.kind];
+        // The timer acts on the life left before this tick's, and the wave
+        // ends after it. Recorded: the original's reach at each act is the one
+        // a tick younger (rd-near), and its last act comes in the tick its
+        // life runs out (rd-fire-up).
+        wave.clock += tick.dt;
+        if (wave.clock >= kind.every) {
+            wave.clock -= kind.every;
+            waveAct(tick, wave, kind.lifetime - wave.age);
+        }
+        wave.age += tick.dt;
+        if (wave.age < kind.lifetime) kept.push_back(wave);
+    }
+    tick.game.waves = std::move(kept);
+}
+
 /// The damage and momentum owed, landed in the order they were owed.
 /// Damage is UT99's whole numbers: each step truncates, as its `int` does.
 void land(Tick& tick) {
@@ -875,6 +1074,8 @@ void land(Tick& tick) {
         Body& body = tick.game.bodies[static_cast<std::size_t>(owed.body)];
         if (!body.alive()) continue;
         const bool self = owed.instigator == owed.body;
+        // SS 4.11: a wave's AddVelocity comes before its TakeDamage, and leaves the body falling.
+        if (uworld::length(owed.velocity) > 0) body.move = uworld::push(body.move, owed.velocity);
         Vec3 momentum = owed.momentum * (self ? SELF_MOMENTUM : 1.0);
         if (body.move.physics == uworld::Physics::Walking)
             momentum.z = std::max(momentum.z, WALKING_LIFT * uworld::length(momentum));
@@ -991,6 +1192,16 @@ void tick(const uworld::BodyWorld& world, const WeaponSet& set, const uworld::Mo
         for (; i < game.shots.size(); ++i)
             if (!tick.shotGone[i]) fly(tick, i);
     }
+    spread(tick);
+    // SS 4.11: a steered shell gone, however it went, sends its weapon to recover.
+    for (std::size_t i = 0; i < count; ++i) {
+        Body& body = game.bodies[i];
+        if (body.guide != Body::Guide::Steering || guidedOf(tick, static_cast<int>(i)) >= 0) continue;
+        const Weapon& weapon = set.weapons[static_cast<std::size_t>(body.weapon)];
+        const FireMode& mode = weapon.primary.archetype == Archetype::Guide ? weapon.primary : *weapon.alt;
+        body.guide = Body::Guide::Recovering;
+        body.guideClock = mode.recover;
+    }
     land(tick);
 
     std::vector<Shot> kept;
@@ -1010,6 +1221,11 @@ void tick(const uworld::BodyWorld& world, const WeaponSet& set, const uworld::Mo
     }
     const bool slowed = humans == 1 && human < count && game.bodies[human].alive() && commands[human].wheelOpen;
     game.timeScale = slowed ? WHEEL_TIME_SCALE : 1;
+}
+
+double reachOf(const Wave& kind, double age) {
+    const double left = kind.lifetime - age;
+    return kind.scale * (kind.grow * age + kind.start / (left / kind.lifetime + kind.edge));
 }
 
 std::string_view soundOf(const WeaponSet& set, const Cue& cue) {
@@ -1125,6 +1341,10 @@ std::uint64_t stateHash(const Game& game) {
         add(body.secondBurst);
         addDouble(body.throwWait); // SS 4.10
         add(static_cast<std::uint64_t>(body.previous));
+        add(static_cast<std::uint64_t>(body.guide)); // SS 4.11
+        addDouble(body.guideClock);
+        add(static_cast<std::uint64_t>(body.guideYaw));
+        add(static_cast<std::uint64_t>(body.guidePitch));
     }
     add(game.shots.size());
     for (const Shot& shot : game.shots) {
@@ -1146,6 +1366,21 @@ std::uint64_t stateHash(const Game& game) {
         addVec(shot.seekFrom);
         add(shot.floored ? 1 : 0); // SS 4.10
         addDouble(shot.disruption);
+        add(shot.guided ? 1 : 0); // SS 4.11
+        add(static_cast<std::uint64_t>(shot.steerYaw));
+        add(static_cast<std::uint64_t>(shot.steerPitch));
+        add(static_cast<std::uint64_t>(shot.aimYaw));
+        add(static_cast<std::uint64_t>(shot.aimPitch));
+        add(static_cast<std::uint64_t>(shot.roll));
+    }
+    add(game.waves.size()); // SS 4.11
+    for (const Spread& wave : game.waves) {
+        add(wave.kind);
+        add(static_cast<std::uint64_t>(wave.owner));
+        addVec(wave.at);
+        addDouble(wave.age);
+        addDouble(wave.clock);
+        addDouble(wave.reached);
     }
     return hash;
 }

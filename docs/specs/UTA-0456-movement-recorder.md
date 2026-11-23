@@ -109,8 +109,13 @@ local. So a calibration run (§ 4.6) measures K, and the mutator's config
 holds the measured value. Measured 2026-11-10: 6000 on every held tick, at
 30 and 120 fps.
 
-While a run is active the pawn also zeroes the mouse and turn axes: turning
-is out of scope (§ 9).
+While a run is active the pawn also zeroes the mouse and turn axes. A weapon
+run's view is set each tick instead: its pose's yaw and its `aim`, plus what
+the turn keys `<` `>` `^` `_` (yaw left and right, pitch up and down) have
+added while held, at the run's `turn` rate, 8192 units a second unless
+set (UTA-0465). The `W` line logs it. A weapon run also clears the view's
+shake every tick, and before the run: a blast's shake rolls the view and
+moves the eye, and so where a shot starts (UTA-0465).
 
 Everything after `PlayerInput` is the original's own code: the dodge edges,
 `PlayerMove`, `ProcessMove` and native physics.
@@ -131,9 +136,11 @@ end <seconds>
 its time until the next line's. Times are game seconds from the run's first
 tick.
 
-The mutator places the player at the pose, zeroes velocity, and waits until
+The mutator removes every projectile and Redeemer shock wave the last run
+left, places the player at the pose, zeroes velocity, and waits until
 the player has been `PHYS_Walking` and still for 0.5 s with `DodgeDir`
-`DODGE_None`. The run's first tick is the next. A run ends at the first tick
+`DODGE_None`; in a weapon run, also within 5 units of the pose across the
+floor (UTA-0465). The run's first tick is the next. A run ends at the first tick
 at or past `end`. Then the next run starts. After the last, the mutator logs
 `UTAREC DONE` and exits.
 
@@ -376,7 +383,8 @@ Numbers parse with `std::from_chars`.
 
 - Water, ladders, flying, movers as floors, weapon jumps — deferred; not yet
   queued.
-- Turning during a run (mouse or turn keys) — deferred; not yet queued.
+- Turning by the mouse or the turn axes. A weapon run turns its view by
+  the turn keys (§ 4.2).
 - Online play: a client predicting its moves (`ReplicateMove`). The recorder
   is standalone, where `PlayerMove` calls `ProcessMove` directly.
 - Comparing our movement with a recording — UTA-0457 and UTA-0017.
