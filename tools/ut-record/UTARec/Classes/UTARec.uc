@@ -7,7 +7,7 @@
 // times in game seconds from the run's first tick, keys a string of
 // F B L R J D W P A N, or "-" for none. ut-record writes the lines. A weapon
 // run (UTA-0019 SS 4.7) adds parts before its steps: "aim <pitch>", "weapon
-// <class>" (in hand before tick 0), "switch <class>" (carried; N raises it)
+// <class>" (in hand before tick 0), "switch <class>" (carried; N raises it, N again the first)
 // and "target <distance>" (a UTARecTarget that far ahead along the yaw).
 // UTA-0468 adds "side <units>" (the target that far to the right as well),
 // "give <class>" (a second copy, picked up as from the floor once the first
@@ -279,6 +279,8 @@ function LaunchIncoming(UTARecPawn P)
 }
 
 // N: put down the weapon in hand and raise the carried one, as a number key does.
+// Pressed again once the carried one is in hand, even still coming up, it
+// raises the first weapon again (UTA-0502).
 function SwitchNow(UTARecPawn P)
 {
 	local Weapon W;
@@ -286,6 +288,8 @@ function SwitchNow(UTARecPawn P)
 	if (SwitchClass == "" || P.Weapon == None)
 		return;
 	W = Weapon(P.FindInventoryType(class<Weapon>(DynamicLoadObject(SwitchClass, class'Class'))));
+	if (W != None && W == P.Weapon && WeaponClass != "")
+		W = Weapon(P.FindInventoryType(class<Weapon>(DynamicLoadObject(WeaponClass, class'Class'))));
 	if (W != None && W != P.Weapon)
 	{
 		P.PendingWeapon = W;

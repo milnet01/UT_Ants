@@ -152,6 +152,9 @@ struct Weapon {
     /// down for its `putDown`, then the new one comes up for its `bringUp`,
     /// and then, above 0, its `postSelect` (the Flak Cannon's loading).
     double putDown = 0, bringUp = 0, postSelect = 0;
+    /// UTA-0502: how much of its select animation it runs a second, which
+    /// times a switch asked for while it comes up; 0 for 1 / `bringUp`.
+    double selectRate = 0;
     /// UTA-0468: above 0, a second copy doubles it, as the Enforcer's slave.
     /// The second gun fires each mode this long after the first gun's shot
     /// or wind-up, from the other side, sharing the ammo.

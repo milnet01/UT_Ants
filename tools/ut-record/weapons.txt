@@ -604,6 +604,98 @@ switch Botpack.Enforcer
 0.16 P
 2 -
 end 2.5
+# -- UTA-0502: switching back to the Enforcer while the new weapon comes up.
+# The second N lands at the Enforcer's put-down (0.33 s at 30 fps) plus a
+# share of the new weapon's bring-up: 0.3 and 0.6 are under Weapon.Active's
+# 0.75, 0.9 over it; flak's "load" lands in its loading (post-select).
+
+run reswitch-shock-0.3 DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.Enforcer
+switch Botpack.ShockRifle
+0 N
+0.08 -
+0.16 P
+0.47 PN
+0.55 P
+3 -
+end 3.5
+
+run reswitch-shock-0.6 DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.Enforcer
+switch Botpack.ShockRifle
+0 N
+0.08 -
+0.16 P
+0.61 PN
+0.69 P
+3 -
+end 3.5
+
+run reswitch-shock-0.9 DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.Enforcer
+switch Botpack.ShockRifle
+0 N
+0.08 -
+0.16 P
+0.75 PN
+0.83 P
+3 -
+end 3.5
+
+run reswitch-rocket-0.3 DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.Enforcer
+switch Botpack.UT_Eightball
+0 N
+0.08 -
+0.16 P
+0.50 PN
+0.58 P
+3 -
+end 3.5
+
+run reswitch-rocket-0.9 DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.Enforcer
+switch Botpack.UT_Eightball
+0 N
+0.08 -
+0.16 P
+0.85 PN
+0.93 P
+3 -
+end 3.5
+
+run reswitch-flak-0.3 DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.Enforcer
+switch Botpack.UT_FlakCannon
+0 N
+0.08 -
+0.16 P
+0.51 PN
+0.59 P
+3 -
+end 3.5
+
+run reswitch-flak-0.9 DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.Enforcer
+switch Botpack.UT_FlakCannon
+0 N
+0.08 -
+0.16 P
+0.87 PN
+0.95 P
+3 -
+end 3.5
+
+run reswitch-flak-load DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.Enforcer
+switch Botpack.UT_FlakCannon
+0 N
+0.08 -
+0.16 P
+1.13 PN
+1.21 P
+3 -
+end 3.5
 # -- UTA-0468: the hammer turning shots aside, rocket lock-on, double Enforcers
 #
 # The deflection runs' target launches a rocket at the player on tick 0,

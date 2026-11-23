@@ -21994,7 +21994,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: in-session-2026-11-22 UTA-0499.
   Lanes: ugame.
 
-- 📋 [UTA-0502] **A switch asked for while a weapon is still coming up cuts its select short, as the original's does.**
+- 🚧 [UTA-0502] **A switch asked for while a weapon is still coming up cuts its select short, as the original's does.**
   Found building UTA-0501 (2026-11-23). Ours puts a weapon still
   coming up down whole, for its full put-down. The original's
   Weapon.Active.PutDown goes down at once while the select is under
@@ -22003,6 +22003,16 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   then plays the whole Down. During the Flak Cannon's loading it goes
   down at once with the whole Down. Unrecorded: needs ut-record runs
   pressing a second switch partway through a bring-up.
+  Built 2026-11-23. reswitch-* runs (Enforcer to Shock Rifle, Rocket
+  Launcher or Flak Cannon, N again partway up) recorded at 30, 85 and
+  120 fps in the scratchpad's weapons/r502; r502all is r501all plus
+  them. Only the 30 fps runs held their rate. The original's AnimFrame
+  rows show the down state starts a tick after the press, so the tween
+  is 0.4 s times the select a tick on; a late switch's whole Down starts
+  the tick the select runs out. AnimFrame runs short of 1 by a frame, so
+  each weapon gains an optional select-rate, recorded from the switch-*
+  runs. The Enforcer raised again starts a tick late in these runs only
+  because it was handed out first; the game keeps no such order.
   **Layman:** Changing your mind mid-switch should put the half-raised weapon away as fast as in the original.
   Kind: fix.
   Source: in-session-2026-11-23 UTA-0501.

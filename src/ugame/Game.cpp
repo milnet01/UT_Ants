@@ -21,6 +21,9 @@ using detail::Tick;
 constexpr double MASS = 100;               ///< Pawn.Mass: momentum over this is velocity
 constexpr double SELF_MOMENTUM = 0.6;      ///< of a body's own momentum it takes
 constexpr double WALKING_LIFT = 0.4;       ///< a walking body's push rises at least this much of its size
+// UTA-0502: a switch asked for while a weapon comes up.
+constexpr double SELECT_CUT = 0.75;        ///< Weapon.Active.PutDown: under this share of its select, it goes down at once
+constexpr double SELECT_TWEEN = 0.4;       ///< TournamentWeapon.TweenDown: then in this many seconds per share run
 
 /// The order NextWeapon and PrevWeapon walk: by slot, the 0 key last, then
 /// by file order.
@@ -29,10 +32,15 @@ int stepKey(const WeaponSet& set, int weapon) {
     return static_cast<int>(slot == 0 ? 10 : slot) * 1000 + weapon;
 }
 
+/// The weapon a body will end its switch with, or holds when not switching.
+int switchingTo(const Body& body) {
+    return body.next >= 0 ? body.next : body.pending >= 0 ? body.pending : body.weapon;
+}
+
 /// The weapon a command asks for, or -1 for none. A wheel's pick of a
 /// carried weapon wins over the slot and the step (UTA-0020 SS 4.5).
 int askedWeapon(const WeaponSet& set, const Body& body, const uworld::MoveCommand& command) {
-    const int current = body.pending >= 0 ? body.pending : body.weapon;
+    const int current = switchingTo(body);
     const std::vector<int> carried = wheelWeapons(set, body);
     if (carried.empty()) return -1;
     if (std::ranges::find(carried, int{command.weaponPick}) != carried.end()) return command.weaponPick;
@@ -61,16 +69,30 @@ void switchWeapon(const WeaponSet& set, Game& game, int index, const uworld::Mov
     Body& body = game.bodies[static_cast<std::size_t>(index)];
     const int asked = askedWeapon(set, body, command);
     bool pressed = false;
-    if (asked >= 0 && asked != (body.pending >= 0 ? body.pending : body.weapon)) {
+    if (asked >= 0 && asked != switchingTo(body)) {
         // A weapon already going down keeps going; only what comes up changes.
-        // One coming up goes down whole, where the original may cut its
-        // select short (UTA-0502).
-        if (body.pending < 0 || body.switching != Body::Switch::PutDown) {
+        // One coming up goes down at once early in its select, the select
+        // tweened back; late in it, it finishes, then goes down whole
+        // (UTA-0502). One loading after its select goes down whole at once.
+        if (body.pending >= 0 && body.switching == Body::Switch::BringUp) {
+            const Weapon& up = set.weapons[static_cast<std::size_t>(body.pending)];
+            const double rate = up.selectRate > 0 ? up.selectRate : up.bringUp > 0 ? 1 / up.bringUp : 0;
+            const double risen = up.bringUp - body.switchLeft; // seconds up, before this tick
+            if (rate > 0 && risen * rate < SELECT_CUT) {
+                // The down state starts a tick on, from the select as this tick leaves it.
+                body.switching = Body::Switch::PutDown;
+                body.switchLeft = SELECT_TWEEN * rate * (risen + dt);
+                body.next = -1;
+                pressed = true;
+            } else {
+                body.next = asked;
+            }
+        } else if (body.pending < 0 || body.switching != Body::Switch::PutDown) {
             body.switching = Body::Switch::PutDown;
             body.switchLeft = body.weapon >= 0 ? set.weapons[static_cast<std::size_t>(body.weapon)].putDown : 0;
             pressed = true;
         }
-        body.pending = asked;
+        if (body.next < 0) body.pending = asked;
         body.winding = -1;
         body.windLeft = 0;
         body.holding = -1;
@@ -107,6 +129,15 @@ void switchWeapon(const WeaponSet& set, Game& game, int index, const uworld::Mov
     }
     if (body.switchLeft > 0) {
         body.switchLeft -= dt;
+        return;
+    }
+    if (body.switching == Body::Switch::BringUp && body.next >= 0) {
+        // Weapon.Active: the select done, a switch asked for during it sends
+        // the weapon down whole, before any loading, from the tick it ran out.
+        body.switching = Body::Switch::PutDown;
+        body.switchLeft = coming.putDown - dt;
+        body.pending = body.next;
+        body.next = -1;
         return;
     }
     if (body.switching == Body::Switch::BringUp && coming.postSelect > 0) {
@@ -866,6 +897,7 @@ std::uint64_t stateHash(const Game& game) {
         add(static_cast<std::uint64_t>(body.pending));
         add(static_cast<std::uint64_t>(body.switching)); // UTA-0501
         addDouble(body.switchLeft);
+        add(static_cast<std::uint64_t>(body.next)); // UTA-0502
         addDouble(body.refireLeft);
         add(static_cast<std::uint64_t>(body.winding));
         addDouble(body.windLeft);

@@ -413,6 +413,9 @@ TEST_CASE("UTA-0468: the stock lock, seek, deflection and double keys parse and 
     // A mode with no double keys gives its second gun its own spread.
     CHECK(weapon("minigun").primary.doubleSpread == weapon("minigun").primary.spread);
     CHECK(weapon("minigun").doubleDelay == 0);
+    // UTA-0502: each weapon's select rate, as recorded.
+    CHECK(weapon("shock-rifle").selectRate == 2);
+    CHECK(weapon("enforcer").selectRate == 1.2857);
 
     const std::string written = uta::ugame::write(*set);
     const auto again = uta::ugame::parse(written);

@@ -382,9 +382,14 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
                           : weaponOf(set, switchTo->second);
 
     // The mode under test: alt where the run ever holds alt fire, of the
-    // weapon in hand -- or, in a run that switches, of the one N raises,
-    // whose shots the run is for (UTA-0499).
-    const ugame::Weapon& weapon = set.weapons[static_cast<std::size_t>(other >= 0 ? other : inHand)];
+    // weapon the run ends with, whose shots the run is for (UTA-0499): the
+    // one N raises, or, pressed twice, the first again (UTA-0502).
+    int presses = 0;
+    for (std::size_t k = 0; k < rows.size(); ++k)
+        if (rows[k].keys.find('N') != std::string::npos && (k == 0 || rows[k - 1].keys.find('N') == std::string::npos))
+            ++presses;
+    const int endsWith = other >= 0 && presses % 2 == 1 ? other : inHand;
+    const ugame::Weapon& weapon = set.weapons[static_cast<std::size_t>(endsWith)];
     const bool alt = std::ranges::any_of(rows, [](const auto& row) { return row.keys.find('A') != std::string::npos; });
     const ugame::FireMode* mode = alt && weapon.alt ? &*weapon.alt : &weapon.primary;
 
@@ -546,6 +551,7 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
     std::vector<int> live; // per game.shots, an index into `ours`
     std::vector<Hit> ourHits;
     std::vector<std::int64_t> ourSpends;
+    bool switchWasHeld = false;
     for (std::size_t k = 0; k + 1 < rows.size(); ++k) {
         const auto& row = rows[k];
         const auto& w = recording.weapon[k];
@@ -633,8 +639,14 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
         c.duck = row.keys.find('D') != std::string::npos;
         c.fire = row.keys.find('P') != std::string::npos;
         c.altFire = row.keys.find('A') != std::string::npos;
-        if (other >= 0 && row.keys.find('N') != std::string::npos)
-            c.weaponSlot = static_cast<std::int8_t>(set.weapons[static_cast<std::size_t>(other)].slot);
+        // N raises the carried weapon; pressed again, the first (UTARec.SwitchNow).
+        const bool switchHeld = other >= 0 && row.keys.find('N') != std::string::npos;
+        if (switchHeld && !switchWasHeld) {
+            const ugame::Body& b = game.bodies[FIRER];
+            const int to = b.next >= 0 ? b.next : b.pending >= 0 ? b.pending : b.weapon;
+            c.weaponPick = static_cast<std::int8_t>(to == other ? inHand : other);
+        }
+        switchWasHeld = switchHeld;
         commands[TARGET].yaw = 0;
 
         const std::vector<ugame::Carried> carriedBefore = game.bodies[FIRER].weapons;

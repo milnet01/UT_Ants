@@ -121,6 +121,7 @@ ammo-start = …
 put-down = …                 # seconds to put it down (§ 4.5)
 bring-up = …                 # seconds to bring it up
 post-select = …              # optional: a wait after bringing it up
+select-rate = …              # optional: its select's share a second (§ 4.5)
 
 [fire shock-rifle primary]
 archetype = instant-hit
@@ -278,8 +279,13 @@ out on is the first of the new weapon's `bring-up`, and that weapon is
 in hand from then. A `post-select` wait, the Flak Cannon's loading,
 counts from the tick after the bring-up ends. The weapon fires from the
 tick after the last wait. A switch asked for while a weapon goes down
-changes only what comes up. One asked for while a weapon comes up puts
-it down whole; the original may cut its select short (`UTA-0502`).
+changes only what comes up. One asked for while a weapon comes up is
+measured in its select: seconds up times `select-rate`, or over
+`bring-up` without one. Under 0.75 the weapon goes down at once, the
+wait 0.4 s times its select a tick on. At 0.75 or more the `bring-up`
+ends first, and the whole `put-down` follows from the tick it runs out
+on. One asked for during a `post-select` sends it down whole at once
+(`UTA-0502`, recorded at 30 fps).
 UTA-0020 (`docs/specs/UTA-0020-weapon-wheel.md`) adds a human body, the
 time scale the tick sets last (§ 4.3 there), and a weapon picked on the
 wheel (§ 4.5 there).

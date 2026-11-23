@@ -192,6 +192,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **Changing your mind mid-switch puts the half-raised weapon away as in the original** (UTA-0502)
+  Switch again while a weapon is still coming up, and early on it goes
+  straight back down, quicker the less it had risen. Late on, it
+  finishes rising first, then goes down. Before, it always went down
+  the slow way.
 - **Switching weapons takes as long as in the original, at every frame rate** (UTA-0501)
   A switch now puts the old weapon down, then brings the new one up,
   each for its own time, as the original does. Before, the first shot

@@ -35,7 +35,7 @@ A weapon run (UTA-0019 section 4.7; weapons.txt) adds, before its first key line
 
     aim <pitch>          the view's pitch, 65536 to a turn, up positive
     weapon <class>       in hand before the run starts, with full ammo
-    switch <class>       carried too; the key N raises it
+    switch <class>       carried too; the key N raises it, and N again the first (UTA-0502)
     target <distance>    a stand-in pawn this far ahead along the yaw
     side <units>         that pawn this far to the right as well (UTA-0468)
     give <class>         a second copy, picked up once the first is in hand

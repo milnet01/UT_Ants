@@ -1821,8 +1821,8 @@ TEST_CASE("INV-5: a scripted fight is the same at every frame rate and on every 
     INFO("final hash " << reference.back());
     // UTA-0020: the script opens the wheel. UTA-0022: the hash covers coyoteLeft and mantleTo;
     // UTA-0108 landedZ; UTA-0493 painClock; UTA-0468 the lock, the second gun and the seeking,
-    // each of which moved the pin and nothing else; UTA-0501 the switch's two waits.
-    CHECK(reference.back() == 6815452446129531876u);
+    // each of which moved the pin and nothing else; UTA-0501 the switch's two waits; UTA-0502 `next`.
+    CHECK(reference.back() == 14968463928858562756u);
 }
 
 // UTA-0020: the weapon wheel's time scale, and what it lists and picks.
@@ -2105,6 +2105,54 @@ TEST_CASE("UTA-0501: a switch is a put-down then a bring-up, each ended on a tic
     const double dt = 1.1 / 30;
     CHECK(switchTicks("enforcer", "bio-rifle", dt) == std::pair{9, 22});
     CHECK(switchTicks("enforcer", "flak-cannon", dt) == std::pair{9, 38});
+}
+
+namespace {
+
+/// The ticks, counting the first press as 0, on which a switch from the
+/// Enforcer to `to`, switched back on tick `back`, raises the Enforcer's
+/// Select cue and its first Fire cue, fire held throughout.
+std::pair<int, int> switchBackTicks(std::string_view to, int back, double dt) {
+    const BodyWorld world = arena();
+    const WeaponSet& set = stock();
+    Game game = duel(set, "enforcer", 600);
+    std::vector<MoveCommand> commands(2);
+    commands[0].fire = true;
+    commands[1].yaw = 32768;
+    int select = -1;
+    for (int k = 0; k < 200; ++k) {
+        commands[0].weaponPick = static_cast<std::int8_t>(k == 0      ? weaponNamed(set, to)
+                                                          : k == back ? weaponNamed(set, "enforcer")
+                                                                      : -1);
+        tick(world, set, RULES, game, commands, dt);
+        if (k > back && cuesOf(game, Cue::Kind::Select) > 0) select = k;
+        if (cuesOf(game, Cue::Kind::Fire) > 0) return {select, k};
+    }
+    return {select, -1};
+}
+
+} // namespace
+
+TEST_CASE("UTA-0502: a switch during a bring-up cuts the select short under 0.75 of it, as recorded at 30 fps",
+          "[ugame][game]") {
+    // ut-record's reswitch-* runs at 30 fps: the new weapon rises from tick
+    // 9, and N on the tick given raises the Enforcer again. Under 0.75 of
+    // its select (shock 13, 17) the weapon tweens down at once; at 0.75 or
+    // more (shock 21) it finishes its select, then goes down whole; loading
+    // (flak 31), it goes down whole at once. The Enforcer rises on the
+    // recorded tick and fires a tick before the recording: there it was
+    // handed out before the weapon it replaced, so it had already moved in
+    // the tick it rose and its select started a tick late. The UTA-0501 runs
+    // raised a weapon handed out after, and this game keeps no such order.
+    const double dt = 1.1 / 30;
+    CHECK(switchBackTicks("shock-rifle", 13, dt) == std::pair{18, 39});
+    CHECK(switchBackTicks("shock-rifle", 17, dt) == std::pair{25, 46});
+    CHECK(switchBackTicks("shock-rifle", 21, dt) == std::pair{29, 50});
+    CHECK(switchBackTicks("flak-cannon", 31, dt) == std::pair{41, 62});
+    // Not recorded: ten ticks up, the Shock Rifle's select is at 0.73 by its
+    // recorded rate (2 a second), so it goes down at once; by its bring-up
+    // alone it would be at 0.79 and finish rising first.
+    CHECK(switchBackTicks("shock-rifle", 19, dt) == std::pair{28, 49});
 }
 
 TEST_CASE("UTA-0467 INV-4: an explosion and a combo are cued where they happen, by kind", "[ugame][game][cues]") {

@@ -223,6 +223,8 @@ Result<void> readWeapon(Weapon& weapon, Keys& keys) {
     weapon.bringUp = *bringUp;
     UTA_TRY(const std::optional<double> postSelect, keys.decimal("post-select", false, 0, TIME_MAX));
     weapon.postSelect = postSelect.value_or(0);
+    UTA_TRY(const std::optional<double> selectRate, keys.decimal("select-rate", false, 0, TIME_MAX));
+    weapon.selectRate = selectRate.value_or(0);
     UTA_TRY(const std::optional<double> doubleDelay, keys.decimal("double-delay", false, 0, TIME_MAX));
     weapon.doubleDelay = doubleDelay.value_or(0);
     UTA_TRY(weapon.selectSound, keys.sound("select-sound"));
@@ -728,10 +730,10 @@ std::string write(const WeaponSet& set) {
                                   decimal(set.selfDamage), decimal(set.headHeight), decimal(set.damageScale));
     for (const Weapon& weapon : set.weapons) {
         out += std::format("\n[weapon {}]\nclass = {}\nslot = {}\nammo-max = {}\nammo-start = {}\nput-down = {}\n"
-                           "bring-up = {}\npost-select = {}\ndouble-delay = {}\n",
+                           "bring-up = {}\npost-select = {}\nselect-rate = {}\ndouble-delay = {}\n",
                            weapon.name, weapon.className, weapon.slot, weapon.ammoMax, weapon.ammoStart,
                            decimal(weapon.putDown), decimal(weapon.bringUp), decimal(weapon.postSelect),
-                           decimal(weapon.doubleDelay));
+                           decimal(weapon.selectRate), decimal(weapon.doubleDelay));
         out += soundText("select-sound", weapon.selectSound);
         out += fireText(weapon.name, "primary", weapon.primary);
         if (weapon.alt) out += fireText(weapon.name, "alt", *weapon.alt);
