@@ -57,21 +57,33 @@ struct Tick {
 void launch(Tick& tick, std::uint32_t kind, int owner, const Vec3& at, std::int32_t yaw, std::int32_t pitch,
             const Vec3& firerVelocity, double damageScale, double speedScale);
 
-/// What a segment meets first: the level, a body, or a shot with a combo.
+/// What a segment meets first: the level, a body, or a shot an instant hit
+/// meets: one with a combo, or a disc (SS 4.10).
 struct SegmentHit {
     double fraction = 1;
     int body = -1;
-    int shot = -1;  ///< a live shot whose kind has a combo
+    int shot = -1;  ///< a live shot whose kind has a combo, or a disc
     Vec3 normal{};  ///< the level's, where the level is what it met
     bool surface = false;
 };
 
 /// The first thing from `from` to `to`. `ignore` is a body passed through
-/// (the firer); `combos` says whether a shot with a combo can be met.
-[[nodiscard]] SegmentHit traceSegment(const Tick& tick, const Vec3& from, const Vec3& to, int ignore, bool combos);
+/// (the firer); `shots` says whether a shot with a combo, or a disc, can be met.
+[[nodiscard]] SegmentHit traceSegment(const Tick& tick, const Vec3& from, const Vec3& to, int ignore, bool shots);
+
+/// Whether shots of `kind` are discs that instant hits and splashes meet (SS 4.10).
+[[nodiscard]] bool isTarget(const Projectile& kind);
+
+/// A cylinder's half-height for `kind`: its own, or its radius.
+[[nodiscard]] double halfHeightOf(const Projectile& kind);
+
+/// SS 4.10, TranslocatorTarget.TakeDamage: disc `shot` takes `damage`,
+/// unscaled, into its disruption, and `momentum` knocks it into flight.
+void knockDisc(Tick& tick, int shot, double damage, const Vec3& momentum);
 
 /// UT99's HurtRadius: every live body within `radius` of `at` takes
-/// `damage` and `momentum`, less with distance past its own radius. The
+/// `damage` and `momentum`, less with distance past its own radius; so does
+/// every disc (SS 4.10). The
 /// push direction's upward part is at most `upMax`, left unnormalised, as
 /// Razor2Alt.BlowUp does.
 void splash(Tick& tick, const Vec3& at, double damage, double momentum, double radius, int instigator,

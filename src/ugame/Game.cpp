@@ -65,6 +65,25 @@ int askedWeapon(const WeaponSet& set, const Body& body, const uworld::MoveComman
     return -1;
 }
 
+/// What the weapon put down leaves behind: no wind-up, hold or charge.
+void dropWeaponState(Body& body) {
+    body.winding = -1;
+    body.windLeft = 0;
+    body.holding = -1;
+    body.heldFor = 0;
+    body.repressLeft = 0;
+    body.charging = -1;
+    body.charged = 0;
+    body.stepHeld = 0;
+    body.loaded = 0;
+    // UTA-0468: the weapon put down looks for no target, and its second gun stops.
+    body.lockLooking = false;
+    body.lockCandidate = body.lockTarget = -1;
+    body.secondDue = -1;
+    body.secondWinding = body.secondHolding = -1;
+    body.secondRefire = 0;
+}
+
 void switchWeapon(const WeaponSet& set, Game& game, int index, const uworld::MoveCommand& command, double dt) {
     Body& body = game.bodies[static_cast<std::size_t>(index)];
     const int asked = askedWeapon(set, body, command);
@@ -93,21 +112,7 @@ void switchWeapon(const WeaponSet& set, Game& game, int index, const uworld::Mov
             pressed = true;
         }
         if (body.next < 0) body.pending = asked;
-        body.winding = -1;
-        body.windLeft = 0;
-        body.holding = -1;
-        body.heldFor = 0;
-        body.repressLeft = 0;
-        body.charging = -1;
-        body.charged = 0;
-        body.stepHeld = 0;
-        body.loaded = 0;
-        // UTA-0468: the weapon put down looks for no target, and its second gun stops.
-        body.lockLooking = false;
-        body.lockCandidate = body.lockTarget = -1;
-        body.secondDue = -1;
-        body.secondWinding = body.secondHolding = -1;
-        body.secondRefire = 0;
+        dropWeaponState(body);
     }
     if (body.pending < 0) return;
     const Weapon& coming = set.weapons[static_cast<std::size_t>(body.pending)];
@@ -122,6 +127,7 @@ void switchWeapon(const WeaponSet& set, Game& game, int index, const uworld::Mov
         if (body.switchLeft > 0) return;
         game.cues.push_back(Cue{Cue::Kind::Select, index, static_cast<std::uint32_t>(body.pending), -1,
                                 body.move.location});
+        body.previous = body.weapon; // SS 4.10: Weapon.RaiseUp's OldWeapon
         body.weapon = body.pending;
         body.switching = Body::Switch::BringUp;
         body.switchLeft = coming.bringUp - dt;
@@ -257,6 +263,136 @@ void fireSecond(detail::Tick& tick, int index, const Weapon& weapon, const uworl
     if (body.secondRefire < 0 && body.secondHolding < 0) body.secondRefire = 0;
 }
 
+/// SS 4.10: the disc body `index` threw that is still out, an index into the
+/// game's shots; -1 for none.
+int discOf(const Tick& tick, int index) {
+    for (std::size_t i = 0; i < tick.game.shots.size(); ++i) {
+        const Shot& shot = tick.game.shots[i];
+        if (!tick.shotGone[i] && shot.owner == index && tick.set.projectiles[shot.kind].strike == Strike::Settle)
+            return static_cast<int>(i);
+    }
+    return -1;
+}
+
+/// Whether two upright cylinders overlap.
+bool overlaps(const Vec3& a, double aRadius, double aHalf, const Vec3& b, double bRadius, double bHalf) {
+    const double dx = a.x - b.x, dy = a.y - b.y, reach = aRadius + bRadius;
+    return dx * dx + dy * dy < reach * reach && std::abs(a.z - b.z) < aHalf + bHalf;
+}
+
+/// Whether body `index` stands on its own disc at rest, the disc `disc`.
+bool onDisc(const Tick& tick, int index, int disc) {
+    const Body& body = tick.game.bodies[static_cast<std::size_t>(index)];
+    const Shot& shot = tick.game.shots[static_cast<std::size_t>(disc)];
+    const Projectile& kind = tick.set.projectiles[shot.kind];
+    return shot.stuck && overlaps(body.move.location, body.size.radius, body.size.halfHeight, shot.location,
+                                  kind.radius, detail::halfHeightOf(kind));
+}
+
+/// Whether disc `disc` is disrupted: it has taken more than its kind's `disrupt`.
+bool disrupted(const Tick& tick, int disc) {
+    const Shot& shot = tick.game.shots[static_cast<std::size_t>(disc)];
+    const Projectile& kind = tick.set.projectiles[shot.kind];
+    return kind.mass > 0 && shot.disruption > kind.disrupt;
+}
+
+/// TranslocatorTarget.Throw: along the aim, its upward part raised by
+/// `liftShare` of what it lacks of straight up, at the kind's speed.
+void throwDisc(Tick& tick, int index, const FireMode& mode) {
+    const Body& body = tick.game.bodies[static_cast<std::size_t>(index)];
+    const auto kind = static_cast<std::uint32_t>(
+        std::ranges::find(tick.set.projectiles, mode.projectile, &Projectile::name) - tick.set.projectiles.begin());
+    const Projectile& projectile = tick.set.projectiles[kind];
+    Vec3 direction = aimOf(body.yaw, body.pitch);
+    direction.z += mode.liftShare * (1 - std::abs(direction.z));
+    direction = direction * (1 / uworld::length(direction)); // never zero: the lift only adds to a unit aim's up
+    const Vec3 at = detail::startOf(body, mode);
+    tick.spawned.push_back(Shot{.kind = kind, .owner = index, .location = at, .velocity = direction * projectile.speed,
+                                .previous = at, .yaw = body.yaw, .pitch = body.pitch,
+                                .lifetime = projectile.lifetime});
+}
+
+/// Translocator.Translocate: body `index` goes to its disc, and the disc is
+/// gone whatever happens.
+void teleport(Tick& tick, int index, const FireMode& mode) {
+    const int disc = discOf(tick, index);
+    if (disc < 0) return;
+    Body& body = tick.game.bodies[static_cast<std::size_t>(index)];
+    const Shot& shot = tick.game.shots[static_cast<std::size_t>(disc)];
+    tick.shotGone[static_cast<std::size_t>(disc)] = true;
+    Vec3 to = shot.location;
+    if (shot.stuck) to.z += mode.landUp;
+    if (!tick.world.fits(body.size, to)) return;
+    const Vec3 from = body.move.location;
+    body.move.location = to;
+    body.move.physics = uworld::Physics::Falling;
+    // Pawn.EncroachedBy: every other body the thrower now overlaps dies.
+    for (std::size_t i = 0; i < tick.game.bodies.size(); ++i) {
+        Body& other = tick.game.bodies[i];
+        if (static_cast<int>(i) != index && other.alive() &&
+            overlaps(to, body.size.radius, body.size.halfHeight, other.move.location, other.size.radius,
+                     other.size.halfHeight))
+            other.health = GIBBED_HEALTH;
+    }
+    if (disrupted(tick, disc)) {
+        body.health = GIBBED_HEALTH;
+        return;
+    }
+    // FastTrace to the disc: where the level blocks it, the body goes back.
+    const uworld::BodyHit line = tick.world.trace(to, shot.location);
+    if (line.startsInside || line.fraction < 1) {
+        body.move.location = from;
+        return;
+    }
+    body.move.velocity.x = body.move.velocity.y = 0;
+}
+
+/// SS 4.10: the Translocator's tick. Both modes share NormalFire's wait: a
+/// press at rest is handled at once, and the triggers are looked at again
+/// once `refire` has passed, counted from the next tick, nothing carried over.
+/// A look finds fire before alt fire.
+void translocate(Tick& tick, int index, const Weapon& weapon, const uworld::MoveCommand& command) {
+    Body& body = tick.game.bodies[static_cast<std::size_t>(index)];
+    const bool waited = body.refireLeft > 0;
+    body.refireLeft -= tick.dt;
+    if (body.refireLeft > 0) return;
+    body.refireLeft = 0;
+    const auto cue = [&tick, &body, index](int which) {
+        tick.game.cues.push_back(
+            Cue{Cue::Kind::Fire, index, static_cast<std::uint32_t>(body.weapon), which, body.move.location});
+    };
+    if (waited && weapon.bothBack && command.fire && command.altFire && body.previous >= 0 &&
+        body.weapons[static_cast<std::size_t>(body.previous)].has) {
+        // ReturnToPreviousWeapon: down from the next tick, then the weapon before.
+        body.pending = body.previous;
+        body.switching = Body::Switch::PutDown;
+        body.switchLeft = weapon.putDown;
+        dropWeaponState(body);
+        return;
+    }
+    if (command.fire) {
+        const FireMode& mode = weapon.primary;
+        const int disc = discOf(tick, index);
+        if (disc < 0) {
+            if (body.throwWait < 0) {
+                throwDisc(tick, index, mode);
+                body.throwWait = mode.rethrow + mode.throwWait;
+                cue(0);
+            }
+        } else if (tick.game.shots[static_cast<std::size_t>(disc)].age > mode.recallAfter) {
+            tick.shotGone[static_cast<std::size_t>(disc)] = true;
+            if (disrupted(tick, disc)) body.health = GIBBED_HEALTH;
+            body.throwWait = mode.rethrow;
+            cue(1);
+        }
+        body.refireLeft = mode.refire;
+    } else if (command.altFire && weapon.alt) {
+        if (discOf(tick, index) >= 0) cue(1);
+        teleport(tick, index, *weapon.alt);
+        body.refireLeft = weapon.alt->refire;
+    }
+}
+
 void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
     Body& body = tick.game.bodies[static_cast<std::size_t>(index)];
     // UTA-0467: one cue a shot, however many projectiles or pellets it is.
@@ -266,6 +402,9 @@ void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
     };
     body.fireHeld = command.fire;
     body.altHeld = command.altFire;
+    // Translocator.FireDelay is a time, not a weapon's state: it runs on
+    // whatever is in hand. Held at -1, so a long wait stays one value.
+    body.throwWait = std::max(body.throwWait - tick.dt, -1.0);
     if (!command.fire && !command.altFire) body.burst = 0;
     if (body.weapon < 0 || body.pending >= 0) {
         body.beamHeld = body.beamFor = 0;
@@ -274,6 +413,11 @@ void fireBody(Tick& tick, int index, const uworld::MoveCommand& command) {
         return;
     }
     const Weapon& weapon = tick.set.weapons[static_cast<std::size_t>(body.weapon)];
+    if (weapon.primary.archetype == Archetype::Throw) {
+        body.lockLooking = false;
+        translocate(tick, index, weapon, command);
+        return;
+    }
     const auto modeOf = [&weapon](int which) -> const FireMode* {
         return which == 0 ? &weapon.primary : weapon.alt ? &*weapon.alt : nullptr;
     };
@@ -468,9 +612,18 @@ void explode(Tick& tick, std::size_t index, int struck, const Vec3& away, const 
     }
 }
 
+/// TranslocatorTarget.HitWall: a surface whose normal rises more than this is a floor.
+constexpr double FLOOR_NORMAL = 0.7;
+
 /// How far short of a surface it strikes a shot stops, along its path.
 /// Recorded: a flak chunk's bounces, at 30, 85 and 120 frames a second.
 constexpr double BACK_OFF = 2.5;
+/// A disc's stop short of a surface (UTA-0466): a share of its move, and a
+/// distance along its path. Recorded at 30, 85 and 120 frames a second: the
+/// original's floor strikes lie a tenth of the move back at every rate; the
+/// distance, fitted over the tl- runs, also takes up where our floor lies.
+constexpr double DISC_BACK_SHARE = 0.1;
+constexpr double DISC_BACK_OFF = 1.5;
 
 /// How far past its move's end a shot looks for a surface, along its path.
 /// Recorded: a flak chunk turned off a floor its move ended 1.4 above, and
@@ -510,10 +663,11 @@ void fly(Tick& tick, std::size_t index) {
     const bool launched = shot.age == 0;
     shot.age += tick.dt;
     if (shot.stuck) {
-        if (shot.age >= kind.fuse) explode(tick, index, -1, Vec3{0, 0, 1}, shot.location);
+        // A disc at rest stays until it is taken, recalled or knocked (SS 4.10).
+        if (kind.strike == Strike::Stick && shot.age >= kind.fuse) explode(tick, index, -1, Vec3{0, 0, 1}, shot.location);
         return;
     }
-    if (shot.age >= shot.lifetime) {
+    if (shot.lifetime > 0 && shot.age >= shot.lifetime) {
         if (kind.expireExplodes) {
             // UT_Grenade.Timer: the blast goes off above the shot.
             shot.location.z += kind.expireUp;
@@ -586,7 +740,7 @@ void fly(Tick& tick, std::size_t index) {
             const double looked = reach > 0 ? (reach + LOOK_ON) / reach : 1;
             const Vec3 past = from + delta * looked;
             const uworld::BodyHit level = kind.radius > 0
-                                              ? tick.world.sweep(uworld::BodySize{kind.radius, kind.radius}, from, past)
+                                              ? tick.world.sweep(uworld::BodySize{kind.radius, detail::halfHeightOf(kind)}, from, past)
                                               : tick.world.trace(from, past);
             const bool surface = level.startsInside || level.fraction < 1;
             const double met = level.startsInside ? 0 : level.fraction * looked;
@@ -596,7 +750,10 @@ void fly(Tick& tick, std::size_t index) {
             for (std::size_t i = 0; i < bodies.size(); ++i) {
                 if (static_cast<int>(i) == shot.owner || !bodies[i].alive()) continue;
                 const double at = entersCylinder(from, to, bodies[i].move.location, bodies[i].size.radius + kind.radius,
-                                                 bodies[i].size.halfHeight + kind.radius);
+                                                 bodies[i].size.halfHeight + detail::halfHeightOf(kind));
+                // TranslocatorTarget.Touch comes as a body is first met; a disc
+                // inside one already passes through it.
+                if (kind.strike == Strike::Settle && at == 0) continue;
                 // A shot launched inside a body meets it only where its move heads
                 // in, towards the body's axis; heading out, it flies on. Recorded:
                 // a flak slug's pieces, started inside the body it struck.
@@ -608,6 +765,15 @@ void fly(Tick& tick, std::size_t index) {
                     first = at;
                     struck = static_cast<int>(i);
                 }
+            }
+            if (struck >= 0 && kind.strike == Strike::Settle) {
+                // TranslocatorTarget.Touch: it stops over the body's axis, at its
+                // own height, and falls on through it.
+                const Vec3& axis = bodies[static_cast<std::size_t>(struck)].move.location;
+                const Vec3 end = from + delta * std::min(met, 1.0);
+                shot.location = Vec3{axis.x, axis.y, end.z};
+                shot.velocity = {};
+                return;
             }
             if (struck >= 0) {
                 // The script's Location is where the move ends, the level allowing;
@@ -651,9 +817,32 @@ void fly(Tick& tick, std::size_t index) {
             // The level: a shot starting in solid strikes where it is (SS 6).
             // It stops short of the surface, and the time it would have taken
             // to close that gap is left to it.
-            if (reach > 0) first = std::max(0.0, first - BACK_OFF / reach);
+            if (kind.strike == Strike::Settle)
+                first = std::max(0.0, first - DISC_BACK_SHARE - (reach > 0 ? DISC_BACK_OFF / reach : 0));
+            else if (reach > 0) first = std::max(0.0, first - BACK_OFF / reach);
             shot.location = from + delta * first;
             const Vec3 normal = level.normal;
+            if (kind.strike == Strike::Settle) {
+                // TranslocatorTarget.HitWall: it bounces until it has struck a
+                // floor; the strike after that stops it on a floor, and off a
+                // wall it slides on, bouncing no more.
+                const Vec3 into = normal * uworld::dot(shot.velocity, normal);
+                if (level.startsInside || (shot.floored && normal.z > FLOOR_NORMAL)) {
+                    shot.stuck = true;
+                    shot.velocity = {};
+                    return;
+                }
+                if (shot.floored) {
+                    shot.velocity = shot.velocity - into;
+                } else {
+                    shot.velocity = (shot.velocity - into) * kind.bounceKeep - into * kind.bounceOff;
+                    shot.floored = normal.z > FLOOR_NORMAL;
+                }
+                time = (time + more) * (1 - first);
+                more = 0;
+                ++shot.bounces;
+                continue;
+            }
             if (kind.strike == Strike::Stick && !level.startsInside) {
                 shot.stuck = true;
                 shot.velocity = {};
@@ -771,7 +960,13 @@ void tick(const uworld::BodyWorld& world, const WeaponSet& set, const uworld::Mo
         Body& body = game.bodies[i];
         if (!body.alive()) continue;
         switchWeapon(set, game, static_cast<int>(i), commands[i], dt);
+        // SS 4.10: a body moving onto its disc at rest takes it back; one
+        // already over it does not (Touch comes as the two first meet).
+        const int disc = discOf(tick, static_cast<int>(i));
+        const bool wasOn = disc >= 0 && onDisc(tick, static_cast<int>(i), disc);
         body.move = uworld::tick(world, body.size, rules, body.move, commands[i], dt);
+        if (disc >= 0 && !wasOn && onDisc(tick, static_cast<int>(i), disc))
+            tick.shotGone[static_cast<std::size_t>(disc)] = true;
         if (rules.landingDamage) body.health -= landingDamage(body.move.landedZ, rules.jumpZ);
         if (zones != nullptr && body.alive()) {
             // UTA-0493 SS 4.4: outside the level is death, not damage, so it
@@ -928,6 +1123,8 @@ std::uint64_t stateHash(const Game& game) {
         addDouble(body.secondWind);
         add(static_cast<std::uint64_t>(body.secondHolding));
         add(body.secondBurst);
+        addDouble(body.throwWait); // SS 4.10
+        add(static_cast<std::uint64_t>(body.previous));
     }
     add(game.shots.size());
     for (const Shot& shot : game.shots) {
@@ -947,6 +1144,8 @@ std::uint64_t stateHash(const Game& game) {
         add(static_cast<std::uint64_t>(shot.seeking)); // UTA-0468
         addDouble(shot.seekClock);
         addVec(shot.seekFrom);
+        add(shot.floored ? 1 : 0); // SS 4.10
+        addDouble(shot.disruption);
     }
     return hash;
 }

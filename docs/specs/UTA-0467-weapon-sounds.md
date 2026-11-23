@@ -310,8 +310,9 @@ public:
 
 - **INV-11** — Looked up in the real install with no class listed,
   every sound `weapons/stock.weapons` names is found and decodes; and
-  every stock weapon names a `select-sound`, and each of its fire modes
-  a `sound` or a `loop-sound`.
+  every stock weapon names a `select-sound`, but the Translocator, whose
+  original has none (`Weapon.SelectSound`'s default), and each of its
+  fire modes a `sound` or a `loop-sound`.
   *Test:* `tests/real/RealSoundsTest.cpp`, the real-asset tier, for the
   first half; `tests/unit/WeaponSetTest.cpp` for the second.
   *Breaks when:* a path in the stock file is misspelt, or a weapon is

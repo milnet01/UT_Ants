@@ -454,7 +454,8 @@ TEST_CASE("INV-3: the stock set parses and maps each stock class to one weapon",
         CAPTURE(stockClass);
         CHECK(std::ranges::count(set->weapons, stockClass, &uta::ugame::Weapon::className) == 1);
     }
-    CHECK(set->weapons.size() == 11);
+    CHECK(std::ranges::count(set->weapons, "botpack.translocator", &uta::ugame::Weapon::className) == 1);
+    CHECK(set->weapons.size() == 12); // SS 3 item 2's eleven, and the Translocator (SS 4.10)
     // INV-2 holds for it too.
     const auto again = uta::ugame::parse(uta::ugame::write(*set));
     REQUIRE(again.has_value());
@@ -532,8 +533,123 @@ TEST_CASE("UTA-0467 INV-11: every stock fire mode and weapon names a sound", "[u
     REQUIRE(set.has_value());
     for (const uta::ugame::Weapon& weapon : set->weapons) {
         CAPTURE(weapon.name);
-        CHECK_FALSE(weapon.selectSound.empty());
+        // The Translocator's original has none: Weapon.SelectSound's default.
+        if (weapon.className != "botpack.translocator") CHECK_FALSE(weapon.selectSound.empty());
         CHECK((!weapon.primary.sound.empty() || !weapon.primary.loopSound.empty()));
         if (weapon.alt) CHECK((!weapon.alt->sound.empty() || !weapon.alt->loopSound.empty()));
+    }
+}
+
+namespace {
+
+/// UTA-0466: a set holding just a Translocator.
+constexpr std::string_view TRANSLOCATOR = R"(ut-ants weapons 2
+[set]
+name = "Hop"
+self-damage = 0.5
+head-height = 0.62
+
+[weapon translocator]
+class = botpack.translocator
+slot = 1
+ammo-max = 0
+ammo-start = 0
+put-down = 0.24
+bring-up = 0.35
+both-back = yes
+
+[fire translocator primary]
+archetype = throw
+offset = 5 -4.2 -7
+refire = 0.1
+ammo = 0
+projectile = disc
+lift-share = 0.35
+rethrow = 0.5
+throw-wait = 0.1
+recall-after = 0.8
+
+[fire translocator alt]
+archetype = teleport
+refire = 0.1
+ammo = 0
+land-up = 40
+
+[projectile disc]
+speed = 830
+radius = 10
+half-height = 3
+gravity = 0.5
+damage = 0
+momentum = 0
+strike = settle
+bounce-keep = 0.3
+bounce-off = 0.3
+mass = 50
+disrupt = 65
+)";
+
+std::string hop(std::string_view from, std::string_view to) {
+    std::string text(TRANSLOCATOR);
+    const std::size_t at = text.find(from);
+    REQUIRE(at != std::string::npos);
+    return text.replace(at, from.size(), to);
+}
+
+} // namespace
+
+TEST_CASE("UTA-0466: a Translocator's keys parse and read back; its refusals name their lines", "[ugame][weapons]") {
+    const auto set = uta::ugame::parse(TRANSLOCATOR);
+    REQUIRE(set.has_value());
+    const uta::ugame::Weapon& weapon = set->weapons.at(0);
+    CHECK(weapon.bothBack);
+    CHECK(weapon.primary.archetype == uta::ugame::Archetype::Throw);
+    CHECK(weapon.primary.liftShare == 0.35);
+    CHECK(weapon.primary.recallAfter == 0.8);
+    CHECK(weapon.alt->archetype == uta::ugame::Archetype::Teleport);
+    CHECK(weapon.alt->landUp == 40);
+    const uta::ugame::Projectile& disc = set->projectiles.at(0);
+    CHECK(disc.strike == uta::ugame::Strike::Settle);
+    CHECK(disc.lifetime == 0); // a disc lasts
+    CHECK(disc.halfHeight == 3);
+    CHECK(disc.disrupt == 65);
+    const auto again = uta::ugame::parse(uta::ugame::write(*set)); // INV-2
+    REQUIRE(again.has_value());
+    CHECK(*again == *set);
+
+    struct Refusal {
+        std::string_view what;
+        std::string text;
+        std::string_view at;
+        std::string_view says;
+    };
+    const std::vector<Refusal> refusals{
+        {"a throw of a kind that does not settle",
+         hop("strike = settle\nbounce-keep = 0.3\nbounce-off = 0.3\nmass = 50\ndisrupt = 65",
+             "lifetime = 3\nstrike = bounce\nbounces = 1\nbounce-keep = 0.3"),
+         "[weapon translocator]", "which does not settle"},
+        {"a teleport whose primary does not throw",
+         hop("archetype = throw\noffset = 5 -4.2 -7\nrefire = 0.1\nammo = 0\nprojectile = disc\nlift-share = 0.35\n"
+             "rethrow = 0.5\nthrow-wait = 0.1\nrecall-after = 0.8",
+             "archetype = projectile\nrefire = 0.1\nammo = 0\nprojectile = disc"),
+         "[weapon translocator]", "its primary does not throw"},
+        {"a throw with no recall-after", hop("recall-after = 0.8\n", ""), "[fire translocator primary]",
+         "has no `recall-after`"},
+        {"a settling kind with no bounce-off", hop("bounce-off = 0.3\n", ""), "[projectile disc]",
+         "has no `bounce-off`"},
+        {"a kind that does not settle with no lifetime", hop("strike = settle\nbounce-keep = 0.3\nbounce-off = 0.3\nmass = 50\ndisrupt = 65", "strike = explode"),
+         "[projectile disc]", "has no `lifetime`"},
+        {"both-back neither yes nor no", hop("both-back = yes", "both-back = maybe"), "both-back",
+         "is not one of: no, yes"},
+    };
+    for (const Refusal& refusal : refusals) {
+        CAPTURE(refusal.what);
+        const auto refused = uta::ugame::parse(refusal.text);
+        REQUIRE_FALSE(refused.has_value());
+        CHECK(refused.error().code() == uta::ErrorCode::MalformedData);
+        const std::string message(refused.error().message());
+        CAPTURE(message);
+        CHECK(message.starts_with(std::format("weapon set line {}: ", lineOf(refusal.text, refusal.at))));
+        CHECK(message.find(refusal.says) != std::string::npos);
     }
 }

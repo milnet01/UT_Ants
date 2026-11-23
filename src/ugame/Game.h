@@ -34,6 +34,9 @@ inline constexpr double PLAYER_HIT_INSET = 0.5;
 inline constexpr double OUT_OF_WORLD_HEALTH = -1;
 /// UTA-0493 SS 4.5: Pawn.FootZoneChange's first wait, and PainTimer's between hits.
 inline constexpr double PAIN_FIRST_WAIT = 0.01, PAIN_WAIT = 1.0;
+/// SS 4.10: a body telefragged, or killed by its own disrupted disc, has this
+/// health, as Pawn.gibbedBy sets it.
+inline constexpr double GIBBED_HEALTH = -1000;
 /// UTA-0108: what a landing too hard to live through costs.
 inline constexpr double LANDING_DEATH_DAMAGE = 1000;
 /// UTA-0108: what landing at vertical velocity `landedZ` costs a body whose
@@ -101,6 +104,10 @@ struct Body {
     double secondWind = 0;     ///< seconds until that wind-up's shot
     int secondHolding = -1;    ///< 0 primary, 1 alt: a mode it repeats while that trigger is held; else -1
     std::uint32_t secondBurst = 0; ///< its shots since it was last set off
+    // SS 4.10, the Translocator.
+    /// Seconds until a throw may be made; one is made only below 0. -1 at rest.
+    double throwWait = -1;
+    int previous = -1; ///< the weapon in hand before this one came up; -1 for none
 
     [[nodiscard]] bool alive() const { return health > 0; }
 };
@@ -120,6 +127,9 @@ struct Shot {
     int seeking = -1;       ///< UTA-0468: the body it seeks; -1 for none
     double seekClock = 0;   ///< seconds since its last turn
     Vec3 seekFrom{};        ///< the way it flew at its first turn; zero before it
+    // SS 4.10: a disc, a kind that settles. `stuck` is at rest.
+    bool floored = false;   ///< it has struck a surface facing up; the next strike stops it
+    double disruption = 0;  ///< damage it has taken
     bool operator==(const Shot&) const = default;
 };
 

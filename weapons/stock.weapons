@@ -1,6 +1,6 @@
 ut-ants weapons 2
-# The stock weapon set: UT99's Botpack weapons but the Redeemer and the
-# Translocator (docs/specs/UTA-0019-weapon-set.md SS 3).
+# The stock weapon set: UT99's Botpack weapons but the Redeemer
+# (docs/specs/UTA-0019-weapon-set.md SS 3; the Translocator, SS 4.10).
 #
 # Each number says where it came from:
 #   "default: Class.Property" -- the class's default properties, read from
@@ -408,6 +408,35 @@ head-momentum = 35000      # SS 4.9; recorded
 # No alt fire: the sniper's alt zooms, the client's (SS 3 item 7).
 sound = botpack.sniperrifle.sniperfire  # default: SniperRifle.FireSound; script: SniperRifle.PlayFiring
 
+[weapon translocator]
+class = botpack.translocator
+slot = 1                   # default: Weapon.InventoryGroup
+ammo-max = 0               # it needs no ammo
+ammo-start = 0
+put-down = 0.24            # recorded at 30 fps: between 0.2204 and 0.2571 (tl-return)
+bring-up = 0.35            # recorded at 30 fps: between 0.3306 and 0.3673 (tl-return)
+select-rate = 2.75         # recorded: its select's share a second, from AnimFrame (tl-return)
+both-back = yes            # script: Translocator's NormalFire; recorded (tl-return)
+
+[fire translocator primary]
+archetype = throw
+offset = 5 -4.2 -7         # SS 4.10: PlayerViewOffset alone, ThrowTarget's FireOffset being unset; recorded
+refire = 0.1               # script: Translocator's NormalFire, Sleep(0.1); recorded
+ammo = 0
+projectile = translocator-disc
+lift-share = 0.35          # script: TranslocatorTarget.Throw; recorded
+rethrow = 0.5              # script: Translocator.Fire; recorded (tl-recall, tl-hold)
+throw-wait = 0.1           # script: Translocator.Fire, FireDelay after a throw
+recall-after = 0.8         # script: Translocator.Fire; recorded (tl-recall-early, tl-hold)
+sound = botpack.translocator.throwtarget  # default: Translocator.FireSound
+
+[fire translocator alt]
+archetype = teleport
+refire = 0.1               # script: Translocator's NormalFire, Sleep(0.1)
+ammo = 0
+land-up = 40               # script: Translocator.Translocate; recorded (tl-teleport)
+sound = botpack.translocator.returntarget  # default: Translocator.AltFireSound
+
 [projectile bio-gel]
 speed = 840                # default: UT_BioGel.speed
 radius = 2                 # default: UT_BioGel.CollisionRadius
@@ -562,6 +591,20 @@ strike = bounce
 bounces = 100              # script: UT_Grenade.HitWall, bounces until its fuse
 bounce-keep = 0.75         # SS 4.9: UT_Grenade.HitWall
 sound = unrealshare.general.explo1  # script: UT_Grenade.Explosion spawns UT_SpriteBallExplosion, whose EffectSound1 this is
+
+[projectile translocator-disc]
+speed = 830                # default: Translocator.MaxTossForce; recorded
+radius = 10                # default: TranslocatorTarget.CollisionRadius
+half-height = 3            # default: TranslocatorTarget.CollisionHeight
+gravity = 0.5              # recorded: 475 a second squared, as other falling shots
+lifetime = 0               # default: TranslocatorTarget.LifeSpan; it lasts
+damage = 0
+momentum = 0
+strike = settle
+bounce-keep = 0.3          # script: TranslocatorTarget.HitWall; recorded
+bounce-off = 0.3           # script: TranslocatorTarget.HitWall; recorded
+mass = 50                  # default: TranslocatorTarget.Mass
+disrupt = 65               # default: TranslocatorTarget.DisruptionThreshold
 
 [combo shock-combo]
 damage = 165               # script: ShockProj.SuperExplosion, Damage x 3

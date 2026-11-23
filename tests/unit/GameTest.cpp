@@ -1822,7 +1822,7 @@ TEST_CASE("INV-5: a scripted fight is the same at every frame rate and on every 
     // UTA-0020: the script opens the wheel. UTA-0022: the hash covers coyoteLeft and mantleTo;
     // UTA-0108 landedZ; UTA-0493 painClock; UTA-0468 the lock, the second gun and the seeking,
     // each of which moved the pin and nothing else; UTA-0501 the switch's two waits; UTA-0502 `next`.
-    CHECK(reference.back() == 14968463928858562756u);
+    CHECK(reference.back() == 4140377617325553840u);
 }
 
 // UTA-0020: the weapon wheel's time scale, and what it lists and picks.
@@ -2592,4 +2592,221 @@ TEST_CASE("UTA-0493 INV-7: a zone of negative damage heals, never past full heal
     nearly.bodies[0].health = 95;
     CHECK(ticksToHit(world, noLanding(), nearly, lookup, 100) == 2);
     CHECK(nearly.bodies[0].health == START_HEALTH);
+}
+
+// UTA-0466, the Translocator: docs/specs/UTA-0019-weapon-set.md SS 4.10.
+namespace {
+
+std::uint32_t discKind(const WeaponSet& set) {
+    const auto at = std::ranges::find(set.projectiles, "translocator-disc", &Projectile::name);
+    REQUIRE(at != set.projectiles.end());
+    return static_cast<std::uint32_t>(at - set.projectiles.begin());
+}
+
+/// The thrower at the origin facing +X with the Translocator in hand; the
+/// dummy out of the way unless a case moves it.
+Game thrower() {
+    Game game = duel(stock(), "translocator", 1500);
+    game.bodies[1].move.location.y = 2500;
+    return game;
+}
+
+/// A disc of body 0's at rest at `at`.
+void restingDisc(Game& game, const Vec3& at) {
+    game.shots.push_back(Shot{.kind = discKind(stock()), .owner = 0, .location = at, .previous = at, .stuck = true});
+}
+
+/// One tick with body 0's command `command`, the dummy idle.
+void step(const BodyWorld& world, Game& game, const MoveCommand& command) {
+    std::vector<MoveCommand> commands(game.bodies.size());
+    commands[0] = command;
+    commands[1].yaw = 32768;
+    tick(world, stock(), RULES, game, commands, DT);
+}
+
+/// Idle ticks for at least `seconds`.
+void idleFor(const BodyWorld& world, Game& game, double seconds) {
+    for (double t = 0; t < seconds; t += DT) step(world, game, MoveCommand{});
+}
+
+MoveCommand firing(bool fire, bool alt = false) {
+    MoveCommand command;
+    command.fire = fire;
+    command.altFire = alt;
+    return command;
+}
+
+} // namespace
+
+TEST_CASE("UTA-0466: a throw is one disc along the aim lifted by lift-share; a press recalls it only once it is old",
+          "[ugame][game]") {
+    const BodyWorld world = arena();
+    const FireMode& mode = primaryOf(stock(), "translocator");
+    Game game = thrower();
+    step(world, game, firing(true));
+    REQUIRE(game.shots.size() == 1);
+    // Level aim: up by lift-share, then unit length.
+    const double length = std::sqrt(1 + mode.liftShare * mode.liftShare);
+    CHECK(std::abs(game.shots[0].velocity.x - 830 / length) < 1e-9);
+    CHECK(game.shots[0].velocity.y == 0);
+
+    idleFor(world, game, 0.3);
+    step(world, game, firing(true)); // young: nothing
+    REQUIRE(game.shots.size() == 1);
+    idleFor(world, game, mode.recallAfter);
+    step(world, game, firing(true)); // old: recalled
+    CHECK(game.shots.empty());
+
+    // A throw waits rethrow after a recall, at whichever look first passes it.
+    idleFor(world, game, mode.rethrow - 0.15);
+    step(world, game, firing(true));
+    CHECK(game.shots.empty());
+    idleFor(world, game, 0.2);
+    step(world, game, firing(true));
+    CHECK(game.shots.size() == 1);
+}
+
+TEST_CASE("UTA-0466: a held trigger is looked at every refire, from the next tick, with nothing carried over",
+          "[ugame][game]") {
+    const BodyWorld world = arena();
+    const FireMode& mode = primaryOf(stock(), "translocator");
+    Game game = thrower();
+    // A look every ceil(refire / DT) ticks: the throw's tick, then each look.
+    const int every = static_cast<int>(std::ceil(mode.refire / DT));
+    int ticks = 0;
+    step(world, game, firing(true));
+    while (!game.shots.empty() && ticks < 1000) {
+        step(world, game, firing(true));
+        ++ticks;
+    }
+    REQUIRE(ticks < 1000);
+    CHECK(ticks % every == 0);
+    // The recall came at the first look past recall-after.
+    CHECK(ticks * DT > mode.recallAfter);
+    CHECK((ticks - every) * DT <= mode.recallAfter);
+}
+
+TEST_CASE("UTA-0466: a disc bounces keeping 0.3 of its speed until it has struck a floor, and rests at the next strike",
+          "[ugame][game]") {
+    const BodyWorld world = arena();
+    Game game = thrower();
+    game.bodies[0].weapon = weaponNamed(stock(), "enforcer"); // throws nothing
+    game.shots.push_back(Shot{.kind = discKind(stock()), .owner = 0, .location = {0, 500, 40},
+                              .velocity = {300, 0, -300}, .previous = {0, 500, 40}});
+    int ticks = 0;
+    while (game.shots[0].bounces == 0 && ticks++ < 200) step(world, game, MoveCommand{});
+    REQUIRE(game.shots[0].bounces == 1);
+    CHECK(game.shots[0].floored);
+    CHECK(std::abs(game.shots[0].velocity.x - 90) < 1e-9); // gravity has no x
+    CHECK_FALSE(game.shots[0].stuck);
+    while (!game.shots[0].stuck && ticks++ < 400) step(world, game, MoveCommand{});
+    REQUIRE(game.shots[0].stuck);
+    CHECK(game.shots[0].bounces == 1);
+    CHECK(game.shots[0].velocity == Vec3{});
+    CHECK(game.shots[0].location.z > 0);
+    // Its half-height over the floor, stopped up to 2.5 short along its path as every shot is.
+    CHECK(game.shots[0].location.z <= 3 + 2.5);
+}
+
+TEST_CASE("UTA-0466: a teleport lands land-up above a resting disc, falling, its horizontal speed gone",
+          "[ugame][game]") {
+    const BodyWorld world = arena();
+    Game game = thrower();
+    game.bodies[0].move.velocity = {0, 0, 0};
+    restingDisc(game, {500, 0, 3});
+    step(world, game, firing(false, true));
+    CHECK(game.shots.empty());
+    CHECK(game.bodies[0].move.location == Vec3{500, 0, 43});
+    CHECK(game.bodies[0].move.physics == uta::uworld::Physics::Falling);
+    CHECK(game.bodies[0].move.velocity.x == 0);
+    CHECK(game.bodies[0].move.velocity.y == 0);
+    CHECK(game.bodies[0].alive());
+}
+
+TEST_CASE("UTA-0466: a teleport onto a body telefrags it; one that does not fit goes nowhere", "[ugame][game]") {
+    const BodyWorld world = arena();
+    SECTION("onto a body") {
+        Game game = thrower();
+        game.bodies[1].move.location = {500, 0, STANDING};
+        restingDisc(game, {500, 0, 3});
+        step(world, game, firing(false, true));
+        CHECK(game.bodies[1].health == GIBBED_HEALTH);
+        CHECK(game.bodies[0].alive());
+    }
+    SECTION("into the wall") {
+        Game game = thrower();
+        restingDisc(game, {2010, 0, 3}); // inside the wall at x = 2000
+        step(world, game, firing(false, true));
+        CHECK(game.shots.empty());
+        CHECK(std::abs(game.bodies[0].move.location.x) < 1e-9);
+        CHECK(std::abs(game.bodies[0].move.location.y) < 1e-9);
+    }
+}
+
+TEST_CASE("UTA-0466: a body moving onto its resting disc takes it back; one already over it does not",
+          "[ugame][game]") {
+    const BodyWorld world = arena();
+    SECTION("walked onto") {
+        Game game = thrower();
+        restingDisc(game, {150, 0, 3});
+        MoveCommand forward;
+        forward.forward = 1;
+        for (int k = 0; k < 200 && !game.shots.empty(); ++k) step(world, game, forward);
+        CHECK(game.shots.empty());
+        CHECK(game.bodies[0].move.location.x < 150 + 17 + 10);
+    }
+    SECTION("already over it") {
+        Game game = thrower();
+        restingDisc(game, {5, 0, 3});
+        idleFor(world, game, 0.5);
+        CHECK(game.shots.size() == 1);
+    }
+}
+
+TEST_CASE("UTA-0466: an instant hit knocks a disc up and disrupts it; a disrupted disc kills its thrower",
+          "[ugame][game]") {
+    const BodyWorld world = arena();
+    Game game = duel(stock(), "shock-rifle", 1500);
+    // Body 1 owns a disc 300 ahead of body 0, in the shock's line.
+    const Vec3 eye = levelStart(primaryOf(stock(), "shock-rifle"));
+    game.shots.push_back(Shot{.kind = discKind(stock()), .owner = 1, .location = {300, eye.y, eye.z},
+                              .previous = {300, eye.y, eye.z}, .stuck = true});
+    step(world, game, firing(true));
+    REQUIRE(game.shots.size() == 1);
+    const Shot& disc = game.shots[0];
+    CHECK_FALSE(disc.stuck);
+    CHECK(disc.velocity.x > 0);
+    // A level shot pushes along x alone; the knock rises 0.7 of that, less
+    // the tick's fall at the disc's gravity, as it flies in the tick it is hit.
+    const double fall = RULES.gravityZ * stock().projectiles[discKind(stock())].gravity * DT;
+    CHECK(std::abs(disc.velocity.z - (0.7 * disc.velocity.x + fall)) < 1e-9);
+    CHECK(disc.disruption == std::trunc(primaryOf(stock(), "shock-rifle").damage));
+    CHECK(game.bodies[1].alive());
+
+    // Past disrupt, going to it kills its thrower.
+    game.shots[0].disruption = stock().projectiles[discKind(stock())].disrupt + 1;
+    game.shots[0].stuck = true;
+    game.shots[0].location = {300, 0, 3};
+    game.bodies[1].weapon = weaponNamed(stock(), "translocator");
+    std::vector<MoveCommand> commands(2);
+    commands[1].altFire = true;
+    tick(world, stock(), RULES, game, commands, DT);
+    CHECK(game.bodies[1].health == GIBBED_HEALTH);
+}
+
+TEST_CASE("UTA-0466: both triggers held at a look bring back the weapon in hand before", "[ugame][game]") {
+    const BodyWorld world = arena();
+    Game game = thrower();
+    game.bodies[0].weapon = weaponNamed(stock(), "enforcer");
+    MoveCommand pick;
+    pick.weaponPick = static_cast<std::int8_t>(weaponNamed(stock(), "translocator"));
+    step(world, game, pick);
+    idleFor(world, game, 2);
+    REQUIRE(game.bodies[0].weapon == weaponNamed(stock(), "translocator"));
+    REQUIRE(game.bodies[0].pending < 0);
+    step(world, game, firing(true, true)); // throws, and the look starts
+    for (int k = 0; k < 10 && game.bodies[0].pending < 0; ++k) step(world, game, firing(true, true));
+    CHECK(game.bodies[0].pending == game.bodies[0].previous);
+    idleFor(world, game, 2);
+    CHECK(game.bodies[0].weapon != weaponNamed(stock(), "translocator"));
 }

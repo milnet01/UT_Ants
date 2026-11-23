@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=504 -->
+<!-- ants-roadmap-id-high-water: UTA=505 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -21441,7 +21441,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-11-11.
   Lanes: ugame.
 
-- 📋 [UTA-0466] **The Translocator: throw a disc and teleport to it.**
+- 🚧 [UTA-0466] **The Translocator: throw a disc and teleport to it.**
   Split out of UTA-0019 by the user (2026-11-11). Throwing reuses
   UTA-0019's projectile archetype; the teleport and telefrag are new
   (docs/specs/UTA-0019-weapon-set.md § 9).
@@ -25067,15 +25067,31 @@ docs/standards/versioning-overrides.md. Closes S8.
   Source: in-session-2026-11-23 EXRAY-0048.
   Lanes: tools.
 
-- 🚧 [UTA-0504] **ut-export: each material's colour, from the probe bake's mean albedo, in place of white.**
+- ✅ [UTA-0504] **ut-export: each material's colour, from the probe bake's mean albedo, in place of white.**
   ExperiRays asked 2026-11-23: UTA-0503's maps have every material at
   baseColorFactor 1, so a closed map keeps nearly all its light, paths
   run to the bounce cap, and the RX 6600 lost the device. Its
   recommendation: the mean colour as baseColorFactor, textures later.
   ut-export gains --light-materials <file>, ut-bake's file of each
   material's linear mean albedo (UTA-0292), written as baseColorFactor.
+  Done 2026-11-23: UTA-0503's three maps re-baked with --light-materials
+  and exported coloured (every material named; DM-MementoMori mean
+  albedo 0.128, brightest channel 0.39); each passes `experirays load`.
+  Handed to ExperiRays in the scratchpad's exray504 folder, kept until
+  2026-11-30.
   **Layman:** The levels handed to the sister renderer were all pure white, so light never faded; give each surface its real average colour.
   Kind: enhancement.
+  Source: in-session-2026-11-23 EXRAY-0048.
+  Lanes: tools.
+
+- 📋 [UTA-0505] **Name a frame of DM-MementoMori's exported camera path with a dim lamp in view and bright ones behind walls, for ExperiRays.**
+  ExperiRays asked 2026-11-23: its EXRAY-0048 timing settled at every
+  setting on frame 0 of UTA-0504's coloured DM-MementoMori, so the
+  seen-dim-light case went untested. It wants a frame number on that
+  export's .xrpath.json. Promised after UTA-0466. Files:
+  Scratchpad/UT_Ants/exray504/ (kept until 2026-11-30).
+  **Layman:** Pick one camera spot in a level that makes the sister renderer's light picking work hard, so it can be timed there.
+  Kind: chore.
   Source: in-session-2026-11-23 EXRAY-0048.
   Lanes: tools.
 

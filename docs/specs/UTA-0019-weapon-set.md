@@ -551,6 +551,58 @@ Botpack `DeathMatchPlus.ReduceDamage`):
 linearly from the victim's edge, not its centre, as `Fire.cpp`'s
 `splash` already does.
 
+### 4.10 The Translocator (UTA-0466)
+
+Read from `Translocator` and `TranslocatorTarget`, 2026-11-23, and
+recorded at 30, 85 and 120 fps (`tl-` runs in `weapons.txt`). It is slot
+1 (Engine `Weapon.InventoryGroup`) and has no ammo. Two archetypes, one
+strike and three weapon-file keys carry it:
+
+- **`throw`**, the primary, throws one disc, a projectile kind. The
+  disc's direction is the aim with its upward part raised by `lift-share`
+  (0.35) of what it lacks of straight up, then made unit length; its speed
+  is the kind's 830. It starts at the eye plus the weapon's view offset
+  only: `ThrowTarget` adds `FireOffset` along axes it has not yet set, so
+  that part is zero (recorded). With a disc out, a press recalls it once it
+  has flown more than `recall-after` (0.8 s). A throw waits until
+  `rethrow` (0.5 s) has passed since the last throw's time plus
+  `throw-wait` (0.1 s), or since the last recall.
+- **`teleport`**, the alt, moves the thrower to its disc: to the disc's
+  centre, or `land-up` (40) above it once it rests. The thrower then falls,
+  its horizontal speed zeroed and its vertical speed kept. Every other
+  live body its cylinder then overlaps dies (Engine `Pawn.EncroachedBy`,
+  recorded). Where the body does not fit there, or the level blocks the
+  line from its new centre to the disc, it stays where it was. Either way
+  the disc is gone. Recorded: landed, mid-flight, and onto a body.
+- **The check.** Both modes share one wait, `NormalFire`'s `Sleep(0.1)`:
+  after any press it handles, the weapon looks at the triggers again
+  `refire` (0.1 s) later, counted from the next tick, with no time
+  carried over. A held trigger acts at each look, fire before alt fire.
+  Recorded: a held primary throws, recalls and throws again on these
+  looks at all three rates.
+- **`both-back = yes`**, a weapon key: both triggers held at a look send
+  the weapon down and bring back the weapon in hand before it came up.
+  Recorded at 30 fps.
+- **`strike = settle`**, a projectile kind: it bounces, keeping
+  `bounce-keep` (0.3) of its speed along a surface and `bounce-off` (0.3)
+  off it, until it has struck a surface facing up (normal's upward part
+  over 0.7). Its next strike on such a surface stops it there, at rest;
+  off a wall it slides on without bouncing (unrecorded). It stops short
+  of a surface by a tenth of its move and 1.5 along its path: recorded,
+  the original's floor strikes lie a tenth of the move back at 30, 85
+  and 120 fps, and the 1.5 is fitted over the `tl-` runs. A flying
+  disc that meets a body other than its thrower stops over that body's
+  axis at its own height and falls on through it (`Touch`, recorded). Its
+  cylinder is `radius` 10 by `height` 3, a new kind key.
+- **Taking it back.** A resting disc its thrower's body moves onto, not
+  one the body already overlaps, is taken back (recorded).
+- **Disruption** (script only, unrecorded): instant hits and splashes
+  meet a disc as they meet a body. Each hit's damage, unscaled, adds to
+  its disruption, and knocks it into flight at momentum ÷ `mass` (50), its
+  upward speed at least 0.7 of that. Past `disrupt` (65), a teleport to
+  it or a recall of it kills its thrower. A projectile's direct strike on
+  a disc is not modelled; its splash is.
+
 ## 5. Invariants
 
 - **INV-1** — A set file is strict. An unknown key, an unknown section,
@@ -598,7 +650,10 @@ linearly from the victim's edge, not its centre, as `Fire.cpp`'s
   original's. A launch a tick out flies frames of other lengths and
   reaches a body over other ticks, so its hits on a body are compared as
   one: damage summed, and the velocity after the last less the fall
-  between the first and the last. Four differences are allowed (user, 2026-11-13,
+  between the first and the last. A teleport lands within 1 unit of where
+  the original's player is logged, and a telefrag kills on the same tick,
+  give or take one (UTA-0466). A run at a missed frame rate pairs its
+  shots by order of launch, not by tick (§ 4.7). Four differences are allowed (user, 2026-11-13,
   2026-11-15 and, for the Enforcer's primary, 2026-11-22):
   a blast at the firer's own feet may differ by 3 damage and 25 unit/s,
   because the original's player hovers 4.8 units over the floor and ours
@@ -645,7 +700,8 @@ linearly from the victim's edge, not its centre, as `Fire.cpp`'s
 ## 7. Tests
 
 `IniTextTest.cpp` for the moved reader; the recipe's existing tests
-unchanged. INV-1, INV-2 and INV-3 in `WeaponSetTest.cpp`. INV-4,
+unchanged. UTA-0466's rules (§ 4.10) are `GameTest.cpp` and
+`WeaponSetTest.cpp` cases by its id. INV-1, INV-2 and INV-3 in `WeaponSetTest.cpp`. INV-4,
 INV-5, INV-7, INV-8 and INV-9 in `GameTest.cpp`, on hand-built levels;
 UTA-0468's rules there too, by its id. INV-6 in
 `RealWeaponTest.cpp`, label `real`, reading the recordings
@@ -669,7 +725,8 @@ INV-9.
 
 ## 9. Out of scope
 
-The Redeemer and the Translocator (own items). Weapon models, hand
+The Redeemer (its own item). The Translocator's team rules (no team play
+yet) and the bot's use of it (UTA-0025). Weapon models, hand
 animation and muzzle flashes (UTA-0467). Sounds are
 `docs/specs/UTA-0467-weapon-sounds.md`: its § 4.2 adds the sound keys to
 this file's format, and its § 4.3 adds `Game::cues` beside the events.

@@ -141,6 +141,12 @@ public:
         return entry->value;
     }
 
+    /// The value `key` has, where the section has it; it stays to be taken.
+    [[nodiscard]] std::optional<std::string_view> peek(std::string_view key) const {
+        const auto found = std::ranges::find(entries_, key, &Entry::key);
+        return found == entries_.end() ? std::nullopt : std::optional<std::string_view>{found->value};
+    }
+
     /// The line `key` is on, where the section has it.
     [[nodiscard]] std::optional<std::size_t> lineOf(std::string_view key) const {
         const auto found = std::ranges::find(entries_, key, &Entry::key);
@@ -171,13 +177,14 @@ constexpr std::uint32_t COUNT_MAX = 64;
 constexpr std::uint32_t SPREAD_MAX = 16384; // a quarter turn
 constexpr double OFFSET_MAX = 1000;
 
-constexpr std::string_view ARCHETYPE_NAMES[] = {"instant-hit", "projectile", "beam", "melee"};
-constexpr std::string_view STRIKE_NAMES[] = {"explode", "bounce", "stick", "split"};
+constexpr std::string_view ARCHETYPE_NAMES[] = {"instant-hit", "projectile", "beam", "melee", "throw", "teleport"};
+constexpr std::string_view STRIKE_NAMES[] = {"explode", "bounce", "stick", "split", "settle"};
 constexpr std::string_view SCALES_NAMES[] = {"damage", "count"};
 constexpr std::string_view EXPIRE_NAMES[] = {"vanish", "explode"};
 constexpr std::string_view SPLASH_FROM_NAMES[] = {"contact", "moved"};
 constexpr std::string_view RANGE_FROM_NAMES[] = {"start", "body"};
 constexpr std::string_view BODY_HIT_NAMES[] = {"splash", "direct"};
+constexpr std::string_view YES_NO[] = {"no", "yes"};
 /// FireRule's names, in its order; "none" is never written.
 constexpr std::string_view RULE_NAMES[] = {"none", "rocket-fan", "grenade-cluster", "hammer", "flak-spread"};
 /// The archetype each FireRule belongs to, in its order.
@@ -228,6 +235,11 @@ Result<void> readWeapon(Weapon& weapon, Keys& keys) {
     UTA_TRY(const std::optional<double> doubleDelay, keys.decimal("double-delay", false, 0, TIME_MAX));
     weapon.doubleDelay = doubleDelay.value_or(0);
     UTA_TRY(weapon.selectSound, keys.sound("select-sound"));
+    UTA_TRY(const std::optional<Entry> bothBack, keys.take("both-back", false));
+    if (bothBack) {
+        UTA_TRY(const std::size_t yes, choiceOf(YES_NO, *bothBack));
+        weapon.bothBack = yes == 1;
+    }
     return keys.finish(std::format("[weapon {}]", weapon.name));
 }
 
@@ -333,6 +345,19 @@ Result<void> readFire(FireMode& mode, Keys& keys) {
             UTA_TRY(const std::optional<double> range, keys.decimal("lock-range", true, 1, DISTANCE_MAX));
             mode.lockRange = *range;
         }
+    } else if (mode.archetype == Archetype::Throw) {
+        UTA_TRY(const std::optional<std::string> projectile, keys.name("projectile", true));
+        mode.projectile = *projectile;
+        for (auto [key, field, max] : {std::tuple{"lift-share", &mode.liftShare, 1.0},
+                                       std::tuple{"rethrow", &mode.rethrow, TIME_MAX},
+                                       std::tuple{"throw-wait", &mode.throwWait, TIME_MAX},
+                                       std::tuple{"recall-after", &mode.recallAfter, TIME_MAX}}) {
+            UTA_TRY(const std::optional<double> value, keys.decimal(key, true, 0, max));
+            *field = *value;
+        }
+    } else if (mode.archetype == Archetype::Teleport) {
+        UTA_TRY(const std::optional<double> landUp, keys.decimal("land-up", true, 0, DISTANCE_MAX));
+        mode.landUp = *landUp;
     } else {
         UTA_TRY(const std::optional<double> damage, keys.decimal("damage", true, 0, AMOUNT_MAX));
         mode.damage = *damage;
@@ -409,7 +434,12 @@ Result<void> readProjectile(Projectile& projectile, Keys& keys, std::size_t head
     };
     UTA_TRY(projectile.speed, need("speed", 1, DISTANCE_MAX));
     UTA_TRY(projectile.radius, need("radius", 0, 1000));
-    UTA_TRY(projectile.lifetime, need("lifetime", 0.01, TIME_MAX));
+    UTA_TRY(const std::optional<double> halfHeight, keys.decimal("half-height", false, 0, 1000));
+    projectile.halfHeight = halfHeight.value_or(0);
+    // A kind that settles lasts: its lifetime may be 0, for none.
+    const bool settles = keys.peek("strike") == std::optional<std::string_view>{"settle"};
+    UTA_TRY(const std::optional<double> lifetime, keys.decimal("lifetime", !settles, settles ? 0 : 0.01, TIME_MAX));
+    projectile.lifetime = lifetime.value_or(0);
     UTA_TRY(projectile.damage, need("damage", 0, AMOUNT_MAX));
     UTA_TRY(projectile.momentum, need("momentum", 0, AMOUNT_MAX));
     for (auto [key, field, max] : {std::tuple{"gravity", &projectile.gravity, 10.0},
@@ -426,7 +456,7 @@ Result<void> readProjectile(Projectile& projectile, Keys& keys, std::size_t head
     }
     if (projectile.speedRandom > projectile.speed)
         return refuse(heading, "speed-random is more than speed");
-    if (projectile.lifetimeRandom >= projectile.lifetime)
+    if (projectile.lifetimeRandom > 0 && projectile.lifetimeRandom >= projectile.lifetime)
         return refuse(heading, "lifetime-random is not less than lifetime");
     UTA_TRY(const std::optional<std::uint32_t> turn, keys.number("turn-random", false, 0, SPREAD_MAX));
     projectile.turnRandom = turn.value_or(0);
@@ -493,6 +523,16 @@ Result<void> readProjectile(Projectile& projectile, Keys& keys, std::size_t head
         projectile.splitSpread = spread.value_or(0);
         break;
     }
+    case Strike::Settle: {
+        UTA_TRY(projectile.bounceKeep, need("bounce-keep", 0, 1));
+        UTA_TRY(projectile.bounceOff, need("bounce-off", 0, 1));
+        UTA_TRY(const std::optional<double> mass, keys.decimal("mass", false, 0, AMOUNT_MAX));
+        projectile.mass = mass.value_or(0);
+        if (projectile.mass > 0) {
+            UTA_TRY(projectile.disrupt, need("disrupt", 0, AMOUNT_MAX));
+        }
+        break;
+    }
     }
     return keys.finish(std::format("a projectile that strikes to {}", STRIKE_NAMES[which]));
 }
@@ -557,7 +597,7 @@ Result<WeaponSet> parse(std::string_view text) {
         case SectionKind::Weapon: UTA_CHECK(readWeapon(set.weapons.back(), keys)); break;
         case SectionKind::Fire: {
             UTA_CHECK(readFire(*open->fire, keys));
-            if (open->fire->archetype == Archetype::Projectile)
+            if (open->fire->archetype == Archetype::Projectile || open->fire->archetype == Archetype::Throw)
                 projectileRefs.emplace_back(open->fire->projectile, heading);
             if (!open->fire->lockProjectile.empty()) projectileRefs.emplace_back(open->fire->lockProjectile, heading);
             break;
@@ -652,6 +692,20 @@ Result<WeaponSet> parse(std::string_view text) {
                                                                       weapon.name, weapon.name));
     for (const auto& [name, line] : projectileRefs)
         if (!set.projectile(name)) return refuse(line, std::format("there is no [projectile {}]", name));
+    // SS 4.10: a throw's disc settles, and a teleport goes to a throw's disc.
+    for (const Weapon& weapon : set.weapons) {
+        const std::size_t line = *weaponLines.find(weapon.name);
+        for (const FireMode* mode : {&weapon.primary, weapon.alt ? &*weapon.alt : nullptr}) {
+            if (mode == nullptr) continue;
+            if (mode->archetype == Archetype::Throw && set.projectile(mode->projectile)->strike != Strike::Settle)
+                return refuse(line, std::format("[weapon {}] throws [projectile {}], which does not settle",
+                                                weapon.name, mode->projectile));
+            if (mode->archetype == Archetype::Teleport && weapon.primary.archetype != Archetype::Throw)
+                return refuse(line, std::format("[weapon {}] teleports, but its primary does not throw", weapon.name));
+            if (mode != &weapon.primary && mode->archetype == Archetype::Throw)
+                return refuse(line, std::format("[weapon {}] throws from its alt; only a primary throws", weapon.name));
+        }
+    }
     for (const auto& [name, line] : comboRefs)
         if (!set.combo(name)) return refuse(line, std::format("there is no [combo {}]", name));
     return set;
@@ -688,6 +742,13 @@ std::string fireText(std::string_view weapon, std::string_view which, const Fire
         out += std::format("rule = {}\n", RULE_NAMES[static_cast<std::size_t>(mode.rule)]);
     out += soundText("sound", mode.sound) + soundText("loop-sound", mode.loopSound) +
            soundText("end-sound", mode.endSound);
+    if (mode.archetype == Archetype::Throw) {
+        out += std::format("projectile = {}\nlift-share = {}\nrethrow = {}\nthrow-wait = {}\nrecall-after = {}\n",
+                           mode.projectile, decimal(mode.liftShare), decimal(mode.rethrow), decimal(mode.throwWait),
+                           decimal(mode.recallAfter));
+        return out;
+    }
+    if (mode.archetype == Archetype::Teleport) return out + std::format("land-up = {}\n", decimal(mode.landUp));
     if (mode.archetype == Archetype::Projectile) {
         out += std::format("projectile = {}\ncount = {}\nspiral-radius = {}\nspiral-turn = {}\n", mode.projectile,
                            mode.count, decimal(mode.spiralRadius), mode.spiralTurn);
@@ -735,6 +796,7 @@ std::string write(const WeaponSet& set) {
                            decimal(weapon.putDown), decimal(weapon.bringUp), decimal(weapon.postSelect),
                            decimal(weapon.selectRate), decimal(weapon.doubleDelay));
         out += soundText("select-sound", weapon.selectSound);
+        if (weapon.bothBack) out += "both-back = yes\n";
         out += fireText(weapon.name, "primary", weapon.primary);
         if (weapon.alt) out += fireText(weapon.name, "alt", *weapon.alt);
     }
@@ -752,6 +814,7 @@ std::string write(const WeaponSet& set) {
                            decimal(projectile.acceleration), decimal(projectile.maxSpeed), decimal(projectile.lift),
                            decimal(projectile.inherit), decimal(projectile.speedRandom), projectile.turnRandom,
                            decimal(projectile.lifetimeRandom), decimal(projectile.expireUp));
+        if (projectile.halfHeight > 0) out += std::format("half-height = {}\n", decimal(projectile.halfHeight));
         out += std::format("splash-from = {}\nbody-hit = {}\nsplash-up-max = {}\nsplash-radius-max = {}\n",
                            SPLASH_FROM_NAMES[projectile.splashFromMoved ? 1 : 0],
                            BODY_HIT_NAMES[projectile.bodyDirect ? 1 : 0], decimal(projectile.splashUpMax),
@@ -772,6 +835,11 @@ std::string write(const WeaponSet& set) {
         case Strike::Split:
             out += std::format("split-into = {}\nsplit-count = {}\nsplit-spread = {}\n", projectile.splitInto,
                                projectile.splitCount, projectile.splitSpread);
+            break;
+        case Strike::Settle:
+            out += std::format("bounce-keep = {}\nbounce-off = {}\nmass = {}\n", decimal(projectile.bounceKeep),
+                               decimal(projectile.bounceOff), decimal(projectile.mass));
+            if (projectile.mass > 0) out += std::format("disrupt = {}\n", decimal(projectile.disrupt));
             break;
         }
         if (!projectile.combo.empty()) out += std::format("combo = {}\n", projectile.combo);

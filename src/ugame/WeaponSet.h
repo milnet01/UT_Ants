@@ -23,8 +23,9 @@ namespace uta::ugame {
 /// The newest weapon-set version this game reads and writes.
 inline constexpr std::uint32_t WEAPON_SET_VERSION = 2;
 
-/// SS 4.4: the behaviours that genuinely differ.
-enum class Archetype : std::uint8_t { InstantHit, Projectile, Beam, Melee };
+/// SS 4.4: the behaviours that genuinely differ. Throw and Teleport are the
+/// Translocator's two modes (SS 4.10).
+enum class Archetype : std::uint8_t { InstantHit, Projectile, Beam, Melee, Throw, Teleport };
 
 /// What charging scales: an instant hit's or a melee's damage and momentum,
 /// or how many projectiles a projectile mode spawns.
@@ -134,6 +135,17 @@ struct FireMode {
     double deflectRadius = 0;
     double deflectCone = 0;
     double deflectPush = 0;
+    /// throw (SS 4.10): one disc of `projectile` at a time. Its direction is
+    /// the aim, its upward part raised by `liftShare` of what it lacks of
+    /// straight up. With the disc out longer than `recallAfter`, a press
+    /// recalls it. A throw waits until `rethrow` has passed since the last
+    /// throw's time plus `throwWait`, or since the last recall.
+    double liftShare = 0;
+    double rethrow = 0;
+    double throwWait = 0;
+    double recallAfter = 0;
+    /// teleport (SS 4.10): the thrower arrives this far above a resting disc.
+    double landUp = 0;
     FireRule rule = FireRule::None;       ///< `rule`: a named behaviour of the archetype
     /// UTA-0467 SS 4.2, each a baked sound's path or empty: played once a
     /// shot; looped while the mode sounds (ugame::loopingMode); played once
@@ -160,17 +172,23 @@ struct Weapon {
     /// or wind-up, from the other side, sharing the ammo.
     double doubleDelay = 0;
     std::string selectSound; ///< played when a switch brings it up; a baked sound's path or empty
+    /// SS 4.10: both triggers held at a look bring back the weapon in hand
+    /// before this one came up (Translocator.ReturnToPreviousWeapon).
+    bool bothBack = false;
     FireMode primary;
     std::optional<FireMode> alt;
     bool operator==(const Weapon&) const = default;
 };
 
-/// What a projectile does on striking a surface or a body.
-enum class Strike : std::uint8_t { Explode, Bounce, Stick, Split };
+/// What a projectile does on striking a surface or a body. Settle is the
+/// Translocator's disc (SS 4.10).
+enum class Strike : std::uint8_t { Explode, Bounce, Stick, Split, Settle };
 
 struct Projectile {
     std::string name;
     double speed = 0, radius = 0;
+    /// Its cylinder's half-height, swept against the level; 0 for `radius`.
+    double halfHeight = 0;
     double gravity = 0; ///< of the world's gravity, gained before a tick's move: 0 flies straight
     double gravityAfter = 0; ///< of the world's gravity, gained after a tick's move
     double acceleration = 0;   ///< along its launch direction, per second squared
@@ -179,7 +197,7 @@ struct Projectile {
     double inherit = 0;        ///< of the firer's velocity along the aim, added at launch
     double speedRandom = 0;    ///< a launch speed from `speed` less this to `speed` plus this
     std::uint32_t turnRandom = 0; ///< its yaw and pitch each turned by up to this, angle units
-    double lifetime = 0;
+    double lifetime = 0; ///< 0, only for a kind that settles: it lasts
     double lifetimeRandom = 0; ///< a lifetime from `lifetime` less this to `lifetime` plus this
     bool expireExplodes = false; ///< at the end of its lifetime: explodes, else vanishes
     double expireUp = 0;         ///< exploding at the end of its lifetime: this far above the shot
@@ -202,6 +220,12 @@ struct Projectile {
     /// in place of `gravity`, and in that bounce's tick moves a whole tick more.
     std::optional<double> bounceGravity;
     double fuse = 0;           ///< stick: seconds stuck before it explodes
+    /// settle (SS 4.10): instant hits and splashes meet it. Each knocks it
+    /// into flight at momentum / `mass`, and adds its damage to its
+    /// disruption; past `disrupt`, its thrower dies on going to it or
+    /// recalling it. 0 for a kind nothing meets.
+    double mass = 0;
+    double disrupt = 0;
     std::string splitInto;     ///< split: the kind it breaks into, after exploding
     std::uint32_t splitCount = 0;
     std::uint32_t splitSpread = 0; ///< split: the pieces' cone, angle units

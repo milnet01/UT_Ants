@@ -49,6 +49,10 @@
 // eye, and ours, stays put. Each tick's firer takes the recorded eye height.
 //
 // THE LEVEL ONLY, NO MOVERS: the runs stand on open floor.
+//
+// A TELEPORT (UTA-0466) is logged in its press's row, so the row a
+// Translocator's alt fire teleports in is where ours must land; a telefrag
+// is a death with no D line, compared by the tick the target's health goes.
 
 #include "ugame/Game.h"
 #include "ugame/WeaponSet.h"
@@ -113,6 +117,9 @@ constexpr double MAX_REST_ERROR = 3;
 
 constexpr int FIRER = 0, TARGET = 1;
 
+/// UTA-0466: a recorded player moving further than this between rows teleported.
+constexpr double TELEPORT_JUMP = 60;
+
 /// Below this speed a bounce is not compared: the shot is settling, several
 /// bounces to a tick, and does no damage (UTChunk.ProcessTouch).
 constexpr double SETTLING = 200;
@@ -172,7 +179,8 @@ std::string kindOf(const std::string& cls) {
         {"UTChunk2", "flak-chunk"},  {"UTChunk3", "flak-chunk"},    {"UTChunk4", "flak-chunk"},
         {"flakslug", "flak-shell"},  {"UT_BioGel", "bio-gel"},      {"BioGlob", "bio-glob"},
         {"ShockProj", "shock-ball"}, {"PlasmaSphere", "plasma"},    {"Razor2", "razor"},
-        {"Razor2Alt", "razor-alt"},  {"UT_SeekingRocket", "seeking-rocket"}};
+        {"Razor2Alt", "razor-alt"},  {"UT_SeekingRocket", "seeking-rocket"},
+        {"TranslocatorTarget", "translocator-disc"}};
     const auto found = KINDS.find(cls);
     return found == KINDS.end() ? std::string{} : found->second;
 }
@@ -230,6 +238,11 @@ struct Errors {
     std::size_t unmatched = 0;
     bool randomHits = false;    ///< the mode draws its hits: counts are not compared
     bool steady = false;        ///< the mode's original sleeps between shots
+    // UTA-0466: telefrags, by tick, and where each teleport landed.
+    std::size_t ourGibs = 0, theirGibs = 0, ourTeleports = 0, theirTeleports = 0;
+    std::int64_t gibTick = 0;
+    double teleport = 0;
+    std::string teleportAt;
     std::size_t outOfRange = 0; ///< recorded draws outside our rule's range
     std::string outOfRangeAt;
 };
@@ -359,8 +372,10 @@ ugame::WeaponSet slept(ugame::WeaponSet set, double dt) {
     return set;
 }
 
+/// `timed`: the run held its rate. One that did not is never judged on
+/// timing (SS 4.7), so its shots are paired by order of launch, not by tick.
 Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
-              const uta::test::MovementRecording& recording) {
+              const uta::test::MovementRecording& recording, bool timed) {
     const bool detail = detailed(recording);
     const auto& rows = recording.ticks;
     std::vector<double> dts;
@@ -551,6 +566,7 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
     std::vector<int> live; // per game.shots, an index into `ours`
     std::vector<Hit> ourHits;
     std::vector<std::int64_t> ourSpends;
+    std::vector<std::int64_t> ourGibTicks; // UTA-0466: telefrags
     bool switchWasHeld = false;
     for (std::size_t k = 0; k + 1 < rows.size(); ++k) {
         const auto& row = rows[k];
@@ -665,6 +681,21 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
 
         ugame::tick(world, set, rules, game, commands, row.dt);
         const auto tick = static_cast<std::int64_t>(k);
+        // UTA-0466: a teleport. The original's moves the player in the
+        // press's input, so row k logs where it landed. Our disc may fly low
+        // by the firer's hover or at the recorded height, so the nearer is taken.
+        const auto firersDisc = [&set](const ugame::Shot& shot) {
+            return shot.owner == FIRER && set.projectiles[shot.kind].strike == ugame::Strike::Settle;
+        };
+        if (commands[FIRER].altFire && std::ranges::any_of(gameBefore.shots, firersDisc) &&
+            std::ranges::none_of(game.shots, firersDisc) && game.bodies[FIRER].move.physics == uworld::Physics::Falling) {
+            ++e.ourTeleports;
+            const Vec3 logged = vec(row.location);
+            const Vec3 got = game.bodies[FIRER].move.location;
+            const double d = std::min(uworld::length(got - logged),
+                                      uworld::length(got - (logged - Vec3{0, 0, firerHover})));
+            if (d > e.teleport) e.teleport = d, e.teleportAt = "tick " + std::to_string(tick);
+        }
         // A split's pieces that hit in the tick it breaks are never logged,
         // so their drawn cones cannot be copied. The tick is drawn again from
         // other states of the one generator until as many pieces hit as the
@@ -701,6 +732,12 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
         for (int b = 0; b < 2; ++b) {
             const double lost = healthBefore[static_cast<std::size_t>(b)] - game.bodies[static_cast<std::size_t>(b)].health;
             if (lost <= 0) continue;
+            // A telefrag is a death, not damage: the original logs no D line
+            // for it (Pawn.gibbedBy), so it is compared by tick below.
+            if (game.bodies[static_cast<std::size_t>(b)].health <= ugame::GIBBED_HEALTH) {
+                ourGibTicks.push_back(tick);
+                continue;
+            }
             // The weapon's own trace hurts the target before that frame
             // moves it (the weapon ticks first), ours after: a target falling
             // through the tick has gained its gravity. A shot ticks after
@@ -815,7 +852,7 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
                 for (std::size_t r = 0; r < theirOrder.size(); ++r) {
                     const RecordedShot& t = theirs.at(theirOrder[r]);
                     if (claimed[r] || t.kind != kind.name ||
-                        ticksFrom(tick, t.first) > (e.steady ? STEADY_TICK_ERROR : MAX_TICK_ERROR))
+                        (timed && ticksFrom(tick, t.first) > (e.steady ? STEADY_TICK_ERROR : MAX_TICK_ERROR)))
                         continue;
                     best = static_cast<int>(r);
                     break;
@@ -949,7 +986,9 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
                 const bool turned = before != t.rows.end() && after != t.rows.end() && kind.gravity == 0 &&
                                     uworld::length(vec(after->second.velocity) - vec(before->second.velocity)) > 0.01;
                 const bool lands = kind.strike == ugame::Strike::Stick && shot.stuck && !start.stuck;
-                const bool raise = !s.raised && (lands || (kind.strike == ugame::Strike::Bounce &&
+                // A disc (UTA-0466) bounces as a bouncing kind does until it settles.
+                const bool bounces = kind.strike == ugame::Strike::Bounce || kind.strike == ugame::Strike::Settle;
+                const bool raise = !s.raised && (lands || (bounces &&
                                                            kind.splashRadius == 0 && (shot.bounces > s.bounces || turned)));
                 if (raise) {
                     s.raised = true;
@@ -1156,6 +1195,20 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
         if (v > e.velocity) e.velocity = v, e.velocityAt = at;
     }
 
+    // UTA-0466: telefrags by tick; teleports by the player's jumps between rows.
+    {
+        std::vector<std::int64_t> theirGibTicks;
+        for (std::size_t k = 1; k < recording.target.size(); ++k)
+            if (recording.target[k].health <= ugame::GIBBED_HEALTH && recording.target[k - 1].health > ugame::GIBBED_HEALTH)
+                theirGibTicks.push_back(static_cast<std::int64_t>(k));
+        e.ourGibs = ourGibTicks.size();
+        e.theirGibs = theirGibTicks.size();
+        for (std::size_t i = 0; i < std::min(ourGibTicks.size(), theirGibTicks.size()); ++i)
+            e.gibTick = std::max(e.gibTick, std::abs(ourGibTicks[i] - theirGibTicks[i]));
+        for (std::size_t k = 1; k < rows.size(); ++k)
+            if (uworld::length(vec(rows[k].location) - vec(rows[k - 1].location)) > TELEPORT_JUMP) ++e.theirTeleports;
+    }
+
     // Shots: each matched pair's start and flight.
     for (const OurShot& s : ours) {
         if (s.recorded < 0) continue;
@@ -1210,7 +1263,7 @@ TEST_CASE("UTA-0019 INV-6: the stock set matches the original's weapon runs on D
         const std::string text((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
         const auto recording = uta::test::readMovementRecording(text);
         REQUIRE(recording.has_value());
-        const Errors e = replay(*built, *set, *recording);
+        const Errors e = replay(*built, *set, *recording, r.timed);
         std::cout << "UTA-0019 " << r.name << " " << r.rate << (r.timed ? "" : " (missed)") << ": spends "
                   << e.ourSpends << "/" << e.theirSpends << " off " << e.spendTick << ", shots " << e.ourShots << "/"
                   << e.theirShots << " off " << e.shotTick << " unmatched " << e.unmatched << ", hits " << e.ourHits
@@ -1219,7 +1272,9 @@ TEST_CASE("UTA-0019 INV-6: the stock set matches the original's weapon runs on D
                   << e.spawnAt << "), flight " << e.flight << " (" << e.flightAt << "), bounce " << e.bounce << " ("
                   << e.bounceAt << ")"
                   << (e.randomHits ? ", hits drawn" : "") << ", out of range " << e.outOfRange << " ("
-                  << e.outOfRangeAt << "), rest " << e.rest << " (" << e.restAt << ")\n";
+                  << e.outOfRangeAt << "), rest " << e.rest << " (" << e.restAt << "), gibs " << e.ourGibs << "/"
+                  << e.theirGibs << " off " << e.gibTick << ", teleports " << e.ourTeleports << "/" << e.theirTeleports
+                  << " landing " << e.teleport << " (" << e.teleportAt << ")\n";
         const bool hover = std::ranges::find(HOVER_RUNS, r.name) != HOVER_RUNS.end();
         const double damageError = hover ? HOVER_DAMAGE_ERROR : 0;
         const double velocityError = hover ? HOVER_VELOCITY_ERROR : MAX_VELOCITY_ERROR;
@@ -1238,11 +1293,15 @@ TEST_CASE("UTA-0019 INV-6: the stock set matches the original's weapon runs on D
         CHECK(e.flight <= MAX_POSITION_ERROR);
         CHECK(e.rest <= MAX_REST_ERROR);
         CHECK(e.bounce <= MAX_POSITION_ERROR);
+        CHECK(e.ourGibs == e.theirGibs);
+        CHECK(e.ourTeleports == e.theirTeleports);
+        CHECK(e.teleport <= MAX_POSITION_ERROR);
         if (r.timed) {
             CHECK(counts(e.ourSpends, e.theirSpends));
             CHECK(e.spendTick <= tickError);
             CHECK(e.shotTick <= tickError);
             CHECK(e.hitTick <= tickError);
+            CHECK(e.gibTick <= MAX_TICK_ERROR);
         }
     }
 }

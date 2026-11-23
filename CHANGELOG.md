@@ -14,6 +14,17 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **The Translocator: throw a disc, then teleport to it** (UTA-0466)
+  It is on the 1 key. Fire throws the disc, and fire again once it has
+  flown a moment calls it back. Alt fire takes you to it, and lands you
+  on anyone standing there, killing them. Walk over a disc that has
+  landed to pick it back up. Hold both triggers to go back to the weapon
+  you had before. Shooting a disc knocks it away; shoot it enough and
+  going to it kills you. Its throw, bounce, landing, teleport and timing
+  match recordings of the original.
+- **`ut-export --light-materials` gives each surface its average colour** (UTA-0504)
+  Maps handed to ExperiRays were pure white, so light never faded in
+  them. Each material now takes the colour the bake measured for it.
 - **Rocket lock-on, double Enforcers, and the hammer turning shots aside** (UTA-0468)
   Keep the rocket launcher idle with a target in sight near the crosshair
   for about a second and a quarter, and its rockets steer towards it. Walking, Y or the pad's down

@@ -776,3 +776,118 @@ target 400
 0 P
 0.08 -
 end 2
+
+# -- UTA-0466: the Translocator
+#
+# Its disc flies at 830, lifted by 0.35 of what the aim lacks of straight up
+# (TranslocatorTarget.Throw). tl-telefrag aims 2500 down, so the disc leaves
+# nearly level and meets the target 300 ahead; level, it would pass over.
+# tl-pickup throws 6000 down, so the disc settles a few metres ahead, and
+# walks over it. tl-return holds both triggers, which sends the player back
+# to the weapon before (Translocator's NormalFire).
+
+run tl-throw DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim 0
+weapon Botpack.Translocator
+0 P
+0.08 -
+end 4
+
+run tl-throw-up DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim 6000
+weapon Botpack.Translocator
+0 P
+0.08 -
+end 4
+
+run tl-throw-down DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim -6000
+weapon Botpack.Translocator
+0 P
+0.08 -
+end 3
+
+run tl-throw-feet DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim -16384
+weapon Botpack.Translocator
+0 P
+0.08 -
+end 2
+
+run tl-teleport DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim 0
+weapon Botpack.Translocator
+0 P
+0.08 -
+2.5 A
+2.58 -
+end 4
+
+run tl-teleport-air DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim 0
+weapon Botpack.Translocator
+0 P
+0.08 -
+0.3 A
+0.38 -
+end 3
+
+run tl-recall DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim 0
+weapon Botpack.Translocator
+0 P
+0.08 -
+1 P
+1.08 -
+1.3 P
+1.38 -
+1.7 P
+1.78 -
+end 3.5
+
+run tl-recall-early DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim 0
+weapon Botpack.Translocator
+0 P
+0.08 -
+0.4 P
+0.48 -
+end 2
+
+run tl-hold DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim 0
+weapon Botpack.Translocator
+0 P
+3 -
+end 4
+
+run tl-telefrag DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim -2500
+weapon Botpack.Translocator
+target 300
+0 P
+0.08 -
+1.5 A
+1.58 -
+end 3
+
+run tl-pickup DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim -6000
+weapon Botpack.Translocator
+0 P
+0.08 -
+1.5 F
+2.5 -
+end 3.5
+
+run tl-return DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+aim 0
+weapon Botpack.Enforcer
+switch Botpack.Translocator
+0 N
+0.08 -
+1 P
+1.08 -
+2.5 PA
+2.7 -
+end 4
