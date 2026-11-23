@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=502 -->
+<!-- ants-roadmap-id-high-water: UTA=503 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -25048,6 +25048,17 @@ docs/standards/versioning-overrides.md. Closes S8.
   **Layman:** Outdoor areas in scenes sent to the lighting lab stop being lit as if they had a roof.
   Kind: fix.
   Source: in-session-2026-11-21.
+  Lanes: tools.
+
+- 📋 [UTA-0503] **Export one walled UT map for ExperiRays to time its light choice on.**
+  ExperiRays asked 2026-11-23, after UT_Ants' re-read of EXRAY-0007:
+  once its EXRAY-0042 (a UT map export it can load) is ready, make one
+  map with walls hiding bright lights, exported by ut-export (UTA-0476),
+  so EXRAY-0048 can time settling at 4 and 8 picks with an even share of
+  0.1 and 0.3. Waiting-on: EXRAY-0042.
+  **Layman:** Give the sister renderer a real Unreal Tournament level, so it can test how it picks which lights to trace.
+  Kind: chore.
+  Source: in-session-2026-11-23 EXRAY-0048.
   Lanes: tools.
 
 ## After 1.0.0
