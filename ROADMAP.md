@@ -25050,13 +25050,18 @@ docs/standards/versioning-overrides.md. Closes S8.
   Source: in-session-2026-11-21.
   Lanes: tools.
 
-- 📋 [UTA-0503] **Export one walled UT map for ExperiRays to time its light choice on.**
+- ✅ [UTA-0503] **Export one walled UT map for ExperiRays to time its light choice on.**
   ExperiRays asked 2026-11-23, after UT_Ants' re-read of EXRAY-0007:
   one map with walls hiding bright lights, exported by ut-export
   (UTA-0476) as .glb, so EXRAY-0048 can time settling at 4 and 8 picks
   with an even share of 0.1 and 0.3. It must hold no Blend surface (the
   reference refuses one until EXRAY-0045); `experirays load <scene.glb>`
   exits 0 when the lab accepts it.
+  Done 2026-11-23: DM-MementoMori, DM-Closer and DM-DomesofDeath,
+  picked as DM maps with no translucent or modulated BSP surface and
+  hundreds of lights, baked (r80, format 38) and exported. Each has 0
+  BLEND materials and passes `experirays load`. Handed to ExperiRays in
+  the scratchpad's exray503 folder, kept until 2026-11-30.
   **Layman:** Give the sister renderer a real Unreal Tournament level, so it can test how it picks which lights to trace.
   Kind: chore.
   Source: in-session-2026-11-23 EXRAY-0048.
