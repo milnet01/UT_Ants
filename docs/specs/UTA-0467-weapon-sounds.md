@@ -54,10 +54,9 @@ The user asked for weapon sounds (2026-11-11) and set this item next
    launcher's lock-on tones, a charge's rising tone, an empty weapon's
    click, a projectile's sound in flight, a hit on a body or a wall by an
    instant shot. § 9.
-4. **The switch sound plays when the switch starts.** The original plays
-   it when the new weapon starts to rise
-   (`TournamentWeapon.PlaySelect`). `switch-time` is one span here, with
-   no moment in it for that.
+4. **The switch sound plays when the new weapon starts to rise**, as the
+   original's `TournamentWeapon.PlaySelect` does: the tick the weapon
+   going down hands over (`UTA-0501`).
 5. **Every weapon sound is heard out to 1600 world units**, falling in a
    straight line as UTA-0480 § 3 item 2's do. 1600 is a recollection of
    the engine's value for a `PlaySound` with no radius, not a reading of
@@ -90,7 +89,7 @@ digits and `_`. Anything else is `MalformedData` naming the line.
 
 ```ini
 [weapon shock-rifle]
-select-sound = unrealshare.asmd.tazerselect   # when a switch to it starts
+select-sound = unrealshare.asmd.tazerselect   # when a switch brings it up
 
 [fire shock-rifle primary]
 sound = unrealshare.asmd.tazerfire            # once a shot
@@ -152,8 +151,8 @@ struct Game { /* … */ std::vector<Cue> cues; }; ///< this tick's; cleared at i
 - **Fire**: one each time `fireBody` (`src/ugame/Game.cpp`) fires a
   shot through `detail::fire`, at the body's place. A charge released
   with several projectiles is one cue. A beam raises none.
-- **Select**: one when `switchWeapon` starts a switch, naming the weapon
-  asked for.
+- **Select**: one when `switchWeapon` starts bringing a weapon up,
+  naming it.
 - **Explode**: one each time `explode` runs, at the shot's place.
 - **Combo**: one where `Fire.cpp` raises its `Combo` event.
 - A cue is raised whether or not a sound is named. `soundOf` decides.
@@ -248,11 +247,12 @@ public:
   heard eight times. The low-ammo fixture differs from the firing one
   in ammo alone.
 
-- **INV-3** — Starting a switch raises one `Select` cue naming the
-  weapon asked for, and the ticks that finish it raise none.
+- **INV-3** — A switch raises one `Select` cue, naming the weapon asked
+  for, on the tick it starts to rise; the press and the other ticks of
+  the switch raise none (amended by `UTA-0501`).
   *Test:* `tests/unit/GameTest.cpp`.
-  *Breaks when:* the cue is raised every tick of the switch, or names
-  the weapon being put away.
+  *Breaks when:* the cue is raised every tick of the switch, on the
+  press, or names the weapon being put away.
 
 - **INV-4** — A projectile that explodes raises one `Explode` cue with
   its kind, at the place its `Explosion` event has; a combo raises one

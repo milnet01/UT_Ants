@@ -521,6 +521,89 @@ switch Botpack.Enforcer
 2 -
 end 2.5
 
+# -- UTA-0501: switching to the Enforcer from each weapon, for each one's put-down;
+# switch-enforcer is the Shock Rifle's
+
+run putdown-hammer DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.ImpactHammer
+switch Botpack.Enforcer
+0 N
+0.08 -
+0.16 P
+2 -
+end 2.5
+
+run putdown-chainsaw DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.ChainSaw
+switch Botpack.Enforcer
+0 N
+0.08 -
+0.16 P
+2 -
+end 2.5
+
+run putdown-bio DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.UT_BioRifle
+switch Botpack.Enforcer
+0 N
+0.08 -
+0.16 P
+2 -
+end 2.5
+
+run putdown-pulse DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.PulseGun
+switch Botpack.Enforcer
+0 N
+0.08 -
+0.16 P
+2 -
+end 2.5
+
+run putdown-ripper DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.ripper
+switch Botpack.Enforcer
+0 N
+0.08 -
+0.16 P
+2 -
+end 2.5
+
+run putdown-minigun DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.Minigun2
+switch Botpack.Enforcer
+0 N
+0.08 -
+0.16 P
+2 -
+end 2.5
+
+run putdown-flak DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.UT_FlakCannon
+switch Botpack.Enforcer
+0 N
+0.08 -
+0.16 P
+2 -
+end 2.5
+
+run putdown-rocket DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.UT_Eightball
+switch Botpack.Enforcer
+0 N
+0.08 -
+0.16 P
+2 -
+end 2.5
+
+run putdown-sniper DM-Deck16][ -161.570267 903.514954 -661.320068 -15144
+weapon Botpack.SniperRifle
+switch Botpack.Enforcer
+0 N
+0.08 -
+0.16 P
+2 -
+end 2.5
 # -- UTA-0468: the hammer turning shots aside, rocket lock-on, double Enforcers
 #
 # The deflection runs' target launches a rocket at the player on tick 0,

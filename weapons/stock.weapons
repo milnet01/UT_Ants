@@ -1,4 +1,4 @@
-ut-ants weapons 1
+ut-ants weapons 2
 # The stock weapon set: UT99's Botpack weapons but the Redeemer and the
 # Translocator (docs/specs/UTA-0019-weapon-set.md SS 3).
 #
@@ -21,7 +21,8 @@ class = botpack.impacthammer
 slot = 1                   # default: ImpactHammer.InventoryGroup
 ammo-max = 0               # the hammer needs no ammo
 ammo-start = 0
-switch-time = 0.84         # recorded: from the Enforcer, key to first shot
+put-down = 0.1795          # recorded: switching away, to the Enforcer (UTA-0501)
+bring-up = 0.53            # recorded: switching to it, to its first shot (UTA-0501)
 select-sound = botpack.asmd.impactpickup  # default: ImpactHammer.SelectSound
 
 [fire impact-hammer primary]
@@ -65,7 +66,8 @@ class = botpack.chainsaw
 slot = 1                   # default: ChainSaw.InventoryGroup
 ammo-max = 0
 ammo-start = 0
-switch-time = 0.77         # recorded: from the Enforcer, key to first shot
+put-down = 0.217           # recorded: switching away, to the Enforcer (UTA-0501)
+bring-up = 0.465           # recorded: switching to it, to its first shot (UTA-0501)
 select-sound = botpack.chainsaw.chainpickup  # default: ChainSaw.SelectSound
 
 [fire chainsaw primary]
@@ -98,7 +100,8 @@ class = botpack.enforcer
 slot = 2                   # default: Enforcer.InventoryGroup
 ammo-max = 199             # default: Miniammo.MaxAmmo
 ammo-start = 30            # default: Enforcer.PickupAmmoCount
-switch-time = 1.02         # recorded: from the Shock Rifle, key to first shot
+put-down = 0.2943          # recorded: switching away, to each weapon (UTA-0501)
+bring-up = 0.7493          # recorded: switching to it, to its first shot (UTA-0501)
 double-delay = 0.2         # script: Enforcer.NormalFire and AltFiring set the slave off 0.2 s on; recorded
 select-sound = botpack.enforcer.cocking  # default: Enforcer.SelectSound
 
@@ -140,7 +143,8 @@ class = botpack.ut_biorifle
 slot = 3                   # default: UT_BioRifle.InventoryGroup
 ammo-max = 100             # default: BioAmmo.MaxAmmo
 ammo-start = 25            # default: UT_BioRifle.PickupAmmoCount
-switch-time = 0.77         # recorded: from the Enforcer, key to first shot
+put-down = 0.346           # recorded: switching away, to the Enforcer (UTA-0501)
+bring-up = 0.4635          # recorded: switching to it, to its first shot (UTA-0501)
 select-sound = unreali.biorifle.gelselect  # default: UT_BioRifle.SelectSound
 
 [fire bio-rifle primary]
@@ -171,7 +175,8 @@ class = botpack.shockrifle
 slot = 4                   # default: ShockRifle.InventoryGroup
 ammo-max = 50              # default: ShockCore.MaxAmmo
 ammo-start = 20            # default: ShockRifle.PickupAmmoCount
-switch-time = 0.77         # recorded: from the Enforcer, key to first shot
+put-down = 0.2712          # recorded: switching away, to the Enforcer (UTA-0501)
+bring-up = 0.465           # recorded: switching to it, to its first shot (UTA-0501)
 select-sound = unrealshare.asmd.tazerselect  # default: ShockRifle.SelectSound
 
 [fire shock-rifle primary]
@@ -197,7 +202,8 @@ class = botpack.pulsegun
 slot = 5                   # default: PulseGun.InventoryGroup
 ammo-max = 199             # default: PAmmo.MaxAmmo
 ammo-start = 60            # default: PulseGun.PickupAmmoCount
-switch-time = 0.73         # recorded: from the Enforcer, key to first shot
+put-down = 0.262           # recorded: switching away, to the Enforcer (UTA-0501)
+bring-up = 0.421           # recorded: switching to it, to its first shot (UTA-0501)
 select-sound = botpack.pulsegun.pulsepickup  # default: PulseGun.SelectSound
 
 [fire pulse-gun primary]
@@ -232,7 +238,8 @@ class = botpack.ripper
 slot = 6                   # default: Ripper.InventoryGroup
 ammo-max = 75              # default: BladeHopper.MaxAmmo
 ammo-start = 15            # default: Ripper.PickupAmmoCount
-switch-time = 1.03         # recorded: from the Enforcer, key to first shot
+put-down = 0.2185          # recorded: switching away, to the Enforcer (UTA-0501)
+bring-up = 0.72            # recorded: switching to it, to its first shot (UTA-0501)
 select-sound = unreali.razorjack.beam  # default: Ripper.SelectSound
 
 [fire ripper primary]
@@ -257,7 +264,8 @@ class = botpack.minigun2
 slot = 7                   # default: Minigun2.InventoryGroup
 ammo-max = 199             # default: Miniammo.MaxAmmo
 ammo-start = 50            # default: Minigun2.PickupAmmoCount
-switch-time = 0.84         # recorded: from the Enforcer, key to first shot
+put-down = 0.3514          # recorded: switching away, to the Enforcer (UTA-0501)
+bring-up = 0.5287          # recorded: switching to it, to its first shot (UTA-0501)
 select-sound = unreali.minigun.miniselect  # default: Minigun2.SelectSound
 
 [fire minigun primary]
@@ -298,7 +306,9 @@ class = botpack.ut_flakcannon
 slot = 8                   # default: UT_FlakCannon.InventoryGroup
 ammo-max = 50              # default: FlakAmmo.MaxAmmo
 ammo-start = 10            # default: UT_FlakCannon.PickupAmmoCount
-switch-time = 1.35         # recorded: from the Enforcer, key to first shot
+put-down = 0.3506          # recorded: switching away, to the Enforcer (UTA-0501)
+bring-up = 0.603           # recorded: switching to it, to its first shot (UTA-0501)
+post-select = 0.4098       # recorded: its loading, after the bring-up (UTA-0501)
 select-sound = unreali.flak.pdown  # default: UT_FlakCannon.SelectSound
 
 [fire flak-cannon primary]
@@ -325,7 +335,8 @@ class = botpack.ut_eightball
 slot = 9                   # default: UT_Eightball.InventoryGroup
 ammo-max = 48              # default: RocketPack.MaxAmmo
 ammo-start = 6             # default: UT_Eightball.PickupAmmoCount
-switch-time = 0.88         # recorded: from the Enforcer, key to first shot
+put-down = 0.384           # recorded: switching away, to the Enforcer (UTA-0501)
+bring-up = 0.5735          # recorded: switching to it, to its first shot (UTA-0501)
 select-sound = unrealshare.eightball.selecting  # default: UT_Eightball.SelectSound
 
 [fire rocket-launcher primary]
@@ -369,7 +380,8 @@ class = botpack.sniperrifle
 slot = 0                   # default: SniperRifle.InventoryGroup is 10, the 0 key
 ammo-max = 50              # default: BulletBox.MaxAmmo
 ammo-start = 8             # default: SniperRifle.PickupAmmoCount
-switch-time = 0.88         # recorded: from the Enforcer, key to first shot
+put-down = 0.249           # recorded: switching away, to the Enforcer (UTA-0501)
+bring-up = 0.5676          # recorded: switching to it, to its first shot (UTA-0501)
 select-sound = unreali.rifle.riflepickup  # default: SniperRifle.SelectSound
 
 [fire sniper-rifle primary]

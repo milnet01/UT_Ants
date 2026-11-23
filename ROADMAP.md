@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=501 -->
+<!-- ants-roadmap-id-high-water: UTA=502 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -21966,7 +21966,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: ut-monsterhunt-request-2026-11-22.
   Lanes: unav.
 
-- 📋 [UTA-0501] **A weapon switch takes two waits, putting down then bringing up, each ending on a frame, as the original's does.**
+- 🚧 [UTA-0501] **A weapon switch takes two waits, putting down then bringing up, each ending on a frame, as the original's does.**
   Found working UTA-0499 (2026-11-22). Ours is one switch-time per
   weapon, recorded from the Enforcer; the original's DownWeapon state
   waits for the old weapon's Down animation, then Active for the new
@@ -21975,9 +21975,35 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   UTA-0019 SS 4.9 allows and the replay takes out of later shots.
   Needs each weapon's put-down time, so recordings switching away
   from each weapon, not only from the Enforcer.
+  Built 2026-11-23. putdown-* runs (each weapon to the Enforcer)
+  recorded at 30, 85 and 120 fps on a quiet machine, in the
+  scratchpad's weapons/r501; weapons/r501all is r468all plus them.
+  Fitted on every run: the put-down counts from the tick after the
+  press; the tick it runs out on is the bring-up's first; the Flak
+  Cannon's loading (post-select) counts from the tick after; the
+  weapon fires the tick after the last wait. stock.weapons is format 2:
+  put-down, bring-up, post-select. The Select cue moves to the tick
+  the new weapon starts to rise (UTA-0467 INV-3). RealWeaponTest drops
+  SWITCH_TICK_ERROR and the switch lag: every first spend after a
+  switch at 30 fps is on the original's tick. A switch during a
+  bring-up is UTA-0502.
   **Layman:** After you switch weapons, the new one should be ready to fire on exactly the same frame as in the original.
   Kind: fix.
   Source: in-session-2026-11-22 UTA-0499.
+  Lanes: ugame.
+
+- 📋 [UTA-0502] **A switch asked for while a weapon is still coming up cuts its select short, as the original's does.**
+  Found building UTA-0501 (2026-11-23). Ours puts a weapon still
+  coming up down whole, for its full put-down. The original's
+  Weapon.Active.PutDown goes down at once while the select is under
+  0.75 done, and TournamentWeapon.TweenDown then tweens the select back
+  in AnimFrame * 0.4 seconds; at 0.75 or more it finishes the select,
+  then plays the whole Down. During the Flak Cannon's loading it goes
+  down at once with the whole Down. Unrecorded: needs ut-record runs
+  pressing a second switch partway through a bring-up.
+  **Layman:** Changing your mind mid-switch should put the half-raised weapon away as fast as in the original.
+  Kind: fix.
+  Source: in-session-2026-11-23 UTA-0501.
   Lanes: ugame.
 
 ## 0.3.0 — Monsters, bots and Deathmatch

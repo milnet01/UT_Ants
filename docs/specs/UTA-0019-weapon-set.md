@@ -108,7 +108,7 @@ version above `WEAPON_SET_VERSION` is refused with `UnsupportedVersion`.
 The shape, with values left out (§ 4.7 measures them):
 
 ```ini
-ut-ants weapons 1
+ut-ants weapons 2
 
 [set]
 name = "Stock"
@@ -118,7 +118,9 @@ class = botpack.shockrifle   # the UT99 class it stands for (ADR-0004)
 slot = 4                     # the number key; ties order by file order
 ammo-max = …
 ammo-start = …
-switch-time = …              # seconds to bring it up
+put-down = …                 # seconds to put it down (§ 4.5)
+bring-up = …                 # seconds to bring it up
+post-select = …              # optional: a wait after bringing it up
 
 [fire shock-rifle primary]
 archetype = instant-hit
@@ -268,6 +270,16 @@ fires; then each projectile moves, sweeping its radius through the
 radius 0 is traced as a segment, by `BodyWorld::trace`. Damage and
 momentum land at the end of the tick. Every body moves before any
 fires, so no body's place in the order changes what a shot hits.
+
+A switch is the original's two waits, each ended on a tick (`UTA-0501`,
+recorded at 30, 85 and 120 fps). The weapon in hand goes down for its
+`put-down`, counted from the tick after the press. The tick that runs
+out on is the first of the new weapon's `bring-up`, and that weapon is
+in hand from then. A `post-select` wait, the Flak Cannon's loading,
+counts from the tick after the bring-up ends. The weapon fires from the
+tick after the last wait. A switch asked for while a weapon goes down
+changes only what comes up. One asked for while a weapon comes up puts
+it down whole; the original may cut its select short (`UTA-0502`).
 UTA-0020 (`docs/specs/UTA-0020-weapon-wheel.md`) adds a human body, the
 time scale the tick sets last (§ 4.3 there), and a weapon picked on the
 wheel (§ 4.5 there).
@@ -580,14 +592,11 @@ linearly from the victim's edge, not its centre, as `Fire.cpp`'s
   original's. A launch a tick out flies frames of other lengths and
   reaches a body over other ticks, so its hits on a body are compared as
   one: damage summed, and the velocity after the last less the fall
-  between the first and the last. Five differences are allowed (user, 2026-11-13,
+  between the first and the last. Four differences are allowed (user, 2026-11-13,
   2026-11-15 and, for the Enforcer's primary, 2026-11-22):
   a blast at the firer's own feet may differ by 3 damage and 25 unit/s,
   because the original's player hovers 4.8 units over the floor and ours
-  does not; the first shot after a switch may be two ticks out, because
-  a switch stays one time for each weapon where the original has two
-  waits, and the shots fired after it as they are spent keep that lag
-  (`UTA-0499`); a mode whose original sleeps between shots (the Minigun's two,
+  does not; a mode whose original sleeps between shots (the Minigun's two,
   the Enforcer's two, the Pulse Gun's and the Chainsaw's primary) may
   fire one shot more or fewer in a run, each within three ticks, because
   our cadence does not move with the frame rate as the original's does;

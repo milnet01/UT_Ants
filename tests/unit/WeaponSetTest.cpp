@@ -16,7 +16,7 @@
 namespace {
 
 /// A small set using every archetype, strike, charge and optional key.
-constexpr std::string_view SMALL = R"(ut-ants weapons 1
+constexpr std::string_view SMALL = R"(ut-ants weapons 2
 [set]
 name = "Small # set"
 self-damage = 0.5
@@ -28,7 +28,9 @@ class = Botpack.ShockRifle
 slot = 4
 ammo-max = 50
 ammo-start = 20
-switch-time = 0.3
+put-down = 0.2
+bring-up = 0.3
+post-select = 0.1
 select-sound = unrealshare.asmd.tazerselect
 
 [fire gun primary]
@@ -71,7 +73,8 @@ class = botpack.impacthammer
 slot = 1
 ammo-max = 0
 ammo-start = 0
-switch-time = 0
+put-down = 0
+bring-up = 0
 
 [fire hammer primary]
 archetype = melee
@@ -362,7 +365,7 @@ TEST_CASE("INV-1: each refusal names its line", "[ugame][weapons]") {
          "deflect-push", "has no key 'deflect-push'"},
         {"a deflection on a beam", edited("first-hit = 0.1", "first-hit = 0.1\ndeflect-radius = 550"), "deflect-radius",
          "a beam fire has no key 'deflect-radius'"},
-        {"a doubled weapon that charges", edited("switch-time = 0\n", "switch-time = 0\ndouble-delay = 0.2\n"),
+        {"a doubled weapon that charges", edited("bring-up = 0\n", "bring-up = 0\ndouble-delay = 0.2\n"),
          "[weapon hammer]", "doubles, but a fire of it charges or is a beam"},
         {"a double spread-max under its spread", edited("spread-max = 1756", "spread-max = 1756\ndouble-spread = 500\ndouble-spread-max = 400"),
          "double-spread-max", "double-spread-max is from 500 to"},
@@ -430,10 +433,10 @@ TEST_CASE("INV-1: a weapon with no primary fire is refused at its heading", "[ug
 }
 
 TEST_CASE("INV-1: a newer set is unsupported, and no [set] is refused", "[ugame][weapons]") {
-    const auto newer = uta::ugame::parse(edited("ut-ants weapons 1", "ut-ants weapons 2"));
+    const auto newer = uta::ugame::parse(edited("ut-ants weapons 2", "ut-ants weapons 3"));
     REQUIRE_FALSE(newer.has_value());
     CHECK(newer.error().code() == uta::ErrorCode::UnsupportedVersion);
-    const auto noSet = uta::ugame::parse("ut-ants weapons 1\n");
+    const auto noSet = uta::ugame::parse("ut-ants weapons 2\n");
     REQUIRE_FALSE(noSet.has_value());
     CHECK(noSet.error().message() == "weapon set line 1: the weapon set has no [set] section");
 }

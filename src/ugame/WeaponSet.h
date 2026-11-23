@@ -21,7 +21,7 @@
 namespace uta::ugame {
 
 /// The newest weapon-set version this game reads and writes.
-inline constexpr std::uint32_t WEAPON_SET_VERSION = 1;
+inline constexpr std::uint32_t WEAPON_SET_VERSION = 2;
 
 /// SS 4.4: the behaviours that genuinely differ.
 enum class Archetype : std::uint8_t { InstantHit, Projectile, Beam, Melee };
@@ -147,12 +147,16 @@ struct Weapon {
     std::string className; ///< the UT99 class it stands for, `package.class`, folded
     std::uint32_t slot = 0; ///< its number key, 0 to 9; ties order by file order
     std::uint32_t ammoMax = 0, ammoStart = 0;
-    double switchTime = 0; ///< seconds to bring it up
+    /// UTA-0501: a switch is two waits, each ended at a tick, as the
+    /// original's DownWeapon and Active states are: the weapon in hand goes
+    /// down for its `putDown`, then the new one comes up for its `bringUp`,
+    /// and then, above 0, its `postSelect` (the Flak Cannon's loading).
+    double putDown = 0, bringUp = 0, postSelect = 0;
     /// UTA-0468: above 0, a second copy doubles it, as the Enforcer's slave.
     /// The second gun fires each mode this long after the first gun's shot
     /// or wind-up, from the other side, sharing the ammo.
     double doubleDelay = 0;
-    std::string selectSound; ///< played when a switch to it starts; a baked sound's path or empty
+    std::string selectSound; ///< played when a switch brings it up; a baked sound's path or empty
     FireMode primary;
     std::optional<FireMode> alt;
     bool operator==(const Weapon&) const = default;

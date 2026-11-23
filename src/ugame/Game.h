@@ -60,7 +60,9 @@ struct Body {
     std::vector<Carried> weapons; ///< one per weapon in the set, in its order
     int weapon = -1;              ///< the weapon in hand, an index into the set; -1 for none
     int pending = -1;             ///< the weapon being brought up; -1 for none
-    double switchLeft = 0;        ///< seconds until `pending` is in hand
+    /// UTA-0501: which wait of a switch runs while `pending` is set.
+    enum class Switch : std::uint8_t { PutDown, BringUp, PostSelect } switching = Switch::PutDown;
+    double switchLeft = 0;        ///< seconds left of that wait
     double refireLeft = 0;        ///< seconds until the weapon in hand may fire again
     int winding = -1;             ///< 0 primary, 1 alt, while a wind-up runs; else -1
     double windLeft = 0;          ///< seconds until the wind-up's shot

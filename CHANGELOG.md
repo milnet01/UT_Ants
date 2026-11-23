@@ -192,6 +192,12 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **Switching weapons takes as long as in the original, at every frame rate** (UTA-0501)
+  A switch now puts the old weapon down, then brings the new one up,
+  each for its own time, as the original does. Before, the first shot
+  could come two frames early at 30 frames a second. The switch sound
+  now plays as the new weapon starts to rise. A weapons file is now
+  version 2, with `put-down` and `bring-up` in place of `switch-time`.
 - **The flying camera stops at doors and lifts** (UTA-0342)
   In the map viewer the camera stopped at walls and flew straight
   through a closed door or a lift. It now stops at them as it does at a

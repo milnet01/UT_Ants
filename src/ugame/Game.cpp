@@ -60,10 +60,17 @@ int askedWeapon(const WeaponSet& set, const Body& body, const uworld::MoveComman
 void switchWeapon(const WeaponSet& set, Game& game, int index, const uworld::MoveCommand& command, double dt) {
     Body& body = game.bodies[static_cast<std::size_t>(index)];
     const int asked = askedWeapon(set, body, command);
+    bool pressed = false;
     if (asked >= 0 && asked != (body.pending >= 0 ? body.pending : body.weapon)) {
-        game.cues.push_back(Cue{Cue::Kind::Select, index, static_cast<std::uint32_t>(asked), -1, body.move.location});
+        // A weapon already going down keeps going; only what comes up changes.
+        // One coming up goes down whole, where the original may cut its
+        // select short (UTA-0502).
+        if (body.pending < 0 || body.switching != Body::Switch::PutDown) {
+            body.switching = Body::Switch::PutDown;
+            body.switchLeft = body.weapon >= 0 ? set.weapons[static_cast<std::size_t>(body.weapon)].putDown : 0;
+            pressed = true;
+        }
         body.pending = asked;
-        body.switchLeft = set.weapons[static_cast<std::size_t>(asked)].switchTime;
         body.winding = -1;
         body.windLeft = 0;
         body.holding = -1;
@@ -80,15 +87,37 @@ void switchWeapon(const WeaponSet& set, Game& game, int index, const uworld::Mov
         body.secondWinding = body.secondHolding = -1;
         body.secondRefire = 0;
     }
-    if (body.pending >= 0) {
-        body.switchLeft -= dt;
-        if (body.switchLeft <= 0) {
-            body.weapon = body.pending;
-            body.pending = -1;
-            body.switchLeft = 0;
-            body.refireLeft = 0;
-        }
+    if (body.pending < 0) return;
+    const Weapon& coming = set.weapons[static_cast<std::size_t>(body.pending)];
+    // UTA-0501, as recorded at 30, 85 and 120 fps: the put-down counts from
+    // the tick after the press. The tick it runs out on is the bring-up's
+    // first, as the old weapon's AnimEnd raises the new one within the
+    // tick. A later wait counts from the tick after the one before ends,
+    // and the weapon fires on the tick after the last, as the Active
+    // state's FinishAnim resumes a tick on.
+    if (body.switching == Body::Switch::PutDown) {
+        if (!pressed) body.switchLeft -= dt;
+        if (body.switchLeft > 0) return;
+        game.cues.push_back(Cue{Cue::Kind::Select, index, static_cast<std::uint32_t>(body.pending), -1,
+                                body.move.location});
+        body.weapon = body.pending;
+        body.switching = Body::Switch::BringUp;
+        body.switchLeft = coming.bringUp - dt;
+        return;
     }
+    if (body.switchLeft > 0) {
+        body.switchLeft -= dt;
+        return;
+    }
+    if (body.switching == Body::Switch::BringUp && coming.postSelect > 0) {
+        body.switching = Body::Switch::PostSelect;
+        body.switchLeft = coming.postSelect - dt;
+        return;
+    }
+    body.pending = -1;
+    body.switching = Body::Switch::PutDown;
+    body.switchLeft = 0;
+    body.refireLeft = 0;
 }
 
 /// The scale a charge held `held` seconds gives.
@@ -835,6 +864,7 @@ std::uint64_t stateHash(const Game& game) {
         }
         add(static_cast<std::uint64_t>(body.weapon));
         add(static_cast<std::uint64_t>(body.pending));
+        add(static_cast<std::uint64_t>(body.switching)); // UTA-0501
         addDouble(body.switchLeft);
         addDouble(body.refireLeft);
         add(static_cast<std::uint64_t>(body.winding));

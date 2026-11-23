@@ -95,10 +95,6 @@ constexpr double MAX_VELOCITY_ERROR = 1;
 constexpr std::array<std::string_view, 2> HOVER_RUNS{"rocket-floor", "rocket-jump"};
 constexpr double HOVER_DAMAGE_ERROR = 3;
 constexpr double HOVER_VELOCITY_ERROR = 25;
-/// A switch is one carried time here and two waits in the original, each
-/// ended at a frame: at 30 frames a second our first shot is two ticks early.
-constexpr std::string_view SWITCH_RUNS = "switch-";
-constexpr std::int64_t SWITCH_TICK_ERROR = 2;
 /// Our cadence does not move with the frame rate (user, 2026-11-13; every
 /// held weapon, user 2026-11-15). The original sleeps whole ticks between
 /// shots and carries nothing over; ours carries each refire's overshoot.
@@ -203,7 +199,6 @@ struct OurShot {
     std::map<std::int64_t, ugame::Shot> rows; ///< k + 1: after our tick k; its first, the launch
     int recorded = -1;                        ///< the recorded shot it was matched to
     std::int64_t late = 0;                    ///< rows the recorded one's launch is after ours
-    std::int64_t lag = 0;                     ///< of `late`, the switch's lag (UTA-0499)
     std::uint32_t bounces = 0;                ///< as of our last tick
     bool raised = false;                      ///< flown at the recorded height; its rows are kept lowered
 };
@@ -551,15 +546,6 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
     std::vector<int> live; // per game.shots, an index into `ours`
     std::vector<Hit> ourHits;
     std::vector<std::int64_t> ourSpends;
-    // After a switch our spends run its lag early, which the spend check
-    // judges (SWITCH_TICK_ERROR). Later spends, and shots fired as they are
-    // spent, are paired and judged with that lag taken out (UTA-0499). A
-    // charge spends on its press and launches on its release, which no
-    // switch delays.
-    const auto switchLag = [other, &ourSpends, &theirSpends]() -> std::int64_t {
-        if (other < 0 || ourSpends.empty() || theirSpends.empty()) return 0;
-        return std::clamp<std::int64_t>(theirSpends.front() - ourSpends.front(), -SWITCH_TICK_ERROR, SWITCH_TICK_ERROR);
-    };
     for (std::size_t k = 0; k + 1 < rows.size(); ++k) {
         const auto& row = rows[k];
         const auto& w = recording.weapon[k];
@@ -632,7 +618,7 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
         if (!atRest && ourSpends.size() < theirSpends.size()) {
             const std::int64_t theirs = theirSpends[ourSpends.size()];
             const std::int64_t near = e.steady ? STEADY_TICK_ERROR : MAX_TICK_ERROR;
-            if (std::abs(theirs - (static_cast<std::int64_t>(k) + switchLag())) <= near)
+            if (std::abs(theirs - static_cast<std::int64_t>(k)) <= near)
                 eyeRow = static_cast<std::size_t>(theirs);
         }
         game.bodies[FIRER].eyeHeight = recording.weapon[eyeRow].eyeHeight;
@@ -813,12 +799,11 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
             if (s.first == tick && s.recorded < 0) {
                 ugame::Shot launch = launched(shot);
                 const ugame::Projectile& kind = set.projectiles[shot.kind];
-                s.lag = mode->charge ? 0 : switchLag();
                 int best = -1;
                 for (std::size_t r = 0; r < theirOrder.size(); ++r) {
                     const RecordedShot& t = theirs.at(theirOrder[r]);
                     if (claimed[r] || t.kind != kind.name ||
-                        ticksFrom(tick + s.lag, t.first) > (e.steady ? STEADY_TICK_ERROR : MAX_TICK_ERROR))
+                        ticksFrom(tick, t.first) > (e.steady ? STEADY_TICK_ERROR : MAX_TICK_ERROR))
                         continue;
                     best = static_cast<int>(r);
                     break;
@@ -1164,7 +1149,7 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
         if (s.recorded < 0) continue;
         const std::string& name = theirOrder[static_cast<std::size_t>(s.recorded)];
         const RecordedShot& t = theirs.at(name);
-        e.shotTick = std::max(e.shotTick, std::abs(s.late - s.lag));
+        e.shotTick = std::max(e.shotTick, std::abs(s.late));
         // A launch within INV-6's tick of ours is judged above; its flight
         // is then compared age for age, not row for row.
         const std::int64_t late = s.late;
@@ -1227,7 +1212,6 @@ TEST_CASE("UTA-0019 INV-6: the stock set matches the original's weapon runs on D
         const double damageError = hover ? HOVER_DAMAGE_ERROR : 0;
         const double velocityError = hover ? HOVER_VELOCITY_ERROR : MAX_VELOCITY_ERROR;
         const std::int64_t tickError = e.steady ? STEADY_TICK_ERROR : MAX_TICK_ERROR;
-        const std::int64_t spendError = std::max(r.name.starts_with(SWITCH_RUNS) ? SWITCH_TICK_ERROR : MAX_TICK_ERROR, tickError);
         // A mode that sleeps may fire one more or one fewer (the allowance above).
         const auto counts = [&e](std::size_t ours, std::size_t theirs) {
             return ours == theirs || (e.steady && (ours + 1 == theirs || theirs + 1 == ours));
@@ -1244,7 +1228,7 @@ TEST_CASE("UTA-0019 INV-6: the stock set matches the original's weapon runs on D
         CHECK(e.bounce <= MAX_POSITION_ERROR);
         if (r.timed) {
             CHECK(counts(e.ourSpends, e.theirSpends));
-            CHECK(e.spendTick <= spendError);
+            CHECK(e.spendTick <= tickError);
             CHECK(e.shotTick <= tickError);
             CHECK(e.hitTick <= tickError);
         }

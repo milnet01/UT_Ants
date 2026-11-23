@@ -217,8 +217,12 @@ Result<void> readWeapon(Weapon& weapon, Keys& keys) {
     weapon.ammoMax = *ammoMax;
     UTA_TRY(const std::optional<Entry> start, keys.take("ammo-start", true));
     UTA_TRY(weapon.ammoStart, ini::numberOf(FORMAT, start->value, weapon.ammoMax, start->line));
-    UTA_TRY(const std::optional<double> switchTime, keys.decimal("switch-time", true, 0, TIME_MAX));
-    weapon.switchTime = *switchTime;
+    UTA_TRY(const std::optional<double> putDown, keys.decimal("put-down", true, 0, TIME_MAX));
+    weapon.putDown = *putDown;
+    UTA_TRY(const std::optional<double> bringUp, keys.decimal("bring-up", true, 0, TIME_MAX));
+    weapon.bringUp = *bringUp;
+    UTA_TRY(const std::optional<double> postSelect, keys.decimal("post-select", false, 0, TIME_MAX));
+    weapon.postSelect = postSelect.value_or(0);
     UTA_TRY(const std::optional<double> doubleDelay, keys.decimal("double-delay", false, 0, TIME_MAX));
     weapon.doubleDelay = doubleDelay.value_or(0);
     UTA_TRY(weapon.selectSound, keys.sound("select-sound"));
@@ -723,10 +727,11 @@ std::string write(const WeaponSet& set) {
                                   FORMAT.header, WEAPON_SET_VERSION, ini::quotedIfNeeded(set.name, true),
                                   decimal(set.selfDamage), decimal(set.headHeight), decimal(set.damageScale));
     for (const Weapon& weapon : set.weapons) {
-        out += std::format("\n[weapon {}]\nclass = {}\nslot = {}\nammo-max = {}\nammo-start = {}\nswitch-time = {}\n"
-                           "double-delay = {}\n",
+        out += std::format("\n[weapon {}]\nclass = {}\nslot = {}\nammo-max = {}\nammo-start = {}\nput-down = {}\n"
+                           "bring-up = {}\npost-select = {}\ndouble-delay = {}\n",
                            weapon.name, weapon.className, weapon.slot, weapon.ammoMax, weapon.ammoStart,
-                           decimal(weapon.switchTime), decimal(weapon.doubleDelay));
+                           decimal(weapon.putDown), decimal(weapon.bringUp), decimal(weapon.postSelect),
+                           decimal(weapon.doubleDelay));
         out += soundText("select-sound", weapon.selectSound);
         out += fireText(weapon.name, "primary", weapon.primary);
         if (weapon.alt) out += fireText(weapon.name, "alt", *weapon.alt);

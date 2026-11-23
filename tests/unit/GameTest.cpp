@@ -1821,8 +1821,8 @@ TEST_CASE("INV-5: a scripted fight is the same at every frame rate and on every 
     INFO("final hash " << reference.back());
     // UTA-0020: the script opens the wheel. UTA-0022: the hash covers coyoteLeft and mantleTo;
     // UTA-0108 landedZ; UTA-0493 painClock; UTA-0468 the lock, the second gun and the seeking,
-    // each of which moved the pin and nothing else.
-    CHECK(reference.back() == 12121377059366180465u);
+    // each of which moved the pin and nothing else; UTA-0501 the switch's two waits.
+    CHECK(reference.back() == 6815452446129531876u);
 }
 
 // UTA-0020: the weapon wheel's time scale, and what it lists and picks.
@@ -2041,33 +2041,70 @@ TEST_CASE("UTA-0467 INV-2: a wound-up shot is cued when it leaves, and a beam ne
     CHECK(fired == 0);
 }
 
-TEST_CASE("UTA-0467 INV-3: starting a switch raises one Select cue for the weapon asked for", "[ugame][game][cues]") {
+TEST_CASE("UTA-0467 INV-3: a switch raises one Select cue, as the weapon asked for starts to rise",
+          "[ugame][game][cues]") {
     const BodyWorld world = arena();
     const WeaponSet& set = stock();
     Game game = duel(set, "enforcer", 600);
     const int rockets = weaponNamed(set, "rocket-launcher");
-    REQUIRE(set.weapons[static_cast<std::size_t>(rockets)].switchTime > 2 * DT);
+    REQUIRE(set.weapons[static_cast<std::size_t>(weaponNamed(set, "enforcer"))].putDown > 2 * DT);
 
+    // The press raises none: the Enforcer is still going down.
     std::vector<MoveCommand> commands(2);
     commands[0].weaponPick = static_cast<std::int8_t>(rockets);
     tick(world, set, RULES, game, commands, DT);
-    REQUIRE(game.cues.size() == 1);
-    CHECK(game.cues[0] == Cue{Cue::Kind::Select, 0, static_cast<std::uint32_t>(rockets), -1,
-                              Vec3{0, 0, STANDING}});
+    CHECK(game.cues.empty());
     REQUIRE(game.bodies[0].pending == rockets);
 
-    // Asking again for the weapon already on its way, and the ticks that
-    // bring it up, raise none.
-    int later = 0;
-    tick(world, set, RULES, game, commands, DT);
-    later += cuesOf(game, Cue::Kind::Select);
-    commands[0].weaponPick = -1;
+    // Asking again for the weapon already on its way raises none; the tick
+    // it starts to rise raises one, naming it; the ticks that finish
+    // bringing it up raise none.
+    std::vector<Cue> selects;
+    Vec3 at{};
     for (int k = 0; k < 200 && game.bodies[0].pending >= 0; ++k) {
+        if (k == 1) commands[0].weaponPick = -1;
         tick(world, set, RULES, game, commands, DT);
-        later += cuesOf(game, Cue::Kind::Select);
+        for (const Cue& cue : game.cues)
+            if (cue.kind == Cue::Kind::Select) selects.push_back(cue), at = game.bodies[0].move.location;
     }
     CHECK(game.bodies[0].weapon == rockets);
-    CHECK(later == 0);
+    REQUIRE(selects.size() == 1);
+    CHECK(selects[0] == Cue{Cue::Kind::Select, 0, static_cast<std::uint32_t>(rockets), -1, at});
+}
+
+namespace {
+
+/// The ticks, counting the press as 0, on which a switch from `from` to `to`
+/// raises its Select cue and its first Fire cue, fire held throughout.
+std::pair<int, int> switchTicks(std::string_view from, std::string_view to, double dt) {
+    const BodyWorld world = arena();
+    const WeaponSet& set = stock();
+    Game game = duel(set, from, 600);
+    std::vector<MoveCommand> commands(2);
+    commands[0].weaponPick = static_cast<std::int8_t>(weaponNamed(set, to));
+    commands[0].fire = true;
+    commands[1].yaw = 32768;
+    int select = -1;
+    for (int k = 0; k < 200; ++k) {
+        tick(world, set, RULES, game, commands, dt);
+        commands[0].weaponPick = -1;
+        if (cuesOf(game, Cue::Kind::Select) > 0) select = k;
+        if (cuesOf(game, Cue::Kind::Fire) > 0) return {select, k};
+    }
+    return {select, -1};
+}
+
+} // namespace
+
+TEST_CASE("UTA-0501: a switch is a put-down then a bring-up, each ended on a tick, as recorded at 30 fps",
+          "[ugame][game]") {
+    // The original's ticks at 30 fps (1.1 game seconds a second), from
+    // ut-record's switch-bio-30 and switch-flak-30: the new weapon is in
+    // hand on tick 10, so it rose from tick 9, and fires on tick 22 and 38.
+    // The Flak Cannon loads after rising, a third wait.
+    const double dt = 1.1 / 30;
+    CHECK(switchTicks("enforcer", "bio-rifle", dt) == std::pair{9, 22});
+    CHECK(switchTicks("enforcer", "flak-cannon", dt) == std::pair{9, 38});
 }
 
 TEST_CASE("UTA-0467 INV-4: an explosion and a combo are cued where they happen, by kind", "[ugame][game][cues]") {
