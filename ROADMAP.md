@@ -21994,7 +21994,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: in-session-2026-11-22 UTA-0499.
   Lanes: ugame.
 
-- 🚧 [UTA-0502] **A switch asked for while a weapon is still coming up cuts its select short, as the original's does.**
+- ✅ [UTA-0502] **A switch asked for while a weapon is still coming up cuts its select short, as the original's does.**
   Found building UTA-0501 (2026-11-23). Ours puts a weapon still
   coming up down whole, for its full put-down. The original's
   Weapon.Active.PutDown goes down at once while the select is under
@@ -22013,6 +22013,8 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   each weapon gains an optional select-rate, recorded from the switch-*
   runs. The Enforcer raised again starts a tick late in these runs only
   because it was handed out first; the game keeps no such order.
+  Green on GitHub's matrix at 7cb41dd (GCC 14, Clang 19, MSVC),
+  2026-11-23.
   **Layman:** Changing your mind mid-switch should put the half-raised weapon away as fast as in the original.
   Kind: fix.
   Source: in-session-2026-11-23 UTA-0501.
