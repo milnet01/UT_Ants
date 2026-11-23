@@ -21441,10 +21441,16 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-11-11.
   Lanes: ugame.
 
-- 🚧 [UTA-0466] **The Translocator: throw a disc and teleport to it.**
+- ✅ [UTA-0466] **The Translocator: throw a disc and teleport to it.**
   Split out of UTA-0019 by the user (2026-11-11). Throwing reuses
   UTA-0019's projectile archetype; the teleport and telefrag are new
   (docs/specs/UTA-0019-weapon-set.md § 9).
+  Shipped 2026-11-23 at a0778f5, green on the matrix (GCC 14, Clang 19,
+  MSVC). Spec UTA-0019 SS 4.10. Recorded 12 tl- runs at 30, 85 and 120
+  fps (weapons.txt); RealWeaponTest replays them: flight within 0.011,
+  bounces 0.53, rests 0.6, teleports within 0.42, telefrags on the tick.
+  Disruption is from the script, unrecorded. Reference recordings:
+  Scratchpad/UT_Ants/weapons/r466all.
   **Layman:** The teleport gadget. It moves the player rather than hurting anyone, so it gets its own item.
   Kind: implement.
   Source: user-request-2026-11-11.
@@ -25084,12 +25090,15 @@ docs/standards/versioning-overrides.md. Closes S8.
   Source: in-session-2026-11-23 EXRAY-0048.
   Lanes: tools.
 
-- 📋 [UTA-0505] **Name a frame of DM-MementoMori's exported camera path with a dim lamp in view and bright ones behind walls, for ExperiRays.**
+- ✅ [UTA-0505] **Name a frame of DM-MementoMori's exported camera path with a dim lamp in view and bright ones behind walls, for ExperiRays.**
   ExperiRays asked 2026-11-23: its EXRAY-0048 timing settled at every
   setting on frame 0 of UTA-0504's coloured DM-MementoMori, so the
   seen-dim-light case went untested. It wants a frame number on that
   export's .xrpath.json. Promised after UTA-0466. Files:
   Scratchpad/UT_Ants/exray504/ (kept until 2026-11-30).
+  Done 2026-11-23: frame 270 sent to ExperiRays (3 dim lamps seen, 5
+  bright behind walls; one walker in view, as in every sampled frame).
+  Script: Scratchpad/UT_Ants/u505/pick.py.
   **Layman:** Pick one camera spot in a level that makes the sister renderer's light picking work hard, so it can be timed there.
   Kind: chore.
   Source: in-session-2026-11-23 EXRAY-0048.
