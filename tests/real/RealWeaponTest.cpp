@@ -99,6 +99,18 @@ constexpr double MAX_VELOCITY_ERROR = 1;
 constexpr std::array<std::string_view, 2> HOVER_RUNS{"rocket-floor", "rocket-jump"};
 constexpr double HOVER_DAMAGE_ERROR = 3;
 constexpr double HOVER_VELOCITY_ERROR = 25;
+/// UTA-0465 (user, 2026-11-23): in a run where a Redeemer's wave may hit,
+/// each hit's damage is within this; a push on a body that landed or was
+/// pressed against a wall in that frame is not compared, as the original
+/// hovers and keeps a falling body's speed into a wall (UTA-0506); and a
+/// run at a missed rate may count one hit more or fewer.
+constexpr double WAVE_DAMAGE_ERROR = 12;
+/// A wave's push is its damage plus 20, so the damage allowance, 8 before
+/// hardcore's 1.5, is as many units a second of push.
+constexpr double WAVE_VELOCITY_ERROR = 8;
+/// How far past a frame's move a hit body is swept along its speed across
+/// to find a wall it is pressed against.
+constexpr double WALL_PROBE = 2;
 /// Our cadence does not move with the frame rate (user, 2026-11-13; every
 /// held weapon, user 2026-11-15). The original sleeps whole ticks between
 /// shots and carries nothing over; ours carries each refire's overshoot.
@@ -227,6 +239,10 @@ struct Hit {
     bool burst = false;
     /// Theirs: a body that moved onto the shot, whose push the original dropped.
     bool lost = false;
+    /// Theirs: a body that landed, or was pressed against a wall, in the
+    /// frame it was hit (UTA-0465: the original hovers, and keeps a falling
+    /// body's speed into a wall; ours does neither).
+    bool unsettled = false;
 };
 
 /// The worst of each comparison over a run.
@@ -238,6 +254,7 @@ struct Errors {
     std::string damageAt, velocityAt, spawnAt, flightAt, bounceAt, restAt;
     std::size_t unmatched = 0;
     bool randomHits = false;    ///< the mode draws its hits: counts are not compared
+    bool waves = false;         ///< UTA-0465: a Redeemer's shell flies, so a wave may hit
     bool steady = false;        ///< the mode's original sleeps between shots
     // UTA-0466: telefrags, by tick, and where each teleport landed.
     std::size_t ourGibs = 0, theirGibs = 0, ourTeleports = 0, theirTeleports = 0;
@@ -515,6 +532,23 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
         Hit& hit = theirHits.back();
         hit.damage += d.health0 - d.health1;
         hit.velocity = vec(d.velocity1);
+        // UTA-0465: landed in this frame, or pressed against a wall: a sweep
+        // from where it was hit, along its speed across, a frame's move and
+        // WALL_PROBE more, meets the level.
+        if (d.tick > 0) {
+            const auto row = static_cast<std::size_t>(d.tick - 1);
+            const std::string& was = victim == FIRER ? rows[std::min(row, rows.size() - 1)].physics
+                                     : targeted        ? recording.target[std::min(row, recording.target.size() - 1)].physics
+                                                       : d.physics0;
+            const bool landed = was == "PHYS_Falling" && d.physics0 == "PHYS_Walking";
+            const Vec3 across{d.velocity0[0], d.velocity0[1], 0};
+            const double speed = uworld::length(across);
+            const Vec3 at = vec(d.location) - Vec3{0, 0, victim == FIRER ? firerHover : targetHover};
+            const uworld::BodyHit wall =
+                speed > 1 ? world.sweep(size, at, at + across * ((speed * rows[std::min(row, rows.size() - 1)].dt + WALL_PROBE) / speed))
+                          : uworld::BodyHit{};
+            hit.unsettled = hit.unsettled || landed || (speed > 1 && (wall.startsInside || wall.fraction < 1));
+        }
         const double m = uworld::length(vec(d.momentum));
         if (std::ranges::any_of(pieceMomenta, [m](double p) { return std::abs(m - p) <= 1; })) {
             hit.pieces = hit.pieces + (vec(d.velocity1) - vec(d.velocity0));
@@ -1190,12 +1224,15 @@ Errors replay(const uworld::BodyWorld& world, const ugame::WeaponSet& stock,
     };
     std::ranges::stable_sort(ourHits, byTickThenVictim);
     std::ranges::stable_sort(theirHits, byTickThenVictim);
+    e.waves = launched.contains("redeemer-shell") || launched.contains("guided-shell");
     for (std::size_t i = 0; i < std::min(ourHits.size(), theirHits.size()); ++i) {
         const Hit& a = ourHits[i];
         const Hit& b = theirHits[i];
         const std::string at = "tick " + std::to_string(b.tick);
         e.hitTick = std::max(e.hitTick, ticksFrom(a.tick, b.tick));
         if (std::abs(a.damage - b.damage) > e.damage) e.damage = std::abs(a.damage - b.damage), e.damageAt = at;
+        // UTA-0465: a wave's push on a body landing or at a wall is not compared (the allowance above).
+        if (e.waves && b.unsettled) continue;
         // Where ours burst, the pieces' drawn pushes are left out on both
         // sides; their count is in the damage.
         const double off = a.burst ? uworld::length((a.velocity - a.pieces) - (b.velocity - b.pieces))
@@ -1288,12 +1325,13 @@ TEST_CASE("UTA-0019 INV-6: the stock set matches the original's weapon runs on D
                   << e.theirGibs << " off " << e.gibTick << ", teleports " << e.ourTeleports << "/" << e.theirTeleports
                   << " landing " << e.teleport << " (" << e.teleportAt << ")\n";
         const bool hover = std::ranges::find(HOVER_RUNS, r.name) != HOVER_RUNS.end();
-        const double damageError = hover ? HOVER_DAMAGE_ERROR : 0;
-        const double velocityError = hover ? HOVER_VELOCITY_ERROR : MAX_VELOCITY_ERROR;
+        const double damageError = hover ? HOVER_DAMAGE_ERROR : e.waves ? WAVE_DAMAGE_ERROR : 0;
+        const double velocityError = hover ? HOVER_VELOCITY_ERROR : e.waves ? WAVE_VELOCITY_ERROR : MAX_VELOCITY_ERROR;
         const std::int64_t tickError = e.steady ? STEADY_TICK_ERROR : MAX_TICK_ERROR;
         // A mode that sleeps may fire one more or one fewer (the allowance above).
-        const auto counts = [&e](std::size_t ours, std::size_t theirs) {
-            return ours == theirs || (e.steady && (ours + 1 == theirs || theirs + 1 == ours));
+        const bool loose = e.steady || (e.waves && !r.timed); // UTA-0465: a wave's hits at a missed rate
+        const auto counts = [loose](std::size_t ours, std::size_t theirs) {
+            return ours == theirs || (loose && (ours + 1 == theirs || theirs + 1 == ours));
         };
         CHECK(e.outOfRange == 0);
         if (!e.randomHits) CHECK(counts(e.ourHits, e.theirHits));

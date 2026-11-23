@@ -705,8 +705,8 @@ giving 1.
   between the first and the last. A teleport lands within 1 unit of where
   the original's player is logged, and a telefrag kills on the same tick,
   give or take one (UTA-0466). A run at a missed frame rate pairs its
-  shots by order of launch, not by tick (§ 4.7). Four differences are allowed (user, 2026-11-13,
-  2026-11-15 and, for the Enforcer's primary, 2026-11-22):
+  shots by order of launch, not by tick (§ 4.7). Five differences are allowed (user, 2026-11-13,
+  2026-11-15, for the Enforcer's primary 2026-11-22, and for the Redeemer's wave 2026-11-23):
   a blast at the firer's own feet may differ by 3 damage and 25 unit/s,
   because the original's player hovers 4.8 units over the floor and ours
   does not; a mode whose original sleeps between shots (the Minigun's two,
@@ -716,7 +716,12 @@ giving 1.
   a stuck shot may rest within 3 units; and a body that moves onto a
   shot keeps the push, where the original logs it and then drops it, so
   that hit's velocity is compared with the logged push within a tick's
-  gravity.
+  gravity; and in a run where a Redeemer's wave may hit (§ 4.11), each
+  hit's damage is within 12 and its push within 8 unit/s, a push on a
+  body that landed or was pressed against a wall in that frame is not
+  compared, and a run at a missed rate may count one hit more or fewer,
+  because the original hovers and keeps a falling body's speed into a
+  wall (UTA-0506).
   *Test:* `RealWeaponTest.cpp`, label `real`, which prints each run's
   worst error.
   *Breaks when:* a measured number or an archetype's rule is wrong.

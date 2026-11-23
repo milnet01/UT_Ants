@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=505 -->
+<!-- ants-roadmap-id-high-water: UTA=506 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -22025,6 +22025,21 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: fix.
   Source: in-session-2026-11-23 UTA-0501.
   Lanes: ugame.
+
+- 📋 [UTA-0506] **A falling body thrown into a wall keeps its speed into the wall, as the original's does.**
+  Found replaying UTA-0465's rd- runs (Scratchpad weapons/r465b, 2026-11-23).
+  A Redeemer wave throws the player into the wall at y about 1006 on
+  DM-Deck16][. The original logs a falling player pressed against it
+  still moving into it at 574 to 706 units a second (rd-steer-fast-left
+  30 tick 47, rd-shootdown 30 tick 46, D lines' velocity before the hit);
+  ours drops that speed, so the next push differs by up to 204 units a
+  second. UTA-0017's falling move against a wall is the place to look.
+  Until then RealWeaponTest leaves a wave's push on a body at a wall or
+  landing that frame uncompared (user, 2026-11-23).
+  **Layman:** A player blown against a wall should keep pressing into it the way the original game does, so the next blast throws them the same way.
+  Kind: fix.
+  Source: in-session-2026-11-23 UTA-0465 recordings.
+  Lanes: uworld.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
