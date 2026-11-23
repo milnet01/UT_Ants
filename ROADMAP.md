@@ -21966,7 +21966,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: ut-monsterhunt-request-2026-11-22.
   Lanes: unav.
 
-- 🚧 [UTA-0501] **A weapon switch takes two waits, putting down then bringing up, each ending on a frame, as the original's does.**
+- ✅ [UTA-0501] **A weapon switch takes two waits, putting down then bringing up, each ending on a frame, as the original's does.**
   Found working UTA-0499 (2026-11-22). Ours is one switch-time per
   weapon, recorded from the Enforcer; the original's DownWeapon state
   waits for the old weapon's Down animation, then Active for the new
@@ -21987,6 +21987,8 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   SWITCH_TICK_ERROR and the switch lag: every first spend after a
   switch at 30 fps is on the original's tick. A switch during a
   bring-up is UTA-0502.
+  Green on GitHub's matrix at eb2b15c (GCC 14, Clang 19, MSVC),
+  2026-11-23.
   **Layman:** After you switch weapons, the new one should be ready to fire on exactly the same frame as in the original.
   Kind: fix.
   Source: in-session-2026-11-22 UTA-0499.
