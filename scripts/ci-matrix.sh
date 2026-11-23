@@ -118,8 +118,9 @@ if $reachable; then
     printf '== Windows (MSVC) leg starting on %s; log: %s\n' "$WIN_HOST" "$WIN_LOG"
     # Keep-alives, so a link that dies without a reset (the machine sleeps, Wi-Fi
     # drops) ends in about a minute as WINDOWS LEG NOT RUN instead of hanging the
-    # push (review-code 2026-09-26).
-    alive=(-o ServerAliveInterval=15 -o ServerAliveCountMax=4)
+    # push (review-code 2026-09-26). BatchMode: the machine takes a key, so a
+    # login that would prompt is a wrong login, and fails instead of asking.
+    alive=(-o BatchMode=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
     (
         set -e
         bundle="$STATE/push-${SHA:0:12}.bundle"
