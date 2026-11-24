@@ -22096,6 +22096,8 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   --wiring-classes implies --wiring-graph; chainsUnresolved still counts
   every actor. MH-DrBrain11v0 with WarpZoneInfo,Teleporter: 522 KB to 12
   KB.
+  UT_MonsterHunt wires it into mapcheck's run path as their GAME-0288
+  (2026-11-24).
   **Layman:** A map-checking tool can ask for only the parts of a map's wiring it reads, so it runs faster and writes less.
   Kind: enhancement.
   Source: ut-monsterhunt-request-2026-11-24.
@@ -22118,6 +22120,8 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   wiring.actors' warpZone {thisTag, otherSideURL} and teleporter
   {bEnabled}, each null unless the chain holds that class. 40 MH maps:
   256 teleporters on, 70 off, none null.
+  UT_MonsterHunt builds the warp zone check on warpZone as GAME-0289,
+  and reads teleporter.bEnabled in GAME-0120 (2026-11-24).
   **Layman:** A map-checking tool can see which see-through portals in a map are joined to each other, so it can find the ones with nothing on the other side.
   Kind: enhancement.
   Source: ut-monsterhunt-request-2026-11-24.
