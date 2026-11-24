@@ -22031,7 +22031,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: in-session-2026-11-23 UTA-0501.
   Lanes: ugame.
 
-- 📋 [UTA-0506] **A falling body thrown into a wall keeps its speed into the wall, as the original's does.**
+- 🚧 [UTA-0506] **Find why a Redeemer wave's push on a body at a wall differs from the original's.**
   Found replaying UTA-0465's rd- runs (Scratchpad weapons/r465b, 2026-11-23).
   A Redeemer wave throws the player into the wall at y about 1006 on
   DM-Deck16][. The original logs a falling player pressed against it
@@ -22041,8 +22041,22 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   second. UTA-0017's falling move against a wall is the place to look.
   Until then RealWeaponTest leaves a wave's push on a body at a wall or
   landing that frame uncompared (user, 2026-11-23).
-  **Layman:** A player blown against a wall should keep pressing into it the way the original game does, so the next blast throws them the same way.
-  Kind: fix.
+  Measured 2026-11-24: the premise above is wrong. The original does
+  drop a falling body's speed into a wall, as ours does: rd-near 30's T
+  rows go 982, 674, then 0 into the wall at y 1002.8 (ticks 15 to 18).
+  The 574 to 706 its D lines show is that frame's own push, because
+  ShockWave.uc calls AddVelocity before TakeDamage, so a D line's
+  velocity before the hit already holds the wave's push. Keeping the
+  speed into the wall (Scratchpad/UT_Ants/u506/rejected-fix.diff) made
+  rd-near 30 tick 17 670 unit/s off (5 before) and rd-shootdown 30 94
+  (64 before), so it was not kept. Still off with the wall allowance
+  removed: rd-steer-fast-left 30 tick 47, 204 (ours 191 746 -58, theirs
+  139 580 49, the same with or without that change), rd-shootdown 30
+  tick 46, 64, and rd-steer-fast-left 120, 19. The allowance stays.
+  Next: read how the replay places a body whose D line already holds
+  the push, then the wall sweep after it. Probe logs in u506/.
+  **Layman:** A Redeemer blast against a wall still throws the player slightly differently from the original game; find out why before changing anything.
+  Kind: investigate.
   Source: in-session-2026-11-23 UTA-0465 recordings.
   Lanes: uworld.
 
