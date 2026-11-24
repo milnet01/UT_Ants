@@ -21431,11 +21431,16 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: in-session-2026-11-11.
   Lanes: uworld.
 
-- 🚧 [UTA-0465] **The Redeemer: a missile steered from its own camera.**
+- ✅ [UTA-0465] **The Redeemer: a missile steered from its own camera.**
   Split out of UTA-0019 by the user (2026-11-11): it is not a gun, and
   needs a second view to steer from. Builds on UTA-0019's weapon-set
   file and firing archetypes
   (docs/specs/UTA-0019-weapon-set.md § 9).
+  Shipped 2026-11-24, green on GitHub's matrix at 57e90f6. Spec
+  UTA-0019 § 4.11. rd- runs recorded at 30, 85 and 120 fps.
+  RealWeaponTest passes on Scratchpad/UT_Ants/weapons/r465all (48239
+  assertions). INV-6's fifth allowance (user, 2026-11-23). UTA-0506
+  (a falling body keeps its speed into a wall) came out of it.
   **Layman:** The big guided nuke. It works unlike any gun, so it was kept out of the first weapon set.
   Kind: implement.
   Source: user-request-2026-11-11.
