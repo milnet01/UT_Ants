@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=508 -->
+<!-- ants-roadmap-id-high-water: UTA=509 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -22093,6 +22093,24 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   the whole graph. Rebuild build/ ut-dump after shipping: UT_MonsterHunt
   runs ours.
   **Layman:** A map-checking tool can ask for only the parts of a map's wiring it reads, so it runs faster and writes less.
+  Kind: enhancement.
+  Source: ut-monsterhunt-request-2026-11-24.
+  Lanes: tools.
+
+- 📋 [UTA-0509] **ut-dump: the wiring graph gives each warp zone its two link names, and each teleporter whether it is on.**
+  UT_MonsterHunt asked, 2026-11-24, no rush, beside UTA-0508. For a Map
+  Repair check on unlinked warp zones, which draw a hall-of-mirrors
+  smear: --wiring-graph gives each WarpZoneInfo its ThisTag and
+  OtherSideURL, after the defaults merge, "" when unset, as liftTag is.
+  Optional, same batch: each Teleporter's bEnabled (their GAME-0120 reads
+  every teleporter as on).
+  Their survey of 1,377 installed maps (--surface-list --wiring-graph):
+  77 MH maps have warp zones; 8 have counts that cannot pair, among them
+  MH-DrBrain11v0, 17v0, 21v0 and 41v2 with one WarpZoneInfo each,
+  MH-Incursion+ with 9, and MH-SkyBlueFound_2 with one no zone uses.
+  Ship with UTA-0508 if both are open; message UT_MonsterHunt when it
+  lands, and rebuild build/ ut-dump.
+  **Layman:** A map-checking tool can see which see-through portals in a map are joined to each other, so it can find the ones with nothing on the other side.
   Kind: enhancement.
   Source: ut-monsterhunt-request-2026-11-24.
   Lanes: tools.
