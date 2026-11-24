@@ -20624,7 +20624,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Lanes: urender, ubake.
   Evidence: ~/.local/state/ut-ants/map-captures/MH-()mG-ValleyOfHellV13-20261006-110954, ~/.local/state/ut-ants/map-captures/MH-()mG-ValleyOfHellV13-20261006-111007
 
-- 🚧 [UTA-0321] **urender: light coronas, the soft glow UT99 draws around lamps flagged bCorona.**
+- ✅ [UTA-0321] **urender: light coronas, the soft glow UT99 draws around lamps flagged bCorona.**
   UTA-0014 section 9 records coronas and lens flares as deferred, not
   queued; this queues coronas. Seen on AS-Frigate (user capture, ut-compare
   at HEAD): the original draws a bright glow at a lamp low in the left of
@@ -20652,6 +20652,12 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   screen at 747 and 560 units, falling to the background about 50 px
   from the lamp at 1280x720. No bundle change: DrawScale and Skin are in
   the placements already.
+  Shipped 2026-11-24 (ut-ants-55), green on the matrix: commit f151b6e,
+  GitHub run 45373841070 success on GCC 14, Clang 19 and MSVC. A soft
+  round glow, fixed size on screen, sized by DrawScale, depth-tested at
+  the light, fading from 100 to 560 units; fitted to Light40 (radius 50
+  of 720 px at DrawScale 0.1, exp(-3.75 r), gain 0.83). Each corona's
+  own picture is UTA-0510.
   **Layman:** Lamps get the soft halo the original game draws around them.
   Kind: feature.
   Source: user-request-2026-10-06.
