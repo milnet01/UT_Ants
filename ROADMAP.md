@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=510 -->
+<!-- ants-roadmap-id-high-water: UTA=511 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -22137,6 +22137,30 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: enhancement.
   Source: ut-monsterhunt-request-2026-11-24.
   Lanes: tools.
+
+- 📋 [UTA-0511] **urender: a modern lamp glow in place of UTA-0321's copy of the original's.**
+  The user (2026-11-24): the project exists to make the maps look
+  better than the original, not the same. UTA-0321 fitted its coronas
+  to the original's AS-Frigate captures; that fit is a starting point
+  only. Three changes, each proved by a device test, not by a match:
+  1. Partly hidden lamps. The quad is depth-tested per pixel, so a rail
+  or floor edge in front cuts the glow with a hard line (seen on
+  AS-Frigate's Light40 views). Instead, fade the whole glow by how much
+  of the lamp is visible: sample the depth over a small disc about the
+  light's centre and scale the glow by the share that passes.
+  2. Brightness. CORONA_GAIN is one number fitted to one white lamp at
+  LightBrightness 115. Make the glow follow the lamp's own light, so a
+  dim bulb gives a faint halo and a bright one a strong halo; test two
+  brightnesses against each other.
+  3. Up close. CORONA_FADE_NEAR/FULL (100 to 560 units) copy the
+  original's fade, which real lens glare lacks. Remove it or keep it
+  far weaker, by the user's standing rule that the original is a guide.
+  Files: src/urender/shaders/corona.vert, corona.frag, Frame.cpp's
+  recordFlames and placeCoronas, tests/device/RenderCoronasTest.cpp.
+  **Layman:** Lamp glows behave like a modern game's: they dim smoothly when partly hidden, match how bright each lamp really is, and stay visible up close.
+  Kind: enhancement.
+  Source: user-request-2026-11-24.
+  Lanes: urender.
 
 - 📋 [UTA-0510] **urender and ubake: each corona drawn with its own glow picture, as the map names it.**
   UTA-0321 draws every corona as one soft round glow, fitted to
