@@ -399,6 +399,15 @@ struct Placements {
     std::vector<ActorPlacement> actors; ///< strictly ascending by exportIndex
 };
 
+/// The placed actor at `exportIndex`, or nullptr where none is.
+[[nodiscard]] const ActorPlacement* placementAt(const Placements& placements, std::uint32_t exportIndex) noexcept;
+
+/// The actor's own value of property `name` (folded) at array index 0 and of
+/// `kind`, else its class's default; nullptr where neither sets it. Neither
+/// is Actor.uc's own default, which the bake keeps only for a class it read.
+[[nodiscard]] const PropertyRecord* resolvedProperty(std::string_view name, ValueKind kind,
+                                                     const ActorPlacement& actor, const ActorClass& actorClass);
+
 /// One light, its fields resolved from the actor and its class -- UTA-0110
 /// SS 4.6. The bytes are UT99's own numbers and are not range-checked: a value
 /// past the last light type is the renderer's to handle, as an unknown surface

@@ -14,6 +14,13 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **Lamps glow, as in the original game** (UTA-0321)
+  A lamp the map marks with a corona now has a soft glow around it. The
+  glow stays the same size on screen however far away the lamp is,
+  grows with the lamp's size setting, and fades as you walk up to it.
+  Anything standing between you and the lamp hides it. Every quality
+  level draws it.
+
 - **The Redeemer: a slow nuke you can fly** (UTA-0465)
   It is on the 0 key, after the sniper rifle. Fire launches a slow
   missile that blows up on whatever it hits. Alt fire launches one you

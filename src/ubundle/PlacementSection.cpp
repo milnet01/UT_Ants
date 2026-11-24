@@ -4,6 +4,9 @@
 
 #include "Sections.h"
 
+#include "core/Ascii.h"
+
+#include <algorithm>
 #include <array>
 #include <span>
 #include <string>
@@ -295,3 +298,20 @@ Result<std::vector<std::byte>> encodePlacements(const Placements& placements) {
 }
 
 } // namespace uta::ubundle::detail
+
+namespace uta::ubundle {
+
+const ActorPlacement* placementAt(const Placements& placements, std::uint32_t exportIndex) noexcept {
+    const auto at = std::ranges::lower_bound(placements.actors, exportIndex, {}, &ActorPlacement::exportIndex);
+    return at != placements.actors.end() && at->exportIndex == exportIndex ? &*at : nullptr;
+}
+
+const PropertyRecord* resolvedProperty(std::string_view name, ValueKind kind, const ActorPlacement& actor,
+                                       const ActorClass& actorClass) {
+    for (const auto* list : {&actor.properties, &actorClass.defaults})
+        for (const PropertyRecord& record : *list)
+            if (record.arrayIndex == 0 && record.kind == kind && asciiFolded(record.name) == name) return &record;
+    return nullptr;
+}
+
+} // namespace uta::ubundle

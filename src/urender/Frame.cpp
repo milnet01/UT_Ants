@@ -645,6 +645,10 @@ struct Renderer::Impl {
     /// are none so the binding is never empty, and how many to draw.
     Buffer flames;
     std::uint32_t flameCount = 0;
+    /// UTA-0321: this frame's coronas, host-written and grown, never shrunk,
+    /// and how many to draw: none at a tier without them or in a face of the sky.
+    Buffer coronas;
+    std::uint32_t coronaCount = 0;
     /// UTA-0293 SS 4.4: the clumps, one zero record below High or when there
     /// are none so the binding is never empty; their cells; and the draws
     /// this view's culling kept.
@@ -825,6 +829,7 @@ struct Renderer::Impl {
                                       std::uint32_t flashlight, bool skyFace);
     Result<void> uploadFrame(gpu::FrameData& frame, std::span<const gpu::Light> frameLights, const ShadowPlan& plan);
     Result<void> placeShapes(const gpu::FrameData& frame, const Camera& camera, VkExtent2D region, bool skyFace);
+    Result<void> placeCoronas(const ubundle::Bundle& bundle, double seconds, bool skyFace);
     void recordSkyFaceCopy(VkCommandBuffer commands, VkExtent2D region, std::uint32_t skyFace);
     void readStats(const ShadowPlan& plan, std::uint32_t droppedVolumeLights, double scale, const FrameTimes& times,
                    bool skyFace);
@@ -1803,11 +1808,12 @@ void Renderer::Impl::recordRefraction(VkCommandBuffer commands, SceneTargets& ta
 /// not matter and nothing is sorted. They write emission, which the
 /// translucent pass binds no target for, so this pass binds all three;
 /// velocity takes the flame's zero, added. UTA-0215: the water's specks are
-/// drawn in the same pass, under water only.
+/// drawn in the same pass, under water only. UTA-0321: so are the lights'
+/// coronas, which add nothing to emission.
 void Renderer::Impl::recordFlames(VkCommandBuffer commands, SceneTargets& targets, VkExtent2D region) {
     const bool motes = viewZone.water != 0 && enabled(Feature::WaterMotes, tier);
     // UTA-0337: a layer's light holds that layer alone.
-    if ((flameCount == 0 && !motes) || (skyCapturing && skyLayerCapture != 0)) return;
+    if ((flameCount == 0 && !motes && coronaCount == 0) || (skyCapturing && skyLayerCapture != 0)) return;
     memoryBarrier(commands,
                   VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT
                       | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
@@ -1830,6 +1836,13 @@ void Renderer::Impl::recordFlames(VkCommandBuffer commands, SceneTargets& target
     if (motes) {
         vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->mote());
         vkCmdDraw(commands, 6, MOTE_COUNT, 0, 0); // mote.vert's six corners, one instance a speck
+    }
+    if (coronaCount != 0) {
+        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->corona());
+        const VkBuffer instances = coronas.handle();
+        const VkDeviceSize start = 0;
+        vkCmdBindVertexBuffers(commands, 0, 1, &instances, &start);
+        vkCmdDraw(commands, 6, coronaCount, 0, 0); // corona.vert's six corners, one instance a light
     }
     vkCmdEndRendering(commands);
 }
@@ -2237,6 +2250,7 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     const FogSetup fog = fogSetupOf(bundle, camera, region, frameLights, cameraZone, flashlight, skyFace.has_value());
     UTA_CHECK(uploadFrame(frame, frameLights, plan));
     UTA_CHECK(placeShapes(frame, camera, region, skyFace.has_value()));
+    UTA_CHECK(placeCoronas(bundle, seconds, skyFace.has_value()));
     // UTA-0293 SS 4.4: the cells this view sees. A face of the sky draws none.
     grassDraws = skyFace ? std::vector<GrassDraw>{} : visibleGrass(grassRuns, matrices.viewProj, camera.location, tier);
 
@@ -2684,6 +2698,24 @@ Result<void> Renderer::Impl::placeShapes(const gpu::FrameData& frame, const Came
     shapeConstants.pixelAngle = static_cast<float>(
         2.0 * std::tan(camera.verticalFovDegrees * std::numbers::pi / 360.0) / static_cast<double>(region.height));
     shapeConstants.minimumHalfPixels = LINE_MINIMUM_HALF_PIXELS;
+    return {};
+}
+
+/// UTA-0321: this frame's coronas into `coronas`, flickering with their
+/// lights. None in a face of the sky, which is a picture of the sky, not a view.
+Result<void> Renderer::Impl::placeCoronas(const ubundle::Bundle& bundle, double seconds, bool skyFace) {
+    coronaCount = 0;
+    if (skyFace || !enabled(Feature::Coronas, tier)) return {};
+    const std::vector<gpu::CoronaInstance> instances = coronaInstances(bundle, seconds);
+    if (instances.empty()) return {};
+    const VkDeviceSize bytes = instances.size() * sizeof(gpu::CoronaInstance);
+    if (coronas.handle() == VK_NULL_HANDLE || coronas.size() < bytes) {
+        // Every earlier frame was waited for, so the old buffer is free to go.
+        coronas.reset();
+        UTA_TRY(coronas, Buffer::create(*gpu, bytes, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, BufferMemory::HostWrite));
+    }
+    std::memcpy(coronas.mapped(), instances.data(), bytes);
+    coronaCount = static_cast<std::uint32_t>(instances.size());
     return {};
 }
 

@@ -614,6 +614,25 @@ static_assert(offsetof(ShapeConstants, eye) == 64);
 static_assert(offsetof(ShapeConstants, pixelAngle) == 76);
 static_assert(offsetof(ShapeConstants, minimumHalfPixels) == 80);
 
+/// UTA-0321: one light's corona as corona.vert reads it, an instance-rate
+/// vertex record (Pipelines.cpp's coronaPipeline names each attribute's
+/// offset). The light's own numbers: light.glsl turns them into colour.
+struct CoronaInstance {
+    std::array<float, 3> location;
+    float scale; ///< the light's DrawScale
+    std::uint32_t hue;
+    std::uint32_t saturation;
+    std::uint32_t brightness;
+    float strength; ///< SS 4.9's flicker times LevelInfo.Brightness
+};
+static_assert(sizeof(CoronaInstance) == 32);
+static_assert(offsetof(CoronaInstance, location) == 0);
+static_assert(offsetof(CoronaInstance, scale) == 12);
+static_assert(offsetof(CoronaInstance, hue) == 16);
+static_assert(offsetof(CoronaInstance, saturation) == 20);
+static_assert(offsetof(CoronaInstance, brightness) == 24);
+static_assert(offsetof(CoronaInstance, strength) == 28);
+
 /// UTA-0333: shadow_reduce.comp's push constants, the atlas tile just drawn.
 /// Pushed through the fog layout, whose range FogConstants sizes.
 struct ReduceConstants {

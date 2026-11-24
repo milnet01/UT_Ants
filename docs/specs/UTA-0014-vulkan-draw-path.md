@@ -1360,8 +1360,9 @@ their breaking states, each of which produces a plausible image.
   taken; `PF_NoSmooth` has no home yet.
 - **`Light::actorShadows`, `Light::corona`, `Light::lensFlare`,
   `Light::volumeBrightness`, `Light::volumeRadius` and `Light::volumeFog` —
-  `UTA-0015`** carries the volumetric three. Coronas and lens flares are
-  deferred; not yet queued. `Light::specialLit` is `UTA-0438`'s.
+  `UTA-0015`** carries the volumetric three. Coronas are `UTA-0321`'s, drawn
+  with the flames. Lens flares are deferred; not yet queued.
+  `Light::specialLit` is `UTA-0438`'s.
 - **Executing the `device` tier on Windows — deferred; not yet queued.** This is
   the gap § 3 decision 1 and § 4.12 both point at, recorded here so it is a
   decision rather than something a reader discovers. The MSVC leg configures,

@@ -10,6 +10,8 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <optional>
+#include <string>
 #include <vector>
 
 using uta::ubundle::Light;
@@ -275,4 +277,97 @@ TEST_CASE("UTA-0263: a flame's flicker is smooth and its own", "[render][flames]
             CHECK(value >= 0.8f);
             CHECK(value <= 1.0f);
         }
+}
+
+namespace {
+
+/// A placement of class 0 at `exportIndex`, with DrawScale set to `scale`
+/// when given.
+uta::ubundle::ActorPlacement placedAt(std::uint32_t exportIndex, std::optional<float> scale) {
+    uta::ubundle::ActorPlacement actor;
+    actor.exportIndex = exportIndex;
+    actor.path = "mylevel.light" + std::to_string(exportIndex);
+    if (scale) actor.properties.push_back({"DrawScale", 0, uta::ubundle::ValueKind::Float, *scale});
+    return actor;
+}
+
+/// A bundle whose one class, a Light, defaults DrawScale to 0.25.
+uta::ubundle::Bundle coronaBundle() {
+    uta::ubundle::Bundle bundle;
+    bundle.lights.emplace();
+    bundle.placements.emplace();
+    uta::ubundle::ActorClass light;
+    light.path = "engine.light";
+    light.resolved = true;
+    light.defaults.push_back({"DrawScale", 0, uta::ubundle::ValueKind::Float, 0.25f});
+    bundle.placements->classes.push_back(light);
+    return bundle;
+}
+
+} // namespace
+
+TEST_CASE("UTA-0321: every lit bCorona light has a corona and no other light does", "[render]") {
+    uta::ubundle::Bundle bundle = coronaBundle();
+    Light corona = lightOfType(1, 10);
+    corona.corona = true;
+    bundle.lights->push_back(corona);
+    bundle.lights->push_back(lightOfType(1, 11)); // no bCorona
+    Light dark = corona;
+    dark.exportIndex = 12;
+    dark.brightness = 0; // a glow of nothing
+    bundle.lights->push_back(dark);
+    Light absorbed = corona; // UTA-0162: lit by its row's leader, yet the original glows at it
+    absorbed.exportIndex = 13;
+    absorbed.strip = uta::ubundle::STRIP_ABSORBED;
+    absorbed.hue = 40;
+    bundle.lights->push_back(absorbed);
+
+    const auto coronas = uta::urender::coronaInstances(bundle, 0.0);
+    REQUIRE(coronas.size() == 2u);
+    CHECK(coronas[0].brightness == 200u);
+    CHECK(coronas[1].hue == 40u);
+}
+
+TEST_CASE("UTA-0321: a corona's DrawScale is the light's own then its class's then Actor's", "[render]") {
+    uta::ubundle::Bundle bundle = coronaBundle();
+    for (std::uint32_t index : {10u, 11u, 12u}) {
+        Light light = lightOfType(1, index);
+        light.corona = true;
+        bundle.lights->push_back(light);
+    }
+    bundle.placements->actors.push_back(placedAt(10, 0.1f)); // its own
+    bundle.placements->actors.push_back(placedAt(11, {}));   // its class's
+    // 12 has no placement at all.
+
+    const auto coronas = uta::urender::coronaInstances(bundle, 0.0);
+    REQUIRE(coronas.size() == 3u);
+    CHECK(coronas[0].scale == 0.1f);
+    CHECK(coronas[1].scale == 0.25f);
+    CHECK(coronas[2].scale == uta::urender::DEFAULT_DRAW_SCALE);
+}
+
+TEST_CASE("UTA-0321: a corona with a scale that is not finite and above 0 is not drawn", "[render]") {
+    uta::ubundle::Bundle bundle = coronaBundle();
+    for (std::uint32_t index : {10u, 11u, 12u}) {
+        Light light = lightOfType(1, index);
+        light.corona = true;
+        bundle.lights->push_back(light);
+    }
+    bundle.placements->actors.push_back(placedAt(10, std::nanf("")));
+    bundle.placements->actors.push_back(placedAt(11, -0.5f));
+    bundle.placements->actors.push_back(placedAt(12, 0.0f));
+    CHECK(uta::urender::coronaInstances(bundle, 0.0).empty());
+}
+
+TEST_CASE("UTA-0321: a corona flickers with its light and the level's brightness", "[render]") {
+    uta::ubundle::Bundle bundle = coronaBundle();
+    Light pulse = lightOfType(2, 10); // LT_Pulse
+    pulse.corona = true;
+    pulse.levelBrightness = 2.0f;
+    bundle.lights->push_back(pulse);
+    for (const double seconds : {0.0, 0.3, 0.7}) {
+        const auto coronas = uta::urender::coronaInstances(bundle, seconds);
+        REQUIRE(coronas.size() == 1u);
+        CHECK(coronas[0].strength == flickerOf(pulse, seconds) * 2.0f);
+    }
 }

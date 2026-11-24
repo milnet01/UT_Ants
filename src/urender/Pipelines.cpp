@@ -14,6 +14,8 @@
 #include "fsr_easu.frag.spv.h"
 #include "flame.frag.spv.h"
 #include "flame.vert.spv.h"
+#include "corona.frag.spv.h"
+#include "corona.vert.spv.h"
 #include "mote.frag.spv.h"
 #include "mote.vert.spv.h"
 #include "grass.frag.spv.h"
@@ -362,12 +364,15 @@ Result<VkPipeline> scenePipeline(const Making& making, VkPipelineLayout layout, 
 /// UTA-0263 SS 4.4's camera-facing flames: no vertex input -- flame.vert
 /// builds each quad from its instance -- both faces, depth-tested and not
 /// written, and additive into colour and emission. The pass binds all three
-/// forward targets, so its formats match the opaque pass.
+/// forward targets, so its formats match the opaque pass. UTA-0321's coronas
+/// are drawn the same way, from instance-rate records: `input` says how.
 Result<VkPipeline> flamePipeline(const Making& making, VkPipelineLayout layout, const TargetFormats& formats,
-                                 VkShaderModule vertex, VkShaderModule fragment) {
+                                 VkShaderModule vertex, VkShaderModule fragment,
+                                 const VkPipelineVertexInputStateCreateInfo* input = nullptr) {
     const std::array stages = {stage(VK_SHADER_STAGE_VERTEX_BIT, vertex), stage(VK_SHADER_STAGE_FRAGMENT_BIT, fragment)};
 
     GraphicsStates states = sharedStates();
+    if (input != nullptr) states.vertexInput = *input;
     states.raster.frontFace = VK_FRONT_FACE_CLOCKWISE;
     states.depth.depthWriteEnable = VK_FALSE;
 
@@ -680,6 +685,26 @@ Result<void> Pipelines::createScenePipelines(const TargetFormats& formats, Tier 
     UTA_TRY(moteVertex.handle, shaderModule(device_, mote_vert_spv));
     UTA_TRY(moteFragment.handle, shaderModule(device_, mote_frag_spv));
     UTA_TRY(mote_, flamePipeline(making, sceneLayout_, formats, moteVertex.handle, moteFragment.handle));
+    // UTA-0321: the lights' coronas, from CoronaInstance records at instance rate.
+    const VkVertexInputBindingDescription coronaBinding{0, sizeof(gpu::CoronaInstance), VK_VERTEX_INPUT_RATE_INSTANCE};
+    const std::array coronaAttributes = {
+        VkVertexInputAttributeDescription{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(gpu::CoronaInstance, location)},
+        VkVertexInputAttributeDescription{1, 0, VK_FORMAT_R32_SFLOAT, offsetof(gpu::CoronaInstance, scale)},
+        VkVertexInputAttributeDescription{2, 0, VK_FORMAT_R32_UINT, offsetof(gpu::CoronaInstance, hue)},
+        VkVertexInputAttributeDescription{3, 0, VK_FORMAT_R32_UINT, offsetof(gpu::CoronaInstance, saturation)},
+        VkVertexInputAttributeDescription{4, 0, VK_FORMAT_R32_UINT, offsetof(gpu::CoronaInstance, brightness)},
+        VkVertexInputAttributeDescription{5, 0, VK_FORMAT_R32_SFLOAT, offsetof(gpu::CoronaInstance, strength)},
+    };
+    VkPipelineVertexInputStateCreateInfo coronaInput = sharedStates().vertexInput;
+    coronaInput.vertexBindingDescriptionCount = 1;
+    coronaInput.pVertexBindingDescriptions = &coronaBinding;
+    coronaInput.vertexAttributeDescriptionCount = static_cast<std::uint32_t>(coronaAttributes.size());
+    coronaInput.pVertexAttributeDescriptions = coronaAttributes.data();
+    Module coronaVertex{device_}, coronaFragment{device_};
+    UTA_TRY(coronaVertex.handle, shaderModule(device_, corona_vert_spv));
+    UTA_TRY(coronaFragment.handle, shaderModule(device_, corona_frag_spv));
+    UTA_TRY(corona_,
+            flamePipeline(making, sceneLayout_, formats, coronaVertex.handle, coronaFragment.handle, &coronaInput));
     // UTA-0293 SS 4.6: below High nothing draws grass, so nothing is made.
     if (enabled(Feature::Grass, tier)) {
         Module grassVertex{device_}, grassFragment{device_};
@@ -795,7 +820,7 @@ Pipelines::~Pipelines() {
         for (const auto& row : rows)
             for (VkPipeline pipeline : row)
                 if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(device_, pipeline, nullptr);
-    for (VkPipeline pipeline : {refract_[0], refract_[1], depth_[0], depth_[1], flame_, mote_, grass_, post_, upscaleInput_, easu_, rcas_, bloomDownsample_, bloomUpsample_})
+    for (VkPipeline pipeline : {refract_[0], refract_[1], depth_[0], depth_[1], flame_, mote_, corona_, grass_, post_, upscaleInput_, easu_, rcas_, bloomDownsample_, bloomUpsample_})
         if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(device_, pipeline, nullptr);
     if (bloomLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, bloomLayout_, nullptr);
     if (bloomSetLayout_ != VK_NULL_HANDLE) vkDestroyDescriptorSetLayout(device_, bloomSetLayout_, nullptr);
@@ -858,7 +883,7 @@ std::vector<std::pair<std::string, VkPipeline>> Pipelines::named() const {
     if (grass_ != VK_NULL_HANDLE) out.emplace_back("grass", grass_); // UTA-0293: High and up
     for (const auto& [name, pipeline] :
          std::initializer_list<std::pair<std::string_view, VkPipeline>>{
-             {"flame", flame_}, {"mote", mote_}, {"post", post_}, {"upscale input", upscaleInput_}, {"easu", easu_},
+             {"flame", flame_}, {"mote", mote_}, {"corona", corona_}, {"post", post_}, {"upscale input", upscaleInput_}, {"easu", easu_},
              {"rcas", rcas_}, {"bloom downsample", bloomDownsample_}, {"bloom upsample", bloomUpsample_},
              {"clusters", clusters_}, {"fog scatter", fogScatter_}, {"fog integrate", fogIntegrate_},
              {"haze shadow", hazeShadow_}, {"shadow", shadow_}, {"shape", shapeOpaque_},

@@ -250,6 +250,7 @@ add_executable(uta_device_tests
     device/DeviceFixture.cpp
     device/RenderColourTransferTest.cpp
     device/RenderFireReplayTest.cpp
+    device/RenderCoronasTest.cpp
     device/RenderFlamesTest.cpp
     device/RenderGrassTest.cpp
     device/RenderPropsTest.cpp

@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=509 -->
+<!-- ants-roadmap-id-high-water: UTA=510 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -20624,7 +20624,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Lanes: urender, ubake.
   Evidence: ~/.local/state/ut-ants/map-captures/MH-()mG-ValleyOfHellV13-20261006-110954, ~/.local/state/ut-ants/map-captures/MH-()mG-ValleyOfHellV13-20261006-111007
 
-- 📋 [UTA-0321] **urender: light coronas, the soft glow UT99 draws around lamps flagged bCorona.**
+- 🚧 [UTA-0321] **urender: light coronas, the soft glow UT99 draws around lamps flagged bCorona.**
   UTA-0014 section 9 records coronas and lens flares as deferred, not
   queued; this queues coronas. Seen on AS-Frigate (user capture, ut-compare
   at HEAD): the original draws a bright glow at a lamp low in the left of
@@ -20647,6 +20647,11 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   0.1. A distance series at x0.5 and x0.75 exists; past x1.0 the camera
   leaves the world, so a 2x frame needs another line. Unmeasured: x0.75
   looks about x1.0's size, x0.5 a faint glow.
+  Claimed 2026-11-24 by ut-ants-55, main checkout. Measured from
+  UT_MonsterHunt's work/uta0321 frames: the glow keeps one size on
+  screen at 747 and 560 units, falling to the background about 50 px
+  from the lamp at 1280x720. No bundle change: DrawScale and Skin are in
+  the placements already.
   **Layman:** Lamps get the soft halo the original game draws around them.
   Kind: feature.
   Source: user-request-2026-10-06.
@@ -22126,6 +22131,22 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: enhancement.
   Source: ut-monsterhunt-request-2026-11-24.
   Lanes: tools.
+
+- 📋 [UTA-0510] **urender and ubake: each corona drawn with its own glow picture, as the map names it.**
+  UTA-0321 draws every corona as one soft round glow, fitted to
+  AS-Frigate's Light40 (GenFX.LensFlar.3, DrawScale 0.1). Census of
+  UT_MonsterHunt's stored T3D files (2026-11-24): 44282 bCorona actors
+  in 681 of 1719 maps, over many Skin textures (LensFlar.3, .6, .1,
+  mars_tex.Flarel_6, softlens2, Dot_C, lens1, flare7 and more), 2932
+  with none set, and DrawScale mostly 0.05 to 0.5. Script:
+  Scratchpad/UT_Ants/u321/census.py. Needs the bake to carry each
+  corona's Skin as a texture, and a measured size per texture: whether
+  UT99 sizes a corona by its texture's pixels as well as DrawScale is
+  not known. Also unmeasured: the fade nearer than 373 units.
+  **Layman:** Lamp glows take the shapes the map's maker picked, such as rings and stars, not one soft round glow for every lamp.
+  Kind: feature.
+  Source: in-session-2026-11-24.
+  Lanes: urender, ubake.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 

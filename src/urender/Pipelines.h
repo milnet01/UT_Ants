@@ -75,6 +75,9 @@ public:
     [[nodiscard]] VkPipeline flame() const noexcept { return flame_; }
     /// UTA-0215: the specks in the water about the eye, drawn as the flames are.
     [[nodiscard]] VkPipeline mote() const noexcept { return mote_; }
+    /// UTA-0321: the lights' coronas, drawn as the flames are, from
+    /// CoronaInstance records at instance rate in vertex binding 0.
+    [[nodiscard]] VkPipeline corona() const noexcept { return corona_; }
     /// UTA-0293 SS 4.4: the blades of grass, instanced over GRASS. Made only
     /// at a tier that draws grass; VK_NULL_HANDLE below it.
     [[nodiscard]] VkPipeline grass() const noexcept { return grass_; }
@@ -156,6 +159,7 @@ private:
     std::array<VkPipeline, 2> depth_{};
     VkPipeline flame_ = VK_NULL_HANDLE;
     VkPipeline mote_ = VK_NULL_HANDLE;
+    VkPipeline corona_ = VK_NULL_HANDLE;
     VkPipeline grass_ = VK_NULL_HANDLE;
     VkPipelineLayout shapeLayout_ = VK_NULL_HANDLE;
     VkPipeline shapeOpaque_ = VK_NULL_HANDLE, shapeBlended_ = VK_NULL_HANDLE;

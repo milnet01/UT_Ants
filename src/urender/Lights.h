@@ -60,4 +60,14 @@ inline constexpr std::uint8_t LT_SUBTLE_PULSE = 7;
 /// directLights, as the shader reads them. Index for index the same lights.
 [[nodiscard]] std::vector<gpu::Light> drawnLights(const ubundle::Bundle& bundle, double seconds);
 
+/// UTA-0321: Actor.uc's DrawScale, for a corona light that neither sets nor
+/// inherits one in the bundle.
+inline constexpr float DEFAULT_DRAW_SCALE = 1.0f;
+
+/// UTA-0321: a corona for each LITE light flagged bCorona with brightness not
+/// 0, in LITE order -- an absorbed strip light's included, as the original
+/// draws one at every light of the row. Each carries its DrawScale and SS
+/// 4.9's flicker at `seconds`.
+[[nodiscard]] std::vector<gpu::CoronaInstance> coronaInstances(const ubundle::Bundle& bundle, double seconds);
+
 } // namespace uta::urender

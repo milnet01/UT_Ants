@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstddef>
 #include <optional>
+#include <variant>
 #include <numbers>
 
 namespace uta::urender {
@@ -172,6 +173,25 @@ std::vector<gpu::Light> drawnLights(const ubundle::Bundle& bundle, double second
         }
         record.levelBrightness = light.levelBrightness; // UTA-0156 SS 4.5
         out.push_back(record);
+    }
+    return out;
+}
+
+std::vector<gpu::CoronaInstance> coronaInstances(const ubundle::Bundle& bundle, double seconds) {
+    std::vector<gpu::CoronaInstance> out;
+    if (!bundle.lights) return out;
+    for (const ubundle::Light& light : *bundle.lights) {
+        if (!light.corona || light.brightness == 0) continue;
+        float scale = DEFAULT_DRAW_SCALE;
+        if (bundle.placements)
+            if (const ubundle::ActorPlacement* actor = ubundle::placementAt(*bundle.placements, light.exportIndex))
+                if (const ubundle::PropertyRecord* drawScale = ubundle::resolvedProperty(
+                        "drawscale", ubundle::ValueKind::Float, *actor, bundle.placements->classes[actor->classIndex]))
+                    scale = std::get<float>(drawScale->value);
+        // A crafted map's NaN or negative scale draws no corona rather than a broken one.
+        if (!std::isfinite(scale) || scale <= 0) continue;
+        out.push_back({light.location, scale, light.hue, light.saturation, light.brightness,
+                       flickerOf(light, seconds) * light.levelBrightness});
     }
     return out;
 }

@@ -147,6 +147,12 @@ TEST_CASE("UTA-0451: highlights start at High", "[render]") {
     CHECK(uta::urender::enabled(Feature::Specular, Tier::High));
 }
 
+TEST_CASE("UTA-0321: coronas draw at every tier", "[render]") {
+    using uta::urender::Feature;
+    CHECK(uta::urender::minimumTier(Feature::Coronas) == Tier::Low);
+    CHECK(uta::urender::enabled(Feature::Coronas, Tier::Low));
+}
+
 TEST_CASE("UTA-0215: water motes start at Medium", "[render]") {
     using uta::urender::Feature;
     CHECK(uta::urender::minimumTier(Feature::WaterMotes) == Tier::Medium);

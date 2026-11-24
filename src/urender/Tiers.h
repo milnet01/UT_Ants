@@ -53,6 +53,7 @@ enum class Feature : std::uint8_t {
     WaterRefraction,   ///< UTA-0273's see-through water: refraction, depth tint, shore fade
     Grass,             ///< UTA-0293's blades on grass floors
     Specular,          ///< UTA-0298's highlights on lit surfaces
+    Coronas,           ///< UTA-0321's glow about bCorona lights
 };
 
 /// The lowest tier that switches `feature` on: one case per enumerator, and no
@@ -101,6 +102,9 @@ enum class Feature : std::uint8_t {
     // a frame on DM-FoT-SimpleX and DM-ArchNemesis, within grass's 1 ms line
     // (UTA-0293 SS 13); before it, 1.6 to 1.7 ms.
     case Feature::Specular: return Tier::High;
+    // UTA-0321: a small quad a corona light, drawn as the flames are. Part of
+    // how the original looks, so every tier draws it.
+    case Feature::Coronas: return Tier::Low;
     }
     return Tier::Low; // unreachable
 }
