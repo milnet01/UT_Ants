@@ -115,6 +115,12 @@ say how much of the map it could not resolve instead of implying full
 coverage. UT_MonsterHunt asked for it after their GAME-0160 taught them the
 cost of a silently partial population.
 
+`--wiring-classes` (added by `UTA-0508`) takes classes separated by commas
+and implies `--wiring-graph`. `actors` then holds only actors whose `class`,
+or a class in their `classChain`, is named, compared case-insensitively.
+`chainsUnresolved` still counts every actor, so it can exceed what `actors`
+shows. An actor whose chain is cut short is matched on the links it has.
+
 ### 4.3 One element
 
 One element per emitted actor, in export-table order:
@@ -138,6 +144,8 @@ One element per emitted actor, in export-table order:
   "bInitiallyActive": false,
   "liftTag": "",
   "mover": null,
+  "warpZone": null,
+  "teleporter": null,
   "initialState": ""
 }
 ```
@@ -182,6 +190,14 @@ One element per emitted actor, in export-table order:
   and `keyPos` an object keyed by decimal index as a string, as `OutEvents`
   is, holding only the indices stored. An index stored nowhere is UT99's
   zero vector. A vector with a part that is not finite is `null`.
+- `warpZone` — added by `UTA-0509`: `null` unless `classChain` holds
+  `WarpZoneInfo`, compared case-insensitively. Otherwise `{thisTag,
+  otherSideURL}`, the actor's `ThisTag` and `OtherSideURL` after the same
+  merge, `""` when unset. A chain cut short reads `null`, which is unknown.
+- `teleporter` — added by `UTA-0509`: `null` unless `classChain` holds
+  `Teleporter`, compared case-insensitively. Otherwise `{bEnabled}`, after
+  the same merge, and `null` where neither the actor nor its class family
+  sets it, as `bInitiallyActive` is.
 - `initialState` — after the same merge, `""` when unset. Emitted because it
   is free from the merge; no consumer reads it today.
 

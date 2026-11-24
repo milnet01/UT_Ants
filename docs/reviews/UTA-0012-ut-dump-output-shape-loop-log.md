@@ -11,3 +11,4 @@ edited.
 |------|------|-------|----|----|----|----|---------|
 | amend-0481 | 2026-11-19 | none | - | - | - | - | Amendment, not a review: no reviewer dispatched. UTA-0481 adds `slot` to § 4.7a, § 4.7c and § 4.7e, and a § 4.10 consumer row. |
 | amend-0497 | 2026-11-22 | none | - | - | - | - | Amendment, not a review: no reviewer dispatched. UTA-0497 adds `--zone-at` and `--zone-at-file` to § 4.1, `zoneAt` as § 4.7f, and a § 4.10 consumer row. |
+| amend-0508 | 2026-11-24 | none | - | - | - | - | Amendment, not a review: no reviewer dispatched. UTA-0508 adds `--wiring-classes` to § 4.1; UTA-0509 adds a § 4.10 consumer row. |

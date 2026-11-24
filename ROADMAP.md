@@ -22081,7 +22081,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: in-session-2026-11-23 UTA-0465 recordings.
   Lanes: uworld.
 
-- 📋 [UTA-0508] **ut-dump: --wiring-classes limits the wiring graph to actors of named classes.**
+- 🚧 [UTA-0508] **ut-dump: --wiring-classes limits the wiring graph to actors of named classes.**
   UT_MonsterHunt asked, 2026-11-24, low priority. Measured there on 50
   maps with --nav-graph --ndjson: --wiring-graph took 2.6-4.4 s and
   wrote 42 MB, against 1.8-2.0 s and 20 MB without it; wiring.actors is
@@ -22097,7 +22097,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: ut-monsterhunt-request-2026-11-24.
   Lanes: tools.
 
-- 📋 [UTA-0509] **ut-dump: the wiring graph gives each warp zone its two link names, and each teleporter whether it is on.**
+- 🚧 [UTA-0509] **ut-dump: the wiring graph gives each warp zone its two link names, and each teleporter whether it is on.**
   UT_MonsterHunt asked, 2026-11-24, no rush, beside UTA-0508. For a Map
   Repair check on unlinked warp zones, which draw a hall-of-mirrors
   smear: --wiring-graph gives each WarpZoneInfo its ThisTag and

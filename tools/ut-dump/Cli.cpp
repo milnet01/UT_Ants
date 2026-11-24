@@ -702,6 +702,10 @@ struct WiringFields {
     std::optional<int> numKeys;
     std::optional<uta::upkg::Vector3> basePos;
     std::map<std::uint32_t, uta::upkg::Vector3> keyPos;
+    // UTA-0509: a WarpZoneInfo's link names, and a Teleporter's switch.
+    std::string thisTag;
+    std::string otherSideURL;
+    std::optional<bool> enabled;
 };
 
 /// A Name or String property's text, resolved against the package its indices
@@ -739,6 +743,10 @@ void takeWiringProperty(WiringFields& fields, const uta::upkg::Package& origin,
         if (const auto* set = std::get_if<bool>(&property.value)) fields.initiallyActive = *set;
         return;
     }
+    if (folded == "benabled") {
+        if (const auto* set = std::get_if<bool>(&property.value)) fields.enabled = *set;
+        return;
+    }
     if (folded == "triggertype") {
         if (const auto* set = std::get_if<std::uint8_t>(&property.value)) fields.triggerType = *set;
         return;
@@ -773,6 +781,8 @@ void takeWiringProperty(WiringFields& fields, const uta::upkg::Package& origin,
     else if (folded == "monsterendtag") fields.monsterEndTag = std::move(*text);
     else if (folded == "initialstate") fields.initialState = std::move(*text);
     else if (folded == "lifttag") fields.liftTag = std::move(*text);
+    else if (folded == "thistag") fields.thisTag = std::move(*text);
+    else if (folded == "othersideurl") fields.otherSideURL = std::move(*text);
 }
 
 /// The event fields a class family defaults. Defaults first, then an actor's
@@ -802,12 +812,22 @@ struct ClassWiring {
     WiringFields defaults;
 };
 
+/// Whether `chain` holds a class named `folded`, compared case-insensitively.
+bool chainHolds(const std::vector<std::string>& chain, std::string_view folded) {
+    return std::any_of(chain.begin(), chain.end(),
+                       [folded](const std::string& link) { return asciiFolded(link) == folded; });
+}
+
 /// `wiring.actors` -- every actor, with its class chain and its event fields.
 /// Returns the number whose ancestry walk did not reach a root, which the
-/// caller reports as `chainsUnresolved` (SS 4.2).
+/// caller reports as `chainsUnresolved` (SS 4.2). With `only` (UTA-0508), an
+/// actor is emitted only when its class or a class in its chain is named
+/// there, folded; the count still covers every actor, as INV-8 of
+/// docs/specs/UTA-0012-ut-dump-output-shape.md requires.
 long long writeActorWiring(std::ostream& out, const uta::upkg::Package& map,
                            std::string_view mapName, const uta::upkg::Level& level,
-                           const uta::upkg::PackageResolver& resolver) {
+                           const uta::upkg::PackageResolver& resolver,
+                           const std::optional<std::set<std::string>>& only) {
     out << ", \"actors\": [";
     long long unresolved = 0;
     bool firstActor = true;
@@ -854,8 +874,12 @@ long long writeActorWiring(std::ostream& out, const uta::upkg::Package& map,
         if (classWiring == nullptr) classWiring = &EMPTY_CLASS;
         const std::vector<std::string>& chain = classWiring->chain;
         const std::string& chainEnd = classWiring->end;
-        WiringFields fields = classWiring->defaults;
         if (chainEnd != "root") ++unresolved;
+        if (only.has_value() && !only->contains(asciiFolded(className))
+            && std::none_of(chain.begin(), chain.end(),
+                            [&only](const std::string& link) { return only->contains(asciiFolded(link)); }))
+            continue;
+        WiringFields fields = classWiring->defaults;
 
         if (const auto properties = uta::upkg::readProperties(map, entry); properties.has_value()) {
             for (const uta::upkg::Property& property : *properties) {
@@ -910,9 +934,7 @@ long long writeActorWiring(std::ostream& out, const uta::upkg::Package& map,
         // UTA-0336: a mover is a class family reaching Mover, or anything
         // carrying KeyPos or BasePos -- a mapper's subclass need not be named
         // for it, and a chain cut short (SS 4.4) cannot say.
-        const bool mover = std::any_of(chain.begin(), chain.end(),
-                                       [](const std::string& link) { return asciiFolded(link) == "mover"; })
-                           || fields.basePos.has_value() || !fields.keyPos.empty();
+        const bool mover = chainHolds(chain, "mover") || fields.basePos.has_value() || !fields.keyPos.empty();
         out << ", \"mover\": ";
         if (mover) {
             out << "{\"numKeys\": ";
@@ -930,6 +952,26 @@ long long writeActorWiring(std::ostream& out, const uta::upkg::Package& map,
                 writeLocation(out, at);
             }
             out << "}}";
+        } else {
+            out << "null";
+        }
+        // UTA-0509: by the chain alone, as a chain cut short cannot say.
+        out << ", \"warpZone\": ";
+        if (chainHolds(chain, "warpzoneinfo")) {
+            out << "{\"thisTag\": ";
+            writeJsonString(out, fields.thisTag);
+            out << ", \"otherSideURL\": ";
+            writeJsonString(out, fields.otherSideURL);
+            out << "}";
+        } else {
+            out << "null";
+        }
+        out << ", \"teleporter\": ";
+        if (chainHolds(chain, "teleporter")) {
+            out << "{\"bEnabled\": ";
+            if (fields.enabled.has_value()) out << (*fields.enabled ? "true" : "false");
+            else out << "null";
+            out << "}";
         } else {
             out << "null";
         }
@@ -1563,6 +1605,8 @@ void writeZoneAt(std::ostream& out, const uta::upkg::Package& map, std::string_v
 struct Sections {
     bool navGraph = false;
     bool wiringGraph = false;
+    /// UTA-0508: the classes `wiring.actors` is limited to, folded; absent for all.
+    std::optional<std::set<std::string>> wiringClasses;
     bool surfaceList = false;
     bool lighting = false;
     bool brushes = false;
@@ -1740,7 +1784,8 @@ void dumpPackage(std::ostream& out, const fs::path& path, const uta::upkg::Packa
             // scanning the head of the object. UTA-0172.
             std::ostringstream actors;
             const long long unresolvedChains =
-                writeActorWiring(actors, *package, uta::fs::utf8(path.stem()), *level, resolver);
+                writeActorWiring(actors, *package, uta::fs::utf8(path.stem()), *level, resolver,
+                                 sections.wiringClasses);
             out << ", \"chainsUnresolved\": " << unresolvedChains << actors.str();
         }
         out << "}";
@@ -1780,8 +1825,9 @@ std::string oneLine(std::string_view json) {
 int usage(std::ostream& err) {
     err <<
         "usage: ut-dump (--install <UT dir> | --system <UT System dir>)\n"
-        "                [--nav-graph] [--wiring-graph] [--surface-list] [--lighting]\n"
-        "                [--brushes] [--zone-at <points>] [--zone-at-file <file>]\n"
+        "                [--nav-graph] [--wiring-graph] [--wiring-classes <classes>]\n"
+        "                [--surface-list] [--lighting] [--brushes]\n"
+        "                [--zone-at <points>] [--zone-at-file <file>]\n"
         "                [--ndjson]\n"
         "                <package|directory>...\n"
         "\n"
@@ -1804,6 +1850,10 @@ int usage(std::ostream& err) {
         "answers whether anything in the map can switch a given actor on.\n"
         "The array is roughly the map's actor count, which is why it is\n"
         "opt-in.\n"
+        "\n"
+        "--wiring-classes Mover,Teleporter limits `actors` to actors whose\n"
+        "class, or any class it descends from, is named, in any case. It\n"
+        "implies --wiring-graph; `chainsUnresolved` still counts every actor.\n"
         "\n"
         "--surface-list adds every BSP surface to each map's `surfaces` object,\n"
         "as `list`, in index order: its texture, built polyFlags, brush actor\n"
@@ -1877,6 +1927,24 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
             sections.navGraph = true;
         } else if (arg == "--wiring-graph") {
             sections.wiringGraph = true;
+        } else if (arg == "--wiring-classes") {
+            const std::optional<std::string_view> list = values.take(i);
+            if (!list) return usage(err);
+            std::set<std::string> classes;
+            for (std::string_view rest = *list; !rest.empty();) {
+                const std::size_t comma = rest.find(',');
+                std::string_view one = rest.substr(0, comma);
+                rest = comma == std::string_view::npos ? std::string_view{} : rest.substr(comma + 1);
+                while (!one.empty() && one.front() == ' ') one.remove_prefix(1);
+                while (!one.empty() && one.back() == ' ') one.remove_suffix(1);
+                if (!one.empty()) classes.insert(asciiFolded(one));
+            }
+            if (classes.empty()) {
+                err << "ut-dump: --wiring-classes names no class\n";
+                return usage(err);
+            }
+            sections.wiringGraph = true;
+            sections.wiringClasses = std::move(classes);
         } else if (arg == "--surface-list") {
             sections.surfaceList = true;
         } else if (arg == "--lighting") {

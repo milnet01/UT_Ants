@@ -1554,6 +1554,115 @@ TEST_CASE("UTA-0336: wiring.actors carries each lift's LiftTag and each mover's 
     CHECK(actorNamed(actors, "PathNode4").find("\"liftTag\": \"\", \"mover\": null") != std::string::npos);
 }
 
+TEST_CASE("UTA-0509: wiring.actors gives each warp zone its link names and each teleporter its switch", "[dump]") {
+    // UT_MonsterHunt's Map Repair check: a warp zone with nothing on the
+    // other side draws a hall of mirrors; GAME-0120 read every teleporter as on.
+    const TempDir dir;
+    MapBuilder map;
+    const std::int32_t warp = map.addClass("WarpZoneInfo", 0, {strProperty("OtherSideURL", "Far")});
+    const std::int32_t mapperWarp = map.addClass("MyWarp", warp);
+    const std::int32_t teleporter = map.addClass("Teleporter", 0, {boolProperty("bEnabled", true)});
+    const std::int32_t bare = map.addClass("BareTeleporter");
+    map.addActor("MyWarp0", mapperWarp, {nameProperty("ThisTag", "Near")})
+        .addActor("WarpZoneInfo1", warp)
+        .addActor("Teleporter0", teleporter, {boolProperty("bEnabled", false)})
+        .addActor("Teleporter1", teleporter)
+        .addActor("BareTeleporter0", bare)
+        .addActorOfClass("Engine", "PathNode");
+    const fs::path mapPath = writeMap(dir, map);
+    const Run result = run({"--system", (dir.path() / "System").string(), "--wiring-graph", mapPath.string()});
+    INFO(result.out);
+    REQUIRE(result.code == 0);
+    const std::string actors = actorsArray(result.out);
+    REQUIRE(!actors.empty());
+    // A mapper's subclass is a warp zone by its chain; OtherSideURL through the defaults.
+    CHECK(actorNamed(actors, "MyWarp0")
+              .find("\"warpZone\": {\"thisTag\": \"Near\", \"otherSideURL\": \"Far\"}, \"teleporter\": null")
+          != std::string::npos);
+    CHECK(actorNamed(actors, "WarpZoneInfo1").find("\"warpZone\": {\"thisTag\": \"\", \"otherSideURL\": \"Far\"}")
+          != std::string::npos);
+    CHECK(actorNamed(actors, "Teleporter0")
+              .find("\"warpZone\": null, \"teleporter\": {\"bEnabled\": false}")
+          != std::string::npos);
+    CHECK(actorNamed(actors, "Teleporter1").find("\"teleporter\": {\"bEnabled\": true}") != std::string::npos);
+    // No Teleporter in its chain: not a teleporter, whatever it is called.
+    CHECK(actorNamed(actors, "BareTeleporter0").find("\"teleporter\": null") != std::string::npos);
+    CHECK(actorNamed(actors, "PathNode5").find("\"warpZone\": null, \"teleporter\": null") != std::string::npos);
+}
+
+TEST_CASE("UTA-0509: a teleporter whose family sets no bEnabled reads null, not false", "[dump]") {
+    const TempDir dir;
+    MapBuilder map;
+    const std::int32_t teleporter = map.addClass("Teleporter");
+    map.addActor("Teleporter0", teleporter);
+    const fs::path mapPath = writeMap(dir, map);
+    const Run result = run({"--system", (dir.path() / "System").string(), "--wiring-graph", mapPath.string()});
+    INFO(result.out);
+    REQUIRE(result.code == 0);
+    CHECK(actorNamed(actorsArray(result.out), "Teleporter0").find("\"teleporter\": {\"bEnabled\": null}")
+          != std::string::npos);
+}
+
+TEST_CASE("UTA-0508: --wiring-classes keeps only actors of the named classes, by any link of the chain",
+          "[dump]") {
+    // UT_MonsterHunt's mapcheck reads wiring only for these, and the whole
+    // graph doubled its run's bytes.
+    const TempDir dir;
+    MapBuilder map;
+    const std::int32_t mover = map.addClass("Mover");
+    const std::int32_t elevator = map.addClass("ElevatorMover", mover);
+    const std::int32_t teleporter = map.addClass("Teleporter");
+    const std::int32_t center = map.addClass("LiftCenter");
+    const std::int32_t ghost = map.importClass("NoSuchPackage", "Ghost"); // no chain to walk
+    map.addActor("ElevatorMover0", elevator)
+        .addActor("Teleporter0", teleporter)
+        .addActor("LiftCenter0", center)
+        .addActorOfClass("Engine", "PathNode")
+        .addActor("Ghost0", ghost);
+    const fs::path mapPath = writeMap(dir, map);
+    const std::string system = (dir.path() / "System").string();
+
+    const Run all = run({"--system", system, "--wiring-graph", mapPath.string()});
+    REQUIRE(all.code == 0);
+    const std::size_t chains = all.out.find("\"chainsUnresolved\": ");
+    REQUIRE(chains != std::string::npos);
+    const std::string chainsField = all.out.substr(chains, all.out.find(',', chains) - chains);
+
+    // Implies --wiring-graph; names match in any case, spaces around commas ignored.
+    const Run only = run({"--system", system, "--wiring-classes", "mover, TELEPORTER", mapPath.string()});
+    INFO(only.out);
+    REQUIRE(only.code == 0);
+    const std::string actors = actorsArray(only.out);
+    REQUIRE(!actors.empty());
+    CHECK(actors.find("\"name\": \"ElevatorMover0\"") != std::string::npos);
+    CHECK(actors.find("\"name\": \"Teleporter0\"") != std::string::npos);
+    CHECK(actors.find("\"name\": \"LiftCenter0\"") == std::string::npos);
+    CHECK(actors.find("\"name\": \"PathNode3\"") == std::string::npos);
+    // The count still covers every actor (UTA-0012 INV-8).
+    CHECK(only.out.find(chainsField) != std::string::npos);
+
+    // An actor whose chain cannot be walked is matched on its own class.
+    const Run leaf = run({"--system", system, "--wiring-classes", "LiftCenter,ghost", mapPath.string()});
+    REQUIRE(leaf.code == 0);
+    const std::string leafActors = actorsArray(leaf.out);
+    CHECK(leafActors.find("\"name\": \"LiftCenter0\"") != std::string::npos);
+    CHECK(leafActors.find("\"name\": \"Ghost0\"") != std::string::npos);
+    CHECK(leafActors.find("\"name\": \"Teleporter0\"") == std::string::npos);
+}
+
+TEST_CASE("UTA-0508: --wiring-classes naming no class is a usage error with nothing on stdout", "[dump]") {
+    const TempDir dir;
+    MapBuilder map;
+    map.addActorOfClass("Engine", "PathNode");
+    const fs::path mapPath = writeMap(dir, map);
+    for (const char* list : {"", " , ,"}) {
+        const Run result = run({"--system", (dir.path() / "System").string(), "--wiring-classes", list,
+                                mapPath.string()});
+        CHECK(result.code == 2);
+        CHECK(result.out.empty());
+    }
+}
+
 TEST_CASE("UTA-0361: --brushes gives each brush its own polygons and transform, and each blocker its collision",
           "[dump]") {
     // GAME-0032: UT_MonsterHunt's wall, lift and blocker tools read these from

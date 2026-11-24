@@ -92,7 +92,7 @@ are put to the consumer in this draft.
 ### 4.1 Invocation
 
 ```
-ut-dump (--install <root> | --system <dir>) [--nav-graph] [--wiring-graph] [--surface-list] [--lighting] [--brushes] [--zone-at <points>] [--zone-at-file <file>] [--ndjson] <package|directory>...
+ut-dump (--install <root> | --system <dir>) [--nav-graph] [--wiring-graph] [--wiring-classes <classes>] [--surface-list] [--lighting] [--brushes] [--zone-at <points>] [--zone-at-file <file>] [--ndjson] <package|directory>...
 ```
 
 - `--install` names the install's root. Added by `UTA-0206`. It is searched
@@ -111,6 +111,9 @@ ut-dump (--install <root> | --system <dir>) [--nav-graph] [--wiring-graph] [--su
 - `--nav-graph` adds `nav.nodeList` and `nav.edgeList` (§ 4.6).
 - `--wiring-graph` adds `wiring.chainsUnresolved` and `wiring.actors`
   (UTA-0172).
+- `--wiring-classes` limits `wiring.actors` to the classes it names, and
+  implies `--wiring-graph` (UTA-0172 § 4.2, UTA-0508). A list naming no
+  class is a usage error.
 - `--surface-list` adds `surfaces.list` (§ 4.5, UTA-0213).
 - `--lighting` adds `lighting` (§ 4.7d, UTA-0360).
 - `--brushes` adds `brushes` (§ 4.7e, UTA-0361).
@@ -479,6 +482,7 @@ them on 2026-09-25, checked by them against § 4 and UTA-0172 § 4.3 to § 4.4.
 | GAME-0284, the swim chains | `zoneAt`'s `point`, `where`, `zone`, `waterZone` and `painZone` | It lays swimming paths where ut-paths' walk stops at water (UTA-0497) |
 | GAME-0063, the route check | `exits`' `collisionRadius` and `collisionHeight` | A reached node inside the exit's cylinder counts as a route (UTA-0483) |
 | GAME-0210 | `wiring.actors`' `liftTag`, and `mover`'s `numKeys`, `basePos` and `keyPos` | It needs each lift's tag and its mover's keyframes (UTA-0336) |
+| Map Repair's warp zone check; GAME-0120 | `wiring.actors`' `warpZone` and `teleporter` | It finds warp zones with nothing on the other side, and teleporters switched off (UTA-0509) |
 | `analysis/mapcheck` checks | `nodeList`'s `name`, `class`; `edgeList`'s `from`, `to`, `reachFlags`, `collisionRadius`, `collisionHeight` (the route check); `classCounts` (paths, starts); `importedPackages` (load) | Per-map checks |
 | `analysis/pathtriage.py` | `nav.nodes`, `nav.edges`, `nav.nodesWithNoExit`; `classCounts`; `wiring.dangling` | Path triage |
 | `analysis/pathverify.py` | `classCounts`; `level.actors`; `nav.nodes`, `nav.edges`, `nav.nodesWithNoExit` | Path verification |
