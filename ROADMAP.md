@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=506 -->
+<!-- ants-roadmap-id-high-water: UTA=508 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -22031,7 +22031,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: in-session-2026-11-23 UTA-0501.
   Lanes: ugame.
 
-- 🚧 [UTA-0506] **Find why a Redeemer wave's push on a body at a wall differs from the original's.**
+- 📋 [UTA-0506] **Find why a Redeemer wave's push on a body at a wall differs from the original's.**
   Found replaying UTA-0465's rd- runs (Scratchpad weapons/r465b, 2026-11-23).
   A Redeemer wave throws the player into the wall at y about 1006 on
   DM-Deck16][. The original logs a falling player pressed against it
@@ -22055,10 +22055,47 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   tick 46, 64, and rd-steer-fast-left 120, 19. The allowance stays.
   Next: read how the replay places a body whose D line already holds
   the push, then the wall sweep after it. Probe logs in u506/.
+  Measured 2026-11-24, later: the cause is the replay, not uworld. It
+  lowers every body by the original's walking hover (4.67). A body
+  falling nearer the floor than that lands inside our floor, and a body
+  that starts inside cannot move. rd-steer-fast-left 30's firer, placed
+  from rows 44 to 46, never moved; the original's ran into the wall in
+  tick 46 and lost its speed, so the wave pushed a different velocity.
+  Tried, each over every r465all run (u506/ab*.log):
+  - stop a body's lowering at our floor: the firer moves, and the worst
+    push without the wall allowance goes 204 to 138; chainsaw-primary at
+    30, 85 and 120 then fail by 60 (floorstop.diff).
+  - only for a body placed from its row: chainsaw-primary 30 and 120
+    still fail by 60, as their target is placed from its row too.
+  - lower only walking bodies: rockets, grenades and flak fail by up to
+    338.
+  So other runs' matches lean on falling bodies being lowered, and on the
+  freeze inside the floor: chainsaw-primary's falling target matches
+  because it cannot move. The allowance stays, and the test is unchanged.
+  Next: model where the original's falling body sits against our floor,
+  with a replay that places a body as its frame left it, and re-run the
+  three rd- runs and chainsaw-primary. Parked behind the rest of 0.2.0
+  unless the user says otherwise.
   **Layman:** A Redeemer blast against a wall still throws the player slightly differently from the original game; find out why before changing anything.
   Kind: investigate.
   Source: in-session-2026-11-23 UTA-0465 recordings.
   Lanes: uworld.
+
+- 📋 [UTA-0508] **ut-dump: --wiring-classes limits the wiring graph to actors of named classes.**
+  UT_MonsterHunt asked, 2026-11-24, low priority. Measured there on 50
+  maps with --nav-graph --ndjson: --wiring-graph took 2.6-4.4 s and
+  wrote 42 MB, against 1.8-2.0 s and 20 MB without it; wiring.actors is
+  56% of the bytes and `events` alone 21%. mapcheck reads wiring only
+  for movers, LiftCenter, LiftExit and Teleporter.
+  Ask: --wiring-classes Mover,LiftCenter,LiftExit,Teleporter, a
+  case-insensitive match on any class in an actor's class chain. With no
+  flag, --wiring-graph stays as it is: exitsurvey, near and gaps read
+  the whole graph. Rebuild build/ ut-dump after shipping: UT_MonsterHunt
+  runs ours.
+  **Layman:** A map-checking tool can ask for only the parts of a map's wiring it reads, so it runs faster and writes less.
+  Kind: enhancement.
+  Source: ut-monsterhunt-request-2026-11-24.
+  Lanes: tools.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
@@ -23753,6 +23790,25 @@ to.
   Kind: enhancement.
   Source: in-session-2026-11-21.
   Lanes: tools.
+
+- 📋 [UTA-0507] **Every UT_MonsterHunt server adjustment is a setting here too, on or off.**
+  The user, 2026-11-24: get every adjustment UT_MonsterHunt has made,
+  so these options can be toggled in this game as well. Its list, with
+  each switch and default, is
+  docs/research-2026-11-24-monsterhunt-adjustments.md.
+  Each toggle is built with the system it switches, and its default
+  matches UT_MonsterHunt's. Already here: landing damage off (UTA-0108).
+  Filed: spawn protection (UTA-0093), Monster Hunt rules, mutators and
+  super-gun sets (UTA-0029). The rest wait on monsters and bots (0.3.0),
+  Monster Hunt (0.4.0) and the HUD. Load-time map repairs and the
+  offline map tools are not toggles here: our bake fixes maps once.
+  Whoever builds one of these systems ticks its rows off in this body.
+  Barbie's World's rules are a third-party game type's, not
+  UT_MonsterHunt's code; they are listed for what a player sees.
+  **Layman:** Each change UT_MonsterHunt made to the live server, such as tougher monsters, the exit gate or super guns, can be switched on or off in this game as well.
+  Kind: feature.
+  Source: user-request-2026-11-24.
+  Lanes: ugame.
 
 ## 0.5.0 — Map editor
 
