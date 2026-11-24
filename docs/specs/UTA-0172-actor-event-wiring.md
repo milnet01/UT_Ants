@@ -119,7 +119,8 @@ cost of a silently partial population.
 and implies `--wiring-graph`. `actors` then holds only actors whose `class`,
 or a class in their `classChain`, is named, compared case-insensitively.
 `chainsUnresolved` still counts every actor, so it can exceed what `actors`
-shows. An actor whose chain is cut short is matched on the links it has.
+shows. An actor whose chain is cut short is always kept: its links cannot
+rule a named class out, and its fields may still make it a mover.
 
 ### 4.3 One element
 

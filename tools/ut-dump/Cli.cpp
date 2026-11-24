@@ -875,7 +875,9 @@ long long writeActorWiring(std::ostream& out, const uta::upkg::Package& map,
         const std::vector<std::string>& chain = classWiring->chain;
         const std::string& chainEnd = classWiring->end;
         if (chainEnd != "root") ++unresolved;
-        if (only.has_value() && !only->contains(asciiFolded(className))
+        // A chain cut short cannot say the actor is none of the named
+        // classes, and its fields may still make it a mover, so it is kept.
+        if (only.has_value() && chainEnd == "root" && !only->contains(asciiFolded(className))
             && std::none_of(chain.begin(), chain.end(),
                             [&only](const std::string& link) { return only->contains(asciiFolded(link)); }))
             continue;
@@ -1852,7 +1854,8 @@ int usage(std::ostream& err) {
         "opt-in.\n"
         "\n"
         "--wiring-classes Mover,Teleporter limits `actors` to actors whose\n"
-        "class, or any class it descends from, is named, in any case. It\n"
+        "class, or any class it descends from, is named, in any case, and\n"
+        "every actor whose chain is cut short, which it cannot rule out. It\n"
         "implies --wiring-graph; `chainsUnresolved` still counts every actor.\n"
         "\n"
         "--surface-list adds every BSP surface to each map's `surfaces` object,\n"

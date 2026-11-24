@@ -1638,6 +1638,9 @@ TEST_CASE("UTA-0508: --wiring-classes keeps only actors of the named classes, by
     CHECK(actors.find("\"name\": \"Teleporter0\"") != std::string::npos);
     CHECK(actors.find("\"name\": \"LiftCenter0\"") == std::string::npos);
     CHECK(actors.find("\"name\": \"PathNode3\"") == std::string::npos);
+    // A chain cut short cannot say the actor is none of them, and its fields
+    // may still make it a mover, so it is kept whatever is named.
+    CHECK(actors.find("\"name\": \"Ghost0\"") != std::string::npos);
     // The count still covers every actor (UTA-0012 INV-8).
     CHECK(only.out.find(chainsField) != std::string::npos);
 

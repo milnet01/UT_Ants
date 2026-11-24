@@ -111,8 +111,9 @@ ut-dump (--install <root> | --system <dir>) [--nav-graph] [--wiring-graph] [--wi
 - `--nav-graph` adds `nav.nodeList` and `nav.edgeList` (§ 4.6).
 - `--wiring-graph` adds `wiring.chainsUnresolved` and `wiring.actors`
   (UTA-0172).
-- `--wiring-classes` limits `wiring.actors` to the classes it names, and
-  implies `--wiring-graph` (UTA-0172 § 4.2, UTA-0508). A list naming no
+- `--wiring-classes` limits `wiring.actors` to the classes it names, keeping
+  every actor whose chain is cut short, and implies `--wiring-graph`
+  (UTA-0172 § 4.2, UTA-0508). A list naming no
   class is a usage error.
 - `--surface-list` adds `surfaces.list` (§ 4.5, UTA-0213).
 - `--lighting` adds `lighting` (§ 4.7d, UTA-0360).

@@ -21,3 +21,4 @@ line and in § 7, and neither is a review loop.
 | Loop | Date | Lanes | Q1 | Q2 | Q3 | Q4 | Outcome |
 |------|------|-------|----|----|----|----|---------|
 | amend-0508 | 2026-11-24 | none | - | - | - | - | Amendment, not a review: no reviewer dispatched. UTA-0508 adds `--wiring-classes` to § 4.2; UTA-0509 adds `warpZone` and `teleporter` to § 4.3. |
+| amend-0508b | 2026-11-24 | none | - | - | - | - | Amendment, not a review: no reviewer dispatched. UTA-0508: § 4.2's `--wiring-classes` keeps every actor whose chain is cut short (UT_MonsterHunt, from RetroDB's review). |
