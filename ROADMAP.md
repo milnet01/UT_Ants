@@ -22081,7 +22081,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: in-session-2026-11-23 UTA-0465 recordings.
   Lanes: uworld.
 
-- 🚧 [UTA-0508] **ut-dump: --wiring-classes limits the wiring graph to actors of named classes.**
+- ✅ [UTA-0508] **ut-dump: --wiring-classes limits the wiring graph to actors of named classes.**
   UT_MonsterHunt asked, 2026-11-24, low priority. Measured there on 50
   maps with --nav-graph --ndjson: --wiring-graph took 2.6-4.4 s and
   wrote 42 MB, against 1.8-2.0 s and 20 MB without it; wiring.actors is
@@ -22092,12 +22092,16 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   flag, --wiring-graph stays as it is: exitsurvey, near and gaps read
   the whole graph. Rebuild build/ ut-dump after shipping: UT_MonsterHunt
   runs ours.
+  Shipped 2026-11-24 at 5c46317, green on GitHub's matrix.
+  --wiring-classes implies --wiring-graph; chainsUnresolved still counts
+  every actor. MH-DrBrain11v0 with WarpZoneInfo,Teleporter: 522 KB to 12
+  KB.
   **Layman:** A map-checking tool can ask for only the parts of a map's wiring it reads, so it runs faster and writes less.
   Kind: enhancement.
   Source: ut-monsterhunt-request-2026-11-24.
   Lanes: tools.
 
-- 🚧 [UTA-0509] **ut-dump: the wiring graph gives each warp zone its two link names, and each teleporter whether it is on.**
+- ✅ [UTA-0509] **ut-dump: the wiring graph gives each warp zone its two link names, and each teleporter whether it is on.**
   UT_MonsterHunt asked, 2026-11-24, no rush, beside UTA-0508. For a Map
   Repair check on unlinked warp zones, which draw a hall-of-mirrors
   smear: --wiring-graph gives each WarpZoneInfo its ThisTag and
@@ -22110,6 +22114,10 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   MH-Incursion+ with 9, and MH-SkyBlueFound_2 with one no zone uses.
   Ship with UTA-0508 if both are open; message UT_MonsterHunt when it
   lands, and rebuild build/ ut-dump.
+  Shipped 2026-11-24 at 5c46317, green on GitHub's matrix.
+  wiring.actors' warpZone {thisTag, otherSideURL} and teleporter
+  {bEnabled}, each null unless the chain holds that class. 40 MH maps:
+  256 teleporters on, 70 off, none null.
   **Layman:** A map-checking tool can see which see-through portals in a map are joined to each other, so it can find the ones with nothing on the other side.
   Kind: enhancement.
   Source: ut-monsterhunt-request-2026-11-24.
