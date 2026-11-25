@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=511 -->
+<!-- ants-roadmap-id-high-water: UTA=512 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -19111,6 +19111,18 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   identity; this item adds decoding the file and the recipe field, and
   the replacement's bytes must reach the bundle's name through the
   recipe (design.md, Content addressing).
+  DOOM_Ants' lessons for replacement images (its session, 2026-11-25;
+  its DOOM-0632 spec § 4.3-4.4):
+  - Refuse a source over a maximum edge; shrink to the cap with the
+    same function the plain path uses.
+  - Full mip chain with a 2x2 box filter; colour maps filtered in
+    linear light. Record sRGB per entry; the reader refuses a mismatch.
+  - If the PNG's size or mtime differs from what the bake recorded,
+    the PNG wins, logged once.
+  - A per-picture override list sends one picture to an uncompressed
+    format if BC damages it; put it in from day one.
+  - Judge quality on level 0 only; a non-linear reference shrink makes
+    the smaller levels look worse than they are.
   **Layman:** A better picture for a texture, supplied on your own machine as a PNG file, is used in place of the original when a map is imported.
   Kind: feature.
   Source: user-request-2026-09-10.
@@ -21768,6 +21780,10 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Split from UTA-0467 on 2026-11-20 (user), so its sounds could close.
   UTA-0019 ships stand-in shapes (docs/specs/UTA-0019-weapon-set.md § 9).
   Needs animated meshes first, which no item builds yet.
+  The user added the 3d-assets MCP server 2026-11-25. It searches and
+  downloads free 3D models, rigged human meshes and motion captures
+  from many sources, to tweak in Blender if needed. Check each asset's
+  licence; prefer CC0.
   **Layman:** Real guns on screen and a flash when they fire, in place of the simple stand-in shapes.
   Kind: implement.
   Source: user-request-2026-11-11.
@@ -22177,6 +22193,30 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: feature.
   Source: in-session-2026-11-24.
   Lanes: urender, ubake.
+
+- 📋 [UTA-0512] **LZ4 over each texture mip level in the bundle, as DOOM_Ants' DOOM-0632 does.**
+  The user, 2026-11-25: every saving counts, however small; the
+  technical call is the session's. DOOM_Ants' design, from its session
+  the same day (its docs/specs/DOOM-0632-packed-hd-art.md § 4.5,
+  linuxdoom-1.10/hdpack.cpp, rb_hdpack.h):
+  - A codec byte per mip level: 0 stored, 1 LZ4 block. Kept compressed
+    only if it saves at least 5%.
+  - Bake with LZ4-HC; load with plain LZ4. Vendored lz4 v1.11.1:
+    lz4.c into game and baker, lz4hc.c into the baker only. The BSD
+    notice ships in every download.
+  - Decompress into ordinary memory, then copy to staging. Never
+    straight into mapped staging: it is write-combined and LZ4 reads
+    back what it writes.
+  - Their figures (2026-11-19, shared machine): BC pack 237.8 MiB ->
+    131.6 MiB; cold-disk load 1.4-1.7 s -> 1.0-1.2 s; cached load
+    0.10 s -> 0.14 s. The gain is all on cold disk.
+  Measure ours before and after, per block format, cold and cached,
+  arms interleaved in one cc-job. A bundle format bump re-bakes every
+  map.
+  **Layman:** Map files get smaller and load faster from disk, by packing the textures more tightly.
+  Kind: perf.
+  Source: user-request-2026-11-25.
+  Lanes: ubundle, umat.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
