@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=518 -->
+<!-- ants-roadmap-id-high-water: UTA=519 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -24099,6 +24099,42 @@ to.
   Kind: investigate.
   Source: in-session-2026-11-25.
   Lanes: tools.
+
+- 📋 [UTA-0519] **ut-dump names the movers UnrealEd 469e calls "broken collision bounds", for Map Repair's movers check.**
+  UT_MonsterHunt, 2026-11-25: UnrealEd 469e, saving MH-UM-Minas_Tirith
+  after LIGHT APPLY (and on load+save of the unchanged original), warns
+  "This map has 2 movers with broken collision bounds: Mover0, Mover1.
+  You should rebuild these movers, as they may cause invisible walls,
+  BSP glitches, projectiles stopping mid-air, lack of collision with
+  actors, severe lag". AncientCastle(v2), BGXRAoulhuntmaze2 and
+  NaliBoat_LUCKY raised no such box. Ask: a per-mover flag or name list
+  in ut-dump's output matching 469e's test.
+  469e's test is not known: the editor is closed source and Windows
+  only, and no file in the Linux install's System/ holds the warning
+  text (checked 2026-11-25). Infer it from the mover's brush Model
+  (stored BoundingBox and BoundingSphere against its points, node and
+  surface counts), with Minas_Tirith's Mover0 and Mover1 as the known
+  positives and the three maps above as negatives. Say what the flag
+  compares, and that it is inferred.
+  2026-11-25, first probe (throwaway, upkg::readModel on each mover's
+  Brush). Minas_Tirith's Mover0 and Mover1 are the only movers there
+  whose raw Points table spans past the stored BoundingBox (x +-128
+  against +-112). Their source polygons (ut-dump --brushes), stored box,
+  and the points their BSP faces use all agree at +-112. Their per-node
+  collision boxes (Model.bounds) still reach +-128.
+  Neither rule is settled:
+  - "raw points outside the box" also hits AncientCastle(v2) Mover0
+    and NaliBoat_LUCKY AttachMover1, Mover13 and Mover57 in Maps/. The
+    editor judged UT_MonsterHunt's rebuilt copies of those, not the
+    originals, so they are not proven negatives.
+  - "Model.bounds past the box" also hits Minas_Tirith's Mover28
+    (106..618 against 256), which was not warned.
+  Needed: editor verdicts on unmodified originals, positives and
+  negatives, asked of UT_MonsterHunt 2026-11-25.
+  **Layman:** Lets UT_MonsterHunt find doors and lifts that cause invisible walls across the whole map library, without opening each map in the editor.
+  Kind: feature.
+  Source: ut-monsterhunt-request-2026-11-25.
+  Lanes: ut-dump, upkg.
 
 ## 0.5.0 — Map editor
 
