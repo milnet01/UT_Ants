@@ -371,3 +371,33 @@ TEST_CASE("UTA-0321: a corona flickers with its light and the level's brightness
         CHECK(coronas[0].strength == flickerOf(pulse, seconds) * 2.0f);
     }
 }
+
+TEST_CASE("UTA-0510: a corona carries the material its Skin's path names", "[render]") {
+    uta::ubundle::Bundle bundle = coronaBundle();
+    for (std::uint32_t index : {10u, 11u, 12u}) {
+        Light light = lightOfType(1, index);
+        light.corona = true;
+        bundle.lights->push_back(light);
+    }
+    uta::ubundle::ActorPlacement known = placedAt(10, {});
+    known.properties.push_back({"Skin", 0, uta::ubundle::ValueKind::Object, std::string{"genfx.lensflar.3"}});
+    uta::ubundle::ActorPlacement unknown = placedAt(11, {});
+    unknown.properties.push_back({"Skin", 0, uta::ubundle::ValueKind::Object, std::string{"genfx.missing"}});
+    bundle.placements->actors.push_back(known);
+    bundle.placements->actors.push_back(unknown);
+    bundle.placements->actors.push_back(placedAt(12, {})); // Skin None
+
+    std::vector<std::string> asked;
+    const auto material = [&asked](const std::string& id) -> std::uint32_t {
+        asked.push_back(id);
+        return id == "genfx.lensflar.3" ? 7u : uta::urender::gpu::NONE;
+    };
+    const auto coronas = uta::urender::coronaInstances(bundle, 0.0, material);
+    REQUIRE(coronas.size() == 3u);
+    CHECK(coronas[0].material == 7u);
+    CHECK(coronas[1].material == uta::urender::gpu::NONE);
+    CHECK(coronas[2].material == uta::urender::gpu::NONE);
+    CHECK(asked == std::vector<std::string>{"genfx.lensflar.3", "genfx.missing"}); // never for None
+    // With no lookup, every corona draws the round glow.
+    CHECK(uta::urender::coronaInstances(bundle, 0.0)[0].material == uta::urender::gpu::NONE);
+}

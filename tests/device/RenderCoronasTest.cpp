@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <numeric>
+#include <string>
 #include <vector>
 
 using namespace uta::test::render;
@@ -60,6 +61,16 @@ uta::ubundle::Bundle coronaScene(float distance, bool corona, float scale = 0.1f
     placed.path = "mylevel.light1";
     placed.properties.push_back({"DrawScale", 0, uta::ubundle::ValueKind::Float, scale});
     bundle.placements = uta::ubundle::Placements{{lightClass}, {placed}};
+    return bundle;
+}
+
+/// coronaScene's light wearing, as its Skin, a solid white picture the bundle
+/// carries as a material (UTA-0510).
+uta::ubundle::Bundle pictureScene(float distance, bool corona) {
+    uta::ubundle::Bundle bundle = coronaScene(distance, corona);
+    addSolidMaterial(bundle, "genfx.flare", Rgba{255, 255, 255, 255});
+    bundle.placements->actors[0].properties.push_back(
+        {"Skin", 0, uta::ubundle::ValueKind::Object, std::string{"genfx.flare"}});
     return bundle;
 }
 
@@ -194,4 +205,16 @@ TEST_CASE("UTA-0511: a corona stays whole close to the eye", "[device][coronas]"
     INFO("pixels brightened at 800 units " << far << ", at 80 " << near);
     REQUIRE(far > 50);
     CHECK(std::abs(static_cast<long>(near) - static_cast<long>(far)) * 10 <= static_cast<long>(far));
+}
+
+TEST_CASE("UTA-0510: a corona whose Skin is a material draws that picture", "[device][coronas]") {
+    // A solid picture fills the whole square; the round glow only a disc in
+    // it, about pi/4 of the square.
+    removeDisplay();
+    auto renderer = requireRenderer(config());
+    const std::size_t round = glowing(renderer, coronaScene(800.0f, true), coronaScene(800.0f, false));
+    const std::size_t picture = glowing(renderer, pictureScene(800.0f, true), pictureScene(800.0f, false));
+    INFO("pixels brightened by the round glow " << round << ", by the picture " << picture);
+    REQUIRE(round > 50);
+    CHECK(picture * 100 > round * 115);
 }

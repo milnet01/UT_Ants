@@ -464,6 +464,11 @@ bool MaterialSet::isGlossy(std::uint32_t index) const noexcept {
     return index < glossyByIndex_.size() && glossyByIndex_[index];
 }
 
+std::uint32_t MaterialSet::find(const std::string& id) const {
+    const auto found = byId_.find(id);
+    return found == byId_.end() ? gpu::NONE : found->second;
+}
+
 std::uint32_t MaterialSet::indexOf(const std::string& id) {
     if (id.empty()) return DEFAULT_MATERIAL;
     if (const auto found = byId_.find(id); found != byId_.end()) return found->second;

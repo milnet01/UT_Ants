@@ -177,21 +177,31 @@ std::vector<gpu::Light> drawnLights(const ubundle::Bundle& bundle, double second
     return out;
 }
 
-std::vector<gpu::CoronaInstance> coronaInstances(const ubundle::Bundle& bundle, double seconds) {
+std::vector<gpu::CoronaInstance> coronaInstances(const ubundle::Bundle& bundle, double seconds,
+                                                 const CoronaMaterial& material) {
     std::vector<gpu::CoronaInstance> out;
     if (!bundle.lights) return out;
     for (const ubundle::Light& light : *bundle.lights) {
         if (!light.corona || light.brightness == 0) continue;
         float scale = DEFAULT_DRAW_SCALE;
+        std::uint32_t skin = gpu::NONE;
         if (bundle.placements)
-            if (const ubundle::ActorPlacement* actor = ubundle::placementAt(*bundle.placements, light.exportIndex))
-                if (const ubundle::PropertyRecord* drawScale = ubundle::resolvedProperty(
-                        "drawscale", ubundle::ValueKind::Float, *actor, bundle.placements->classes[actor->classIndex]))
+            if (const ubundle::ActorPlacement* actor = ubundle::placementAt(*bundle.placements, light.exportIndex)) {
+                const ubundle::ActorClass& actorClass = bundle.placements->classes[actor->classIndex];
+                if (const ubundle::PropertyRecord* drawScale =
+                        ubundle::resolvedProperty("drawscale", ubundle::ValueKind::Float, *actor, actorClass))
                     scale = std::get<float>(drawScale->value);
+                // UTA-0510: an object is written as its folded path (UTA-0110 INV-8).
+                if (const ubundle::PropertyRecord* named =
+                        ubundle::resolvedProperty("skin", ubundle::ValueKind::Object, *actor, actorClass);
+                    named != nullptr && material)
+                    if (const auto* path = std::get_if<std::string>(&named->value); path != nullptr && !path->empty())
+                        skin = material(*path);
+            }
         // A crafted map's NaN or negative scale draws no corona rather than a broken one.
         if (!std::isfinite(scale) || scale <= 0) continue;
         out.push_back({light.location, scale, light.hue, light.saturation, light.brightness,
-                       flickerOf(light, seconds) * light.levelBrightness});
+                       flickerOf(light, seconds) * light.levelBrightness, skin});
     }
     return out;
 }

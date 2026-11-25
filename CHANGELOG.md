@@ -14,10 +14,12 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
-- **Lamps glow** (UTA-0321, UTA-0511)
-  A lamp the map marks with a corona now has a soft glow around it. The
-  glow stays the same size on screen however far away the lamp is,
-  grows with the lamp's size setting, and is as bright as the lamp. It
+- **Lamps glow** (UTA-0321, UTA-0511, UTA-0510)
+  A lamp the map marks with a corona now has a glow around it, in the
+  shape the map's maker picked for it, or a soft round glow where they
+  picked none. The glow stays the same size on screen however far away
+  the lamp is, grows with the lamp's size setting, and is as bright as
+  the lamp. It
   stays whole as you walk up to the lamp. Something standing in front of
   the lamp dims the glow by how much of the lamp it covers, with no hard
   edge. Every quality level draws it.

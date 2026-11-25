@@ -1307,6 +1307,25 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
             const bool masked = wantsMasked(prop.mesh.materials[m].polyFlags | prop.addedFlags);
             propSkins.emplace_back(known->second, masked);
         }
+    // UTA-0510: each corona light's Skin, made as a prop's skin is. The
+    // renderer finds it by the folded path PLAC writes the Skin as, which is
+    // the id it is made under (UTA-0110 INV-8, umat::materialId).
+    std::set<std::string, std::less<>> coronaSkins;
+    for (const ubundle::Light& light : actors.lights) {
+        if (!light.corona) continue;
+        const ubundle::ActorPlacement* const actor = ubundle::placementAt(actors.placements, light.exportIndex);
+        if (actor == nullptr) continue;
+        const ubundle::PropertyRecord* const named = ubundle::resolvedProperty(
+            "skin", ubundle::ValueKind::Object, *actor, actors.placements.classes[actor->classIndex]);
+        const auto* const path = named == nullptr ? nullptr : std::get_if<std::string>(&named->value);
+        if (path == nullptr || path->empty() || !coronaSkins.insert(*path).second) continue;
+        auto known = skinSites.find(*path);
+        if (known == skinSites.end()) {
+            UTA_TRY(TextureSite site, siteOfPath(map, mapName, *path, resolver));
+            known = skinSites.emplace(*path, std::move(site)).first;
+        }
+        propSkins.emplace_back(known->second, false);
+    }
 
     // 7. TEXS and MATS, over the level's Model and every mover's.
     phase.emplace(&times, "materials");

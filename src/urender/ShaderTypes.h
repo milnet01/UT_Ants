@@ -624,14 +624,18 @@ struct CoronaInstance {
     std::uint32_t saturation;
     std::uint32_t brightness;
     float strength; ///< SS 4.9's flicker times LevelInfo.Brightness
+    /// UTA-0510: the MATS record of the light's Skin, whose base corona.frag
+    /// draws; NONE draws UTA-0321's round glow.
+    std::uint32_t material = NONE;
 };
-static_assert(sizeof(CoronaInstance) == 32);
+static_assert(sizeof(CoronaInstance) == 36);
 static_assert(offsetof(CoronaInstance, location) == 0);
 static_assert(offsetof(CoronaInstance, scale) == 12);
 static_assert(offsetof(CoronaInstance, hue) == 16);
 static_assert(offsetof(CoronaInstance, saturation) == 20);
 static_assert(offsetof(CoronaInstance, brightness) == 24);
 static_assert(offsetof(CoronaInstance, strength) == 28);
+static_assert(offsetof(CoronaInstance, material) == 32);
 
 /// UTA-0333: shadow_reduce.comp's push constants, the atlas tile just drawn.
 /// Pushed through the fog layout, whose range FogConstants sizes.

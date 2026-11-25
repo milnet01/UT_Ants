@@ -2726,7 +2726,8 @@ Result<void> Renderer::Impl::placeShapes(const gpu::FrameData& frame, const Came
 Result<void> Renderer::Impl::placeCoronas(const ubundle::Bundle& bundle, double seconds, bool skyFace) {
     coronaCount = 0;
     if (skyFace || !enabled(Feature::Coronas, tier)) return {};
-    const std::vector<gpu::CoronaInstance> instances = coronaInstances(bundle, seconds);
+    const std::vector<gpu::CoronaInstance> instances =
+        coronaInstances(bundle, seconds, [this](const std::string& id) { return materials->find(id); });
     if (instances.empty()) return {};
     const VkDeviceSize bytes = instances.size() * sizeof(gpu::CoronaInstance);
     if (coronas.handle() == VK_NULL_HANDLE || coronas.size() < bytes) {

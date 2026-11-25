@@ -74,6 +74,9 @@ public:
 
     /// The material a batch naming `id` draws with.
     [[nodiscard]] std::uint32_t indexOf(const std::string& id);
+    /// UTA-0510: the material MATS carries as `id`, or gpu::NONE, saying
+    /// nothing: a corona with no picture of its own is not a missing one.
+    [[nodiscard]] std::uint32_t find(const std::string& id) const;
 
     /// UTA-0273 SS 4.1: whether the material `indexOf` returned as `index`
     /// is a Wet or Wave liquid that is not drawn as flame; false past the end.

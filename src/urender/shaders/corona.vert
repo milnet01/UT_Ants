@@ -30,9 +30,11 @@ layout(location = 2) in uint coronaHue;
 layout(location = 3) in uint coronaSaturation;
 layout(location = 4) in uint coronaBrightness;
 layout(location = 5) in float coronaStrength;
+layout(location = 6) in uint coronaMaterial; // UTA-0510: its Skin's MATS record, or NONE
 
 layout(location = 0) out vec2 coronaUv; // -1 to 1 across the glow
 layout(location = 1) flat out vec3 coronaColour;
+layout(location = 2) flat out uint coronaPicture;
 
 // The glow's radius, as a share of the view's height, for each unit of
 // DrawScale: 50 of 720 pixels at 0.1.
@@ -87,6 +89,7 @@ void main() {
         gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
         coronaUv = vec2(0.0);
         coronaColour = vec3(0.0);
+        coronaPicture = NONE;
         return;
     }
 
@@ -101,6 +104,7 @@ void main() {
                                centre.z / centre.w);
     float fade = smoothstep(CORONA_FADE_NEAR, CORONA_FADE_FULL, distance) * shown;
     coronaUv = corner;
+    coronaPicture = coronaMaterial;
     coronaColour = lightColour(coronaHue, coronaSaturation)
                    * (lightIntensity(coronaBrightness) * coronaStrength * fade * CORONA_GAIN);
 }

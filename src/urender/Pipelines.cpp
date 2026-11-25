@@ -699,6 +699,7 @@ Result<void> Pipelines::createScenePipelines(const TargetFormats& formats, Tier 
         VkVertexInputAttributeDescription{3, 0, VK_FORMAT_R32_UINT, offsetof(gpu::CoronaInstance, saturation)},
         VkVertexInputAttributeDescription{4, 0, VK_FORMAT_R32_UINT, offsetof(gpu::CoronaInstance, brightness)},
         VkVertexInputAttributeDescription{5, 0, VK_FORMAT_R32_SFLOAT, offsetof(gpu::CoronaInstance, strength)},
+        VkVertexInputAttributeDescription{6, 0, VK_FORMAT_R32_UINT, offsetof(gpu::CoronaInstance, material)},
     };
     VkPipelineVertexInputStateCreateInfo coronaInput = sharedStates().vertexInput;
     coronaInput.vertexBindingDescriptionCount = 1;

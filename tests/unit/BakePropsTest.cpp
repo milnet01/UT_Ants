@@ -25,6 +25,7 @@
 #include <functional>
 #include <limits>
 #include <string>
+#include <variant>
 #include <vector>
 
 using namespace uta::test::bake;
@@ -267,4 +268,35 @@ TEST_CASE("UTA-0341 INV-14: a prop drawn with the older Mesh class is a prop", "
     const BakeResult result = bake(built);
     CHECK(trianglesOf(result) == 12);
     CHECK(result.skippedProps.empty());
+}
+
+TEST_CASE("UTA-0510: a corona light's Skin is made a material under the path PLAC names it by", "[ubake][props]") {
+    // The renderer finds a corona's picture by its Skin's PLAC path, so the
+    // material must be made under exactly that id.
+    const auto bakeLamp = [](bool corona) {
+        Scene built = scene();
+        MapBuilder& map = built.fixture.map;
+        const std::int32_t flare = map.addTexture(TextureSpec{"Flare", "", picture(5), false});
+        const std::int32_t lamp =
+            map.addClass("Lamp", 0, {byteProperty("LightType", 1), byteProperty("LightBrightness", 64)});
+        map.addActor("Lamp1", lamp,
+                     {vectorProperty("Location", 0, 0, 64), boolProperty("bCorona", corona), objectProperty("Skin", flare)});
+        return bake(built);
+    };
+    const auto hasTexture = [](const BakeResult& result, const std::string& name) {
+        if (!result.bundle.textures) return false;
+        for (const auto& texture : *result.bundle.textures)
+            if (texture.name == name) return true;
+        return false;
+    };
+    const BakeResult lit = bakeLamp(true);
+    REQUIRE(lit.bundle.placements.has_value());
+    std::string skinPath;
+    for (const auto& actor : lit.bundle.placements->actors)
+        for (const auto& property : actor.properties)
+            if (property.name == "Skin") skinPath = std::get<std::string>(property.value);
+    CHECK(skinPath == "dm-fixture.flare");
+    CHECK(hasTexture(lit, skinPath + ":base"));
+    // No corona, no picture: nothing else in the scene wears it.
+    CHECK_FALSE(hasTexture(bakeLamp(false), "dm-fixture.flare:base"));
 }

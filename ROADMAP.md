@@ -22154,7 +22154,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: ut-monsterhunt-request-2026-11-24.
   Lanes: tools.
 
-- 🚧 [UTA-0511] **urender: a modern lamp glow in place of UTA-0321's copy of the original's.**
+- ✅ [UTA-0511] **urender: a modern lamp glow in place of UTA-0321's copy of the original's.**
   The user (2026-11-24): the project exists to make the maps look
   better than the original, not the same. UTA-0321 fitted its coronas
   to the original's AS-Frigate captures; that fit is a starting point
@@ -22183,12 +22183,14 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   is 0 to 32 units, only so it does not vanish at once as the eye
   passes the lamp. Red-first on the old code: 0 pixels at 80 units,
   and 0 light over a wall covering half the lamp.
+  Shipped 2026-11-25 (ut-ants-98), green on the matrix: commit 2b3ec83,
+  GitHub run 45565381496 success on GCC 14, Clang 19 and MSVC.
   **Layman:** Lamp glows behave like a modern game's: they dim smoothly when partly hidden, match how bright each lamp really is, and stay visible up close.
   Kind: enhancement.
   Source: user-request-2026-11-24.
   Lanes: urender.
 
-- 📋 [UTA-0510] **urender and ubake: each corona drawn with its own glow picture, as the map names it.**
+- 🚧 [UTA-0510] **urender and ubake: each corona drawn with its own glow picture, as the map names it.**
   UTA-0321 draws every corona as one soft round glow, fitted to
   AS-Frigate's Light40 (GenFX.LensFlar.3, DrawScale 0.1). Census of
   UT_MonsterHunt's stored T3D files (2026-11-24): 44282 bCorona actors
@@ -22199,6 +22201,16 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   corona's Skin as a texture, and a measured size per texture: whether
   UT99 sizes a corona by its texture's pixels as well as DrawScale is
   not known. Also unmeasured: the fade nearer than 373 units.
+  Claimed and built 2026-11-25 (ut-ants-98). No spec: PLAC already holds
+  the Skin as its folded path, which is the id the bake makes a material
+  under (UTA-0110 INV-8, umat::materialId), so no format change; the
+  baker adds corona Skins as prop skins are added, and the renderer
+  looks the path up in MATS (MaterialSet::find). Baker revision 81. The
+  picture fills the quad, tinted by the light's colour; no Skin, or one
+  not made, keeps the round glow. Sized by DrawScale alone: whether UT99
+  also sizes by the texture's pixels stays unmeasured, and the original
+  is a guide only. Red-first: no material from the old baker; 248 pixels
+  both ways on the old renderer.
   **Layman:** Lamp glows take the shapes the map's maker picked, such as rings and stars, not one soft round glow for every lamp.
   Kind: feature.
   Source: in-session-2026-11-24.
@@ -22228,7 +22240,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-11-25.
   Lanes: ubundle, umat.
 
-- 🚧 [UTA-0513] **ut-dump: surfaces.withLightMap and surfaces.lightMaps in the default output.**
+- ✅ [UTA-0513] **ut-dump: surfaces.withLightMap and surfaces.lightMaps in the default output.**
   Asked by UT_MonsterHunt (ut-monsterhunt-57, 2026-11-25) for UT Map
   Repair's check for maps saved with lighting never built: over 1377
   install maps, lighting.withLightMap is 0 on 5 and at least 0.9 of lit
@@ -22236,6 +22248,11 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   actor and zone build). countLighting's two counts now sit in the
   default surfaces object; UTA-0012 § surfaces amended. Source records
   the user's standing order to help other sessions.
+  Shipped 2026-11-25 (ut-ants-98), green on the matrix: commit 4cf32ac,
+  GitHub run 45566699245 success on GCC 14, Clang 19 and MSVC.
+  UT_MonsterHunt confirmed: plain-run time unchanged (11.0 s and 11.1 s
+  against 11.1 s, 200 MH maps), and withLightMap matches --lighting;
+  GAME-0291 reads it.
   **Layman:** The map inspector says whether a map's lighting was ever built, quickly, so a repair tool can find maps that draw unlit.
   Kind: feature.
   Source: user-request-2026-11-25.

@@ -190,9 +190,11 @@ namespace {
 // 80, format 38: UTA-0493 gives each ZONE entry its pain flag and damage. The
 // fixture's zones hurt nobody, so they write zeros; those bytes, the header's
 // format and BAKR's revision moved it.
-constexpr std::uint32_t RECORDED_UNDER = 80;
+// 81: UTA-0510 makes each corona light's Skin a material. The fixture has no
+// corona light, so BAKR's revision alone moved it.
+constexpr std::uint32_t RECORDED_UNDER = 81;
 constexpr std::string_view GOLDEN =
-    "f94beafb2d89b8a0ddc68614cb85adaea48ff8cd37dcb7199b32d58ffc70a651";
+    "f440f1244986912a7cf915aee84ec0e5c4b78f2aa0318fb841b39917e70e33cf";
 
 } // namespace
 

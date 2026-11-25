@@ -5,9 +5,14 @@
 // UTA-0321: a corona -- a soft round glow, brightest at the light. Additive,
 // as the flames it is drawn with: nothing is sorted. It adds nothing to the
 // emission target: it is itself the glow, and bloom would spread it twice.
+// UTA-0510: a light whose Skin the bake made a material draws that picture
+// instead, across the whole quad, tinted by the light's colour.
+
+#include "scene_bindings.glsl"
 
 layout(location = 0) in vec2 coronaUv;
 layout(location = 1) flat in vec3 coronaColour;
+layout(location = 2) flat in uint coronaPicture;
 
 layout(location = 0) out vec4 outColour;
 layout(location = 1) out vec2 outVelocity; // 0, added: the target keeps what lies behind
@@ -19,9 +24,16 @@ layout(location = 2) out vec4 outEmission;
 const float CORONA_DECAY = 3.75;
 
 void main() {
-    float r = length(coronaUv);
-    if (r >= 1.0) discard;
-    outColour = vec4(coronaColour * (exp(-CORONA_DECAY * r) * sqrt(1.0 - r)), 0.0);
+    vec3 shape;
+    if (coronaPicture != NONE) {
+        uint base = materials[coronaPicture].base;
+        shape = texture(textures[nonuniformEXT(base)], coronaUv * 0.5 + 0.5).rgb;
+    } else {
+        float r = length(coronaUv);
+        if (r >= 1.0) discard;
+        shape = vec3(exp(-CORONA_DECAY * r) * sqrt(1.0 - r));
+    }
+    outColour = vec4(coronaColour * shape, 0.0);
     outVelocity = vec2(0.0);
     outEmission = vec4(0.0);
 }

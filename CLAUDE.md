@@ -66,7 +66,7 @@ deferred out of that cut.
 ### Standing facts
 
 **A bake goes stale when the baker or the format moves.** Bundles are
-format 38 and the baker revision 80 (`UTA-0493`). Re-bake any
+format 38 and the baker revision 81 (`UTA-0510`). Re-bake any
 map baked before either. The weapon sound bundle re-bakes by itself
 when the weapons file names another sound (`UTA-0467`).
 

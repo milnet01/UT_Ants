@@ -14,6 +14,8 @@
 #include "urender/ShaderTypes.h"
 
 #include <cstdint>
+#include <functional>
+#include <string>
 #include <vector>
 
 namespace uta::urender {
@@ -68,6 +70,12 @@ inline constexpr float DEFAULT_DRAW_SCALE = 1.0f;
 /// 0, in LITE order -- an absorbed strip light's included, as the original
 /// draws one at every light of the row. Each carries its DrawScale and SS
 /// 4.9's flicker at `seconds`.
-[[nodiscard]] std::vector<gpu::CoronaInstance> coronaInstances(const ubundle::Bundle& bundle, double seconds);
+///
+/// UTA-0510: and its Skin's material, the MATS record `material` gives for
+/// the Skin's folded path -- the id the bake made it under -- or gpu::NONE.
+/// A light whose Skin is None, or names no material, has gpu::NONE.
+using CoronaMaterial = std::function<std::uint32_t(const std::string& id)>;
+[[nodiscard]] std::vector<gpu::CoronaInstance> coronaInstances(const ubundle::Bundle& bundle, double seconds,
+                                                               const CoronaMaterial& material = {});
 
 } // namespace uta::urender
