@@ -608,7 +608,7 @@ produce. It remains an encoder with no decode path.
 
 New files join the existing `uta_unit_tests` executable in
 `tests/CMakeLists.txt`, which discovers with
-`catch_discover_tests(uta_unit_tests PROPERTIES LABELS "unit;fast" TIMEOUT 30)`.
+`catch_discover_tests(uta_unit_tests PROPERTIES LABELS "unit" TIMEOUT 30)`.
 The executable gains `uta_upkg` as a link library.
 
 | File | Locks |

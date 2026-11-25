@@ -963,7 +963,7 @@ Three tiers, and the split is what § 3 decision 1 decided.
 
 | Tier | Needs | Runs on |
 |---|---|---|
-| **Device-free** — cluster assignment, the jitter sequence, atlas tile allocation, mover placement against `FCoordsPort.h`, header isolation, every shared-struct layout `static_assert` | nothing but a compiler | every leg of the matrix, label `unit;fast` |
+| **Device-free** — cluster assignment, the jitter sequence, atlas tile allocation, mover placement against `FCoordsPort.h`, header isolation, every shared-struct layout `static_assert` | nothing but a compiler | every leg of the matrix, label `unit` |
 | **Device** — the surfaceless render, pixel comparisons, the § 4.6 light parity, the § 4.7 probe evaluation, BC texture upload and sampling, `resize` rebuilding the render targets | any Vulkan 1.3 device | both Linux legs, on Mesa's CPU driver; label `device` |
 | **Presenting** — a window, a swapchain and its rebuild | a display | a developer machine, by hand. `UTA-0016` is what makes it reachable |
 
@@ -1215,7 +1215,7 @@ guarded by exactly this. `static_assert` also survives `-DNDEBUG`, which
 ## 7. Tests
 
 `tests/unit/` already exists and is registered as `uta_unit_tests` with
-`catch_discover_tests(... LABELS "unit;fast" TIMEOUT 30)`. This item adds
+`catch_discover_tests(... LABELS "unit" TIMEOUT 30)`. This item adds
 `tests/device/` as `uta_device_tests`, and one further target holding INV-2's
 test alone, which is the only way that test can fail.
 
@@ -1223,9 +1223,9 @@ test alone, which is the only way that test can fail.
 |---|---|---|---|---|
 | INV-1 | the assertion in `src/urender/CMakeLists.txt` | — | — | every configure, every leg |
 | INV-9 | the `static_assert`s in each shared struct's header | — | — | every compile, every leg |
-| INV-2 | `tests/unit/RenderHeaderIsolationTest.cpp` | its own, **no** `Vulkan::Vulkan` | `unit;fast` | always |
-| INV-3 | `tests/unit/RenderDeviceTest.cpp` | `uta_unit_tests` | `unit;fast` | always |
-| INV-8 | `tests/unit/RenderMoverPlacementTest.cpp` | `uta_unit_tests` | `unit;fast` | always |
+| INV-2 | `tests/unit/RenderHeaderIsolationTest.cpp` | its own, **no** `Vulkan::Vulkan` | `unit` | always |
+| INV-3 | `tests/unit/RenderDeviceTest.cpp` | `uta_unit_tests` | `unit` | always |
+| INV-8 | `tests/unit/RenderMoverPlacementTest.cpp` | `uta_unit_tests` | `unit` | always |
 | INV-4 | `tests/device/RenderOffscreenTest.cpp` | `uta_device_tests` | `device` | unconditionally, wherever `uta_urender` builds |
 | INV-6 | `tests/device/RenderLightParityTest.cpp` | `uta_device_tests` | `device` | unconditionally, wherever `uta_urender` builds |
 | INV-7 | `tests/device/RenderProbeTest.cpp` | `uta_device_tests` | `device` | unconditionally, wherever `uta_urender` builds |

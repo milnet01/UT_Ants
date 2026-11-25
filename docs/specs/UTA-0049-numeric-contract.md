@@ -277,7 +277,7 @@ currently exercises it automatically.
 
 `tests/unit/NumericContractTest.cpp` joins the existing `uta_unit_tests`
 executable in `tests/CMakeLists.txt`, in its existing
-`catch_discover_tests(uta_unit_tests PROPERTIES LABELS "unit;fast" TIMEOUT
+`catch_discover_tests(uta_unit_tests PROPERTIES LABELS "unit" TIMEOUT
 30)` call — no new link dependency, since the file needs only Catch2 and
 the standard library.
 

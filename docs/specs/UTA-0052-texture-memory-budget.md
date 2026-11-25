@@ -966,7 +966,7 @@ in from elsewhere would otherwise encode nothing and succeed.
 ## 7. Tests
 
 Two new files, both in the existing `uta_unit_tests` target in
-`tests/CMakeLists.txt`, which `catch_discover_tests` labels `unit;fast` with
+`tests/CMakeLists.txt`, which `catch_discover_tests` labels `unit` with
 `TIMEOUT 30`. That target's `target_link_libraries` gains `uta_umat`.
 
 | File | Locks |

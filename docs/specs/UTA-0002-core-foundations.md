@@ -756,7 +756,7 @@ with a printed reason on Windows, through the existing `skip` helper.
 
 New test files join the existing `uta_unit_tests` executable in
 `tests/CMakeLists.txt`, which already discovers with
-`catch_discover_tests(uta_unit_tests PROPERTIES LABELS "unit;fast")`
+`catch_discover_tests(uta_unit_tests PROPERTIES LABELS "unit")`
 alongside `CompactIndexTest.cpp` and `PackageBuilderTest.cpp`. That call
 gains `TIMEOUT 30`: INV-10's breaking case is a deadlock, and without a
 bound it hangs the run instead of failing it, so the invariant could

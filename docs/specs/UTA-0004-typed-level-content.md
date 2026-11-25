@@ -634,7 +634,7 @@ Three tiers, and only the third reads bytes this project did not write.
    check, and the view-not-copy check — including the pre-63 `Texture` and
    `Sound` pair § 4.10 requires. Covers **INV-1** (fixture half, for every
    reader except `readModel`), **INV-5**, **INV-6**, **INV-7**, **INV-8**
-   and **INV-9**. INV-3 is a grep rather than a case here. Label `unit;fast`, in the existing Catch2
+   and **INV-9**. INV-3 is a grep rather than a case here. Label `unit`, in the existing Catch2
    executable.
 
    **`readModel` has fixture cases here from 2026-09-08**, when UTA-0069

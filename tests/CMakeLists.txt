@@ -218,7 +218,10 @@ target_include_directories(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/third_p
 
 # TIMEOUT is load-bearing rather than tidy: INV-10's breaking case is a
 # deadlock, and without a bound it hangs the run instead of failing it.
-catch_discover_tests(uta_unit_tests PROPERTIES LABELS "unit;fast" TIMEOUT 30)
+# One label only: catch_discover_tests flattens a list into the property
+# pairs, so "unit;fast" made LABELS unit, fast=TIMEOUT and no TIMEOUT
+# (UTA-0515).
+catch_discover_tests(uta_unit_tests PROPERTIES LABELS unit TIMEOUT 30)
 
 # UTA-0013's third quarantine check, run for real: guard/ builds a throwaway
 # repository and runs scripts/quarantine-guard.sh with ut-origin over its index.
@@ -236,7 +239,7 @@ endif()
 # Vulkan include path for INV-3.
 add_executable(uta_render_header_isolation_test unit/RenderHeaderIsolationTest.cpp)
 target_link_libraries(uta_render_header_isolation_test PRIVATE uta_urender Catch2::Catch2WithMain)
-catch_discover_tests(uta_render_header_isolation_test PROPERTIES LABELS "unit;fast" TIMEOUT 30)
+catch_discover_tests(uta_render_header_isolation_test PROPERTIES LABELS unit TIMEOUT 30)
 
 # UTA-0014's device tier -- docs/specs/UTA-0014-vulkan-draw-path.md SS 7.
 #
@@ -364,5 +367,5 @@ if(UTA_REAL_ASSET_TESTS)
                 UTA_FLAME_LABELS="${CMAKE_CURRENT_SOURCE_DIR}/real/flame-labels.txt"
                 UTA_CLOTH_LABELS="${CMAKE_CURRENT_SOURCE_DIR}/real/cloth-labels.txt"
                 UTA_REFERENCE_INSTALL=$<BOOL:${UTA_REFERENCE_INSTALL}>)
-    catch_discover_tests(uta_real_asset_tests PROPERTIES LABELS "real-assets;local-only")
+    catch_discover_tests(uta_real_asset_tests PROPERTIES LABELS real-assets)
 endif()

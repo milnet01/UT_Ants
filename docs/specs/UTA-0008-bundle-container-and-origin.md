@@ -801,7 +801,7 @@ the same defect one layer along.
 ## 7. Tests
 
 Both files join the existing `uta_unit_tests` executable in
-`tests/CMakeLists.txt` with the `unit;fast` label, as UTA-0005's tests do. The
+`tests/CMakeLists.txt` with the `unit` label, as UTA-0005's tests do. The
 executable gains `uta_ubundle` as a link library.
 
 | File | Locks |

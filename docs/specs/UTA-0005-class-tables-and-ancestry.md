@@ -643,7 +643,7 @@ one another cannot produce the fixture at all:
 ## 7. Tests
 
 **Unit, on fixtures, no install required.** Four new files, each built
-into the existing Catch2 unit executable with the `unit;fast` label:
+into the existing Catch2 unit executable with the `unit` label:
 `PackageClassTest.cpp`, `PackageScriptTest.cpp`, `PackageAncestryTest.cpp`,
 and additions to `PackageMalformedTest.cpp`. Between them they cover
 INV-2, INV-3, INV-4, INV-5, INV-6, INV-7, INV-8, INV-9 and INV-10. Every
