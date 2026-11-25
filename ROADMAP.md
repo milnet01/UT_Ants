@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=514 -->
+<!-- ants-roadmap-id-high-water: UTA=515 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -22259,6 +22259,19 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: feature.
   Source: user-request-2026-11-25.
   Lanes: ut-dump.
+
+- 📋 [UTA-0515] **catch_discover_tests' LABELS "unit;fast" splits, so no unit test carries its TIMEOUT or the fast label.**
+  Found 2026-11-25 while a UTA-0514 hand mutation hung a test for over ten
+  minutes. `ctest --show-only=json-v1` on a uta_unit_tests case shows
+  properties LABELS=[unit], fast=TIMEOUT, 30=SKIP_RETURN_CODE: the list
+  in PROPERTIES is split at the semicolon, so every pair after it shifts.
+  tests/CMakeLists.txt says the TIMEOUT is load-bearing (INV-10's
+  breaking case). Check each catch_discover_tests call with a two-label
+  list; prove it with the same json before and after.
+  **Layman:** A test that hangs should stop after 30 seconds; today it runs forever, because the build's test settings are read out of line.
+  Kind: fix.
+  Source: in-session-2026-11-25.
+  Lanes: tests.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
