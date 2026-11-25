@@ -93,14 +93,12 @@ constexpr SectionId ID_BAKR = {'B', 'A', 'K', 'R'};
 // TEXS -- TextureSection.cpp. No post-decode validator: UTA-0052's INV-1 and
 // INV-2 are decode-time refusals applied inside the element reader.
 [[nodiscard]] Result<std::vector<CompressedTexture>> readTextures(Cursor& cursor);
-/// TEXS is written straight into the file rather than encoded on its own
-/// first, being a bundle's largest section by far (UTA-0143): its size is
-/// counted up front, then its bytes are put.
-[[nodiscard]] std::uint64_t texturesSize(const std::vector<CompressedTexture>& textures);
 /// The rules readTextures applies, for write: the block format, UTA-0052's
 /// INV-2 and INV-1, so a writer never emits a texture read would refuse.
 [[nodiscard]] Result<void> validateTextures(const std::vector<CompressedTexture>& textures, ErrorCode code);
-void putTextures(Sink& sink, const std::vector<CompressedTexture>& textures);
+/// Each level LZ4-compressed where that pays (UTA-0512), so the section's size
+/// is known only once it is encoded.
+[[nodiscard]] Result<std::vector<std::byte>> encodeTextures(const std::vector<CompressedTexture>& textures);
 
 // MATS -- MaterialSection.cpp, UTA-0011 SS 4.10. The metallic byte is refused
 // inside the element reader; the id order is the validator's.

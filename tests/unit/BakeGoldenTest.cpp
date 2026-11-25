@@ -192,9 +192,11 @@ namespace {
 // format and BAKR's revision moved it.
 // 81: UTA-0510 makes each corona light's Skin a material. The fixture has no
 // corona light, so BAKR's revision alone moved it.
-constexpr std::uint32_t RECORDED_UNDER = 81;
+// 82: UTA-0512 stores each texture level with its own codec, LZ4 where that
+// saves 5%, and bumped the format to 39, so the digest moved.
+constexpr std::uint32_t RECORDED_UNDER = 82;
 constexpr std::string_view GOLDEN =
-    "f440f1244986912a7cf915aee84ec0e5c4b78f2aa0318fb841b39917e70e33cf";
+    "a10f3df175f3dd1c052698ec35d6e2072e003a7633df78080a867f08a098a18b";
 
 } // namespace
 

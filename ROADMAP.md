@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=517 -->
+<!-- ants-roadmap-id-high-water: UTA=518 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -21251,6 +21251,11 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Decide what an archive holds, build it from the release tag on both
   platforms, and attach it. Then tell the ants-projects-hub-website
   session, whose UT Ants page offers whatever a release carries.
+  2026-11-25, UTA-0512: the game and its tools now contain LZ4 v1.11.1,
+  fetched at build time, under the BSD 2-clause licence. Its binary
+  clause asks that every download carry LZ4's copyright notice and
+  licence text: ship build/_deps/lz4-src/lib/LICENSE in each archive. Not the
+  repository's root LICENSE, which covers LZ4's GPL programs.
   **Layman:** Each release would come with ready-made files to download, so players need not build the game themselves.
   Kind: package.
   Source: user-request-2026-11-09.
@@ -22218,7 +22223,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: in-session-2026-11-24.
   Lanes: urender, ubake.
 
-- 📋 [UTA-0512] **LZ4 over each texture mip level in the bundle, as DOOM_Ants' DOOM-0632 does.**
+- 🚧 [UTA-0512] **LZ4 over each texture mip level in the bundle, as DOOM_Ants' DOOM-0632 does.**
   The user, 2026-11-25: every saving counts, however small; the
   technical call is the session's. DOOM_Ants' design, from its session
   the same day (its docs/specs/DOOM-0632-packed-hd-art.md § 4.5,
@@ -22274,6 +22279,19 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: fix.
   Source: in-session-2026-11-25.
   Lanes: tests.
+
+- 📋 [UTA-0518] **The address sanitizer recipe in docs/build-and-test.md no longer links since Jolt joined.**
+  Found 2026-11-25 while running UTA-0512's tests under ASan. The
+  recipe's -fsanitize=undefined includes the vptr check, which needs
+  type info; Jolt is built without RTTI, so linking uta_unit_tests
+  fails: "undefined symbol: typeinfo for JPH::ShapeSettings", from
+  src/uworld/BodyCollision.cpp. Adding -fno-sanitize=vptr to
+  CMAKE_CXX_FLAGS linked. Fix the recipe, and check what
+  scripts/mutation-probe.py --asan configures.
+  **Layman:** The memory-checking test build stopped working when the physics library was added, so it needs one more setting in its instructions.
+  Kind: fix.
+  Source: in-session-2026-11-25 UTA-0512.
+  Lanes: build.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
@@ -24060,6 +24078,15 @@ to.
   headless MAP REBUILD takes its 16 reached spots from 144/144 undrawn
   to 0/144, but drops the lighting; LIGHT APPLY then MAP SAVE crashes in
   ucc serialising Camera0.Player[0].
+  2026-11-25, from UT_MonsterHunt: Miam's relight is solved in the
+  UnrealEd GUI on the Windows PC (MAP LOAD of the Linux-rebuilt map,
+  LIGHT APPLY, MAP SAVE, typed into the editor's Command box by a
+  scheduled task). 0 of 144 undrawn at our 16 suspect spots; lighting
+  within 0.6/255 per view of the original. Recipe: know_how
+  ut99-headless-map-rebuild-and-relight, rev 2. Their undrawn.py now
+  reads our "; reached N of M" line and reports maps holed only from
+  unreached spots as UNREACHED. User decision 2026-11-25: ut-dump and
+  ut-paths stay in UT_Ants, and Map Repair keeps calling them.
   **Layman:** One map's suspect places all looked fine in photos; find out what makes them different from the maps where holes were real.
   Kind: investigate.
   Source: in-session-2026-11-25.

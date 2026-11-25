@@ -83,7 +83,8 @@ namespace uta::ubundle {
 /// 36 since UTA-0341 added PROP, the props a map places as models.
 /// 37 since UTA-0478 added SNDS and the Sounds kind.
 /// 38 since UTA-0493 SS 4.2 gave each ZONE entry its pain flag and damage.
-inline constexpr std::uint32_t FORMAT_VERSION = 38;
+/// 39 since UTA-0512 stored each TEXS level with its own codec and length.
+inline constexpr std::uint32_t FORMAT_VERSION = 39;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose

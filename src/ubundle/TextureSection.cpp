@@ -3,6 +3,10 @@
 
 #include "Sections.h"
 
+#include <lz4.h>
+#include <lz4hc.h>
+
+#include <algorithm>
 #include <bit>
 #include <string>
 
@@ -11,8 +15,31 @@ namespace detail {
 namespace {
 
 /// UTA-0052 SS 4.3: a u32 length for an empty name, one u8 format, four u16
-/// dimensions, one u8 mipCount, and a u32 count for an empty block run.
-constexpr std::uint64_t MIN_TEXTURE = 18;
+/// dimensions, one u8 mipCount, and one level's u8 codec and u32 length.
+constexpr std::uint64_t MIN_TEXTURE = 19;
+
+/// How one mip level's bytes are stored -- UTA-0052 SS 4.3, UTA-0512.
+enum class LevelCodec : std::uint8_t { Stored = 0, Lz4 = 1 };
+
+/// A level is kept LZ4-compressed only when that saves at least this share of
+/// its bytes, in percent; below it the decode costs more than the read saves
+/// (DOOM_Ants' DOOM-0632, whose figure this is).
+constexpr std::uint64_t MIN_SAVING_PERCENT = 5;
+
+/// The bytes each stored level occupies, base first -- SS 4.3's sum, term by
+/// term. Only called on a texture INV-2 has passed.
+[[nodiscard]] std::vector<std::uint32_t> levelSizes(const CompressedTexture& texture) {
+    std::vector<std::uint32_t> sizes;
+    const std::uint32_t perBlock = bytesPerBlock(texture.format);
+    std::uint32_t width = texture.width;
+    std::uint32_t height = texture.height;
+    for (std::uint32_t level = 0; level < texture.mipCount; ++level) {
+        sizes.push_back(((width + 3) / 4) * ((height + 3) / 4) * perBlock);
+        width = width > 1 ? width / 2 : 1;
+        height = height > 1 ? height / 2 : 1;
+    }
+    return sizes;
+}
 
 [[nodiscard]] constexpr bool isPowerOfTwo(std::uint32_t value) noexcept {
     return value != 0 && (value & (value - 1)) == 0;
@@ -102,27 +129,53 @@ constexpr std::uint64_t MIN_TEXTURE = 18;
     UTA_TRY(texture.mipCount, cursor.readU8());
     UTA_CHECK(validateTextureFields(texture));
 
-    // A u32 count then that many opaque bytes -- SS 4.2's vector<u8>, read as
-    // one run rather than element by element. With a minimum element size of
-    // one byte, rule 1's division degenerates to `count > remaining()`, which
-    // is exactly the bound readBytes applies; a per-byte decode loop would
-    // check the same thing several million times for one texture.
-    UTA_TRY(const std::uint32_t blockBytes, cursor.readU32());
-    UTA_TRY(const std::span<const std::byte> raw, cursor.readBytes(blockBytes));
-    texture.blocks.assign(raw.begin(), raw.end());
-
-    // INV-1. This is what makes the section self-describing: without it a
-    // reader takes the declared length on trust and starts the next element
-    // wherever the last one happened to stop.
-    const std::uint64_t expected = expectedBlockBytes(texture);
-    if (texture.blocks.size() != expected)
-        return fail(ErrorCode::MalformedData,
-                    "TEXS: a texture declares " + std::to_string(texture.blocks.size())
-                        + " block bytes; its own dimensions require " + std::to_string(expected));
+    // Each level in turn: its codec, its stored length, its stored bytes
+    // (UTA-0512). A stored level holds exactly SS 4.3's bytes for it; an LZ4
+    // level must decode to exactly that many. Either way the level's length
+    // comes from the dimensions, never from the file, so INV-1 holds level by
+    // level and the decoded run cannot be any other length. The run grows a
+    // level at a time, once that level's stored bytes are known to be in the
+    // section (UTA-0008 INV-2), never all at once from the dimensions.
+    const std::vector<std::uint32_t> sizes = levelSizes(texture);
+    std::size_t offset = 0;
+    for (std::size_t level = 0; level < sizes.size(); ++level) {
+        const std::uint32_t size = sizes[level];
+        const std::string where = "TEXS: texture '" + texture.name + "' level " + std::to_string(level);
+        UTA_TRY(const std::uint8_t codec, cursor.readU8());
+        UTA_TRY(const std::uint32_t storedBytes, cursor.readU32());
+        UTA_TRY(const std::span<const std::byte> stored, cursor.readBytes(storedBytes));
+        if (codec > static_cast<std::uint8_t>(LevelCodec::Lz4))
+            return fail(ErrorCode::MalformedData, where + " has codec " + std::to_string(codec) + ", not 0 or 1");
+        texture.blocks.resize(offset + size);
+        std::byte* const into = texture.blocks.data() + offset;
+        if (codec == static_cast<std::uint8_t>(LevelCodec::Stored)) {
+            // INV-1.
+            if (storedBytes != size)
+                return fail(ErrorCode::MalformedData,
+                            where + " stores " + std::to_string(storedBytes) + " bytes; its dimensions require "
+                                + std::to_string(size));
+            std::copy(stored.begin(), stored.end(), into);
+        } else {
+            // Decoded into the texture's own memory, never into a mapped
+            // staging buffer: LZ4 reads back what it writes, and staging is
+            // write-combined (DOOM-0632).
+            const int decoded = LZ4_decompress_safe(reinterpret_cast<const char*>(stored.data()),
+                                                    reinterpret_cast<char*>(into), static_cast<int>(storedBytes),
+                                                    static_cast<int>(size));
+            if (decoded != static_cast<int>(size))
+                return fail(ErrorCode::MalformedData,
+                            where + "'s LZ4 bytes do not decode to the " + std::to_string(size)
+                                + " its dimensions require");
+        }
+        offset += size;
+    }
 
     return texture;
 }
 
+/// One CompressedTexture, each level LZ4-HC-compressed where that saves
+/// MIN_SAVING_PERCENT -- UTA-0512. HC is deterministic, so a texture writes
+/// the same bytes on every compiler and every run.
 void putCompressedTexture(Sink& sink, const CompressedTexture& texture) {
     sink.putString(texture.name);
     sink.putU8(static_cast<std::uint8_t>(texture.format));
@@ -131,8 +184,29 @@ void putCompressedTexture(Sink& sink, const CompressedTexture& texture) {
     sink.putU16(texture.sourceWidth);
     sink.putU16(texture.sourceHeight);
     sink.putU8(texture.mipCount);
-    sink.putCount(texture.blocks.size());
-    sink.append(texture.blocks);
+
+    std::vector<char> packed;
+    std::size_t offset = 0;
+    for (const std::uint32_t size : levelSizes(texture)) {
+        const std::span<const std::byte> level(texture.blocks.data() + offset, size);
+        offset += size;
+        packed.resize(static_cast<std::size_t>(LZ4_compressBound(static_cast<int>(size))));
+        const int written = LZ4_compress_HC(reinterpret_cast<const char*>(level.data()), packed.data(),
+                                            static_cast<int>(size), static_cast<int>(packed.size()),
+                                            LZ4HC_CLEVEL_DEFAULT);
+        const bool smaller = written > 0
+                             && static_cast<std::uint64_t>(written) * 100
+                                    <= static_cast<std::uint64_t>(size) * (100 - MIN_SAVING_PERCENT);
+        if (smaller) {
+            sink.putU8(static_cast<std::uint8_t>(LevelCodec::Lz4));
+            sink.putCount(static_cast<std::size_t>(written));
+            sink.append(std::as_bytes(std::span<const char>(packed.data(), static_cast<std::size_t>(written))));
+        } else {
+            sink.putU8(static_cast<std::uint8_t>(LevelCodec::Stored));
+            sink.putCount(size);
+            sink.append(level);
+        }
+    }
 }
 
 } // namespace
@@ -155,18 +229,10 @@ Result<void> validateTextures(const std::vector<CompressedTexture>& textures, Er
     return {};
 }
 
-std::uint64_t texturesSize(const std::vector<CompressedTexture>& textures) {
-    // The count, then per texture putCompressedTexture's fields: the name's
-    // u32 length and bytes, format, four u16 sizes, mipCount, the blocks' u32
-    // length and the blocks.
-    std::uint64_t bytes = 4;
-    for (const CompressedTexture& texture : textures)
-        bytes += 4 + texture.name.size() + 1 + 4 * 2 + 1 + 4 + texture.blocks.size();
-    return bytes;
-}
-
-void putTextures(Sink& sink, const std::vector<CompressedTexture>& textures) {
+Result<std::vector<std::byte>> encodeTextures(const std::vector<CompressedTexture>& textures) {
+    Sink sink;
     sink.putVector(textures, putCompressedTexture);
+    return std::move(sink).finish("TEXS");
 }
 
 } // namespace detail

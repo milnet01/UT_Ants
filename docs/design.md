@@ -402,6 +402,7 @@ S2 reachable.**
 | **AMD FSR 1** | Vendored | `urender`'s spatial upscale of a dynamic-resolution frame, from colour alone, on any GPU (`UTA-0154`) | A bilinear stretch, which reads soft; FSR 2 and later need motion vectors (`UTA-0076`) |
 | **Assimp** | Fetched, `ut-ed` only | Model import for character authoring — linked by `ut-ed` only, and **never by a runtime target** | Writing a glTF reader |
 | **Jolt Physics** | Fetched | `uworld`'s round-body sweeps, built cross-platform deterministic so every compiler agrees (`UTA-0457`); `UTA-0114`'s physics world will use it too | Our own cylinder sweep, whose edge and corner cases would be ours to get right |
+| **LZ4** | Fetched | Packs each texture level in a bundle, so a map loads faster from disk (`UTA-0512`) | Bundles left unpacked, which load slower from disk |
 | **Catch2 v3** | Fetched | Fetched, not installed, so a stranger's clone builds (**S7**) | GoogleTest |
 | **SDL3 audio** | With SDL3 | `uaudio` mixes and spatialises on SDL3's device, which is already a dependency — no second audio stack, and nothing new to check against GPL-3.0 | OpenAL Soft |
 | **In-house in-game UI** | Ours | `uui` draws the HUD, menus, map browser and weapon wheel through `urender`. Dear ImGui is for the editor and developer overlays and is **never** in a shipped game's UI | Dear ImGui everywhere |

@@ -392,8 +392,10 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
     // than ubake by the hash of its own contents, and a hash over an
     // incidentally-ordered file names one world two things.
     //
-    // Every section but TEXS is encoded here. TEXS is only counted, and its
-    // bytes are put straight into the file below (UTA-0143).
+    // Every section is encoded here, TEXS too: its levels are LZ4-compressed
+    // (UTA-0512), so its size is not known until it is. Each payload is freed
+    // once copied, and TEXS's is the compressed one, so the peak stays near
+    // UTA-0143's: the textures, their packed copy and the smaller file.
     struct Section {
         SectionId id;
         std::vector<std::byte> payload;
@@ -420,7 +422,7 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
     // order clause is extended rather than contradicted. It also keeps the
     // small graph sections near the front of a file whose largest section is
     // by far this one.
-    if (bundle.textures) sections.push_back(Section{ID_TEXS, {}, texturesSize(*bundle.textures)});
+    if (bundle.textures) encoded(ID_TEXS, encodeTextures(*bundle.textures));
     // MATS is appended after TEXS for the same reason -- UTA-0011 SS 4.10.
     if (bundle.materials) encoded(ID_MATS, encodeMaterials(*bundle.materials));
     // GEOM is appended after MATS -- UTA-0109 SS 4.2.
@@ -494,17 +496,6 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
     }
 
     for (Section& section : sections) {
-        if (section.id == ID_TEXS) {
-            // Its descriptor was written from the COUNT, so a count that
-            // drifted from what putTextures emits would point every later
-            // section at the wrong bytes. Refused rather than written.
-            const std::size_t start = sink.size();
-            putTextures(sink, *bundle.textures);
-            if (sink.size() - start != section.size)
-                return fail(ErrorCode::InvalidArgument,
-                            "TEXS: the counted size disagrees with the bytes written");
-            continue;
-        }
         sink.append(section.payload);
         std::vector<std::byte>().swap(section.payload);
     }

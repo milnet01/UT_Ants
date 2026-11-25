@@ -29,6 +29,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -90,9 +91,25 @@ void putTexture(Bytes& out, const TextureSpec& spec) {
     out.u16(spec.sourceWidth);
     out.u16(spec.sourceHeight);
     out.u8(spec.mipCount);
+    // The run, split into SS 4.3's levels, each stored uncompressed: a codec
+    // byte of 0, a u32 length, the bytes (UTA-0512). Every level but the last
+    // takes the size the dimensions give it, stated here from SS 4.3's
+    // formula; the last takes what remains, so a run one byte short or long
+    // makes the LAST level disagree with its dimensions, and INV-1 is reached.
     const std::vector<std::byte> run = blockRun(spec);
-    out.u32(static_cast<std::uint32_t>(run.size()));
-    for (const std::byte value : run) out.u8(static_cast<std::uint8_t>(value));
+    const std::size_t levels = spec.mipCount > 0 ? spec.mipCount : 1;
+    const std::size_t perBlock = spec.format == 0 ? 8 : 16;
+    std::size_t at = 0;
+    for (std::size_t level = 0; level < levels; ++level) {
+        const std::size_t width = std::max<std::size_t>(1, spec.width >> level);
+        const std::size_t height = std::max<std::size_t>(1, spec.height >> level);
+        const std::size_t own = ((width + 3) / 4) * ((height + 3) / 4) * perBlock;
+        const std::size_t size = level + 1 == levels ? run.size() - at : std::min(own, run.size() - at);
+        out.u8(0);
+        out.u32(static_cast<std::uint32_t>(size));
+        for (std::size_t i = 0; i < size; ++i) out.u8(static_cast<std::uint8_t>(run[at + i]));
+        at += size;
+    }
 }
 
 /// A TEXS payload: SS 4.2's vector<CompressedTexture>.
@@ -103,14 +120,13 @@ Bytes texsPayload(const std::vector<TextureSpec>& textures) {
     return out;
 }
 
-/// A whole .utab carrying exactly one TEXS section. The table tiles the file,
-/// so every case fails on the ONE rule it states rather than on the framing.
-std::vector<std::byte> fileWithTextures(const std::vector<TextureSpec>& textures) {
-    const Bytes payload = texsPayload(textures);
-
+/// A whole .utab carrying exactly one TEXS section with this payload. The
+/// table tiles the file, so every case fails on the ONE rule it states rather
+/// than on the framing.
+std::vector<std::byte> fileWithTexsPayload(const Bytes& payload) {
     Bytes out;
     out.id("UTAB");
-    out.u32(38); // formatVersion -- 38 since UTA-0493 gave ZONE its pain
+    out.u32(39); // formatVersion -- 39 since UTA-0512 gave TEXS levels a codec
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -127,6 +143,37 @@ std::vector<std::byte> fileWithTextures(const std::vector<TextureSpec>& textures
     out.append(payload);
     return out.data();
 }
+
+std::vector<std::byte> fileWithTextures(const std::vector<TextureSpec>& textures) {
+    return fileWithTexsPayload(texsPayload(textures));
+}
+
+/// One BC7 texture of a single level whose bytes are stored under `codec`,
+/// exactly as given -- UTA-0512's per-level framing, written by hand. 8x8 over
+/// a 4x4 source (factor 2), so the level is four blocks: 64 bytes.
+std::vector<std::byte> fileWithOneLevel(std::uint8_t codec, const std::vector<std::uint8_t>& stored) {
+    Bytes payload;
+    payload.u32(1);
+    payload.str("d");
+    payload.u8(2); // BC7
+    payload.u16(8);
+    payload.u16(8);
+    payload.u16(4);
+    payload.u16(4);
+    payload.u8(1); // one level
+    payload.u8(codec);
+    payload.u32(static_cast<std::uint32_t>(stored.size()));
+    for (const std::uint8_t value : stored) payload.u8(value);
+    return fileWithTexsPayload(payload);
+}
+
+/// Sixty-four zero bytes as one LZ4 block, written from the LZ4 block format
+/// by hand: a token of one literal and a long match (0x1F), the literal 0, a
+/// match offset of 1, a length byte making the match 58, then a token of five
+/// literals (0x50) and the five zeros the format requires a block to end on.
+/// LZ4-HC at its default level writes exactly these bytes too, so this is also
+/// what write must emit for that level, on every compiler.
+const std::vector<std::uint8_t> LZ4_ZEROS_64 = {0x1F, 0x00, 0x01, 0x00, 0x27, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00};
 
 /// The three textures INV-4 requires: one of each format, at least one with a
 /// mip chain, and within each element the four consecutive u16 hold four
@@ -359,7 +406,7 @@ TEST_CASE("the golden texture bytes decode field by field to the values they enc
     REQUIRE(result.has_value());
     const Bundle& bundle = *result;
 
-    CHECK(bundle.header.formatVersion == 38);
+    CHECK(bundle.header.formatVersion == 39);
     CHECK(bundle.header.origin == Origin::Authored);
     CHECK(bundle.header.kind == BundleKind::Map);
 
@@ -454,4 +501,86 @@ TEST_CASE("a TEXS section is optional and empty stays distinct from absent",
     const auto back = read(*written);
     REQUIRE(back.has_value());
     CHECK_FALSE(back->textures.has_value());
+}
+
+TEST_CASE("UTA-0512: an LZ4 level decodes to the run it packs and writes back the same bytes",
+          "[ubundle][texture]") {
+    // The hand-written LZ4 block against the reader, then the writer against
+    // the same bytes: the pair INV-4 and INV-5 make for a stored level, so a
+    // compressor whose output differed between compilers goes red on its leg.
+    const std::vector<std::byte> file = fileWithOneLevel(1, LZ4_ZEROS_64);
+    const auto result = read(file);
+    REQUIRE(result.has_value());
+    REQUIRE(result->textures.has_value());
+    REQUIRE(result->textures->size() == 1);
+    CHECK((*result->textures)[0].blocks == std::vector<std::byte>(64, std::byte{0}));
+
+    const auto written = write(*result);
+    REQUIRE(written.has_value());
+    CHECK(*written == file);
+}
+
+TEST_CASE("UTA-0512: an LZ4 level that decodes to another length is refused", "[ubundle][texture]") {
+    // INV-1 on disk: the level's length comes from its dimensions, never
+    // from what the LZ4 bytes happen to hold.
+    SECTION("one byte short") {
+        std::vector<std::uint8_t> stored = LZ4_ZEROS_64;
+        stored[4] = 0x26; // a match of 57: 63 bytes in all
+        refused(fileWithOneLevel(1, stored));
+    }
+    SECTION("one byte long") {
+        std::vector<std::uint8_t> stored = LZ4_ZEROS_64;
+        stored[4] = 0x28; // a match of 59: 65 bytes in all
+        refused(fileWithOneLevel(1, stored));
+    }
+    SECTION("the same bytes marked stored") {
+        // Eleven bytes where the dimensions require sixty-four.
+        refused(fileWithOneLevel(0, LZ4_ZEROS_64));
+    }
+}
+
+TEST_CASE("UTA-0512: a level codec other than 0 or 1 is refused", "[ubundle][texture]") {
+    // Two fixtures, one per way a reader could misread codec 2. Sixty-four
+    // plain bytes are a level a reader taking it as stored would accept; the
+    // LZ4 block is one a reader taking it as LZ4 would. Only the codec rule
+    // refuses both.
+    CHECK(read(fileWithOneLevel(0, std::vector<std::uint8_t>(64, 0))).has_value());
+    CHECK(read(fileWithOneLevel(1, LZ4_ZEROS_64)).has_value());
+    refused(fileWithOneLevel(2, std::vector<std::uint8_t>(64, 0)));
+    refused(fileWithOneLevel(2, LZ4_ZEROS_64));
+}
+
+TEST_CASE("UTA-0512: write packs a level only where LZ4 saves at least 5%", "[ubundle][texture]") {
+    // One 128-byte level (BC7 8x16): the fixture's pattern, which LZ4 cannot
+    // shrink, behind a run of zeros. Measured with LZ4-HC v1.11.1 on
+    // 2026-11-25: twelve zeros pack to 122 bytes, 4.7% smaller, and thirteen
+    // to 121, 5.5% smaller. So the first stays stored and the second packs.
+    const auto codecWritten = [](std::size_t zeros) {
+        CompressedTexture texture;
+        texture.name = "d";
+        texture.format = BlockFormat::BC7;
+        texture.width = 8;
+        texture.height = 16;
+        texture.sourceWidth = 4;
+        texture.sourceHeight = 8;
+        texture.mipCount = 1;
+        for (std::size_t i = 0; i < 128; ++i)
+            texture.blocks.push_back(i < zeros ? std::byte{0} : static_cast<std::byte>((0x10 + i * 7) & 0xFFU));
+        Bundle bundle;
+        bundle.header.origin = Origin::Authored;
+        bundle.textures = std::vector<CompressedTexture>{texture};
+        const auto written = write(bundle);
+        REQUIRE(written.has_value());
+        // The header, one descriptor, the count, the name "d", the format,
+        // four dimensions and mipCount, then the level's codec byte.
+        constexpr std::size_t CODEC = 16 + 24 + 4 + (4 + 1) + 1 + 4 * 2 + 1;
+        REQUIRE(written->size() > CODEC);
+        // And the level reads back as it went in, whichever codec it took.
+        const auto back = read(*written);
+        REQUIRE(back.has_value());
+        CHECK((*back->textures)[0].blocks == texture.blocks);
+        return std::to_integer<int>((*written)[CODEC]);
+    };
+    CHECK(codecWritten(12) == 0);
+    CHECK(codecWritten(13) == 1);
 }

@@ -280,12 +280,20 @@ The section payload is one `vector<CompressedTexture>`. Each element:
 | `sourceWidth` | `u16` | The width of the image handed to `compress` — after any resample, before any upscale |
 | `sourceHeight` | `u16` | The height of the same image |
 | `mipCount` | `u8` | Levels stored, `1` upward. `1` means base level only |
-| `blocks` | `vector<u8>` | Every stored level's block bytes, base level first |
+| levels | `mipCount` × level | Every stored level's block bytes, base level first |
 
-**Minimum encoded size of one element is 18 bytes** — a `u32` length for an
-empty `name`, one `u8`, four `u16`, one `u8`, and a `u32` count for an empty
-`blocks`. That is the figure UTA-0008 § 4.2 rule 1's division check needs,
-and it joins the minimum-size table there.
+**Each level is a `u8` codec, a `u32` stored length, then that many bytes**
+(UTA-0512). Codec `0` stores the level's block bytes as they are. Codec `1`
+stores them as one LZ4 block, which must decode to exactly the level's
+length. No other codec is defined, and either way the level's decoded
+length comes from the dimensions, never from the file. A writer uses LZ4-HC
+on a level only where that saves at least 5% of its bytes; the reader takes
+either codec on any level. In memory, `blocks` is always the decoded run.
+
+**Minimum encoded size of one element is 19 bytes** — a `u32` length for an
+empty `name`, one `u8`, four `u16`, one `u8`, and one level's `u8` codec and
+`u32` length. That is the figure UTA-0008 § 4.2 rule 1's division check
+needs, and it joins the minimum-size table there.
 
 **The applied upscale factor is derived, never stored.** It is
 `width / sourceWidth`, and storing it as well would be a field that can
@@ -651,7 +659,9 @@ in from elsewhere would otherwise encode nothing and succeed.
 
 - **INV-1** — a `CompressedTexture` whose `blocks` length is not exactly
   `expectedBlockBytes` for its `format`, `width`, `height` and `mipCount` is
-  `MalformedData`.
+  `MalformedData`. On disk this holds level by level: a stored level of
+  another length, an LZ4 level decoding to another length, or a codec other
+  than `0` or `1` is `MalformedData`.
   *Test:* `tests/unit/BundleTextureTest.cpp`, one case per format with the
   payload one byte short and one byte long, in a `TEXS` section whose own
   extent is exactly consistent with the file. No arrow: the surface does not
@@ -1138,7 +1148,7 @@ awk '/^\| INV-|^\| § /' docs/specs/UTA-0052-texture-memory-budget.md \
   - **§ 4.4** — `id`'s "four bytes, § 4.6–4.8" extended to name this
     document's § 4.3 as well, so *a section id this version defines* still
     resolves to a complete list.
-  - **§ 4.2's minimum-encoded-size table** gains `CompressedTexture` at 18
+  - **§ 4.2's minimum-encoded-size table** gains `CompressedTexture` at 19
     bytes, the figure § 4.3 derives.
   - **§ 4.10** — `Bundle` gains `textures` and the `write` order becomes
     `ROOM`, `NAVG`, `WIRG`, `TEXS`.

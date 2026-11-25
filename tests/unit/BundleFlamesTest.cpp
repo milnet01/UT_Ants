@@ -87,7 +87,7 @@ std::vector<std::byte> fileWith(const Bytes& flam) {
     const std::vector<std::pair<std::string_view, Bytes>> sections = {{"MATS", matsPayload()}, {"FLAM", flam}};
     Bytes out;
     out.id("UTAB");
-    out.u32(38); // formatVersion -- 38 since UTA-0493 gave ZONE its pain
+    out.u32(39); // formatVersion -- 39 since UTA-0512 gave TEXS levels a codec
     out.u8(1);   // origin: Authored
     out.u8(0);   // kind: Map
     out.u16(0);  // reserved

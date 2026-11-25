@@ -326,6 +326,19 @@ FetchContent_Declare(JoltPhysics
     SYSTEM)
 FetchContent_MakeAvailable(JoltPhysics)
 
+# LZ4 -- route 1, fetched at an exact tag, for the bundle's texture levels
+# (UTA-0512; UTA-0052 SS 4.3). Here at the root because uta_ubundle, a src/
+# target, links it. Its CMake build lives in build/cmake; as a subproject it
+# builds the static library alone, with no program and no install rules.
+FetchContent_Declare(lz4
+    GIT_REPOSITORY https://github.com/lz4/lz4.git
+    GIT_TAG        v1.11.1        # current release, resolved 2026-11-25
+    GIT_SHALLOW    TRUE
+    SOURCE_SUBDIR  build/cmake
+    EXCLUDE_FROM_ALL
+    SYSTEM)
+FetchContent_MakeAvailable(lz4)
+
 # The client, ut-ants (UTA-0016). It needs the tools because docs/design.md
 # rule 16 has it run ut-bake to check an install rather than read one itself.
 option(UTA_BUILD_CLIENT "Build the ut-ants client" ON)

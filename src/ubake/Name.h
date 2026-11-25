@@ -34,7 +34,7 @@ namespace uta::ubake {
 /// `ubake` itself, or any library src/ubake/CMakeLists.txt links it to.
 /// tests/unit/BakeGoldenTest.cpp fails a change without a bump, and a bump
 /// without re-recording its golden hash (INV-5).
-inline constexpr std::uint32_t BAKER_REVISION = 81; // 81 since UTA-0510 makes each corona light's Skin a material
+inline constexpr std::uint32_t BAKER_REVISION = 82; // 82 since UTA-0512 packs each texture level with LZ4
 
 /// "r<BAKER_REVISION>-f<ubundle::FORMAT_VERSION>-l<umat::libraryDigest()>",
 /// the revision and format in decimal, the digest as sixteen lower-case hex

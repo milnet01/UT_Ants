@@ -73,8 +73,8 @@ and `MATS`/`TEXS` alone, without reading a UT file.
 | `src/ubake/Name.h` | `BAKER_REVISION` (§ 4.4) |
 
 `GeometrySection.cpp` joins `uta_ubundle` and `Geometry.cpp` joins
-`uta_ubake`. No target is added and no link changes. `ubundle` still links
-nothing but `uta_core`, `uta_umap` and `uta_unav` (UTA-0008 INV-10).
+`uta_ubake`. No target is added and no link changes: `ubundle`'s links stay
+as UTA-0008 INV-10 lists them.
 
 ### 4.2 The `GEOM` section
 

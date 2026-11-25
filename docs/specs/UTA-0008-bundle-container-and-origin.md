@@ -737,7 +737,8 @@ the same defect one layer along.
   `docs/specs/UTA-0049-numeric-contract.md`'s INV-5 exists for.
 
 - **INV-10** — `uta_ubundle`'s link entries are exactly `uta_core`,
-  `uta_umap` and `uta_unav`.
+  `uta_umap`, `uta_unav` and `lz4_static`, which packs texture levels
+  (UTA-0512).
   *Test:* `src/ubundle/CMakeLists.txt`, a configure-time property assertion in
   the form `src/umap/CMakeLists.txt` already uses for UTA-0007's INV-5.
   *Breaks when:* a convenience dependency on `uta_upkg`, `uta_umap_build` or

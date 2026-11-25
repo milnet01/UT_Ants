@@ -214,6 +214,12 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Changed
 
+- **Maps load faster from disk, and their files are smaller** (UTA-0512)
+  Baked maps pack their textures more tightly, so a map's file is about
+  an eighth smaller and loads 30 to 40 milliseconds sooner from a hard
+  disk. A map loaded again soon after, from memory, takes a few
+  milliseconds longer. Every map must be baked again.
+
 - **`ut-export` marks sky and see-through surfaces for the lighting lab** (UTA-0496)
   Outdoor areas in scenes sent to ExperiRays stop being lit as if they
   had a roof, and light passes non-solid, translucent and modulated

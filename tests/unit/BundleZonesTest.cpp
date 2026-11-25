@@ -73,7 +73,7 @@ Bytes emptyLprb() {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(38); // formatVersion -- 38 since UTA-0493 gave ZONE its pain
+    out.u32(39); // formatVersion -- 39 since UTA-0512 gave TEXS levels a codec
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -141,7 +141,7 @@ void refusedBothWays(const std::vector<Zone>& zones, std::string_view says) {
 TEST_CASE("INV-1: the ZONE golden bytes decode to the entries they encode", "[ubundle][zone]") {
     const auto result = read(fileWith({{"ZONE", zonePayload(golden())}}));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 38);
+    CHECK(result->header.formatVersion == 39);
     REQUIRE(result->zones.has_value());
     sameZones(*result->zones, golden());
 }

@@ -38,6 +38,8 @@ add_library(uta_ubundle STATIC
     Sky.cpp
     TileAnswers.cpp)
 target_link_libraries(uta_ubundle PUBLIC uta_core uta_umap uta_unav)
+# LZ4 packs TEXS's levels (UTA-0512). PRIVATE: no header here exposes it.
+target_link_libraries(uta_ubundle PRIVATE lz4_static)
 
 # INV-10, asserted at configure time in the form src/umap/CMakeLists.txt uses
 # for UTA-0007's INV-5. ut-ants links this library in order to load a bundle
@@ -52,11 +54,11 @@ target_link_libraries(uta_ubundle PUBLIC uta_core uta_umap uta_unav)
 # The assertion names the permitted entries rather than forbidding all, so it
 # does not fail the moment a line above is legitimately needed.
 get_target_property(_uta_ubundle_links uta_ubundle LINK_LIBRARIES)
-if(NOT _uta_ubundle_links STREQUAL "uta_core;uta_umap;uta_unav")
+if(NOT _uta_ubundle_links STREQUAL "uta_core;uta_umap;uta_unav;lz4_static")
     message(FATAL_ERROR
         "uta_ubundle links '${_uta_ubundle_links}'. INV-10 in "
         "docs/specs/UTA-0008-bundle-container-and-origin.md allows uta_core, "
-        "uta_umap and uta_unav, in that order, and nothing else: it is a "
+        "uta_umap, uta_unav and lz4_static, in that order, and nothing else: it is a "
         "library a runtime target links, and docs/design.md rule 2 keeps the "
         "package reader out of the game.")
 endif()
