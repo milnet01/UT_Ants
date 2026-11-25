@@ -22190,7 +22190,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-11-24.
   Lanes: urender.
 
-- 🚧 [UTA-0510] **urender and ubake: each corona drawn with its own glow picture, as the map names it.**
+- ✅ [UTA-0510] **urender and ubake: each corona drawn with its own glow picture, as the map names it.**
   UTA-0321 draws every corona as one soft round glow, fitted to
   AS-Frigate's Light40 (GenFX.LensFlar.3, DrawScale 0.1). Census of
   UT_MonsterHunt's stored T3D files (2026-11-24): 44282 bCorona actors
@@ -22211,6 +22211,8 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   also sizes by the texture's pixels stays unmeasured, and the original
   is a guide only. Red-first: no material from the old baker; 248 pixels
   both ways on the old renderer.
+  Shipped 2026-11-25 (ut-ants-98), green on the matrix: commit 6b5e27f,
+  GitHub run 45570682223 success on GCC 14, Clang 19 and MSVC.
   **Layman:** Lamp glows take the shapes the map's maker picked, such as rings and stars, not one soft round glow for every lamp.
   Kind: feature.
   Source: in-session-2026-11-24.
