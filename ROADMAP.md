@@ -24131,6 +24131,20 @@ to.
     (106..618 against 256), which was not warned.
   Needed: editor verdicts on unmodified originals, positives and
   negatives, asked of UT_MonsterHunt 2026-11-25.
+  2026-11-25, verdicts and rule C. UT_MonsterHunt ran unmodified
+  originals through the editor: Minas_Tirith warned (Mover0, Mover1);
+  AncientCastle(v2), NaliBoat_LUCKY and BGXRAoulhuntmaze2 did not. So
+  rule A over-predicts, and rule B is out.
+  Rule C fits all four maps: a mover's brush-Model BSP node plane lies
+  on none of its brush polygons (normals parallel within 0.999, distance
+  within 0.5 units). Minas Mover0 and Mover1 have 2 such planes each,
+  at x = +-128; every other mover in the four maps has 0.
+  A scan of all 1179 MH-*.unr in Maps/ flags 181 maps (88 with one
+  mover). Seven verdicts asked of UT_MonsterHunt, five predicted
+  positive and two negative: AS-Rook, Salmagundi, AsteroidComplex,
+  Sky_Isles+SBMod1, HTD-Liandri-Corp1; EnterToCore-Part3-BP,
+  SkaarjTowerF. Build the ut-dump flag only once those agree. Throwaway
+  probe and scan in Scratchpad/UT_Ants/rev/.
   **Layman:** Lets UT_MonsterHunt find doors and lifts that cause invisible walls across the whole map library, without opening each map in the editor.
   Kind: feature.
   Source: ut-monsterhunt-request-2026-11-25.
