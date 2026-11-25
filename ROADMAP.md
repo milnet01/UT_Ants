@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=513 -->
+<!-- ants-roadmap-id-high-water: UTA=514 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -23972,6 +23972,23 @@ to.
   Kind: feature.
   Source: user-request-2026-11-24.
   Lanes: ugame.
+
+- 📋 [UTA-0514] **A file pass that lists a map's suspect camera spots for UT_MonsterHunt's undrawn-frame probe, in AddSpots form.**
+  Asked by UT_MonsterHunt (ut-monsterhunt-c4, 2026-11-25) for GAME-0298,
+  its MHUndrawnProbe. The probe stands at given spots plus spread nav
+  points; it takes up to 16 AddSpots=(X=,Y=,Z=) lines in
+  MHUndrawnProbe.ini, eye at +27.
+  Input: the 2026-10-03 census condition, a standing spot whose eye sits
+  in leafless, zoneless render-BSP space (the AncientCaves control's;
+  31 maps, largest Miam and MonstersOfTheCaribbean). It was found by the
+  scratch tool bsp-point.cpp (--spots), outside the repo; this item
+  brings the test into a built tool and writes the spots per map.
+  Not the ray-cast hole finder: falsified 2026-10-03.
+  UT_MonsterHunt noted it on GAME-0298.
+  **Layman:** The sister project's screen-hole checker gets a list of the places on each map most likely to show a hole, so it looks there first.
+  Kind: enhancement.
+  Source: in-session-2026-11-25.
+  Lanes: tools.
 
 ## 0.5.0 — Map editor
 
