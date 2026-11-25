@@ -191,8 +191,10 @@ them.
   its raw length; `reachSpecs`, the length of its ReachSpec array;
   `chainsUnresolved`, § 4.8's new count; and `propertiesUnread`, § 4.8's
   count added by UTA-0224. All integers.
-- **`surfaces`**: `{total, byTextureAndFlags}`. `total` is the Model's
-  surface count. `byTextureAndFlags` is one row per distinct (texture name,
+- **`surfaces`**: `{total, withLightMap, lightMaps, byTextureAndFlags}`.
+  `total` is the Model's surface count. `withLightMap` and `lightMaps` are
+  § 4.7d's, without `--lighting` (UTA-0513): 0 on a map whose lighting was
+  never built. `byTextureAndFlags` is one row per distinct (texture name,
   `polyFlags`) pair, ascending by that pair: `{texture, polyFlags, surfaces,
   drawnNodes}`. `texture` is the object name alone, not package-qualified.
   `drawnNodes` counts BSP nodes of three or more vertices that use the

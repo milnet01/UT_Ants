@@ -974,7 +974,10 @@ TEST_CASE("UTA-0012 INV-4: the key sets are exactly the contract's", "[dump]") {
     CHECK(keysOf(map) == mapKeys);
     CHECK(keysOf(member(map, "level"))
           == Keys{"actors", "rawSlots", "reachSpecs", "chainsUnresolved", "propertiesUnread"});
-    CHECK(keysOf(member(map, "surfaces")) == Keys{"total", "byTextureAndFlags"});
+    CHECK(keysOf(member(map, "surfaces")) == Keys{"total", "withLightMap", "lightMaps", "byTextureAndFlags"});
+    // UTA-0513: countLighting's, with no --lighting. The fixture writes no
+    // lightmap table, so no surface's index resolves.
+    CHECK(member(map, "surfaces").find("\"withLightMap\": 0, \"lightMaps\": 0, ") != std::string::npos);
     CHECK(keysOf(member(map, "monsters"))
           == Keys{"factories", "capacity", "unlimitedFactories", "unknownCapacityFactories", "placedPawns",
                   "unresolvedActors"});
@@ -986,7 +989,8 @@ TEST_CASE("UTA-0012 INV-4: the key sets are exactly the contract's", "[dump]") {
     REQUIRE(full.code == 0);
     const std::string fullMap = packagesOf(full.out).at(0);
     CHECK(keysOf(fullMap) == mapKeys);
-    CHECK(keysOf(member(fullMap, "surfaces")) == Keys{"total", "byTextureAndFlags", "list", "zones"});
+    CHECK(keysOf(member(fullMap, "surfaces"))
+          == Keys{"total", "withLightMap", "lightMaps", "byTextureAndFlags", "list", "zones"});
     CHECK(keysOf(member(fullMap, "nav"))
           == Keys{"nodes", "edges", "discardedEndpoints", "nodesWithNoExit", "nodeList", "edgeList"});
     CHECK(keysOf(member(fullMap, "wiring")) == Keys{"nodes", "edges", "dangling", "chainsUnresolved", "actors"});

@@ -216,7 +216,11 @@ void writeSurfaces(std::ostream& out, const uta::upkg::Package& package,
         group.second += nodesOf[i];
     }
 
-    out << ",\n  \"surfaces\": {\"total\": " << model->surfs.size() << ", \"byTextureAndFlags\": [";
+    // UTA-0513: whether the map's lighting was ever built, without --lighting's
+    // actor and zone build.
+    const LightingCounts lighting = countLighting(*model);
+    out << ",\n  \"surfaces\": {\"total\": " << model->surfs.size() << ", \"withLightMap\": " << lighting.withLightMap
+        << ", \"lightMaps\": " << lighting.lightMaps << ", \"byTextureAndFlags\": [";
     bool firstGroup = true;
     for (const auto& [key, counts] : groups) {
         if (!firstGroup) out << ", ";

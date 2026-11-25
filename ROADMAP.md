@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=512 -->
+<!-- ants-roadmap-id-high-water: UTA=513 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -22227,6 +22227,19 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: perf.
   Source: user-request-2026-11-25.
   Lanes: ubundle, umat.
+
+- 🚧 [UTA-0513] **ut-dump: surfaces.withLightMap and surfaces.lightMaps in the default output.**
+  Asked by UT_MonsterHunt (ut-monsterhunt-57, 2026-11-25) for UT Map
+  Repair's check for maps saved with lighting never built: over 1377
+  install maps, lighting.withLightMap is 0 on 5 and at least 0.9 of lit
+  surfaces on the rest, but --lighting costs +65% ut-dump time (its
+  actor and zone build). countLighting's two counts now sit in the
+  default surfaces object; UTA-0012 § surfaces amended. Source records
+  the user's standing order to help other sessions.
+  **Layman:** The map inspector says whether a map's lighting was ever built, quickly, so a repair tool can find maps that draw unlit.
+  Kind: feature.
+  Source: user-request-2026-11-25.
+  Lanes: ut-dump.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
