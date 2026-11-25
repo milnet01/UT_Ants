@@ -24009,7 +24009,7 @@ to.
   Source: in-session-2026-11-25.
   Lanes: tools.
 
-- 🚧 [UTA-0516] **Suspect spots a walk from the start reaches come first, with a reached count line.**
+- ✅ [UTA-0516] **Suspect spots a walk from the start reaches come first, with a reached count line.**
   UT_MonsterHunt asked, 2026-11-25 (its GAME-0298, 68fb984), after
   checking UTA-0514's spots with its photo probe: Miam undrawn 144/144 at
   16 spots, AncientCaves[Torus]-BP 34/36 at 4,
@@ -24024,6 +24024,9 @@ to.
   then the rest; the count as a `;` comment line, e.g. `; reached 9 of
   16`. undrawn.py reads AddSpots in file order, stops at 16, and skips
   `;` lines.
+  Shipped 2026-11-25 in 267c523, green on the matrix (run 45637601886).
+  UT_MonsterHunt ranks by reached, never filters, since AncientCaves'
+  holed spots are all unreached.
   **Layman:** The sister project's hole checker can try the places players really stand first, and we learn why one map's suspects showed no holes.
   Kind: enhancement.
   Source: in-session-2026-11-25.
@@ -24042,6 +24045,12 @@ to.
   Lead, unverified: Caribbean's suspects stand outside the play area.
   Next: compare each map's suspect eyes with the reached spots' extent,
   and their render-BSP descent (old scratch bsp-point.cpp --near).
+  UT_MonsterHunt's sweep, 2026-11-25 (GAME-0298), our spots only, hold
+  15: 5 of 26 suspect maps holed. Undrawn: Miam 144/144,
+  AncientCaves[Torus]-BP 34/36, MHF-AncientCavesHard_RMD 34/36,
+  CMC-PartyCrashers 7/9, TheLastVillageViking-Beta[THUNDERBOLT] 17/144.
+  The other 21 were clean, Caribbean included. The question widens: what
+  separates the 5 holed maps from the 21 clean ones.
   **Layman:** One map's suspect places all looked fine in photos; find out what makes them different from the maps where holes were real.
   Kind: investigate.
   Source: in-session-2026-11-25.
