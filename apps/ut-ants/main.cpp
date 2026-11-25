@@ -434,9 +434,13 @@ void Viewer::showOverlay() {
 }
 
 bool Viewer::buildBodies() {
-    // The level and its movers where the map places them; nothing moves them yet.
+    // The level and its movers where the map places them; nothing moves them
+    // yet. And every actor that blocks a player (UTA-0377).
     static const std::vector<uta::ubundle::MoverShape> none;
-    auto built = uta::uworld::BodyWorld::build(*bundle.collision, bundle.movers ? *bundle.movers : none);
+    const std::vector<uta::uworld::Blocker> blockers =
+        bundle.placements ? uta::uworld::blockersOf(*bundle.placements) : std::vector<uta::uworld::Blocker>{};
+    auto built =
+        uta::uworld::BodyWorld::build(*bundle.collision, bundle.movers ? *bundle.movers : none, blockers);
     if (!built) {
         std::cerr << "ut-ants: no walking, and the camera stops at walls only: " << built.error().message() << "\n";
         return false;

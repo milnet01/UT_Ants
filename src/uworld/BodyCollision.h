@@ -1,4 +1,5 @@
-// A round body against the level's collision and its movers' --
+// A round body against the level's collision, its movers' and its blocking
+// actors' --
 // docs/specs/UTA-0457-body-collision.md. Where a body stops, and how it slides
 // along what it hits; never how it wants to move, which is UTA-0017's.
 //
@@ -10,6 +11,7 @@
 
 #include "core/Error.h"
 #include "ubundle/Bundle.h"
+#include "uworld/Blockers.h"
 #include "uworld/CollisionQuery.h"
 
 #include <array>
@@ -56,9 +58,12 @@ public:
     /// `movers` is the bundle's MOVR list; each of `collision.movers` must
     /// have a shape there with its export index, or the build refuses naming
     /// it. A mover whose mesh has no triangle is kept, so indices still match
-    /// `collision.movers`, and blocks nothing (UTA-0462).
+    /// `collision.movers`, and blocks nothing (UTA-0462). Each of `blockers`
+    /// is an upright cylinder that sweeps and `fits` meet and `trace` passes
+    /// through (SS 4.7).
     [[nodiscard]] static Result<BodyWorld> build(const ubundle::Collision& collision,
-                                                 std::span<const ubundle::MoverShape> movers);
+                                                 std::span<const ubundle::MoverShape> movers,
+                                                 std::span<const Blocker> blockers = {});
 
     BodyWorld(BodyWorld&&) noexcept;
     BodyWorld& operator=(BodyWorld&&) noexcept;

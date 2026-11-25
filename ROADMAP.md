@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=519 -->
+<!-- ants-roadmap-id-high-water: UTA=521 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -21003,7 +21003,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-10-11.
   Lanes: urender.
 
-- 📋 [UTA-0377] **Props cannot be walked through; one that traps a player is moved or removed.**
+- 📋 [UTA-0377] **Props, and every actor UT99 lets block a player, cannot be walked through.**
   The user, 2026-10-16: "ensure that props can not be walked though
   (then need collision detection). If those objects cause a player to
   get stuck though, we will either need to remove the object or move
@@ -21017,6 +21017,17 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   A prop that traps a player is found in playtests and fixed per map,
   by moving or removing it with the map editor; how a fix is stored
   (a recipe entry, as lamps are) is decided then.
+  Built 2026-11-25: docs/specs/UTA-0457-body-collision.md SS 4.7 and
+  INV-10. Census of 19 maps baked at format 39
+  (Scratchpad/UT_Ants/props377/census2): an actor blocks a player when
+  bCollideActors and bBlockPlayers both resolve true. That keeps
+  barrels, chairs and pylons, and BlockAll and BlockPlayer (7 of the 18
+  stock maps), and on one map 24 lights the mapper made solid. It leaves
+  out light boxes, tube lights and hanging pipes, by their own flags.
+  Pawns, movers and projectiles are left out because they move. A real
+  BodyWorld built with every bake's blockers; every sweep at one
+  stopped. Trapping props moved to UTA-0520; shots hitting actors to
+  UTA-0521.
   **Layman:** Barrels, pipes and other props in a map become solid, and any prop that leaves a player stuck gets moved or taken out.
   Kind: feature.
   Source: user-request-2026-10-16.
@@ -22288,7 +22299,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: in-session-2026-11-25.
   Lanes: tests.
 
-- 📋 [UTA-0518] **The address sanitizer recipe in docs/build-and-test.md no longer links since Jolt joined.**
+- ✅ [UTA-0518] **The address sanitizer recipe in docs/build-and-test.md no longer links since Jolt joined.**
   Found 2026-11-25 while running UTA-0512's tests under ASan. The
   recipe's -fsanitize=undefined includes the vptr check, which needs
   type info; Jolt is built without RTTI, so linking uta_unit_tests
@@ -22296,6 +22307,11 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   src/uworld/BodyCollision.cpp. Adding -fno-sanitize=vptr to
   CMAKE_CXX_FLAGS linked. Fix the recipe, and check what
   scripts/mutation-probe.py --asan configures.
+  Shipped 2026-11-25 (d47524c, green on GitHub's matrix): the recipe's
+  CMAKE_CXX_FLAGS name -fno-sanitize=vptr; Jolt's CPP_RTTI_ENABLED is
+  OFF. mutation-probe.py --asan configures nothing; it builds an
+  existing build-asan/, and its message now points at
+  docs/build-and-test.md.
   **Layman:** The memory-checking test build stopped working when the physics library was added, so it needs one more setting in its instructions.
   Kind: fix.
   Source: in-session-2026-11-25 UTA-0512.
@@ -22937,6 +22953,18 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   Kind: implement.
   Source: user-request-2026-11-20.
   Lanes: uaudio, ugame.
+
+- 📋 [UTA-0521] **Shots and projectiles hit the actors that block them, such as barrels.**
+  Split from UTA-0377. BodyWorld::trace passes through SS 4.7's blocking
+  actors (docs/specs/UTA-0457-body-collision.md), so a shot goes through
+  a barrel. UT99 traces hit an actor by its own flags (bProjTarget,
+  bBlockActors); read those from the bundle's placements as SS 4.7
+  reads bBlockPlayers, and measure the original before choosing.
+  Beside UTA-0471, which hits an enemy's model.
+  **Layman:** Shots would stop at barrels and other solid objects instead of passing through them.
+  Kind: feature.
+  Source: in-session-2026-11-25 UTA-0377.
+  Lanes: uworld.
 
 ## 0.4.0 — Monster Hunt
 
@@ -24145,6 +24173,19 @@ to.
   Sky_Isles+SBMod1, HTD-Liandri-Corp1; EnterToCore-Part3-BP,
   SkaarjTowerF. Build the ut-dump flag only once those agree. Throwaway
   probe and scan in Scratchpad/UT_Ants/rev/.
+  2026-11-25, second batch of editor verdicts (UT_MonsterHunt): hits
+  AS-Rook Mover13, Salmagundi Mover34/36, AsteroidComplex Mover0;
+  SkaarjTowerF clean as predicted; misses Sky_Isles+SBMod1 Mover19 and
+  HTD-Liandri-Corp1 (Mover9/44/57/62). Rule C: 8 of 10. Flags do not
+  separate them: every flagged mover is class Mover and sets no
+  collision flag. Rule D fits all 10: a plane more than 1 unit from
+  every parallel brush polygon AND outside the brush's extent along its
+  normal. Mover57's offsets are 0.50 to 0.70 and Mover19's 0.91, which
+  is noise; Liandri's 87-unit planes lie inside the brush. Rule D was
+  fitted to these, so a blind set from scanD.tsv
+  (Scratchpad/UT_Ants/rev/, dist.py) goes to UT_MonsterHunt before the
+  flag is built. EnterToCore-Part3-BP: no verdict yet (missing
+  SLV2Textures); both rules predict clean.
   **Layman:** Lets UT_MonsterHunt find doors and lifts that cause invisible walls across the whole map library, without opening each map in the editor.
   Kind: feature.
   Source: ut-monsterhunt-request-2026-11-25.
@@ -24201,6 +24242,17 @@ here is hosted, downloaded and played by someone else.
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: ued.
+
+- 📋 [UTA-0520] **A prop that traps a player is moved or removed, per map, once playtests find it.**
+  Split from UTA-0377, which made every actor UT99 lets block a player
+  solid (docs/specs/UTA-0457-body-collision.md SS 4.7). The user,
+  2026-10-16: a prop that leaves a player stuck is moved or removed,
+  found in playtests, with the map editor (UTA-0034). How a fix is
+  stored (a recipe entry, as lamps are) is decided then.
+  **Layman:** When playtesting finds a barrel or other object that leaves a player stuck, it gets moved or taken out of that map.
+  Kind: fix.
+  Source: in-session-2026-11-25 UTA-0377.
+  Lanes: ubake, ued.
 
 ## 0.6.0 — Character authoring
 

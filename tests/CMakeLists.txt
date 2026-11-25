@@ -56,6 +56,7 @@ add_executable(uta_unit_tests
     unit/BundleActorsTest.cpp
     unit/BundleCollisionTest.cpp
     unit/BlockFixture.cpp
+    unit/BlockersTest.cpp
     unit/BodyCollisionTest.cpp
     unit/FixedTickTest.cpp
     unit/GameTest.cpp

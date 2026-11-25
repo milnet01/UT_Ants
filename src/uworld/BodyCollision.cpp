@@ -190,10 +190,17 @@ std::optional<Vec3> intoPivot(const Mover& mover, const Vec3& p) {
 
 } // namespace
 
+/// A blocking actor's cylinder, placed (SS 4.7).
+struct PlacedBlocker {
+    JPH::RefConst<JPH::Shape> shape;
+    JPH::Mat44 place = JPH::Mat44::sIdentity();
+};
+
 struct BodyWorld::State {
     ubundle::CollisionTree levelTree;
     JPH::RefConst<JPH::Shape> level; ///< null where the level has no surface
     std::vector<Mover> movers;
+    std::vector<PlacedBlocker> blockers;
 
     /// Whether `p` is in solid, in the level or a mover. A body whose centre
     /// is deep in solid touches no surface, so the mesh alone cannot see it.
@@ -230,6 +237,7 @@ struct BodyWorld::State {
         if (level != nullptr) visit(*level, JPH::Mat44::sIdentity());
         for (const Mover& m : movers)
             if (m.shape != nullptr) visit(*m.shape, m.place);
+        for (const PlacedBlocker& b : blockers) visit(*b.shape, b.place);
     }
 };
 
@@ -239,7 +247,8 @@ BodyWorld& BodyWorld::operator=(BodyWorld&&) noexcept = default;
 BodyWorld::~BodyWorld() = default;
 
 Result<BodyWorld> BodyWorld::build(const ubundle::Collision& collision,
-                                   std::span<const ubundle::MoverShape> movers) {
+                                   std::span<const ubundle::MoverShape> movers,
+                                   std::span<const Blocker> blockers) {
     startJolt();
     auto state = std::make_unique<State>();
 
@@ -267,6 +276,21 @@ Result<BodyWorld> BodyWorld::build(const ubundle::Collision& collision,
         mover.shape = made;
         mover.place = placeAt(mover.location);
         state->movers.push_back(std::move(mover));
+    }
+
+    // Upright, as a body is; Jolt's cylinder stands along its Y, which is
+    // UT99's Z (toJoltDirection). Jolt refuses a rim deeper than half the
+    // cylinder, so a small one's is cut to fit.
+    for (const Blocker& blocker : blockers) {
+        const double rim = std::min({RIM, blocker.radius / 2, blocker.halfHeight / 2});
+        const JPH::CylinderShapeSettings settings(static_cast<float>(blocker.halfHeight * TO_JOLT),
+                                                  static_cast<float>(blocker.radius * TO_JOLT),
+                                                  static_cast<float>(rim * TO_JOLT));
+        const JPH::ShapeSettings::ShapeResult made = settings.Create();
+        if (made.HasError())
+            return fail(ErrorCode::MalformedData, "a blocking actor's cylinder was refused: " +
+                                                      std::string(made.GetError()));
+        state->blockers.push_back({JPH::RefConst<JPH::Shape>(made.Get()), placeAt(blocker.location)});
     }
     return BodyWorld(std::move(state));
 }

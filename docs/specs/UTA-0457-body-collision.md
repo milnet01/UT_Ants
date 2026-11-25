@@ -78,6 +78,8 @@ the same figures):
 |---|---|
 | `src/uworld/BodyCollision.h`, `.cpp` | § 4.3's world and § 4.4's queries |
 | `src/uworld/CollisionMesh.h`, `.cpp` | § 4.2: a tree's surfaces as triangles |
+| `src/uworld/Blockers.h`, `.cpp` | § 4.7: the actors that block a body |
+| `tests/unit/BlockersTest.cpp` | § 7's blocking-actor cases |
 | `CMakeLists.txt` | Jolt, fetched (§ 4.6) |
 | `tests/unit/BodyCollisionTest.cpp` | § 7's unit cases |
 | `tests/unit/CollisionMeshTest.cpp` | § 7's mesh cases |
@@ -113,9 +115,11 @@ struct BodySize { double radius = 17, halfHeight = 39; };
 
 class BodyWorld {
 public:
-    /// The level's mesh and each mover's, every mover at its MOVR pose.
+    /// The level's mesh and each mover's, every mover at its MOVR pose,
+    /// and each blocking actor's cylinder (§ 4.7).
     static Result<BodyWorld> build(const ubundle::Collision& collision,
-                                   std::span<const ubundle::MoverShape> movers);
+                                   std::span<const ubundle::MoverShape> movers,
+                                   std::span<const Blocker> blockers = {});
     /// Moves mover `i` (its index in `collision.movers`) to a new pose;
     /// refuses an `i` past the last, changing nothing.
     Result<void> placeMover(std::size_t i, const Vec3& location,
@@ -197,6 +201,38 @@ declared in the root `CMakeLists.txt`, its headers included as
 options that would change this project's flags or runtime off. A row
 joins `docs/design.md` § The stack.
 
+### 4.7 Blocking actors (UTA-0377)
+
+```cpp
+struct Blocker { Vec3 location; double radius = 0, halfHeight = 0; };
+
+std::vector<Blocker> blockersOf(const ubundle::Placements& placements);
+```
+
+A placed actor blocks a body as UT99's does a player's: when
+`bCollideActors` and `bBlockPlayers` are both true. Each is the actor's
+own value, else its class's default (`ubundle::resolvedProperty`).
+Barrels, chairs, `BlockAll` and `BlockPlayer` block; light boxes, tube
+lights and pickups do not, by their own flags.
+
+- **Its cylinder is its own**: `CollisionRadius` across and
+  `CollisionHeight` above and below its `Location`. UT99 neither turns
+  nor scales it with the actor.
+- **Left out:** an actor whose class did not resolve, since its defaults
+  are unknown. One of a class that is, or descends from, `Engine.Pawn`,
+  `Engine.Mover` or `Engine.Projectile`: these move, and a mover is
+  § 4.3's. One whose radius or height is not above zero, or whose numbers
+  are not finite.
+- **In the world** each is an upright cylinder, its rim rounded by
+  § 4.5's `RIM` inside its size, or by half its radius or half-height
+  where that is smaller. `sweep`, `slide` and `fits` meet it as
+  they meet the level. A body overlapping one is inside, with the way out
+  its overlap's; its centre inside one is not "in solid", since a cylinder
+  always knows its way out. `trace` passes through it: what a shot does
+  to an actor is not this spec's.
+- **Every body is a player's.** A monster's rule, `bBlockActors`, comes
+  with monsters (UTA-0024).
+
 ## 5. Invariants
 
 - **INV-1** — The mesh holds exactly the faces between empty and solid. A
@@ -265,6 +301,15 @@ joins `docs/design.md` § The stack.
   *Breaks when:* the body or mesh is bigger than the original's (the first
   two), or a wall is missing from the mesh (the third).
 
+- **INV-10** — A blocking actor stops a body (§ 4.7). A body swept at one
+  stops `SKIN` off its side, give or take 0.01; a body falling onto one
+  rests `SKIN` above its top. An actor lacking either flag, a pawn, and
+  one whose class did not resolve block nothing; an actor's own flag
+  overrides its class's default.
+  *Test:* `BlockersTest.cpp`.
+  *Breaks when:* either flag is ignored, the actor's own value loses to
+  its class's, a pawn is kept, or the cylinder is not in the world.
+
 ## 6. Failure modes
 
 - A recording missing, or the install missing: the real case fails
@@ -275,7 +320,8 @@ joins `docs/design.md` § The stack.
 ## 7. Tests
 
 Unit cases on hand trees: INV-1 in `CollisionMeshTest.cpp`; INV-2, INV-3,
-INV-4, INV-5, INV-6, INV-7 and INV-8 in `BodyCollisionTest.cpp`.
+INV-4, INV-5, INV-6, INV-7 and INV-8 in `BodyCollisionTest.cpp`; INV-10
+in `BlockersTest.cpp`.
 Rooms are built as `CollisionTree`s with real outlines, so INV-1's
 builder is what the sweeps run on. INV-9's real case, label `real`, bakes
 `DM-Deck16][` from the install and reads recordings from the directory
@@ -296,7 +342,9 @@ builder is what the sweeps run on. INV-9's real case, label `real`, bakes
 ## 9. Out of scope
 
 Walking, falling, stepping up, the floor hover and every movement
-constant (UTA-0017). Bodies against bodies (UTA-0017 and UTA-0114).
+constant (UTA-0017). Bodies against bodies (UTA-0017 and UTA-0114), but
+for § 4.7's still actors. A shot hitting an actor. A prop that is pushed,
+falls or is destroyed (UTA-0116).
 The physics world for debris (UTA-0114). Drawing the body (UTA-0458).
 
 ## 10. What checks this
@@ -307,6 +355,7 @@ The physics world for debris (UTA-0114). Drawing the body (UTA-0458).
 | INV-2, INV-3, INV-4, INV-5, INV-6, INV-7 | `BodyCollisionTest` |
 | INV-8 | `BodyCollisionTest` on GitHub's matrix |
 | INV-9 | `RealBodyCollisionTest`, run by hand: nothing runs the real tier automatically |
+| INV-10 | `BlockersTest` |
 | § 3 item 5, looks right | Partial: the user's eye through UTA-0458, after it lands |
 
 ## 11. Cross-doc impact
