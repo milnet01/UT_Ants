@@ -23,6 +23,7 @@ which holds each default. Source: `/mnt/Games/Scripts/Linux/UT_MonsterHunt/unrea
 | Adjustment | What a player sees | Switch and default | Where |
 |---|---|---|---|
 | Monster toughness | Monsters 2.5x health, bosses 2.0x, cap 25000 | MHMonsterHealth.ini `HealthMultiplier`, `BossMultiplier`, `HealthCap`; also `mutate monsterhealth` | MHMonsterHealth.uc |
+| Monster armour | Monsters spawn with 150 armour and regain 5 a second, up to 150 | MHMonsterHealth.ini `ArmourAtSpawn=150`, `bRegenArmour=True`, `ArmourRegenPerSec=5`, `MaxRegenArmour=150` (live 2026-11-25) | GAME-0297 |
 | Spawn protection | 5 s unhurtable after spawn; no telefrag on a start | MHMonsterHealth.ini `bSpawnProtect=True`, `SpawnProtectSeconds=5.0`; `mutate spawnprot` | MHMonsterHealth.uc; GAME-0066 |
 | Team awards survive death | Team protection/amp kept through a death | MHMonsterHealth.ini `bKeepTeamAwards=True` | GAME-0068 |
 | No landing damage | Hard landings don't hurt | MHMonsterHealth.ini `bNoLandingDamage=False` | GAME-0079 |
@@ -37,6 +38,8 @@ which holds each default. Source: `/mnt/Games/Scripts/Linux/UT_MonsterHunt/unrea
 | FatBoy | Stock Botpack.FatBoy | Always on; effect unverified | start-mh-server.sh |
 | Bot skill | Skill 7, accuracy/alertness 1.0, aggression 0.7, orders Attack, jumpy, no camping | MHBotSkill.ini `BotSkill`, `Accuracy`, `Alertness`, `StrafingAbility`, `CombatStyle`, `CampingRate`, `bJumpy`, `BotOrders` | MHBotSkill.uc |
 | Bots step aside, idle, unstick | Bots yield to players, idle-animate, stuck bots get fallback orders | MHBotSkill.ini `bYieldToPlayers`, `bIdleWhenStill`, `bFreeStuckBots` (all True), `StuckDistance`, `StuckChecksToFree`, `FallbackOrders` | GAME-0015, 0016, 0065, 0111 |
+| Bots hunt and escort | The bot nearest each human escorts them; the others hunt the nearest reachable monster | MHBotSkill.ini `bHuntMonsters=True` (live 2026-11-25) | GAME-0294 |
+| Bots open switch doors | A bot firing into a shut switch door goes to its switch, giving up after 60 s | MHBotSkill.ini `bDoorSwitch=True`, `DoorGiveUpSeconds=60` (live 2026-11-25) | GAME-0295 |
 | Bots leave UltimaProtos to humans | — | Unverified, GAME-0229 in progress | ROADMAP |
 | Stuck-monster rescue | Monsters inside walls lifted or moved to a path node | Always on; no ini keys found | MHStuckMonsters.uc; GAME-0011 |
 | Exit gate | Exit shut until map mostly cleared (`Percent=2`, `MinRemaining=3`); opens after 180 s stalled or 2700 s | MHEndGate.ini `bEnabled=True`, `StallSeconds`, `MaxSeconds` | MHEndGate.uc; GAME-0101, 0149 (fixes in progress: 0155, 0179, 0280, 0281) |
@@ -60,6 +63,7 @@ which holds each default. Source: `/mnt/Games/Scripts/Linux/UT_MonsterHunt/unrea
 | Map-vote window | Opens at map end; maps coloured finished/started/never; ratings; clean names | MHVoteGUI.ini `bOpenAtMapEnd=True`, `OpenDelay=3.0`, `MaxResults=60`, `StartedAfterSeconds=60` | unrealscript/MHVoteGUI; GAME-0055, 0067, 0081, 0198 |
 | Console vote/admin | `mutate vote`, `votemap`, `skipmap`, `map`, `thismap`; playlists | MHAdmin.ini `bVoteAtMapEnd=True`, `VoteEndOfMapSeconds=35`, `VoteDurationSeconds=30`, `VoteMapChoices=16`, `bOfferNextInRotation=True`, `bRequireAdmin=False` | MHAdmin.uc, MHPlaylist.uc; GAME-0190 |
 | Hints | `mutate hint` names the next step; glowing trail; nudge after 45 s still | MHHint.ini `bAutoHint=True`, `StuckSeconds=45`, `AutoHintCooldown=120`, `bTrail`, `TrailSeconds`, ... (trail defaults unverified) | MHHint.uc; GAME-0013, 0017, 0145, 0151, 0249, 0282 |
+| Last monsters | With 5 or fewer monsters left, `mutate hint` lists them and the trail leads to the nearest | MHHint.ini `LastMonsters=5` (0 off; live 2026-11-25) | GAME-0296 |
 | Weapon wheel | Hold a pad button, pick a gun with the right stick | Always on; client User.ini binds "Button bExtra0" | unrealscript/MHWeaponWheel; GAME-0261 |
 | Controller camera/dodge | Stick speed; double-tap dodge | Client User.ini `JoyR`, `JoyU`, `DodgeClickTime` | settings_catalog.py; GAME-0182, 0184 |
 

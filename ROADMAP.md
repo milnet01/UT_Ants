@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=515 -->
+<!-- ants-roadmap-id-high-water: UTA=516 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -22260,7 +22260,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-11-25.
   Lanes: ut-dump.
 
-- 📋 [UTA-0515] **catch_discover_tests' LABELS "unit;fast" splits, so no unit test carries its TIMEOUT or the fast label.**
+- ✅ [UTA-0515] **catch_discover_tests' LABELS "unit;fast" splits, so no unit test carries its TIMEOUT or the fast label.**
   Found 2026-11-25 while a UTA-0514 hand mutation hung a test for over ten
   minutes. `ctest --show-only=json-v1` on a uta_unit_tests case shows
   properties LABELS=[unit], fast=TIMEOUT, 30=SKIP_RETURN_CODE: the list
@@ -22268,6 +22268,8 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   tests/CMakeLists.txt says the TIMEOUT is load-bearing (INV-10's
   breaking case). Check each catch_discover_tests call with a two-label
   list; prove it with the same json before and after.
+  Shipped 2026-11-25 in 9f6c27b, green on the matrix (run 45634082155).
+  Every unit test now carries TIMEOUT 30 and SKIP_RETURN_CODE 4.
   **Layman:** A test that hangs should stop after 30 seconds; today it runs forever, because the build's test settings are read out of line.
   Kind: fix.
   Source: in-session-2026-11-25.
@@ -23986,7 +23988,7 @@ to.
   Source: user-request-2026-11-24.
   Lanes: ugame.
 
-- 📋 [UTA-0514] **A file pass that lists a map's suspect camera spots for UT_MonsterHunt's undrawn-frame probe, in AddSpots form.**
+- ✅ [UTA-0514] **A file pass that lists a map's suspect camera spots for UT_MonsterHunt's undrawn-frame probe, in AddSpots form.**
   Asked by UT_MonsterHunt (ut-monsterhunt-c4, 2026-11-25) for GAME-0298,
   its MHUndrawnProbe. The probe stands at given spots plus spread nav
   points; it takes up to 16 AddSpots=(X=,Y=,Z=) lines in
@@ -23998,7 +24000,27 @@ to.
   brings the test into a built tool and writes the spots per map.
   Not the ray-cast hole finder: falsified 2026-10-03.
   UT_MonsterHunt noted it on GAME-0298.
+  Shipped 2026-11-25 in 232ff7b, green on the matrix (run 45634082155).
+  Every standing spot counts, reached or not; 27 MH maps have suspects.
+  UT_MonsterHunt's photo check: Miam undrawn 144/144, AncientCaves
+  34/36, MonstersOfTheCaribbean 0/144 (GAME-0298).
   **Layman:** The sister project's screen-hole checker gets a list of the places on each map most likely to show a hole, so it looks there first.
+  Kind: enhancement.
+  Source: in-session-2026-11-25.
+  Lanes: tools.
+
+- 📋 [UTA-0516] **Suspect spots say whether walking from the start reaches them, and MonstersOfTheCaribbean's clean miss is explained.**
+  UT_MonsterHunt asked, 2026-11-25 (its GAME-0298, 68fb984), after
+  checking UTA-0514's spots with its photo probe: Miam undrawn 144/144 at
+  16 spots, AncientCaves[Torus]-BP 34/36 at 4,
+  MonstersOfTheCaribbeanTHUNDERBOLTFIX-BP 0/144 at 16.
+  1. A reached flag per spot (walk from the start, joins both ways), so
+     reachable spots rank first. It is a request, not a demand. The ini is
+     AddSpots lines; agree the form with UT_MonsterHunt before writing it.
+  2. Why the leafless rule misses on Caribbean: compare its suspect eyes'
+     BSP descent with Miam's (bsp-point.cpp --near, --zones in the old
+     scratch, ut-ants-uta0156/ambient-census).
+  **Layman:** The sister project's hole checker can try the places players really stand first, and we learn why one map's suspects showed no holes.
   Kind: enhancement.
   Source: in-session-2026-11-25.
   Lanes: tools.
