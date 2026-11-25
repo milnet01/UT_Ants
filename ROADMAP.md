@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=516 -->
+<!-- ants-roadmap-id-high-water: UTA=517 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -24009,7 +24009,7 @@ to.
   Source: in-session-2026-11-25.
   Lanes: tools.
 
-- 📋 [UTA-0516] **Suspect spots say whether walking from the start reaches them, and MonstersOfTheCaribbean's clean miss is explained.**
+- 🚧 [UTA-0516] **Suspect spots a walk from the start reaches come first, with a reached count line.**
   UT_MonsterHunt asked, 2026-11-25 (its GAME-0298, 68fb984), after
   checking UTA-0514's spots with its photo probe: Miam undrawn 144/144 at
   16 spots, AncientCaves[Torus]-BP 34/36 at 4,
@@ -24020,8 +24020,30 @@ to.
   2. Why the leafless rule misses on Caribbean: compare its suspect eyes'
      BSP descent with Miam's (bsp-point.cpp --near, --zones in the old
      scratch, ut-ants-uta0156/ambient-census).
+  Form agreed with UT_MonsterHunt 2026-11-25: reachable spots first,
+  then the rest; the count as a `;` comment line, e.g. `; reached 9 of
+  16`. undrawn.py reads AddSpots in file order, stops at 16, and skips
+  `;` lines.
   **Layman:** The sister project's hole checker can try the places players really stand first, and we learn why one map's suspects showed no holes.
   Kind: enhancement.
+  Source: in-session-2026-11-25.
+  Lanes: tools.
+
+- 📋 [UTA-0517] **Why the leafless rule finds no hole on MonstersOfTheCaribbean, where UT_MonsterHunt's probe saw 0 of 144.**
+  Split from UTA-0516, 2026-11-25. Measured with ut-paths
+  --suspect-spots after UTA-0516:
+  - Miam: 16 of 16 spots reached by walking from the start; probe
+    undrawn 144/144.
+  - AncientCaves[Torus]-BP: 0 of 4 reached; undrawn 34/36.
+  - MonstersOfTheCaribbeanTHUNDERBOLTFIX-BP: 0 of 16 reached (393 cubes,
+    none reached); 3472 reached of 1191155 standing spots; probe 0/144.
+  ut-dump --zone-at gives `outside`, zone null, at every suspect eye of
+  all three maps, so zones do not separate them.
+  Lead, unverified: Caribbean's suspects stand outside the play area.
+  Next: compare each map's suspect eyes with the reached spots' extent,
+  and their render-BSP descent (old scratch bsp-point.cpp --near).
+  **Layman:** One map's suspect places all looked fine in photos; find out what makes them different from the maps where holes were real.
+  Kind: investigate.
   Source: in-session-2026-11-25.
   Lanes: tools.
 

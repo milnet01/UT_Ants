@@ -13,6 +13,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -42,20 +43,26 @@ struct Suspects {
     std::size_t standing = 0;  ///< every spot in the graph
     std::size_t leafless = 0;  ///< of those, the suspect ones
     std::size_t clusters = 0;  ///< SUSPECT_CELL cubes holding a suspect eye
-    std::vector<Vec3> spots;   ///< one spot centre per cube, most suspects first
+    std::vector<Vec3> spots;   ///< one spot centre per cube, reached cubes first
+    std::size_t reached = 0;   ///< how many of `spots`, from the front, a walk reaches
 };
 
 /// The suspect spots among all of `graph`'s, one per SUSPECT_CELL cube of the
-/// eye, at most `most`. Equal cubes keep the lower X, then Y, then Z; each
-/// cube is shown by its first spot in `graph` order. Spots no walk from the
-/// start reaches count too: the walk graph has no lifts, jumps or
-/// teleporters, and on AncientCaves, the known hole's map, no suspect spot is
-/// reached by walking (measured 2026-11-25).
+/// eye, at most `most`. Spots no walk from the start reaches count too: the
+/// walk graph has no lifts, jumps or teleporters, and on AncientCaves, the
+/// known hole's map, no suspect spot is reached by walking (measured
+/// 2026-11-25).
+///
+/// UTA-0516: cubes holding a spot a walk from `start` reaches (joins taken
+/// both ways) come first, each shown by its first such spot; then the rest.
+/// Within each part, most suspects first, then the lower X, Y, Z; a cube no
+/// walk reaches is shown by its first spot in `graph` order.
 [[nodiscard]] Suspects suspectSpots(const upkg::Model& model, const WalkGraph& graph,
-                                    std::size_t most = MAX_SUSPECTS);
+                                    std::optional<std::uint32_t> start, std::size_t most = MAX_SUSPECTS);
 
-/// `spots` as MHUndrawnProbe.ini lines, `AddSpots=(X=1,Y=2,Z=3)`, one per
-/// spot, each coordinate rounded to a whole unit.
-[[nodiscard]] std::string addSpotsLines(const std::vector<Vec3>& spots);
+/// MHUndrawnProbe.ini text: `; reached <reached> of <spots>` (a comment the
+/// probe skips), then `spots` as `AddSpots=(X=1,Y=2,Z=3)` lines, each
+/// coordinate rounded to a whole unit.
+[[nodiscard]] std::string addSpotsLines(const std::vector<Vec3>& spots, std::size_t reached);
 
 } // namespace uta::paths

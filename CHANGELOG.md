@@ -52,8 +52,8 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 - **`ut-paths --suspect-spots` lists where on each map UT may leave the screen part-drawn** (UTA-0514)
   For each map file, up to 16 standing spots whose eye sits in empty
   space the map's own drawing tree gives no room to, written as
-  `AddSpots` lines. UT_MonsterHunt's undrawn-frame probe looks there
-  first.
+  `AddSpots` lines, those a player can walk to from the start first.
+  UT_MonsterHunt's undrawn-frame probe looks there first (UTA-0516).
 - **`ut-dump --zone-at` says which zone each named point is in, and whether it is water or pain** (UTA-0497)
   Points come as an argument, a file, or both, and are answered in
   order. UT_MonsterHunt's map repair uses it to find spots under water.

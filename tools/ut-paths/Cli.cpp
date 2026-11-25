@@ -60,8 +60,9 @@ void usage(std::ostream& err) {
            "\n"
            "With --suspect-spots (UTA-0514), for each map file named, the standing\n"
            "spots whose eye lies in empty render-BSP space with no leaf,\n"
-           "one per 256-unit cube, most first, at most 16: <dir>/<its name>.spots.ini\n"
-           "holds them as AddSpots=(X=,Y=,Z=) lines for UT_MonsterHunt's\n"
+           "one per 256-unit cube, at most 16, those a walk from the start reaches\n"
+           "first: <dir>/<its name>.spots.ini holds a '; reached N of M' line and\n"
+           "then AddSpots=(X=,Y=,Z=) lines for UT_MonsterHunt's\n"
            "MHUndrawnProbe, and <dir>/ut-paths-spots.json counts them per map.\n";
 }
 
@@ -423,8 +424,8 @@ SpotsEntry runSuspects(const stdfs::path& install, std::optional<ubake::Install>
     if (!model.has_value()) return refuse(std::string(model.error().message()));
 
     const WalkGraph graph = walkGraph(scene->tree);
-    entry.found = suspectSpots(*model, graph);
-    const std::string ini = addSpotsLines(entry.found.spots);
+    entry.found = suspectSpots(*model, graph, place(graph, scene->start));
+    const std::string ini = addSpotsLines(entry.found.spots, entry.found.reached);
     const auto target = uta::fs::resolveUnder(outDir, uta::fs::pathFromUtf8(entry.map + ".spots.ini"));
     if (!target.has_value()) return refuse("not a plain map name");
     const auto written =
@@ -446,7 +447,8 @@ std::string spotsSummaryOf(const std::vector<SpotsEntry>& entries) {
         if (entry.why.empty()) {
             const Suspects& f = entry.found;
             out << ", \"status\": \"written\", \"standing\": " << f.standing << ", \"leafless\": " << f.leafless
-                << ", \"clusters\": " << f.clusters << ", \"spots\": " << f.spots.size() << '}';
+                << ", \"clusters\": " << f.clusters << ", \"spots\": " << f.spots.size()
+                << ", \"reached\": " << f.reached << '}';
         } else {
             out << ", \"status\": \"refused\", \"why\": ";
             writeJsonString(out, entry.why);

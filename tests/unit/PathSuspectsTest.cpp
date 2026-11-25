@@ -79,7 +79,7 @@ TEST_CASE("UTA-0514: suspects are leafless eyes, joined or not, one per cube, mo
     // cube; 4 solid.
     const WalkGraph g = graphOf({{5, -100, 0}, {5, 100, 0}, {300, 100, 0}, {310, 110, 0}, {-100, -100, 0}},
                                 {{0, 2}, {2, 3}});
-    const Suspects s = suspectSpots(tree(), g);
+    const Suspects s = suspectSpots(tree(), g, std::nullopt);
     CHECK(s.standing == 5);
     CHECK(s.leafless == 3);
     CHECK(s.clusters == 2);
@@ -87,20 +87,39 @@ TEST_CASE("UTA-0514: suspects are leafless eyes, joined or not, one per cube, mo
     CHECK(s.spots[0].x == 300); // the cube of two, shown by its first spot
     CHECK(s.spots[1].x == 5);
 
-    CHECK(suspectSpots(tree(), g, 1).spots.size() == 1);
+    CHECK(s.reached == 0);
+
+    CHECK(suspectSpots(tree(), g, std::nullopt, 1).spots.size() == 1);
+}
+
+TEST_CASE("UTA-0516: cubes a walk from the start reaches come first, shown by a reached spot",
+          "[paths][suspects]") {
+    // 0 the start, in leaf 7. Cube (1,0): 1 unjoined, then 3, which a join
+    // stored 3 -> 0 reaches. Cube (0,0): 2, 4 and 5, none reached, so more
+    // suspects but second.
+    const WalkGraph g = graphOf({{5, -100, 0}, {310, 110, 0}, {5, 100, 0}, {300, 100, 0}, {10, 110, 0}, {20, 120, 0}},
+                                {{3, 0}});
+    const Suspects s = suspectSpots(tree(), g, 0);
+    CHECK(s.leafless == 5);
+    REQUIRE(s.spots.size() == 2);
+    CHECK(s.spots[0].x == 300);
+    CHECK(s.spots[0].y == 100);
+    CHECK(s.spots[1].x == 5);
+    CHECK(s.reached == 1);
 }
 
 TEST_CASE("UTA-0514: equal cubes keep the lower corner first", "[paths][suspects]") {
     const WalkGraph g = graphOf({{5, -100, 0}, {300, 100, 0}, {5, 100, 0}}, {});
-    const Suspects s = suspectSpots(tree(), g);
+    const Suspects s = suspectSpots(tree(), g, std::nullopt);
     REQUIRE(s.spots.size() == 2);
     CHECK(s.spots[0].x == 5);
     CHECK(s.spots[1].x == 300);
 }
 
-TEST_CASE("UTA-0514: AddSpots lines round each coordinate", "[paths][suspects]") {
-    CHECK(addSpotsLines({{1.4, -2.6, 27.5}, {0, 0, 0}}) == "AddSpots=(X=1,Y=-3,Z=28)\nAddSpots=(X=0,Y=0,Z=0)\n");
-    CHECK(addSpotsLines({}).empty());
+TEST_CASE("UTA-0514: AddSpots lines round each coordinate, after the reached count", "[paths][suspects]") {
+    CHECK(addSpotsLines({{1.4, -2.6, 27.5}, {0, 0, 0}}, 1)
+          == "; reached 1 of 2\nAddSpots=(X=1,Y=-3,Z=28)\nAddSpots=(X=0,Y=0,Z=0)\n");
+    CHECK(addSpotsLines({}, 0) == "; reached 0 of 0\n");
 }
 
 TEST_CASE("UTA-0514: --suspect-spots refuses bad arguments and reports a missing map", "[paths][suspects]") {
