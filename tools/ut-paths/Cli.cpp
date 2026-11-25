@@ -4,12 +4,15 @@
 #include "Cli.h"
 
 #include "Seeds.h"
+#include "Suspects.h"
 #include "common/Json.h"
 #include "common/Options.h"
 #include "core/FileSystem.h"
 #include "core/Md5.h"
+#include "ubake/Bake.h"
 #include "ubake/Install.h"
 #include "ubake/Name.h"
+#include "upkg/Level.h"
 #include "upkg/Package.h"
 
 #include <algorithm>
@@ -41,6 +44,7 @@ void usage(std::ostream& err) {
     err << "usage: ut-paths --install <install> --census <tsv> --out <dir> [<map> ...]\n"
            "       ut-paths --install <install> --out <dir> --map-file <file.unr>\n"
            "                --group EXIT_OFF_NET|PARTITIONED\n"
+           "       ut-paths --install <install> --out <dir> --suspect-spots <file.unr> ...\n"
            "       ut-paths --help | -h\n"
            "\n"
            "Proposes bot path nodes for every EXIT_OFF_NET and PARTITIONED map of\n"
@@ -52,7 +56,13 @@ void usage(std::ostream& err) {
            "JSON object, also written to <dir>/ut-paths-summary.json.\n"
            "\n"
            "With --map-file, the one map file named, wherever it is, with the group\n"
-           "given, and no census; its file is <dir>/<its name>.json.\n";
+           "given, and no census; its file is <dir>/<its name>.json.\n"
+           "\n"
+           "With --suspect-spots (UTA-0514), for each map file named, the standing\n"
+           "spots whose eye lies in empty render-BSP space with no leaf,\n"
+           "one per 256-unit cube, most first, at most 16: <dir>/<its name>.spots.ini\n"
+           "holds them as AddSpots=(X=,Y=,Z=) lines for UT_MonsterHunt's\n"
+           "MHUndrawnProbe, and <dir>/ut-paths-spots.json counts them per map.\n";
 }
 
 struct Arguments {
@@ -62,6 +72,7 @@ struct Arguments {
     std::optional<std::string_view> out;
     std::optional<std::string_view> mapFile; ///< UTA-0495: one map, named by its path
     std::optional<std::string_view> group;   ///< UTA-0495: --map-file's census group
+    bool suspects = false;                   ///< UTA-0514: the positionals are map files
     std::vector<std::string_view> maps;
 };
 
@@ -83,6 +94,8 @@ std::optional<Arguments> parse(std::span<const std::string_view> args, std::ostr
             if (!(parsed.mapFile = values.take(i))) return std::nullopt;
         } else if (arg == "--group") {
             if (!(parsed.group = values.take(i))) return std::nullopt;
+        } else if (arg == "--suspect-spots") {
+            parsed.suspects = true;
         } else if (arg.starts_with("-")) {
             err << "ut-paths: unknown option " << arg << "\n";
             return std::nullopt;
@@ -91,6 +104,17 @@ std::optional<Arguments> parse(std::span<const std::string_view> args, std::ostr
         }
     }
     if (parsed.help) return parsed;
+    if (parsed.suspects) {
+        if (!parsed.install || !parsed.out || parsed.maps.empty()) {
+            err << "ut-paths: --suspect-spots needs --install, --out and at least one map file\n";
+            return std::nullopt;
+        }
+        if (parsed.census || parsed.mapFile || parsed.group) {
+            err << "ut-paths: --suspect-spots takes no --census, --map-file or --group\n";
+            return std::nullopt;
+        }
+        return parsed;
+    }
     if (parsed.mapFile || parsed.group) {
         // UTA-0495: one map with its group, in place of the census.
         if (!parsed.install || !parsed.out || !parsed.mapFile || !parsed.group) {
@@ -357,6 +381,115 @@ Entry runMapGuarded(const stdfs::path& install, std::optional<ubake::Install>& i
     return guarded(row.map, err, [&] { return runMap(install, installed, outDir, row, err); });
 }
 
+/// UTA-0514: one map's line in the suspect-spots summary.
+struct SpotsEntry {
+    std::string map;
+    std::string why; ///< empty when written
+    Suspects found;
+};
+
+/// The suspect spots of the map in `file`, written to `outDir` as
+/// `<stem>.spots.ini`, even when there are none.
+SpotsEntry runSuspects(const stdfs::path& install, std::optional<ubake::Install>& installed,
+                       const stdfs::path& outDir, const stdfs::path& file, std::ostream& err) {
+    SpotsEntry entry{ubake::detail::utf8(file.stem()), {}, {}};
+    const auto refuse = [&](std::string why) {
+        err << "ut-paths: " << entry.map << ": " << why << "\n";
+        entry.why = std::move(why);
+        return entry;
+    };
+    if (!plainName(entry.map)) return refuse("not a plain map name");
+    const auto bytes = uta::fs::readFile(file);
+    if (!bytes.has_value()) return refuse(std::string(bytes.error().message()));
+    if (!installed) {
+        auto opened = ubake::Install::open(install);
+        if (!opened.has_value()) return refuse(std::string(opened.error().message()));
+        installed.emplace(std::move(*opened));
+    }
+    const auto map = upkg::Package::open(*bytes);
+    if (!map.has_value()) return refuse(std::string(map.error().message()));
+    const std::string mapName = ubake::detail::mapNameOf(file);
+    const auto scene = sceneOf(*map, mapName, installed->resolver());
+    if (!scene.has_value()) return refuse(std::string(scene.error().message()));
+    // sceneOf read the model to build the tree and keeps only the tree, so
+    // the render BSP is read again here; each step has already succeeded once.
+    const auto levelExport = ubake::detail::findLevel(*map, mapName);
+    if (!levelExport.has_value()) return refuse(std::string(levelExport.error().message()));
+    const auto level = upkg::readLevel(*map, **levelExport);
+    if (!level.has_value()) return refuse(std::string(level.error().message()));
+    const auto modelExport = ubake::detail::findModel(*map, *level, mapName);
+    if (!modelExport.has_value()) return refuse(std::string(modelExport.error().message()));
+    const auto model = upkg::readModel(*map, **modelExport);
+    if (!model.has_value()) return refuse(std::string(model.error().message()));
+
+    const WalkGraph graph = walkGraph(scene->tree);
+    entry.found = suspectSpots(*model, graph);
+    const std::string ini = addSpotsLines(entry.found.spots);
+    const auto target = uta::fs::resolveUnder(outDir, uta::fs::pathFromUtf8(entry.map + ".spots.ini"));
+    if (!target.has_value()) return refuse("not a plain map name");
+    const auto written =
+        uta::fs::writeFileAtomically(*target, std::as_bytes(std::span<const char>(ini.data(), ini.size())));
+    if (!written.has_value()) return refuse(std::string(written.error().message()));
+    err << "ut-paths: wrote " << ubake::detail::utf8(*target) << ": " << entry.found.spots.size() << " of "
+        << entry.found.clusters << " clusters, " << entry.found.leafless << " of " << entry.found.standing
+        << " standing spots suspect\n";
+    return entry;
+}
+
+std::string spotsSummaryOf(const std::vector<SpotsEntry>& entries) {
+    std::ostringstream out;
+    out << "{\"schema\": " << SCHEMA << ", \"maps\": [";
+    for (std::size_t i = 0; i < entries.size(); ++i) {
+        const SpotsEntry& entry = entries[i];
+        out << (i == 0 ? "\n  " : ",\n  ") << "{\"map\": ";
+        writeJsonString(out, entry.map);
+        if (entry.why.empty()) {
+            const Suspects& f = entry.found;
+            out << ", \"status\": \"written\", \"standing\": " << f.standing << ", \"leafless\": " << f.leafless
+                << ", \"clusters\": " << f.clusters << ", \"spots\": " << f.spots.size() << '}';
+        } else {
+            out << ", \"status\": \"refused\", \"why\": ";
+            writeJsonString(out, entry.why);
+            out << '}';
+        }
+    }
+    out << (entries.empty() ? "]}\n" : "\n]}\n");
+    return out.str();
+}
+
+/// UTA-0514's run: every map file named, then the summary.
+int runSuspectsCli(const Arguments& parsed, std::ostream& out, std::ostream& err) {
+    const stdfs::path install = uta::fs::pathFromUtf8(*parsed.install);
+    const stdfs::path outDir = uta::fs::pathFromUtf8(*parsed.out);
+    std::error_code ec;
+    stdfs::create_directories(outDir, ec);
+    if (ec) err << "ut-paths: cannot create " << ubake::detail::utf8(outDir) << ": " << ec.message() << "\n";
+    std::optional<ubake::Install> installed;
+    std::vector<SpotsEntry> entries;
+    for (const std::string_view name : parsed.maps) {
+        const stdfs::path file = uta::fs::pathFromUtf8(name);
+        try {
+            entries.push_back(runSuspects(install, installed, outDir, file, err));
+        } catch (const std::exception& thrown) {
+            // walkGraph rethrows a worker's exception; one map must not end the run.
+            const std::string why = std::string("threw: ") + thrown.what();
+            err << "ut-paths: " << ubake::detail::utf8(file.stem()) << ": " << why << "\n";
+            entries.push_back(SpotsEntry{ubake::detail::utf8(file.stem()), why, {}});
+        }
+    }
+    const std::string summary = spotsSummaryOf(entries);
+    out << summary;
+    const auto written = uta::fs::writeFileAtomically(
+        outDir / "ut-paths-spots.json", std::as_bytes(std::span<const char>(summary.data(), summary.size())));
+    if (!written.has_value()) {
+        err << "ut-paths: the summary was not written: " << written.error().message() << "\n";
+        return EXIT_FAILED;
+    }
+    const bool refused =
+        std::any_of(entries.begin(), entries.end(), [](const SpotsEntry& entry) { return !entry.why.empty(); });
+    return refused ? EXIT_FAILED : EXIT_OK;
+}
+
 std::string summaryOf(const std::vector<Entry>& entries) {
     std::ostringstream out;
     out << "{\"schema\": " << SCHEMA << ", \"maps\": [";
@@ -402,6 +535,7 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
         usage(err);
         return EXIT_OK;
     }
+    if (parsed->suspects) return runSuspectsCli(*parsed, out, err);
     std::optional<std::vector<Row>> rows;
     if (!parsed->mapFile) {
         rows = readCensus(uta::fs::pathFromUtf8(*parsed->census), err);

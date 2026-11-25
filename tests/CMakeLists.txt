@@ -132,6 +132,7 @@ add_executable(uta_unit_tests
     unit/PackageScriptTest.cpp
     unit/PathFixture.cpp
     unit/PathSeedsTest.cpp
+    unit/PathSuspectsTest.cpp
     unit/PathTraceTest.cpp
     unit/PathWalkableTest.cpp
     unit/ReferenceTest.cpp

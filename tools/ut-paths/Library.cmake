@@ -5,7 +5,8 @@
 # never reaches the first; whichever runs first defines the target.
 if(NOT TARGET uta_paths)
     add_library(uta_paths STATIC "${CMAKE_CURRENT_LIST_DIR}/Cli.cpp" "${CMAKE_CURRENT_LIST_DIR}/Walkable.cpp"
-                                 "${CMAKE_CURRENT_LIST_DIR}/Seeds.cpp")
+                                 "${CMAKE_CURRENT_LIST_DIR}/Seeds.cpp"
+                                 "${CMAKE_CURRENT_LIST_DIR}/Suspects.cpp")
     # tools/ for tools/common/, which uta_tools_common carries only in a build
     # with the tools.
     target_link_libraries(uta_paths PUBLIC uta_ubake)

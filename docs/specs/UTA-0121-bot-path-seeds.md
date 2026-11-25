@@ -183,6 +183,7 @@ finds a map's Level and Model as a bake does.
 ```text
 ut-paths --install <dir> --census <tsv> --out <dir> [<map> ...]
 ut-paths --install <dir> --out <dir> --map-file <file.unr> --group EXIT_OFF_NET|PARTITIONED
+ut-paths --install <dir> --out <dir> --suspect-spots <file.unr> ...
 ```
 
 - `--census` is UT_MonsterHunt's split TSV. Its header names a `map` and a
@@ -200,6 +201,13 @@ ut-paths --install <dir> --out <dir> --map-file <file.unr> --group EXIT_OFF_NET|
   rule, and it writes `<out>/<stem>.json`. A missing file is refused, since
   the caller named it. UT_MonsterHunt passes the group from its own route
   verdict.
+- **Added by `UTA-0514`.** `--suspect-spots` takes map files and proposes
+  nothing. For each it writes `<out>/<stem>.spots.ini`: the walk graph's
+  spots, reached from the start or not, whose eye, 27 above the centre, lies in empty
+  render-BSP space with no leaf, one per 256-unit cube, most first, at
+  most 16, as `AddSpots=(X=,Y=,Z=)` lines for UT_MonsterHunt's
+  MHUndrawnProbe. Its summary is `<out>/ut-paths-spots.json`. Locked by
+  `tests/unit/PathSuspectsTest.cpp`.
 - Standard output is one JSON object, as ut-bake's is, and the same object is
   written to `<out>/ut-paths-summary.json`, so a reader of the directory sees
   every map the run took, skipped ones included. Standard error is for
