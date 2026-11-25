@@ -209,7 +209,7 @@ def main():
         return
     build_dir = "build-asan" if args.asan else "build"
     if not (ROOT / build_dir).is_dir():
-        sys.exit(f"no {build_dir}/ -- CLAUDE.md SS Build and test says how to configure it")
+        sys.exit(f"no {build_dir}/ -- docs/build-and-test.md says how to configure it")
 
     env = dict(os.environ)
     if args.asan:
