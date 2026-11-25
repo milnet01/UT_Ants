@@ -365,16 +365,20 @@ Result<VkPipeline> scenePipeline(const Making& making, VkPipelineLayout layout, 
 /// builds each quad from its instance -- both faces, depth-tested and not
 /// written, and additive into colour and emission. The pass binds all three
 /// forward targets, so its formats match the opaque pass. UTA-0321's coronas
-/// are drawn the same way, from instance-rate records: `input` says how.
+/// are drawn the same way, from instance-rate records: `input` says how. They
+/// are not depth-tested (`depthTested` false): UTA-0511's corona.vert dims the
+/// whole glow by how much of its light the depth leaves visible.
 Result<VkPipeline> flamePipeline(const Making& making, VkPipelineLayout layout, const TargetFormats& formats,
                                  VkShaderModule vertex, VkShaderModule fragment,
-                                 const VkPipelineVertexInputStateCreateInfo* input = nullptr) {
+                                 const VkPipelineVertexInputStateCreateInfo* input = nullptr,
+                                 bool depthTested = true) {
     const std::array stages = {stage(VK_SHADER_STAGE_VERTEX_BIT, vertex), stage(VK_SHADER_STAGE_FRAGMENT_BIT, fragment)};
 
     GraphicsStates states = sharedStates();
     if (input != nullptr) states.vertexInput = *input;
     states.raster.frontFace = VK_FRONT_FACE_CLOCKWISE;
     states.depth.depthWriteEnable = VK_FALSE;
+    if (!depthTested) states.depth.depthTestEnable = VK_FALSE;
 
     VkPipelineColorBlendAttachmentState additive{};
     additive.colorWriteMask =
@@ -594,13 +598,14 @@ Result<void> Pipelines::createSceneSet() {
     flagInfo.pBindingFlags = bindingFlags.data();
     UTA_CHECK(createSetLayout(device_, bindings, sceneSetLayout_, "vkCreateDescriptorSetLayout (scene)", &flagInfo));
     // UTA-0273 SS 4.3: set 1, the scene copy and the depth, which only the
-    // refracting pipelines' shader declares. A set of its own because the
-    // texture array, of variable count, must stay the last binding of set 0.
+    // refracting pipelines' shader declares, and UTA-0511's coronas the depth
+    // in their vertex shader. A set of its own because the texture array, of
+    // variable count, must stay the last binding of set 0.
     const std::array refractBindings = {
         VkDescriptorSetLayoutBinding{0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT,
                                      nullptr},
-        VkDescriptorSetLayoutBinding{1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT,
-                                     nullptr},
+        VkDescriptorSetLayoutBinding{1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1,
+                                     VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
     };
     UTA_CHECK(createSetLayout(device_, refractBindings, refractSetLayout_, "vkCreateDescriptorSetLayout (refract)"));
     const std::array sets = {sceneSetLayout_, refractSetLayout_};
@@ -704,7 +709,8 @@ Result<void> Pipelines::createScenePipelines(const TargetFormats& formats, Tier 
     UTA_TRY(coronaVertex.handle, shaderModule(device_, corona_vert_spv));
     UTA_TRY(coronaFragment.handle, shaderModule(device_, corona_frag_spv));
     UTA_TRY(corona_,
-            flamePipeline(making, sceneLayout_, formats, coronaVertex.handle, coronaFragment.handle, &coronaInput));
+            flamePipeline(making, sceneLayout_, formats, coronaVertex.handle, coronaFragment.handle, &coronaInput,
+                          false));
     // UTA-0293 SS 4.6: below High nothing draws grass, so nothing is made.
     if (enabled(Feature::Grass, tier)) {
         Module grassVertex{device_}, grassFragment{device_};

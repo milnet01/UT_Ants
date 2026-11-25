@@ -22154,7 +22154,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: ut-monsterhunt-request-2026-11-24.
   Lanes: tools.
 
-- 📋 [UTA-0511] **urender: a modern lamp glow in place of UTA-0321's copy of the original's.**
+- 🚧 [UTA-0511] **urender: a modern lamp glow in place of UTA-0321's copy of the original's.**
   The user (2026-11-24): the project exists to make the maps look
   better than the original, not the same. UTA-0321 fitted its coronas
   to the original's AS-Frigate captures; that fit is a starting point
@@ -22173,6 +22173,16 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   far weaker, by the user's standing rule that the original is a guide.
   Files: src/urender/shaders/corona.vert, corona.frag, Frame.cpp's
   recordFlames and placeCoronas, tests/device/RenderCoronasTest.cpp.
+  Claimed 2026-11-25 by ut-ants-98, main checkout.
+  Built 2026-11-25 (ut-ants-98). corona.vert tests 16 points over a disc
+  a quarter of the glow's radius (at least 1.5 px) against the scene's
+  depth, attached read-only and bound as the refract set's binding 1,
+  and dims the whole glow by the share open; the quad is no longer
+  depth-tested. Point 2 already held: the glow scales by
+  lightIntensity(LightBrightness); a test now locks it. The near fade
+  is 0 to 32 units, only so it does not vanish at once as the eye
+  passes the lamp. Red-first on the old code: 0 pixels at 80 units,
+  and 0 light over a wall covering half the lamp.
   **Layman:** Lamp glows behave like a modern game's: they dim smoothly when partly hidden, match how bright each lamp really is, and stay visible up close.
   Kind: enhancement.
   Source: user-request-2026-11-24.

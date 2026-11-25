@@ -871,10 +871,12 @@ Result<void> Renderer::Impl::createTargets() {
     UTA_TRY(velocity, Image::create(*gpu, {VELOCITY_FORMAT, w, h, 1,
                                            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT}));
     // UTA-0273 SS 4.3: sampled by the refracting water, where the tier has it.
+    // UTA-0511: and by the coronas, at every tier that draws them.
     const bool refracting = enabled(Feature::WaterRefraction, tier);
+    const bool depthSampled = refracting || enabled(Feature::Coronas, tier);
     UTA_TRY(depth, Image::create(*gpu, {DEPTH_FORMAT, w, h, 1,
                                         VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT
-                                            | (refracting ? VK_IMAGE_USAGE_SAMPLED_BIT : VkImageUsageFlags{0})}));
+                                            | (depthSampled ? VK_IMAGE_USAGE_SAMPLED_BIT : VkImageUsageFlags{0})}));
     if (refracting) {
         UTA_TRY(sceneCopy, Image::create(*gpu, {HDR_FORMAT, w, h, 1,
                                                 VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT}));
@@ -1454,7 +1456,11 @@ Result<void> Renderer::Impl::writeDescriptors() {
         copyWrite.dstBinding = 0;
         copyWrite.pImageInfo = &copyInfo;
         writes.push_back(copyWrite);
-        VkWriteDescriptorSet depthWrite = copyWrite;
+    }
+    // UTA-0511: the coronas read the depth without the copy.
+    if (sceneCopy.handle() != VK_NULL_HANDLE || enabled(Feature::Coronas, tier)) {
+        VkWriteDescriptorSet depthWrite = hdrWrite;
+        depthWrite.dstSet = refractSet;
         depthWrite.dstBinding = 1;
         depthWrite.pImageInfo = &depthInfo;
         writes.push_back(depthWrite);
@@ -1824,6 +1830,13 @@ void Renderer::Impl::recordFlames(VkCommandBuffer commands, SceneTargets& target
                       | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT);
     targets.colours[1].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
     targets.colours[2].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    if (coronaCount != 0) {
+        // UTA-0511: the coronas sample the depth, so it is attached read-only,
+        // as the refracting water's pass attaches it. Nothing here writes it.
+        depth.transition(commands, VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL);
+        targets.depth.imageLayout = VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL;
+        targets.depth.storeOp = VK_ATTACHMENT_STORE_OP_NONE;
+    }
     const VkRenderingInfo rendering = targets.rendering(3);
     vkCmdBeginRendering(commands, &rendering);
     setViewportTo(commands, region);
@@ -1839,12 +1852,19 @@ void Renderer::Impl::recordFlames(VkCommandBuffer commands, SceneTargets& target
     }
     if (coronaCount != 0) {
         vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->corona());
+        vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->sceneLayout(), 1, 1, &refractSet,
+                                0, nullptr);
         const VkBuffer instances = coronas.handle();
         const VkDeviceSize start = 0;
         vkCmdBindVertexBuffers(commands, 0, 1, &instances, &start);
         vkCmdDraw(commands, 6, coronaCount, 0, 0); // corona.vert's six corners, one instance a light
     }
     vkCmdEndRendering(commands);
+    if (coronaCount != 0) { // the shapes after this pass write the depth
+        depth.transition(commands, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+        targets.depth.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+        targets.depth.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    }
 }
 
 /// 2.75. UTA-0019 SS 4.8's stand-in shapes, over everything the level draws
