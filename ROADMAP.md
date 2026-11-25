@@ -24051,6 +24051,15 @@ to.
   CMC-PartyCrashers 7/9, TheLastVillageViking-Beta[THUNDERBOLT] 17/144.
   The other 21 were clean, Caribbean included. The question widens: what
   separates the 5 holed maps from the 21 clean ones.
+  UT_MonsterHunt, 2026-11-25 (its 4caebc5): inside-out render boxes are
+  not the cause; setting Miam's 7 and LastVillageViking's 13 inverted
+  bounds to the world box left the undrawn photos identical. Reached
+  spots: AncientCaves[Torus]-BP 0/4, AncientCavesHard 0/4, PartyCrashers
+  0/1, LastVillageViking 0/16, Miam 16/16, so 4 of the 5 holed maps were
+  shot from where no player stands. Miam's cause is stale BSP: a
+  headless MAP REBUILD takes its 16 reached spots from 144/144 undrawn
+  to 0/144, but drops the lighting; LIGHT APPLY then MAP SAVE crashes in
+  ucc serialising Camera0.Player[0].
   **Layman:** One map's suspect places all looked fine in photos; find out what makes them different from the maps where holes were real.
   Kind: investigate.
   Source: in-session-2026-11-25.
