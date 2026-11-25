@@ -22223,7 +22223,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: in-session-2026-11-24.
   Lanes: urender, ubake.
 
-- 🚧 [UTA-0512] **LZ4 over each texture mip level in the bundle, as DOOM_Ants' DOOM-0632 does.**
+- ✅ [UTA-0512] **LZ4 over each texture mip level in the bundle, as DOOM_Ants' DOOM-0632 does.**
   The user, 2026-11-25: every saving counts, however small; the
   technical call is the session's. DOOM_Ants' design, from its session
   the same day (its docs/specs/DOOM-0632-packed-hd-art.md § 4.5,
@@ -22242,6 +22242,14 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Measure ours before and after, per block format, cold and cached,
   arms interleaved in one cc-job. A bundle format bump re-bakes every
   map.
+  Shipped 2026-11-25 in 90962a6, green on GitHub's matrix (run
+  45667937935). Format 39, baker revision 82: re-bake every map.
+  Measured on this machine, old and new alternated in one job, six
+  loads each, bundles on the spinning disk: DM-Deck16][ 91.3 -> 80.0 MB,
+  cold load 502 -> 474 ms, cached 69 -> 74 ms; TheFortress2012Final-BP
+  57.4 -> 50.3 MB, cold 349 -> 308 ms, cached 52 -> 53 ms. LZ4-HC adds
+  0.5-1.6 s to a bake's write. UT's BC data packs far less than
+  DOOM_Ants' (about 12% of the file against their 45%).
   **Layman:** Map files get smaller and load faster from disk, by packing the textures more tightly.
   Kind: perf.
   Source: user-request-2026-11-25.
