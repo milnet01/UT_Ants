@@ -21003,7 +21003,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-10-11.
   Lanes: urender.
 
-- 📋 [UTA-0377] **Props, and every actor UT99 lets block a player, cannot be walked through.**
+- ✅ [UTA-0377] **Props, and every actor UT99 lets block a player, cannot be walked through.**
   The user, 2026-10-16: "ensure that props can not be walked though
   (then need collision detection). If those objects cause a player to
   get stuck though, we will either need to remove the object or move
@@ -21028,6 +21028,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   BodyWorld built with every bake's blockers; every sweep at one
   stopped. Trapping props moved to UTA-0520; shots hitting actors to
   UTA-0521.
+  Shipped 2026-11-25 (426b9fc, green on GitHub's matrix).
   **Layman:** Barrels, pipes and other props in a map become solid, and any prop that leaves a player stuck gets moved or taken out.
   Kind: feature.
   Source: user-request-2026-10-16.
@@ -24186,6 +24187,13 @@ to.
   (Scratchpad/UT_Ants/rev/, dist.py) goes to UT_MonsterHunt before the
   flag is built. EnterToCore-Part3-BP: no verdict yet (missing
   SLV2Textures); both rules predict clean.
+  2026-11-25: rule D flags 90 of 1179 MH maps (rule C 181). Blind set
+  sent to UT_MonsterHunt, names and imported packages only, at their
+  request: DawnsInferno, Cregor, Forever, Krogaar (D hits),
+  AMC-ModularV6, dUAS-ImperialBaseFinal, Boxes-Remade][,
+  IceSkaarj-Attack (C only). The predictions are in
+  Scratchpad/UT_Ants/rev/blind-predictions.md; score the verdicts
+  against it before building the flag.
   **Layman:** Lets UT_MonsterHunt find doors and lifts that cause invisible walls across the whole map library, without opening each map in the editor.
   Kind: feature.
   Source: ut-monsterhunt-request-2026-11-25.
