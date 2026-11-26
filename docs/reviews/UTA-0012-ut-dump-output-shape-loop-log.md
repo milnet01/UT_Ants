@@ -13,3 +13,4 @@ edited.
 | amend-0497 | 2026-11-22 | none | - | - | - | - | Amendment, not a review: no reviewer dispatched. UTA-0497 adds `--zone-at` and `--zone-at-file` to § 4.1, `zoneAt` as § 4.7f, and a § 4.10 consumer row. |
 | amend-0508 | 2026-11-24 | none | - | - | - | - | Amendment, not a review: no reviewer dispatched. UTA-0508 adds `--wiring-classes` to § 4.1; UTA-0509 adds a § 4.10 consumer row. |
 | amend-0508b | 2026-11-24 | none | - | - | - | - | Amendment, not a review: no reviewer dispatched. UTA-0508: § 4.1's `--wiring-classes` keeps every actor whose chain is cut short. |
+| amend-0523 | 2026-11-26 | none | - | - | - | - | Amendment, not a review: no reviewer dispatched. UTA-0523 adds `--node-polygons` to § 4.1 and `surfaces.nodePolygons` to § 4.5. |

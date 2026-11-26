@@ -575,6 +575,35 @@ TEST_CASE("UTA-0213: --surface-list places each surface and names its built flag
     CHECK(plain.out.find("\"list\"") == std::string::npos);
 }
 
+TEST_CASE("UTA-0523: --node-polygons gives each drawn node's world polygon", "[dump]") {
+    const TempDir dir;
+    MapBuilder map;
+    const std::int32_t water = map.importTexture("RainFX", "", "Swater4a", "Texture");
+    // One drawn square, raised and zoned so every field is the fixture's own;
+    // one surface no node draws, which must give no row.
+    map.addSurface(water, 0)
+        .shapeSurface({{{0, 0, 16}, {64, 0, 16}, {64, 64, 16}, {0, 64, 16}}}, {0, 0, 1})
+        .zoneSurface(2)
+        .addSurface(water, 0x40, /*drawn=*/false);
+
+    const fs::path mapPath = writeMap(dir, map);
+    const std::string system = (dir.path() / "System").string();
+    const Run result = run({"--system", system, "--node-polygons", mapPath.string()});
+    REQUIRE(result.code == 0);
+    INFO(result.out);
+    // Exactly one row. Which index the square's node gets is the builder's
+    // business, so the test does not pin it.
+    static const std::regex onlyRow(
+        R"re("nodePolygons": \[\{"node": \d+, "surface": 0, "zone": 2, )re"
+        R"re("vertices": \[\[0, 0, 16\], \[64, 0, 16\], \[64, 64, 16\], \[0, 64, 16\]\]\}\])re");
+    CHECK(std::regex_search(result.out, onlyRow));
+
+    // Opt-in, like --surface-list: a big map has tens of thousands of nodes.
+    const Run plain = run({"--system", system, mapPath.string()});
+    REQUIRE(plain.code == 0);
+    CHECK(plain.out.find("\"nodePolygons\"") == std::string::npos);
+}
+
 TEST_CASE("UTA-0380: --surface-list names the zones each surface faces, and each zone's actor", "[dump]") {
     // A sky zone's own surfaces tell a lit sky room from a dome; the census
     // needs them by zone, which the list did not give.

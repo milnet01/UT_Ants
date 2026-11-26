@@ -187,7 +187,7 @@ std::expected<uta::upkg::Model, std::string> modelOf(const uta::upkg::Package& m
 /// object's `zones` name each zone's actor, so a reader can take one zone's
 /// surfaces -- a sky zone's, to tell a lit room from a dome.
 void writeSurfaces(std::ostream& out, const uta::upkg::Package& package,
-                   const uta::upkg::Level& level, bool surfaceList) {
+                   const uta::upkg::Level& level, bool surfaceList, bool nodePolygons) {
     const auto model = modelOf(package, level);
     if (!model.has_value()) {
         out << ",\n  \"surfaces\": null,\n  \"surfacesError\": ";
@@ -267,6 +267,34 @@ void writeSurfaces(std::ostream& out, const uta::upkg::Package& package,
             out << (zone == 0 ? "" : ", ") << "{\"zone\": " << zone << ", \"zoneActor\": ";
             writeZoneActor(out, package, *model, zone);
             out << "}";
+        }
+        out << "]";
+    }
+    // UTA-0523: each drawn node's world polygon, for UT_MonsterHunt's flicker
+    // check, which finds coplanar faces that overlap. The maths is theirs.
+    if (nodePolygons) {
+        out << ", \"nodePolygons\": [";
+        bool firstNode = true;
+        for (std::size_t i = 0; i < model->nodes.size(); ++i) {
+            const uta::upkg::BspNode& node = model->nodes[i];
+            if (node.numVertices < 3) continue;
+            if (node.iSurf < 0 || static_cast<std::size_t>(node.iSurf) >= model->surfs.size()) continue;
+            out << (firstNode ? "" : ", ") << "{\"node\": " << i << ", \"surface\": " << node.iSurf
+                << ", \"zone\": " << static_cast<int>(node.iZone[1]) << ", \"vertices\": [";
+            firstNode = false;
+            for (int k = 0; k < node.numVertices; ++k) {
+                // File data like the surface's indices: out of range is null.
+                const std::int64_t vert = std::int64_t{node.iVertPool} + k;
+                std::optional<uta::upkg::Vector3> point;
+                if (vert >= 0 && static_cast<std::size_t>(vert) < model->verts.size()) {
+                    const std::int32_t p = model->verts[static_cast<std::size_t>(vert)].pVertex;
+                    if (p >= 0 && static_cast<std::size_t>(p) < model->points.size())
+                        point = model->points[static_cast<std::size_t>(p)];
+                }
+                out << (k == 0 ? "" : ", ");
+                writeLocation(out, point);
+            }
+            out << "]}";
         }
         out << "]";
     }
@@ -1614,6 +1642,8 @@ struct Sections {
     /// UTA-0508: the classes `wiring.actors` is limited to, folded; absent for all.
     std::optional<std::set<std::string>> wiringClasses;
     bool surfaceList = false;
+    /// UTA-0523: `surfaces.nodes`, each drawn node's world polygon.
+    bool nodePolygons = false;
     bool lighting = false;
     bool brushes = false;
     /// UTA-0497: the points `zoneAt` looks up; absent when neither option is given.
@@ -1727,7 +1757,7 @@ void dumpPackage(std::ostream& out, const fs::path& path, const uta::upkg::Packa
     out << ", \"propertiesUnread\": " << unreadProperties(*package, *level);
     out << "}";
 
-    writeSurfaces(out, *package, *level, sections.surfaceList);
+    writeSurfaces(out, *package, *level, sections.surfaceList, sections.nodePolygons);
 
     writeCredits(out, "levelInfo", *package, levelInfoOf(*package, *level));
     writeCredits(out, "levelSummary", *package, firstExportOf(*package, "LevelSummary"));
@@ -1832,7 +1862,7 @@ int usage(std::ostream& err) {
     err <<
         "usage: ut-dump (--install <UT dir> | --system <UT System dir>)\n"
         "                [--nav-graph] [--wiring-graph] [--wiring-classes <classes>]\n"
-        "                [--surface-list] [--lighting] [--brushes]\n"
+        "                [--surface-list] [--node-polygons] [--lighting] [--brushes]\n"
         "                [--zone-at <points>] [--zone-at-file <file>]\n"
         "                [--ndjson]\n"
         "                <package|directory>...\n"
@@ -1866,6 +1896,10 @@ int usage(std::ostream& err) {
         "as `list`, in index order: its texture, built polyFlags, brush actor\n"
         "and polygon, base point, normal, drawn node count and the zones it\n"
         "faces; and each zone's actor, as `zones`.\n"
+        "\n"
+        "--node-polygons adds every drawn BSP node to `surfaces`, as\n"
+        "`nodePolygons`, in index order: its surface, the zone it faces and\n"
+        "its corners in world space.\n"
         "\n"
         "--lighting adds `lighting` to each map: how many surfaces carry the\n"
         "editor's lightmap and light actors, and each zone's ambient light as\n"
@@ -1954,6 +1988,8 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
             sections.wiringClasses = std::move(classes);
         } else if (arg == "--surface-list") {
             sections.surfaceList = true;
+        } else if (arg == "--node-polygons") {
+            sections.nodePolygons = true;
         } else if (arg == "--lighting") {
             sections.lighting = true;
         } else if (arg == "--brushes") {

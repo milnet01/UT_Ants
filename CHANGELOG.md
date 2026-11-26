@@ -14,6 +14,10 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **ut-dump --node-polygons lists the corners of every drawn piece of a map's level geometry.** (UTA-0523)
+  UT_MonsterHunt's map checks use it to find two surfaces drawn in the same
+  place, which can flicker in the original game.
+
 - **Lamps glow** (UTA-0321, UTA-0511, UTA-0510)
   A lamp the map marks with a corona now has a glow around it, in the
   shape the map's maker picked for it, or a soft round glow where they

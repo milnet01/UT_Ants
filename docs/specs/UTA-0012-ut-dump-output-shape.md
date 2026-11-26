@@ -92,7 +92,7 @@ are put to the consumer in this draft.
 ### 4.1 Invocation
 
 ```
-ut-dump (--install <root> | --system <dir>) [--nav-graph] [--wiring-graph] [--wiring-classes <classes>] [--surface-list] [--lighting] [--brushes] [--zone-at <points>] [--zone-at-file <file>] [--ndjson] <package|directory>...
+ut-dump (--install <root> | --system <dir>) [--nav-graph] [--wiring-graph] [--wiring-classes <classes>] [--surface-list] [--node-polygons] [--lighting] [--brushes] [--zone-at <points>] [--zone-at-file <file>] [--ndjson] <package|directory>...
 ```
 
 - `--install` names the install's root. Added by `UTA-0206`. It is searched
@@ -116,6 +116,7 @@ ut-dump (--install <root> | --system <dir>) [--nav-graph] [--wiring-graph] [--wi
   (UTA-0172 § 4.2, UTA-0508). A list naming no
   class is a usage error.
 - `--surface-list` adds `surfaces.list` (§ 4.5, UTA-0213).
+- `--node-polygons` adds `surfaces.nodePolygons` (§ 4.5, UTA-0523).
 - `--lighting` adds `lighting` (§ 4.7d, UTA-0360).
 - `--brushes` adds `brushes` (§ 4.7e, UTA-0361).
 - `--zone-at` and `--zone-at-file` add `zoneAt` (§ 4.7f, UTA-0497). A
@@ -213,6 +214,12 @@ them.
   per entry of the Model's zone table, in order. `zoneActor` is `{export,
   name, class}`, or `null` where the zone names no actor of this map
   (UTA-0380).
+- **`surfaces.nodePolygons`**, under `--node-polygons` only: one row per
+  drawn node, in node index order: `{node, surface, zone, vertices}`. A
+  drawn node has three or more vertices and a surface index in range.
+  `zone` is the zone the node faces, its `iZone[1]`. `vertices` is the
+  node's corners in world space, each `[x, y, z]`, in stored order, or
+  `null` where a stored index is out of range (UTA-0523).
 - **`levelInfo`, `levelSummary`**: `{title, author}`, each a string or
   `null`. The values are the map's own stored ones: `null` means the map sets
   none. `levelInfo` reads the LevelInfo named in the level's actor list;
