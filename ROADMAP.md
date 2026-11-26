@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=521 -->
+<!-- ants-roadmap-id-high-water: UTA=523 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -24194,9 +24194,57 @@ to.
   IceSkaarj-Attack (C only). The predictions are in
   Scratchpad/UT_Ants/rev/blind-predictions.md; score the verdicts
   against it before building the flag.
+  2026-11-26, blind-set verdicts scored (UT_MonsterHunt msg 2511).
+  Rule D fails: 6 of 9 maps right. Exact: Forever (Mover15-18),
+  Krogaar (Mover46, 59). Missed: Cregor Mover21 (Mover19 hit),
+  dUAS-ImperialBaseFinal Mover39 and 41, IceSkaarj-Attack Mover2.
+  False alarm: DawnsInferno, whose 1.02-unit planes sat at the
+  threshold. AMC-ModularV6, Boxes-Remade][ and EnterToCore-Part3-BP
+  clean as predicted. Two more features tried on the 20 verdict maps
+  and dropped: the brush pivot outside its box (also on clean
+  AS-Rook Mover30 and ImperialBase Mover30) and node count over 500
+  (also on clean ImperialBase Mover29, n=857). No flag built. The
+  test may depend on the placed mover (location, rotation, scale),
+  not its brush alone; untested. Parked until a new idea is worth
+  another verdict round.
   **Layman:** Lets UT_MonsterHunt find doors and lifts that cause invisible walls across the whole map library, without opening each map in the editor.
   Kind: feature.
   Source: ut-monsterhunt-request-2026-11-25.
+  Lanes: ut-dump, upkg.
+
+- 📋 [UTA-0522] **A file-only reading of which placed actors sit inside solid BSP, and how deep, for Map Repair's monsters check.**
+  UT_MonsterHunt, 2026-11-26 (msg 2569): for each placed ScriptedPawn
+  (optionally Inventory and Decoration), whether its collision
+  cylinder (class-default CollisionRadius and CollisionHeight, at its
+  Location) overlaps solid BSP, and the deepest penetration in uu.
+  Fields: name, class, location, embedded, depth. A ut-dump flag
+  (--embedded) or a ut-bound-scan-style tool. --zone-at tests only
+  the centre: MH-ReloadedX's 12 sealed Pupae have centres in open
+  zone 12, yet the engine reads them embedded.
+  Ground truth, engine-measured 2026-09-06, 557 maps, 1,509 embedded
+  monsters: UT_MonsterHunt work/monprobe/results/<map>.txt, lines
+  "MONPROBE== BLIND|SEEING <class> at x,y,z". Read-only: copy it.
+  **Layman:** Lets UT_MonsterHunt find monsters stuck inside walls by reading the map file, without starting the game.
+  Kind: feature.
+  Source: ut-monsterhunt-request-2026-11-26.
+  Lanes: ut-dump, upkg.
+
+- 📋 [UTA-0523] **A scan for coplanar overlapping BSP faces that flicker (z-fight), for Map Repair's flicker check.**
+  UT_MonsterHunt, 2026-11-26 (msg 2513, the user's pick for the next
+  glitch check): pairs of drawn BSP nodes that are coplanar (within
+  ~0.5 uu, normal dot 0.999), face the same way, belong to different
+  surfaces with different textures or flags, and overlap. Per pair:
+  node and surface indices, textures, polyFlags, overlap area, a world
+  point inside it, the zone. Skip invisible, portal and fake-backdrop
+  faces; overlaps under ~16 uu^2 as a count only. Their check stays
+  SUSPECT until a real-client frame pair proves one.
+  Two ways offered: a pure NDJSON tool like ut-bound-scan, or each
+  drawn node's world polygon added to ut-dump --surface-list, with the
+  overlap maths on their side. Movers can wait (UTA-0311: UT99 hides a
+  coplanar mover face).
+  **Layman:** Lets UT_MonsterHunt find spots in a map where two surfaces fight to be drawn and flicker.
+  Kind: feature.
+  Source: ut-monsterhunt-request-2026-11-26.
   Lanes: ut-dump, upkg.
 
 ## 0.5.0 — Map editor
