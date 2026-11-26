@@ -24242,6 +24242,10 @@ to.
   drawn node's world polygon added to ut-dump --surface-list, with the
   overlap maths on their side. Movers can wait (UTA-0311: UT99 hides a
   coplanar mover face).
+  2026-11-26: the polygon way, d28b49f. ut-dump --node-polygons
+  adds surfaces.nodePolygons {node, surface, zone, vertices}
+  (UTA-0012 SS 4.5); the overlap scan is UT_MonsterHunt's. Ships when
+  GitHub's matrix is green.
   **Layman:** Lets UT_MonsterHunt find spots in a map where two surfaces fight to be drawn and flicker.
   Kind: feature.
   Source: ut-monsterhunt-request-2026-11-26.
