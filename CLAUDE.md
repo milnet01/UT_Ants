@@ -5,39 +5,16 @@
 **State:** 4 if nothing is 🚧, or every 🚧 is parked on `Waiting-on:`
 (`workflow.md` § 1). Else 5.
 **Next:** the user's order of 2026-10-05: help other sessions; then every
-open fix-kind or review-sourced item, oldest first; then 0.2.0. Parked fix
-item: `UTA-0249` (reconfirmed 2026-10-05; `UTA-0186` closed 2026-10-19). `UTA-0098` and
-`UTA-0100` defer themselves. 0.1.0 released 2026-11-04 (tag `v0.1.0`).
-`UTA-0283` waits on UT_MonsterHunt.
-In 0.2.0, `UTA-0022` (the physical platforming assists) shipped
-2026-11-17, and `UTA-0056`, the audio mixer, the same day. `UTA-0478`,
-baking sounds into bundles, shipped 2026-11-19, as did `UTA-0476`,
-ExperiRays' scene exporter. `UTA-0480`, a map's ambient sounds, shipped
-2026-11-20. Mover, trigger and pickup sounds wait for the code that
+open fix-kind or review-sourced item, oldest first; then the rest of
+0.2.0, in any order (user, 2026-11-20). Parked fix item: `UTA-0249`.
+`UTA-0098` and `UTA-0100` defer themselves. `UTA-0283` waits on
+UT_MonsterHunt. Mover, trigger and pickup sounds wait for the code that
 drives them (`UTA-0484`, `UTA-0485`, `UTA-0486`; user, 2026-11-20).
-`UTA-0467`, weapon sounds, shipped 2026-11-20; the user heard them.
-Weapon models and muzzle flashes are `UTA-0489`, which needs animated
-meshes that no item builds. `UTA-0479`, a body hanging in the air
-against an edge, was fixed 2026-11-20. `UTA-0482`'s runs went to
-frameledger 2026-11-20. `UTA-0490` found their slow frames were the
-desktop's compositor on the GPU, not the renderer; `ut-bench frame` now
-prints a `disturbed:` line (`UTA-0491`, 2026-11-20). `UTA-0492` measured
-blur as no part of that cost; the magnifier stays on, and is the user's
-to switch (2026-11-20). `UTA-0342`, the flying camera stopping at doors
-and lifts, and `UTA-0474`, `ut-ants --no-gamepad`, shipped 2026-11-20.
-Pass `--no-gamepad` to every headless viewer run. `UTA-0108`, landing
-damage and the rule that turns it off, shipped 2026-11-20. `UTA-0493`,
-leaving the world and pain zones, shipped 2026-11-21; monsters keeping
-landing damage moved to `UTA-0024`. `UTA-0494`, ut-export leaving
-special-lit lights out of ExperiRays' light list, shipped 2026-11-21, as
-did `UTA-0495` (ut-paths `--map-file`, for UT_MonsterHunt) and `UTA-0496`
-(ut-export's triangle classes). `UTA-0497`, `ut-dump --zone-at` for
-UT_MonsterHunt's swim chains, shipped 2026-11-22, as did `UTA-0468`
-(rocket lock-on, double Enforcers, the hammer turning shots aside); the
-rest of 0.2.0 is next, in any order (user, 2026-11-20). `UTA-0492`'s
-magnifier-off run is done: the magnifier alone, on a still desktop, is
-not the cost. `UTA-0437` stays behind those although
-frameledger freezes its file format in its 0.8.0 (user, 2026-11-20).
+`UTA-0489`, weapon models, needs animated meshes that no item builds.
+`UTA-0437` stays behind the rest of 0.2.0, although frameledger freezes
+its file format in its 0.8.0 (user, 2026-11-20). The desktop magnifier
+stays on; switching it off is the user's call (2026-11-20). Pass
+`--no-gamepad` to every headless viewer run.
 **In flight:** `roadmap_query status:"in-progress"`. Not kept by hand.
 
 > `State:` is a formula, so no session owes it an edit and it cannot
@@ -59,9 +36,6 @@ does *now*.
 Rule 1's set: ask the roadmap (§ Which item comes next). Standing deferral:
 `UTA-0059` until the renderer lands. `UTA-0079` and `UTA-0081` are
 `Source: in-session-`, outside rule 1.
-
-**Read the open `0.1.0` bodies before picking.** `UTA-0082` records items
-deferred out of that cut.
 
 ### Standing facts
 
