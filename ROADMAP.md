@@ -24212,7 +24212,7 @@ to.
   Source: ut-monsterhunt-request-2026-11-25.
   Lanes: ut-dump, upkg.
 
-- 🚧 [UTA-0522] **A file-only reading of which placed actors sit inside solid BSP, and how deep, for Map Repair's monsters check.**
+- ✅ [UTA-0522] **A file-only reading of which placed actors sit inside solid BSP, and how deep, for Map Repair's monsters check.**
   UT_MonsterHunt, 2026-11-26 (msg 2569): for each placed ScriptedPawn
   (optionally Inventory and Decoration), whether its collision
   cylinder (class-default CollisionRadius and CollisionHeight, at its
@@ -24224,6 +24224,11 @@ to.
   Ground truth, engine-measured 2026-09-06, 557 maps, 1,509 embedded
   monsters: UT_MonsterHunt work/monprobe/results/<map>.txt, lines
   "MONPROBE== BLIND|SEEING <class> at x,y,z". Read-only: copy it.
+  Shipped in 7ae8ea2 as ut-dump --embedded (UTA-0012 SS 4.7g), green on
+  GitHub's matrix 2026-11-27. Against the engine run on 437 maps: 553 of
+  613 engine-embedded monsters caught; per-map counts exact on 345. The
+  SS 4.10 consumer row waits on UT_MonsterHunt naming its fields (msg
+  2614).
   **Layman:** Lets UT_MonsterHunt find monsters stuck inside walls by reading the map file, without starting the game.
   Kind: feature.
   Source: ut-monsterhunt-request-2026-11-26.
