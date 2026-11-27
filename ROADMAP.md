@@ -24212,7 +24212,7 @@ to.
   Source: ut-monsterhunt-request-2026-11-25.
   Lanes: ut-dump, upkg.
 
-- 📋 [UTA-0522] **A file-only reading of which placed actors sit inside solid BSP, and how deep, for Map Repair's monsters check.**
+- 🚧 [UTA-0522] **A file-only reading of which placed actors sit inside solid BSP, and how deep, for Map Repair's monsters check.**
   UT_MonsterHunt, 2026-11-26 (msg 2569): for each placed ScriptedPawn
   (optionally Inventory and Decoration), whether its collision
   cylinder (class-default CollisionRadius and CollisionHeight, at its
@@ -24229,7 +24229,7 @@ to.
   Source: ut-monsterhunt-request-2026-11-26.
   Lanes: ut-dump, upkg.
 
-- 📋 [UTA-0523] **A scan for coplanar overlapping BSP faces that flicker (z-fight), for Map Repair's flicker check.**
+- ✅ [UTA-0523] **A scan for coplanar overlapping BSP faces that flicker (z-fight), for Map Repair's flicker check.**
   UT_MonsterHunt, 2026-11-26 (msg 2513, the user's pick for the next
   glitch check): pairs of drawn BSP nodes that are coplanar (within
   ~0.5 uu, normal dot 0.999), face the same way, belong to different
@@ -24246,6 +24246,7 @@ to.
   adds surfaces.nodePolygons {node, surface, zone, vertices}
   (UTA-0012 SS 4.5); the overlap scan is UT_MonsterHunt's. Ships when
   GitHub's matrix is green.
+  Green on GitHub's matrix at d28b49f (2026-11-27).
   **Layman:** Lets UT_MonsterHunt find spots in a map where two surfaces fight to be drawn and flicker.
   Kind: feature.
   Source: ut-monsterhunt-request-2026-11-26.

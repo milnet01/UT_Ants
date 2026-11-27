@@ -18,12 +18,14 @@
 // written for holds files that do not open, and finding out which is the job.
 
 #include "Cli.h"
+#include "Embedded.h"
 
 #include "common/Json.h"
 #include "common/Options.h"
 #include "core/Ascii.h"
 #include "core/FileSystem.h"
 #include "ubake/Actors.h"
+#include "ubake/Collision.h"
 #include "ubake/Install.h"
 #include "ubake/Zones.h"
 #include "umap/Build.h"
@@ -1635,6 +1637,115 @@ void writeZoneAt(std::ostream& out, const uta::upkg::Package& map, std::string_v
     out << "]";
 }
 
+/// UTA-0522: `--embedded` adds `embedded`, one row per placed monster,
+/// inventory item and decoration, in export order -- UT_MonsterHunt's Map
+/// Repair asks which monsters sit inside the level's solid, without starting
+/// the game. Each reading is Embedded.h's, against the level's collision
+/// tree; movers are not in it.
+void writeEmbedded(std::ostream& out, const uta::upkg::Package& map, std::string_view mapName,
+                   const uta::upkg::Level& level, const uta::upkg::PackageResolver& resolver) {
+    const auto refuse = [&out](std::string_view why) {
+        out << ",\n  \"embedded\": null,\n  \"embeddedError\": ";
+        writeJsonString(out, why);
+    };
+    const auto model = modelOf(map, level);
+    if (!model.has_value()) {
+        refuse(model.error());
+        return;
+    }
+    const auto tree = uta::ubake::buildCollision(*model);
+    if (!tree.has_value()) {
+        refuse("the level's collision did not build: " + std::string(tree.error().message()));
+        return;
+    }
+    const auto actors = uta::ubake::buildActors(map, asciiFolded(mapName), level, resolver);
+    if (!actors.has_value()) {
+        refuse("the level's actors did not build: " + std::string(actors.error().message()));
+        return;
+    }
+
+    constexpr std::array<std::pair<std::string_view, std::string_view>, 3> FAMILIES{{
+        {"unrealshare.scriptedpawn", "monster"},
+        {"engine.inventory", "inventory"},
+        {"engine.decoration", "decoration"},
+    }};
+    using uta::ubundle::ValueKind;
+    out << ",\n  \"embedded\": [";
+    bool first = true;
+    for (const uta::ubundle::ActorPlacement& actor : actors->placements.actors) {
+        const uta::ubundle::ActorClass& actorClass = actors->placements.classes[actor.classIndex];
+        std::string_view family;
+        for (const auto& [path, label] : FAMILIES)
+            if (uta::ubundle::isOrDescendsFrom(actorClass, path)) family = label;
+        if (family.empty()) continue;
+
+        const uta::upkg::ExportEntry& entry = map.exports()[actor.exportIndex];
+        const auto location = storedFacts(map, actor.exportIndex).location;
+        const auto number = [&](std::string_view name) -> std::optional<double> {
+            const auto* record = uta::ubundle::resolvedProperty(name, ValueKind::Float, actor, actorClass);
+            if (record == nullptr) return std::nullopt;
+            return double(std::get<float>(record->value));
+        };
+        std::optional<double> radius = number("collisionradius");
+        std::optional<double> height = number("collisionheight");
+        const std::optional<double> drawScale = number("drawscale");
+        std::optional<double> classDrawScale;
+        for (const uta::ubundle::PropertyRecord& record : actorClass.defaults)
+            if (record.arrayIndex == 0 && record.kind == ValueKind::Float && asciiFolded(record.name) == "drawscale")
+                classDrawScale = double(std::get<float>(record.value));
+        // ScriptedPawn's PreBeginPlay scales a monster's cylinder by DrawScale
+        // over its class's: on MH-Battlezone_AI, LesserBrutes drawn at 1.8
+        // against 0.8 stand on the floor in the file and sunk in the game.
+        if (family == "monster" && drawScale.has_value() && classDrawScale.has_value() && *classDrawScale > 0
+            && *drawScale != *classDrawScale) {
+            const double ratio = *drawScale / *classDrawScale;
+            if (radius.has_value()) *radius *= ratio;
+            if (height.has_value()) *height *= ratio;
+        }
+
+        std::string actorName = "?";
+        if (const auto found = map.name(entry.objectName); found.has_value()) actorName = std::string{*found};
+        out << (first ? "" : ", ") << "{\"export\": " << actor.exportIndex << ", \"name\": ";
+        first = false;
+        writeJsonString(out, actorName);
+        out << ", \"class\": ";
+        writeJsonString(out, nameOr(map, entry.objectClass));
+        out << ", \"family\": \"" << family << "\", \"location\": ";
+        writeLocation(out, location);
+        const auto optionalNumber = [&out](const std::optional<double>& value) {
+            if (value.has_value()) writeNumber(out, *value);
+            else out << "null";
+        };
+        out << ", \"drawScale\": ";
+        optionalNumber(drawScale);
+        out << ", \"classDrawScale\": ";
+        optionalNumber(classDrawScale);
+        out << ", \"collisionRadius\": ";
+        optionalNumber(radius);
+        out << ", \"collisionHeight\": ";
+        optionalNumber(height);
+
+        // No size or no place, no reading: a guessed cylinder would answer
+        // for a body the map does not have.
+        const bool readable = location.has_value() && radius.has_value() && height.has_value()
+                              && std::isfinite(location->x) && std::isfinite(location->y)
+                              && std::isfinite(location->z) && std::isfinite(*radius)
+                              && std::isfinite(*height) && *radius > 0 && *height > 0;
+        if (!readable) {
+            out << ", \"centreSolid\": null, \"floorGap\": null, \"embedded\": null, \"depth\": null}";
+            continue;
+        }
+        const uta::dump::EmbeddedReading reading = uta::dump::readEmbedded(
+            *tree, uta::uworld::Vec3{location->x, location->y, location->z}, *radius, *height);
+        out << ", \"centreSolid\": " << (reading.centreSolid ? "true" : "false") << ", \"floorGap\": ";
+        optionalNumber(reading.floorGap);
+        out << ", \"embedded\": " << (reading.embedded ? "true" : "false") << ", \"depth\": ";
+        optionalNumber(reading.depth);
+        out << "}";
+    }
+    out << "]";
+}
+
 /// The opt-in sections the command line asked for, one per flag.
 struct Sections {
     bool navGraph = false;
@@ -1648,6 +1759,9 @@ struct Sections {
     bool brushes = false;
     /// UTA-0497: the points `zoneAt` looks up; absent when neither option is given.
     std::optional<std::vector<uta::upkg::Vector3>> zoneAt;
+    /// UTA-0522: `embedded`, each placed monster's, item's and decoration's
+    /// reading against the level's solid.
+    bool embedded = false;
 };
 
 void dumpPackage(std::ostream& out, const fs::path& path, const uta::upkg::PackageResolver& resolver,
@@ -1835,6 +1949,7 @@ void dumpPackage(std::ostream& out, const fs::path& path, const uta::upkg::Packa
     if (sections.brushes) writeBrushes(out, *package, uta::fs::utf8(path.stem()), *level, resolver);
     if (sections.zoneAt.has_value())
         writeZoneAt(out, *package, uta::fs::utf8(path.stem()), *level, resolver, *sections.zoneAt);
+    if (sections.embedded) writeEmbedded(out, *package, uta::fs::utf8(path.stem()), *level, resolver);
 
     out << "\n }";
 }
@@ -1863,7 +1978,7 @@ int usage(std::ostream& err) {
         "usage: ut-dump (--install <UT dir> | --system <UT System dir>)\n"
         "                [--nav-graph] [--wiring-graph] [--wiring-classes <classes>]\n"
         "                [--surface-list] [--node-polygons] [--lighting] [--brushes]\n"
-        "                [--zone-at <points>] [--zone-at-file <file>]\n"
+        "                [--zone-at <points>] [--zone-at-file <file>] [--embedded]\n"
         "                [--ndjson]\n"
         "                <package|directory>...\n"
         "\n"
@@ -1917,6 +2032,11 @@ int usage(std::ostream& err) {
         "A point is x,y,z; points are separated by spaces, newlines or `;`.\n"
         "--zone-at-file reads points written the same way from a file; with\n"
         "both, the argument's points come first.\n"
+        "\n"
+        "--embedded adds `embedded` to each map: every placed monster,\n"
+        "inventory item and decoration, with its collision cylinder, whether\n"
+        "its centre is in solid, how far its floor is below it, and the\n"
+        "shortest push that frees it from the level's solid.\n"
         "\n"
         "Packages are listed in path order, not argument order: key on each\n"
         "one's `file`. docs/specs/UTA-0012-ut-dump-output-shape.md is the\n"
@@ -2002,6 +2122,8 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
             const std::optional<std::string_view> file = values.take(i);
             if (!file) return usage(err);
             zoneAtFile = uta::fs::pathFromUtf8(*file);
+        } else if (arg == "--embedded") {
+            sections.embedded = true;
         } else if (arg == "--ndjson") {
             ndjson = true;
         } else if (arg == "-h" || arg == "--help") {

@@ -107,6 +107,7 @@ add_executable(uta_unit_tests
     unit/CoreMd5Test.cpp
     unit/CoreSha256Test.cpp
     unit/DumpCliTest.cpp
+    unit/DumpEmbeddedTest.cpp
     unit/ExportSceneTest.cpp
     unit/LightFixture.cpp
     unit/MapPicCliTest.cpp
@@ -182,7 +183,8 @@ target_link_libraries(uta_unit_tests PRIVATE uta_paths uta_bench)
 # And ut-origin's -- UTA-0013's third quarantine check.
 target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-origin/Cli.cpp")
 # And ut-dump's -- UTA-0136's navigation graph.
-target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-dump/Cli.cpp")
+target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-dump/Cli.cpp"
+                                      "${PROJECT_SOURCE_DIR}/tools/ut-dump/Embedded.cpp")
 # And map-pic's -- UTA-0316.
 target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/map-pic/Cli.cpp")
 # And ut-bound-scan's -- UTA-0328.

@@ -14,6 +14,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **ut-dump --embedded says which placed monsters the game reads as stuck in the floor, from the map file alone.** (UTA-0522)
+  UT_MonsterHunt's map checks use it to find monsters that cannot move or be
+  reached without starting the game. Each monster, item and decoration also
+  gets how far it would have to move to be clear of walls and floors.
+
 - **ut-dump --node-polygons lists the corners of every drawn piece of a map's level geometry.** (UTA-0523)
   UT_MonsterHunt's map checks use it to find two surfaces drawn in the same
   place, which can flicker in the original game.

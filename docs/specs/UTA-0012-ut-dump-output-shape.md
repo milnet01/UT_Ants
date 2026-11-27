@@ -92,7 +92,7 @@ are put to the consumer in this draft.
 ### 4.1 Invocation
 
 ```
-ut-dump (--install <root> | --system <dir>) [--nav-graph] [--wiring-graph] [--wiring-classes <classes>] [--surface-list] [--node-polygons] [--lighting] [--brushes] [--zone-at <points>] [--zone-at-file <file>] [--ndjson] <package|directory>...
+ut-dump (--install <root> | --system <dir>) [--nav-graph] [--wiring-graph] [--wiring-classes <classes>] [--surface-list] [--node-polygons] [--lighting] [--brushes] [--zone-at <points>] [--zone-at-file <file>] [--embedded] [--ndjson] <package|directory>...
 ```
 
 - `--install` names the install's root. Added by `UTA-0206`. It is searched
@@ -121,6 +121,7 @@ ut-dump (--install <root> | --system <dir>) [--nav-graph] [--wiring-graph] [--wi
 - `--brushes` adds `brushes` (§ 4.7e, UTA-0361).
 - `--zone-at` and `--zone-at-file` add `zoneAt` (§ 4.7f, UTA-0497). A
   point that does not read, or a file that does not open, is a usage error.
+- `--embedded` adds `embedded` (§ 4.7g, UTA-0522).
 - The exit code is 0 when every package was attempted, including packages
   that did not open. 2 is a usage error, with no output on stdout.
 
@@ -435,6 +436,44 @@ damagePerSec}]`, one per point, in that order.
 
 `zoneAt` is `null`, with `zoneAtError` a string, when the level's Model does
 not read, its zones do not build, or its actors do not build.
+
+### 4.7g `embedded`
+
+Added by `UTA-0522`, under `--embedded` only, after `zoneAt`. It answers
+UT_MonsterHunt's question of which placed monsters the engine reads as stuck
+in the level, from the file alone.
+
+`embedded` is `[{export, name, class, family, location, drawScale,
+classDrawScale, collisionRadius, collisionHeight, centreSolid, floorGap,
+embedded, depth}]`, one per placed actor of the three families, in export
+order.
+
+- `family` is `monster` (`UnrealShare.ScriptedPawn`), `inventory`
+  (`Engine.Inventory`) or `decoration` (`Engine.Decoration`), by the class or
+  its ancestry.
+- `drawScale` is the actor's, through its class defaults; `classDrawScale` is
+  the class default alone. Either is `null` where nothing sets it.
+- `collisionRadius` and `collisionHeight` are the cylinder tested: the
+  actor's, through its class defaults. A monster's are scaled by `drawScale`
+  over `classDrawScale`, as `ScriptedPawn`'s `PreBeginPlay` scales them.
+- `centreSolid` says the centre is in solid.
+- `floorGap` is from the centre straight down to the first solid, within
+  10000. It is 0 where the centre is solid, and `null` where nothing is below.
+- `embedded` is `MHStuckMonsters`' test with a slack of 3.5 where it writes 4:
+  `floorGap` under `collisionHeight` - 3.5. The slack is the one that matched
+  the engine's readings (`tools/ut-dump/Embedded.h`). A cylinder clipping a
+  wall is not embedded by it.
+- `depth` is the shortest push, up, down or along one of eight level
+  directions, that leaves the cylinder in empty space. The cylinder tested is
+  1 smaller on every side. The push steps by 1 to 32, then by 4; it is 0
+  where the cylinder is free, and `null` where no push up to 512 frees it.
+- The tree is the level's collision (`ubake::buildCollision`); movers and
+  blocking actors are not in it.
+- An actor with no stored `Location`, or no finite positive size, has
+  `centreSolid`, `floorGap`, `embedded` and `depth` all `null`.
+
+`embedded` is `null`, with `embeddedError` a string, when the level's Model
+does not read, its collision does not build, or its actors do not build.
 
 ### 4.8 Counting what was dropped
 

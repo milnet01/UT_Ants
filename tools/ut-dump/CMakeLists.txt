@@ -5,5 +5,5 @@
 #
 # Cli.cpp is the command line as a function; tests/CMakeLists.txt compiles it
 # into the unit tests too, as it does ut-origin's.
-add_executable(ut-dump main.cpp Cli.cpp)
+add_executable(ut-dump main.cpp Cli.cpp Embedded.cpp)
 target_link_libraries(ut-dump PRIVATE uta_ubake uta_unav_build uta_tools_common)

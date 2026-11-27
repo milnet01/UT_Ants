@@ -1846,3 +1846,55 @@ TEST_CASE("UTA-0224: an actor whose properties do not read is kept, flagged and 
     CHECK(wired.out.find("\"name\": \"Broken0\"", actors) != std::string::npos);
     CHECK(wired.out.find("\"name\": \"BrokenEnd\"", actors) != std::string::npos);
 }
+
+TEST_CASE("UTA-0522: --embedded lists each placed monster, item and decoration with its engine cylinder",
+          "[dump]") {
+    // UT_MonsterHunt's Map Repair asks which monsters the engine reads as
+    // stuck. The reading itself is DumpEmbeddedTest's; the fixture's level
+    // has no solid, so every placed body here reads free.
+    const TempDir dir;
+    MapBuilder map;
+    const std::int32_t pawn = map.addClass(
+        "FixturePawn", map.importClass("UnrealShare", "ScriptedPawn"),
+        {floatProperty("CollisionRadius", 10), floatProperty("CollisionHeight", 20), floatProperty("DrawScale", 1)});
+    map.addActor("Standing", pawn, {vectorProperty("Location", 8, 8, 30)})
+        // ScriptedPawn's PreBeginPlay scales a monster's cylinder by its
+        // DrawScale over its class's: on MH-Battlezone_AI that sinks
+        // monsters the file stands on the floor.
+        .addActor("Big", pawn, {vectorProperty("Location", 8, 8, 30), floatProperty("DrawScale", 2)})
+        .addActor("Unplaced", pawn)
+        .addActorOfClass("Engine", "Inventory", {vectorProperty("Location", 8, 8, 30)})
+        .addActorOfClass("Engine", "PathNode", {vectorProperty("Location", 8, 8, 10)});
+    const fs::path mapPath = writeMap(dir, map);
+    writeFile(dir.path() / "System" / "UnrealShare.u", classPackage("ScriptedPawn"));
+    const std::string system = (dir.path() / "System").string();
+    const Run result = run({"--system", system, "--embedded", mapPath.string()});
+    INFO(result.out);
+    REQUIRE(result.code == 0);
+    const std::size_t section = result.out.find("\"embedded\": [");
+    REQUIRE(section != std::string::npos);
+    const auto row = [&](std::string_view name, std::string_view rest) {
+        const std::string head = "\"name\": \"" + std::string{name} + "\", ";
+        const std::size_t at = result.out.find(head, section);
+        REQUIRE(at != std::string::npos);
+        CHECK(result.out.compare(at + head.size(), rest.size(), rest) == 0);
+    };
+    row("Standing", R"("class": "FixturePawn", "family": "monster", "location": [8, 8, 30], "drawScale": 1, )"
+                    R"("classDrawScale": 1, "collisionRadius": 10, "collisionHeight": 20, "centreSolid": false, )"
+                    R"("floorGap": null, "embedded": false, "depth": 0})");
+    row("Big", R"("class": "FixturePawn", "family": "monster", "location": [8, 8, 30], "drawScale": 2, )"
+               R"("classDrawScale": 1, "collisionRadius": 20, "collisionHeight": 40, )");
+    // No place, or an unread class's unknown size: no reading, never a guess.
+    row("Unplaced", R"("class": "FixturePawn", "family": "monster", "location": null, "drawScale": 1, )"
+                    R"("classDrawScale": 1, "collisionRadius": 10, "collisionHeight": 20, "centreSolid": null, )"
+                    R"("floorGap": null, "embedded": null, "depth": null})");
+    row("Inventory3", R"("class": "Inventory", "family": "inventory", "location": [8, 8, 30], "drawScale": null, )"
+                      R"("classDrawScale": null, "collisionRadius": null, "collisionHeight": null, )"
+                      R"("centreSolid": null, )");
+    CHECK(result.out.find("PathNode", section) == std::string::npos);
+
+    // Opt-in: every body's cylinder is a search on a big map.
+    const Run plain = run({"--system", system, mapPath.string()});
+    REQUIRE(plain.code == 0);
+    CHECK(plain.out.find("\"embedded\"") == std::string::npos);
+}

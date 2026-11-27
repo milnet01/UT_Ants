@@ -14,3 +14,4 @@ edited.
 | amend-0508 | 2026-11-24 | none | - | - | - | - | Amendment, not a review: no reviewer dispatched. UTA-0508 adds `--wiring-classes` to § 4.1; UTA-0509 adds a § 4.10 consumer row. |
 | amend-0508b | 2026-11-24 | none | - | - | - | - | Amendment, not a review: no reviewer dispatched. UTA-0508: § 4.1's `--wiring-classes` keeps every actor whose chain is cut short. |
 | amend-0523 | 2026-11-26 | none | - | - | - | - | Amendment, not a review: no reviewer dispatched. UTA-0523 adds `--node-polygons` to § 4.1 and `surfaces.nodePolygons` to § 4.5. |
+| amend-0522 | 2026-11-27 | none | - | - | - | - | Amendment, not a review: no reviewer dispatched. UTA-0522 adds `--embedded` to § 4.1 and § 4.7g `embedded`. |
