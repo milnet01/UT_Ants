@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=523 -->
+<!-- ants-roadmap-id-high-water: UTA=524 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -24229,6 +24229,10 @@ to.
   613 engine-embedded monsters caught; per-map counts exact on 345. The
   SS 4.10 consumer row waits on UT_MonsterHunt naming its fields (msg
   2614).
+  2026-11-28 (msg 2627): UT_MonsterHunt's mapcheck does not read
+  embedded yet; its planned fields are name, class, family, location,
+  embedded, depth and floorGap. The SS 4.10 row goes in when they
+  confirm. The 317 over-flags go to their own item.
   **Layman:** Lets UT_MonsterHunt find monsters stuck inside walls by reading the map file, without starting the game.
   Kind: feature.
   Source: ut-monsterhunt-request-2026-11-26.
@@ -24256,6 +24260,21 @@ to.
   Kind: feature.
   Source: ut-monsterhunt-request-2026-11-26.
   Lanes: ut-dump, upkg.
+
+- 📋 [UTA-0524] **Find why ut-dump --embedded flags monsters the engine reads as free.**
+  UTA-0522's calibration against UT_MonsterHunt's monprobe run (437
+  maps, rule "sunk"): per-map counts over the engine's by 317 monsters
+  in total, under by 77. UT_MonsterHunt (msg 2627, 2026-11-27): their
+  MHStuckMonsters rescue was NOT active in that run, so the 317 are not
+  monsters it lifted. Monprobe is raw placement after about 8 s of play.
+  Candidates: the engine settles a monster at spawn or in its first
+  fall; the slack; movers or blocking actors absent from our tree.
+  Scratch: Scratchpad/UT_Ants/uta0522/ (compare.py, margin.py, truth/).
+  Don't mix their v1 and v2 mapcheck rows (msg 2629).
+  **Layman:** The stuck-monster check marks some monsters stuck that the game itself finds free; find out why before anyone trusts it to sort maps.
+  Kind: investigate.
+  Source: ut-monsterhunt-request-2026-11-27.
+  Lanes: ut-dump.
 
 ## 0.5.0 — Map editor
 

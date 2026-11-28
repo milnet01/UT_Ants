@@ -532,6 +532,7 @@ them on 2026-09-25, checked by them against § 4 and UTA-0172 § 4.3 to § 4.4.
 | GAME-0063, the route check | `exits`' `collisionRadius` and `collisionHeight` | A reached node inside the exit's cylinder counts as a route (UTA-0483) |
 | GAME-0210 | `wiring.actors`' `liftTag`, and `mover`'s `numKeys`, `basePos` and `keyPos` | It needs each lift's tag and its mover's keyframes (UTA-0336) |
 | Map Repair's warp zone check; GAME-0120 | `wiring.actors`' `warpZone` and `teleporter` | It finds warp zones with nothing on the other side, and teleporters switched off (UTA-0509) |
+| GAME-0301, Map Repair's `flicker` check | `surfaces.nodePolygons`' `node`, `surface` and `vertices` (a `null` vertex skips the node), joined to `surfaces.list`' `index`, `texture`, `polyFlags`, `brush` and `normal` | It finds coplanar, overlapping faces that may fight to be drawn (UTA-0523) |
 | `analysis/mapcheck` checks | `nodeList`'s `name`, `class`; `edgeList`'s `from`, `to`, `reachFlags`, `collisionRadius`, `collisionHeight` (the route check); `classCounts` (paths, starts); `importedPackages` (load) | Per-map checks |
 | `analysis/pathtriage.py` | `nav.nodes`, `nav.edges`, `nav.nodesWithNoExit`; `classCounts`; `wiring.dangling` | Path triage |
 | `analysis/pathverify.py` | `classCounts`; `level.actors`; `nav.nodes`, `nav.edges`, `nav.nodesWithNoExit` | Path verification |
