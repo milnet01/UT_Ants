@@ -21,6 +21,7 @@
 #include "grass.frag.spv.h"
 #include "grass.vert.spv.h"
 #include "fsr_rcas.frag.spv.h"
+#include "fxaa.frag.spv.h"
 #include "post.frag.spv.h"
 #include "post.vert.spv.h"
 #include "scene.frag.spv.h"
@@ -722,19 +723,22 @@ Result<void> Pipelines::createScenePipelines(const TargetFormats& formats, Tier 
     return {};
 }
 
-/// The output stage: post.frag into the output, and UTA-0154's FSR 1 stages.
-/// The upscale input and EASU's output are HDR-format images; RCAS writes
-/// the output.
+/// The output stage: post.frag into the output, UTA-0154's FSR 1 stages and
+/// UTA-0053's FXAA. The upscale input, FXAA's copy of it and EASU's output are
+/// display-format images; RCAS and the other FXAA write the output.
 Result<void> Pipelines::createOutputPipelines(const TargetFormats& formats, VkShaderModule postVertex) {
     const Making making{device_, createFlags()};
-    Module postFragment{device_}, easuFragment{device_}, rcasFragment{device_};
+    Module postFragment{device_}, easuFragment{device_}, rcasFragment{device_}, fxaaFragment{device_};
     UTA_TRY(postFragment.handle, shaderModule(device_, post_frag_spv));
     UTA_TRY(easuFragment.handle, shaderModule(device_, fsr_easu_frag_spv));
     UTA_TRY(rcasFragment.handle, shaderModule(device_, fsr_rcas_frag_spv));
+    UTA_TRY(fxaaFragment.handle, shaderModule(device_, fxaa_frag_spv));
     UTA_TRY(post_, postPipeline(making, postLayout_, formats.output, postVertex, postFragment.handle));
-    UTA_TRY(upscaleInput_, postPipeline(making, postLayout_, formats.hdr, postVertex, postFragment.handle));
-    UTA_TRY(easu_, postPipeline(making, postLayout_, formats.hdr, postVertex, easuFragment.handle));
+    UTA_TRY(upscaleInput_, postPipeline(making, postLayout_, formats.display, postVertex, postFragment.handle));
+    UTA_TRY(easu_, postPipeline(making, postLayout_, formats.display, postVertex, easuFragment.handle));
     UTA_TRY(rcas_, postPipeline(making, postLayout_, formats.output, postVertex, rcasFragment.handle));
+    UTA_TRY(fxaa_, postPipeline(making, postLayout_, formats.output, postVertex, fxaaFragment.handle));
+    UTA_TRY(fxaaToDisplay_, postPipeline(making, postLayout_, formats.display, postVertex, fxaaFragment.handle));
     return {};
 }
 
@@ -827,7 +831,7 @@ Pipelines::~Pipelines() {
         for (const auto& row : rows)
             for (VkPipeline pipeline : row)
                 if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(device_, pipeline, nullptr);
-    for (VkPipeline pipeline : {refract_[0], refract_[1], depth_[0], depth_[1], flame_, mote_, corona_, grass_, post_, upscaleInput_, easu_, rcas_, bloomDownsample_, bloomUpsample_})
+    for (VkPipeline pipeline : {refract_[0], refract_[1], depth_[0], depth_[1], flame_, mote_, corona_, grass_, post_, upscaleInput_, easu_, rcas_, fxaa_, fxaaToDisplay_, bloomDownsample_, bloomUpsample_})
         if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(device_, pipeline, nullptr);
     if (bloomLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, bloomLayout_, nullptr);
     if (bloomSetLayout_ != VK_NULL_HANDLE) vkDestroyDescriptorSetLayout(device_, bloomSetLayout_, nullptr);
@@ -891,7 +895,7 @@ std::vector<std::pair<std::string, VkPipeline>> Pipelines::named() const {
     for (const auto& [name, pipeline] :
          std::initializer_list<std::pair<std::string_view, VkPipeline>>{
              {"flame", flame_}, {"mote", mote_}, {"corona", corona_}, {"post", post_}, {"upscale input", upscaleInput_}, {"easu", easu_},
-             {"rcas", rcas_}, {"bloom downsample", bloomDownsample_}, {"bloom upsample", bloomUpsample_},
+             {"rcas", rcas_}, {"fxaa", fxaa_}, {"fxaa to upscale input", fxaaToDisplay_}, {"bloom downsample", bloomDownsample_}, {"bloom upsample", bloomUpsample_},
              {"clusters", clusters_}, {"fog scatter", fogScatter_}, {"fog integrate", fogIntegrate_},
              {"haze shadow", hazeShadow_}, {"shadow", shadow_}, {"shape", shapeOpaque_},
              {"shape blended", shapeBlended_}})

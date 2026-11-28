@@ -25,6 +25,7 @@
 
 #include <array>
 #include <cstdlib>
+#include <vector>
 
 using namespace uta::test::render;
 using uta::urender::Camera;
@@ -121,4 +122,74 @@ TEST_CASE("UTA-0192: the tone map keeps a shoulder rather than clipping", "[devi
     const Rgba rolled = pixelAt(*pixels, WIDTH, columnOf(-50.0f), HEIGHT / 2);
     CHECK(rolled.r < 252);
     CHECK(rolled.r > 236);
+}
+
+namespace {
+
+/// UTA-0053: a white unlit square on the cleared black, seen through a camera
+/// rolled an eighth of a quarter turn, so its edges run slantwise as stairs.
+uta::ubundle::Bundle whiteSquare() {
+    uta::ubundle::Geometry geometry;
+    addSquare(geometry, 100, 0, 0, 25, "white", PF_UNLIT);
+    uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
+    addSolidMaterial(bundle, "white", {255, 255, 255, 255});
+    return bundle;
+}
+
+Camera rolled() {
+    Camera camera;
+    camera.rotation = {0, 0, 2048};
+    return camera;
+}
+
+/// Pixels whose red is neither the background's nor near the square's.
+int betweenShades(const std::vector<std::byte>& pixels) {
+    int between = 0;
+    for (std::uint32_t y = 0; y < HEIGHT; ++y)
+        for (std::uint32_t x = 0; x < WIDTH; ++x) {
+            const int r = pixelAt(pixels, WIDTH, x, y).r;
+            if (r > 20 && r < 230) ++between;
+        }
+    return between;
+}
+
+} // namespace
+
+TEST_CASE("UTA-0053: anti-aliasing softens a slanted edge", "[device]") {
+    // Without it, every pixel is the background's 0 or the square's 254: the
+    // rasteriser covers a pixel or it does not, and nothing here glows.
+    removeDisplay();
+    Config config;
+    config.width = WIDTH;
+    config.height = HEIGHT;
+    config.tier = uta::urender::Tier::Low;
+    auto renderer = requireRenderer(config);
+
+    requireOk(renderer.draw(whiteSquare(), rolled()));
+    const auto pixels = renderer.readback();
+    if (!pixels.has_value()) FAIL(pixels.error().message());
+    // Flat parts are left as they were.
+    CHECK(near(pixelAt(*pixels, WIDTH, WIDTH / 2, HEIGHT / 2), {254, 254, 254, 255}));
+    CHECK(near(pixelAt(*pixels, WIDTH, 2, 2), {0, 0, 0, 255}));
+    const int between = betweenShades(*pixels);
+    CAPTURE(between);
+    CHECK(between >= 16);
+}
+
+TEST_CASE("UTA-0053: an anti-aliased frame upscales", "[device]") {
+    // FXAA writes the copy EASU reads; the validation layer grades the wiring.
+    removeDisplay();
+    Config config;
+    config.width = WIDTH;
+    config.height = HEIGHT;
+    config.tier = uta::urender::Tier::Low;
+    config.fixedRenderScale = 0.5;
+    auto renderer = requireRenderer(config);
+
+    requireOk(renderer.draw(whiteSquare(), rolled()));
+    REQUIRE(renderer.lastFrameStats().renderScale == 0.5);
+    const auto pixels = renderer.readback();
+    if (!pixels.has_value()) FAIL(pixels.error().message());
+    CHECK(near(pixelAt(*pixels, WIDTH, WIDTH / 2, HEIGHT / 2), {254, 254, 254, 255}, 2));
+    CHECK(near(pixelAt(*pixels, WIDTH, 2, 2), {0, 0, 0, 255}));
 }

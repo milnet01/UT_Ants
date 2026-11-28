@@ -153,6 +153,12 @@ TEST_CASE("UTA-0321: coronas draw at every tier", "[render]") {
     CHECK(uta::urender::enabled(Feature::Coronas, Tier::Low));
 }
 
+TEST_CASE("UTA-0053: anti-aliasing draws at every tier", "[render]") {
+    using uta::urender::Feature;
+    CHECK(uta::urender::minimumTier(Feature::AntiAliasing) == Tier::Low);
+    CHECK(uta::urender::enabled(Feature::AntiAliasing, Tier::Low));
+}
+
 TEST_CASE("UTA-0215: water motes start at Medium", "[render]") {
     using uta::urender::Feature;
     CHECK(uta::urender::minimumTier(Feature::WaterMotes) == Tier::Medium);

@@ -161,18 +161,25 @@ reason; the argument is gone rather than pinned.
 
 **The output stage upscales the region with AMD FSR 1** (amended by `UTA-0154`,
 which replaced a bilinear stretch that read soft). A frame drawn at scale 1
-keeps `UTA-0014`'s single output pass. Below 1 it takes three passes, each
-covering `W` × `H`:
+keeps `UTA-0014`'s single output pass, unless FXAA runs (below). Below 1 it takes three passes:
 
 1. `post.frag` tone maps the region into FSR 1's input, gamma 2.0 and clamped
    to [0, 1], as FSR 1's header asks. Past the region the region's edge
-   repeats, so a tap beyond it reads the edge.
-2. EASU upscales that into a second image.
+   repeats for the two texels EASU's taps reach, so a tap beyond it reads the
+   edge; nothing further is drawn.
+2. EASU upscales that into a second image, over `W` × `H`.
 3. RCAS sharpens it into `output`, at AMD's sample's default of 0.25 stops,
    and squares it back to linear light for the sRGB store.
 
-The two images are the HDR format at the output's size, made at create and at
-`resize` only where `dynamicResolution` or `fixedRenderScale` is set. A change
+The two images are `A2B10G10R10_UNORM` at the output's size, made at create
+and at `resize` only where `dynamicResolution` or `fixedRenderScale` is set:
+half the bytes of the HDR format, for colour that is already in [0, 1].
+
+**`UTA-0053`'s FXAA (`fxaa.frag`) runs between step 1 and the rest** where the
+tier has `Feature::AntiAliasing` and neither `linearOutput` nor `lightTerms` is
+set. At scale 1 step 1 still runs, into an input image made for it, and FXAA
+writes `output`. Below 1 it writes a third image of the same kind, which EASU
+reads. A change
 of scale creates or destroys no image; `resize` alone rebuilds targets, as
 `UTA-0014` § 4.3 says. FSR 1 is vendored in `third_party/fsr1/`.
 

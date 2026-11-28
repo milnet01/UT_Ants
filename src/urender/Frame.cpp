@@ -67,6 +67,12 @@ namespace uta::urender {
 namespace {
 
 constexpr VkFormat HDR_FORMAT = VK_FORMAT_R16G16B16A16_SFLOAT;
+/// UTA-0053: FSR 1's input, FXAA's copy of it and EASU's output hold gamma 2.0
+/// colour in [0, 1], which ten bits a channel keep finer than the 8-bit output.
+/// Half HDR_FORMAT's bytes: on DM-Deck16][ at 3840x2160 and scale 1, FXAA's
+/// extra pass cost 0.32 ms over HDR_FORMAT as a plain copy (2026-11-28). A
+/// format every Vulkan device draws to and samples.
+constexpr VkFormat DISPLAY_FORMAT = VK_FORMAT_A2B10G10R10_UNORM_PACK32;
 constexpr VkFormat VELOCITY_FORMAT = VK_FORMAT_R16G16_SFLOAT;
 constexpr VkFormat DEPTH_FORMAT = VK_FORMAT_D32_SFLOAT;
 /// UTA-0333: atlas texels per texel of the haze's copy, on each axis --
@@ -162,6 +168,12 @@ static_assert(EXPOSURE == ubundle::PAINTED_SKY_EXPOSURE);
 constexpr std::size_t BLOOM_LEVELS = 5;
 constexpr float BLOOM_RADIUS = 0.005f;
 constexpr float BLOOM_STRENGTH = 0.04f;
+
+/// UTA-0053: how many texels past the drawn region FSR 1's EASU reads. Its
+/// twelve taps reach two past the texel under the output pixel
+/// (third_party/fsr1/ffx_fsr1.h, FsrEasuF), and that texel is at most the
+/// region's last.
+constexpr std::uint32_t EASU_REACH = 2;
 
 /// UTA-0263 SS 4.4: the flame clock's period in seconds. At 4096 a float still
 /// resolves half a millisecond; a flame jumps once at each wrap, every 68 min.
@@ -609,8 +621,11 @@ struct Renderer::Impl {
     VkDescriptorPool pool = VK_NULL_HANDLE;
     VkDescriptorSet sceneSet = VK_NULL_HANDLE;
     VkDescriptorSet postSet = VK_NULL_HANDLE;
-    /// UTA-0154: EASU's set reads the upscale input, RCAS's reads EASU's output.
+    /// UTA-0154: EASU's set reads the upscale input, or FXAA's copy of it
+    /// where the frame is anti-aliased; RCAS's reads EASU's output.
     VkDescriptorSet easuSet = VK_NULL_HANDLE, rcasSet = VK_NULL_HANDLE;
+    /// UTA-0053: FXAA's set reads the upscale input.
+    VkDescriptorSet fxaaSet = VK_NULL_HANDLE;
     /// UTA-0053: the bloom chain's source sets -- the emission target's, then
     /// each level's.
     VkDescriptorSet emissionSet = VK_NULL_HANDLE;
@@ -625,8 +640,11 @@ struct Renderer::Impl {
     /// only where the tier refracts.
     Image sceneCopy;
     /// UTA-0154: FSR 1's input and EASU's output. Only a renderer whose scale
-    /// can drop below 1 makes them.
+    /// can drop below 1 makes them, but an anti-aliased one makes the input
+    /// too, for FXAA to read (UTA-0053).
     Image upscaleInput, upscaled;
+    /// UTA-0053: FXAA's copy of the upscale input, for EASU; made where both are.
+    Image antialiased;
     Image shadowAtlas;
     /// UTA-0053: the forward pass's emission, and the bloom chain built from it.
     Image emission;
@@ -755,6 +773,10 @@ struct Renderer::Impl {
     FrameStats stats;
     /// UTA-0051 SS 4.3: chosen once, at create.
     Tier tier = Tier::Low;
+    /// UTA-0053: FXAA runs on this renderer's frames. Fixed at create, from the
+    /// tier; never under linearOutput, whose texels are compared exactly
+    /// (INV-10), nor lightTerms, whose output is data rather than a picture.
+    bool antiAliasing = false;
     /// UTA-0051 SS 4.4: the scale dynamic resolution draws the next frame at,
     /// the scale the last frame was drawn at, and the averaged frame time the
     /// controller reads -- which is where its smoothing lives (INV-5).
@@ -857,8 +879,9 @@ struct Renderer::Impl {
     void recordBloomLevel(VkCommandBuffer commands, Image& target, VkPipeline pipeline, VkDescriptorSet sourceSet,
                           const Image& source, std::uint32_t mode, std::array<float, 2> drawnShare);
     void recordOutput(VkCommandBuffer commands, VkExtent2D region);
+    /// `area` is the top-left part of `target` drawn; empty draws all of it.
     void recordFullTargetPass(VkCommandBuffer commands, Image& target, VkPipeline pipeline, VkDescriptorSet set,
-                              bool upscaleInputPass, VkExtent2D region);
+                              bool upscaleInputPass, VkExtent2D region, VkExtent2D area = {});
 };
 
 /// Every target the window's size decides. SS 4.3's resize rebuilds them.
@@ -893,11 +916,16 @@ Result<void> Renderer::Impl::createTargets() {
     }
     // UTA-0154: at the output's size, so a change of scale makes no image
     // (UTA-0051 SS 4.4).
-    if (config.dynamicResolution || config.fixedRenderScale) {
-        UTA_TRY(upscaleInput, Image::create(*gpu, {HDR_FORMAT, w, h, 1,
-                                                   VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT}));
-        UTA_TRY(upscaled, Image::create(*gpu, {HDR_FORMAT, w, h, 1,
-                                               VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT}));
+    const VkImageUsageFlags passUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    const bool scaling = config.dynamicResolution || config.fixedRenderScale;
+    if (scaling || antiAliasing) {
+        UTA_TRY(upscaleInput, Image::create(*gpu, {DISPLAY_FORMAT, w, h, 1, passUsage}));
+    }
+    if (scaling) {
+        UTA_TRY(upscaled, Image::create(*gpu, {DISPLAY_FORMAT, w, h, 1, passUsage}));
+    }
+    if (scaling && antiAliasing) {
+        UTA_TRY(antialiased, Image::create(*gpu, {DISPLAY_FORMAT, w, h, 1, passUsage}));
     }
     return {};
 }
@@ -1250,15 +1278,15 @@ Result<void> Renderer::Impl::writeDescriptors() {
         // The atlas and the three post sets' sources, then UTA-0053's: bloom in
         // each post set, and one source per bloom step; then UTA-0015's fog
         // volume and UTA-0356's fog history.
-        // UTA-0273: the refract set's two.
+        // UTA-0273: the refract set's two. UTA-0053: the FXAA set's two.
         VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                             textureCount + 4 + 3 + 1 + static_cast<std::uint32_t>(BLOOM_LEVELS) + 1 + 1 + 2},
+                             textureCount + 4 + 3 + 1 + static_cast<std::uint32_t>(BLOOM_LEVELS) + 1 + 1 + 2 + 2},
         // UTA-0015: the fog set's two images; UTA-0333's haze shadow.
         VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 3},
     };
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.maxSets = 4 + 1 + static_cast<std::uint32_t>(BLOOM_LEVELS) + 1 + 1;
+    poolInfo.maxSets = 4 + 1 + static_cast<std::uint32_t>(BLOOM_LEVELS) + 1 + 1 + 1; // the last, UTA-0053's FXAA set
     poolInfo.poolSizeCount = static_cast<std::uint32_t>(sizes.size());
     poolInfo.pPoolSizes = sizes.data();
     UTA_CHECK(created(vkCreateDescriptorPool(device, &poolInfo, nullptr, &pool), pool, "vkCreateDescriptorPool"));
@@ -1276,19 +1304,21 @@ Result<void> Renderer::Impl::writeDescriptors() {
     sceneAllocate.pSetLayouts = &sceneLayout;
     UTA_CHECK(check(vkAllocateDescriptorSets(device, &sceneAllocate, &sceneSet), "vkAllocateDescriptorSets (scene)"));
 
-    // The post set, then UTA-0154's EASU and RCAS sets, all one layout.
-    const std::array<VkDescriptorSetLayout, 3> postLayouts{pipelines->postSetLayout(), pipelines->postSetLayout(),
-                                                           pipelines->postSetLayout()};
+    // The post set, then UTA-0154's EASU and RCAS sets and UTA-0053's FXAA set,
+    // all one layout.
+    std::array<VkDescriptorSetLayout, 4> postLayouts{};
+    postLayouts.fill(pipelines->postSetLayout());
     VkDescriptorSetAllocateInfo postAllocate{};
     postAllocate.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     postAllocate.descriptorPool = pool;
     postAllocate.descriptorSetCount = static_cast<std::uint32_t>(postLayouts.size());
     postAllocate.pSetLayouts = postLayouts.data();
-    std::array<VkDescriptorSet, 3> postSets{};
+    std::array<VkDescriptorSet, 4> postSets{};
     UTA_CHECK(check(vkAllocateDescriptorSets(device, &postAllocate, postSets.data()), "vkAllocateDescriptorSets (post)"));
     postSet = postSets[0];
     easuSet = postSets[1];
     rcasSet = postSets[2];
+    fxaaSet = postSets[3];
 
     // UTA-0053: one set per bloom source -- the emission target, then each level.
     std::array<VkDescriptorSetLayout, 1 + BLOOM_LEVELS> bloomLayouts{};
@@ -1433,9 +1463,18 @@ Result<void> Renderer::Impl::writeDescriptors() {
     }
 
     // UTA-0154: only a renderer that made the upscale images binds them.
-    const VkDescriptorImageInfo easuInfo{nearestSampler, upscaleInput.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    // UTA-0053: EASU reads FXAA's copy where there is one.
+    const VkDescriptorImageInfo fxaaInfo{nearestSampler, upscaleInput.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    const VkDescriptorImageInfo easuInfo{
+        nearestSampler, (antiAliasing ? antialiased : upscaleInput).view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
     const VkDescriptorImageInfo rcasInfo{nearestSampler, upscaled.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    if (upscaleInput.handle() != VK_NULL_HANDLE) {
+    if (antiAliasing) {
+        VkWriteDescriptorSet fxaaWrite = hdrWrite;
+        fxaaWrite.dstSet = fxaaSet;
+        fxaaWrite.pImageInfo = &fxaaInfo;
+        writes.push_back(fxaaWrite);
+    }
+    if (upscaled.handle() != VK_NULL_HANDLE) {
         VkWriteDescriptorSet easuWrite = hdrWrite;
         easuWrite.dstSet = easuSet;
         easuWrite.pImageInfo = &easuInfo;
@@ -2043,24 +2082,42 @@ void Renderer::Impl::recordBloomLevel(VkCommandBuffer commands, Image& target, V
 /// 4. The output stage: the bloom added, then exposure and the tone map. A
 /// frame drawn at full size is tone mapped straight into `output`. A smaller
 /// region is tone mapped into FSR 1's input, which EASU upscales and RCAS
-/// sharpens into `output` (UTA-0154).
+/// sharpens into `output` (UTA-0154). An anti-aliased frame is tone mapped
+/// into FSR 1's input either way, and FXAA reads it: into `output` at full
+/// size, and otherwise into the copy EASU reads (UTA-0053).
 void Renderer::Impl::recordOutput(VkCommandBuffer commands, VkExtent2D region) {
     hdr.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    if (region.width == config.width && region.height == config.height) {
+    const bool fullSize = region.width == config.width && region.height == config.height;
+    if (fullSize && !antiAliasing) {
         recordFullTargetPass(commands, output, pipelines->post(), postSet, false, region);
         return;
     }
-    recordFullTargetPass(commands, upscaleInput, pipelines->upscaleInput(), postSet, true, region);
+    // Only the region and the texels past it that EASU's taps reach; the rest
+    // of the target is never read. FXAA reads no further.
+    const VkExtent2D read{std::min(region.width + EASU_REACH, config.width),
+                          std::min(region.height + EASU_REACH, config.height)};
+    recordFullTargetPass(commands, upscaleInput, pipelines->upscaleInput(), postSet, true, region, read);
     upscaleInput.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    if (fullSize) {
+        recordFullTargetPass(commands, output, pipelines->fxaa(false), fxaaSet, false, region);
+        return;
+    }
+    if (antiAliasing) {
+        recordFullTargetPass(commands, antialiased, pipelines->fxaa(true), fxaaSet, true, region, read);
+        antialiased.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    }
     recordFullTargetPass(commands, upscaled, pipelines->easu(), easuSet, false, region);
     upscaled.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     recordFullTargetPass(commands, output, pipelines->rcas(), rcasSet, false, region);
 }
 
-/// One of the output stage's passes, drawn over the whole of `target`.
+/// One of the output stage's passes, drawn over `area` of `target`, or the
+/// whole of it.
 void Renderer::Impl::recordFullTargetPass(VkCommandBuffer commands, Image& target, VkPipeline pipeline,
-                                          VkDescriptorSet set, bool upscaleInputPass, VkExtent2D region) {
+                                          VkDescriptorSet set, bool upscaleInputPass, VkExtent2D region,
+                                          VkExtent2D area) {
     const VkExtent2D extent{config.width, config.height};
+    const VkExtent2D drawn = area.width == 0 || area.height == 0 ? extent : area;
     target.transition(commands, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     VkRenderingAttachmentInfo attachment{};
     attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
@@ -2070,12 +2127,14 @@ void Renderer::Impl::recordFullTargetPass(VkCommandBuffer commands, Image& targe
     attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     VkRenderingInfo pass{};
     pass.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-    pass.renderArea = {{0, 0}, extent};
+    pass.renderArea = {{0, 0}, drawn};
     pass.layerCount = 1;
     pass.colorAttachmentCount = 1;
     pass.pColorAttachments = &attachment;
     vkCmdBeginRendering(commands, &pass);
     setViewportTo(commands, extent);
+    const VkRect2D scissor{{0, 0}, drawn};
+    vkCmdSetScissor(commands, 0, 1, &scissor);
     vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
     vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->postLayout(), 0, 1, &set, 0, nullptr);
     const bool bloomOn = enabled(Feature::Bloom, tier);
@@ -2133,12 +2192,13 @@ Result<Renderer> Renderer::create(const Config& config) {
                 tierName(impl->tier), impl->gpu->deviceLocalBytes() / (1024u * 1024u));
     }
     UTA_TRY(impl->pipelines,
-            Pipelines::create(*impl->gpu, {HDR_FORMAT, VELOCITY_FORMAT, DEPTH_FORMAT, OUTPUT_FORMAT, HDR_FORMAT},
+            Pipelines::create(*impl->gpu, {HDR_FORMAT, VELOCITY_FORMAT, DEPTH_FORMAT, OUTPUT_FORMAT, HDR_FORMAT, DISPLAY_FORMAT},
                               impl->tier, config.lightTerms, config.specular));
     if (presenting) {
         UTA_TRY(impl->swapchain, Swapchain::create(*impl->gpu, config.width, config.height));
         impl->adoptSwapchainExtent();
     }
+    impl->antiAliasing = enabled(Feature::AntiAliasing, impl->tier) && !config.linearOutput && !config.lightTerms;
     UTA_CHECK(impl->createTargets());
     impl->shadowPlanner = ShadowPlanner(shadowDetailOf(impl->tier));
     UTA_CHECK(impl->createShadowAtlas());

@@ -19890,6 +19890,16 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   pre-push gate passed. Back to planned with nothing else under way:
   colour grading, anti-aliasing and sharpening stay deferred out of 0.1.0,
   as decided on 2026-09-08. UTA-0157 is next.
+  2026-11-28: anti-aliasing built. fxaa.frag, FXAA 3.11's quality path
+  written from its method, runs on the tone-mapped frame before FSR 1's
+  EASU, or into the output at scale 1; Feature::AntiAliasing, every
+  tier; off under linearOutput and lightTerms. FSR 1's images became
+  A2B10G10R10_UNORM, and the passes feeding EASU draw only the region
+  and EASU's two-texel reach. DM-Deck16][, five views, High at 3840x2160
+  and scale 2/3, RX 6600, A/B twice in one job: post 1.38 ms before,
+  1.39 after; frame medians within 0.02 ms. Sharpening: FSR 1's RCAS
+  (UTA-0154) already sharpens every frame drawn below native, which was
+  this item's reason for it. Left: colour grading.
   **Layman:** The cheap finishing touches: glowing things glow, each map gets its own colour treatment, edges stop looking jagged, and the picture stays sharp.
   Kind: implement.
   Source: user-request-2026-09-04.
@@ -24280,6 +24290,17 @@ to.
   monster of the class logged (49 SkaarjBerserkerSB). Their data:
   UT_MonsterHunt work/game0303/ (allmons.pickle, embmatch.py,
   embscale.py). A v3 rerun is coming.
+  2026-11-28 (msg 2660), v3 (fixed rescue, 1179 maps): their file
+  reading on our --embedded agrees with the engine's OK on 713 of 721
+  maps and with RESCUED on 450 of 458. 16 engine-stuck maps the file
+  cannot explain, likely monsters that moved after load or factory
+  spawns: AmorMonstersV0, BallisticPVv0, Cityv4-BP, GladiatorV1,
+  Goldengirl-Hunt-FIXV1, In_der_Disco-BP, Legacnary,
+  MonsterSlayerTFO-BP, Resurrectionv0, RiverbedlPEv0, SolsticeV0,
+  TheOutpost, UnrealWorld-2-[THUNDERBOLT]Adapted, WeirAttackV0,
+  [DaV][SLV]GasbagArena(NoBug), sacred_CORRIDORS_X-BP. Rows:
+  UT_MonsterHunt analysis/mapcheck-results.jsonl (check monsters,
+  check_version 3).
   **Layman:** The stuck-monster check marks some monsters stuck that the game itself finds free; find out why before anyone trusts it to sort maps.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-11-27.

@@ -116,6 +116,7 @@ uta_embed_shaders(uta_urender
     shaders/bloom.frag
     shaders/fsr_easu.frag
     shaders/fsr_rcas.frag
+    shaders/fxaa.frag
     shaders/shadow.vert
     shaders/shadow.frag
     shaders/shape.vert

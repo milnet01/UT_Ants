@@ -14,6 +14,10 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **Edges are smoothed.** (UTA-0053)
+  The slanted edges of walls, railings and doorways no longer show a
+  staircase of pixels, at every quality setting.
+
 - **ut-dump --embedded says which placed monsters the game reads as stuck in the floor, from the map file alone.** (UTA-0522)
   UT_MonsterHunt's map checks use it to find monsters that cannot move or be
   reached without starting the game. Each monster, item and decoration also

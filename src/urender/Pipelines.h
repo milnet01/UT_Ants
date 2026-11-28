@@ -36,6 +36,7 @@ struct TargetFormats {
     VkFormat depth = VK_FORMAT_UNDEFINED;
     VkFormat output = VK_FORMAT_UNDEFINED;
     VkFormat emission = VK_FORMAT_UNDEFINED; ///< UTA-0053: the forward pass's third target and the bloom chain
+    VkFormat display = VK_FORMAT_UNDEFINED; ///< UTA-0053: the output stage's gamma 2.0 images, FSR 1's and FXAA's
 };
 
 /// A shader module over embedded SPIR-V words.
@@ -88,10 +89,14 @@ public:
     [[nodiscard]] VkPipelineLayout shapeLayout() const noexcept { return shapeLayout_; }
     [[nodiscard]] VkPipeline post() const noexcept { return post_; }
     /// UTA-0154's FSR 1 stages, over the post layout: post.frag into the
-    /// HDR-format upscale input, EASU into another, and RCAS into the output.
+    /// display-format upscale input, EASU into another, and RCAS into the output.
     [[nodiscard]] VkPipeline upscaleInput() const noexcept { return upscaleInput_; }
     [[nodiscard]] VkPipeline easu() const noexcept { return easu_; }
     [[nodiscard]] VkPipeline rcas() const noexcept { return rcas_; }
+    /// UTA-0053's FXAA over the post layout, reading post.frag's upscale
+    /// input: into the output, or `toUpscaleInput` into another display-format
+    /// image for EASU.
+    [[nodiscard]] VkPipeline fxaa(bool toUpscaleInput) const noexcept { return toUpscaleInput ? fxaaToDisplay_ : fxaa_; }
     /// UTA-0053's bloom chain: one sampled source per set, BloomConstants
     /// pushed, a downsample that replaces and an upsample that adds.
     [[nodiscard]] VkDescriptorSetLayout bloomSetLayout() const noexcept { return bloomSetLayout_; }
@@ -165,6 +170,7 @@ private:
     VkPipeline shapeOpaque_ = VK_NULL_HANDLE, shapeBlended_ = VK_NULL_HANDLE;
     VkPipeline post_ = VK_NULL_HANDLE;
     VkPipeline upscaleInput_ = VK_NULL_HANDLE, easu_ = VK_NULL_HANDLE, rcas_ = VK_NULL_HANDLE;
+    VkPipeline fxaa_ = VK_NULL_HANDLE, fxaaToDisplay_ = VK_NULL_HANDLE;
     VkDescriptorSetLayout bloomSetLayout_ = VK_NULL_HANDLE;
     VkPipelineLayout bloomLayout_ = VK_NULL_HANDLE;
     VkPipeline bloomDownsample_ = VK_NULL_HANDLE, bloomUpsample_ = VK_NULL_HANDLE;
