@@ -24233,6 +24233,8 @@ to.
   embedded yet; its planned fields are name, class, family, location,
   embedded, depth and floorGap. The SS 4.10 row goes in when they
   confirm. The 317 over-flags go to their own item.
+  2026-11-28 (msg 2658): GAME-0303 reads embedded; its fields are now a
+  row in UTA-0012 SS 4.10.
   **Layman:** Lets UT_MonsterHunt find monsters stuck inside walls by reading the map file, without starting the game.
   Kind: feature.
   Source: ut-monsterhunt-request-2026-11-26.
@@ -24271,6 +24273,13 @@ to.
   fall; the slack; movers or blocking actors absent from our tree.
   Scratch: Scratchpad/UT_Ants/uta0522/ (compare.py, margin.py, truth/).
   Don't mix their v1 and v2 mapcheck rows (msg 2629).
+  2026-11-28 (msg 2658), against raw v1: per-map count equal on 926 of
+  1175 maps, presence on 1057; file sum 4205 against engine 3290. Of 864
+  v2 positions: 20 matched a monster we read free, 27 moved over 40 uu
+  in play (SkaarjAssassin on killallmonsterssss 976 uu), 51 had no file
+  monster of the class logged (49 SkaarjBerserkerSB). Their data:
+  UT_MonsterHunt work/game0303/ (allmons.pickle, embmatch.py,
+  embscale.py). A v3 rerun is coming.
   **Layman:** The stuck-monster check marks some monsters stuck that the game itself finds free; find out why before anyone trusts it to sort maps.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-11-27.
